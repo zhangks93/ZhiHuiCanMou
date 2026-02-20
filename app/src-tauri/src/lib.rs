@@ -8,7 +8,7 @@ pub fn run() {
         .setup(|app| {
             #[cfg(feature = "devtools")]
             {
-                if let Ok(window) = app.get_webview_window("main") {
+                if let Some(window) = app.get_webview_window("main") {
                     window.open_devtools();
                 }
             }
