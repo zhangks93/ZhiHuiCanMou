@@ -1,0 +1,13 @@
+{
+  "name": "canmou-monorepo",
+  "private": true,
+  "description": "智汇参谋 - 企业智能助手",
+  "scripts": {
+    "dev": "npm run dev --prefix app",
+    "build": "npm run build --prefix app",
+    "build:exe": "npm run build:exe --prefix app",
+    "build:apk": "npm run build:apk --prefix app",
+    "tauri:dev": "npm run tauri:dev --prefix app",
+    "tauri:build": "npm run tauri:build --prefix app"
+  }
+}

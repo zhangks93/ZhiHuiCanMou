@@ -1,0 +1,60 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "智汇参谋",
+  "version": "1.0.0",
+  "identifier": "com.canmou.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "智汇参谋",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 375,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "longDescription": "智汇参谋 - 企业智能助手平台，整合日程、数据、商机、考勤等核心业务管理功能",
+    "shortDescription": "企业智能助手",
+    "category": "Business",
+    "resources": [],
+    "copyright": "",
+    "licenseFile": null,
+    "externalBin": [],
+    "linux": {
+      "deb": { "depends": [] }
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "",
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": null
+    },
+    "android": {
+      "minSdkVersion": 24,
+      "versionCode": 1000000
+    }
+  },
+  "plugins": {}
+}
