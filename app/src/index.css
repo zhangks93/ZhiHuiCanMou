@@ -2,20 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/* McKinsey-inspired theme - keep in sync with src/config/theme.ts */
+/* 智汇参谋 · 精编智感主题 - Editorial Intelligence */
 :root {
   --sidebar-w: 220px;
   --header-h: 56px;
-  --color-primary: #1e3a5f;
-  --color-primary-dark: #152942;
-  --color-background: #f7f8fa;
-  --color-success: #047857;
-  --color-warning: #b45309;
-  --color-error: #b91c1c;
-  --color-text: #374151;
-  --color-text-muted: #6b7280;
-  --color-border: #e5e7eb;
+  /* 主色：深邃墨蓝 */
+  --color-primary: #1a2744;
+  --color-primary-light: #2d3f5c;
+  --color-primary-dark: #0f1828;
+  /* 智能点缀：青绿 */
+  --color-accent: #0d9488;
+  --color-accent-hover: #0f766e;
+  /* 背景层次 */
+  --color-background: #f9f8f6;
+  --color-background-warm: #fdfcfa;
   --color-surface: #ffffff;
+  /* 语义色 */
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+  /* 文字 */
+  --color-text: #2d3748;
+  --color-text-muted: #64748b;
+  --color-text-strong: #1a202c;
+  /* 边框与阴影 */
+  --color-border: #e8e6e3;
+  --shadow-soft: 0 1px 3px rgb(26 39 68 / 0.04);
+  --shadow-card: 0 2px 8px rgb(26 39 68 / 0.06);
+  --shadow-card-hover: 0 8px 24px rgb(26 39 68 / 0.08);
 }
 
 @media (max-width: 768px) {
@@ -24,8 +38,32 @@
   }
 }
 
-body {
-  @apply antialiased;
-  color: var(--color-text);
+@layer base {
+  body {
+    @apply antialiased;
+    color: var(--color-text);
+    background-color: var(--color-background);
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Noto Serif SC', 'Noto Sans SC', serif;
+  }
+}
+
+/* 主内容区背景 - 微妙纹理 */
+.bg-background {
   background-color: var(--color-background);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgb(13 148 136 / 0.04), transparent),
+    radial-gradient(circle at 100% 100%, rgb(26 39 68 / 0.02), transparent);
+}
+
+/* 卡片面 */
+.shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+.shadow-card-hover:hover {
+  box-shadow: var(--shadow-card-hover);
 }

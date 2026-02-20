@@ -26,17 +26,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user: u } } = await supabase.auth.getUser()
-      updateUser(u)
-      setLoading(false)
+      try {
+        const { data: { user: u } } = await supabase.auth.getUser()
+        updateUser(u)
+      } catch (e) {
+        console.warn('[Canmou] Auth init failed:', e)
+      } finally {
+        setLoading(false)
+      }
     }
     init()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      updateUser(session?.user ?? null)
-    })
+    let sub: { unsubscribe: () => void } | undefined
+    try {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        updateUser(session?.user ?? null)
+      })
+      sub = subscription
+    } catch (e) {
+      console.warn('[Canmou] Auth subscription failed:', e)
+    }
 
-    return () => subscription.unsubscribe()
+    return () => sub?.unsubscribe()
   }, [updateUser])
 
   const signOut = useCallback(async () => {

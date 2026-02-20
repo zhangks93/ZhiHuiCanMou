@@ -26,20 +26,20 @@ export function Schedule() {
       <PageTitle breadcrumb="首页 / 日程提醒" title="日程提醒" />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+        <div className="bg-surface rounded-xl border border-[var(--color-border)] p-5 shadow-card">
           <div className="flex items-center gap-2 mb-4">
-            <Calendar size={18} strokeWidth={1.5} className="text-gray-600" />
-            <h3 className="font-medium text-gray-900">本周日历</h3>
+            <Calendar size={18} strokeWidth={1.5} className="text-accent" />
+            <h3 className="font-medium text-[var(--color-text-strong)] font-serif">本周日历</h3>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
             {weekDays.map((wd, i) => (
               <button
                 key={i}
                 onClick={() => setSelectedDay(dayNums[i])}
-                className={`min-w-[48px] py-2 rounded text-center transition-colors flex-shrink-0
+                className={`min-w-[48px] py-2 rounded-lg text-center transition-colors flex-shrink-0
                   ${selectedDay === dayNums[i]
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                    ? 'bg-accent text-white shadow-card'
+                    : 'bg-primary-50 text-[var(--color-text)] hover:bg-primary-100 border border-[var(--color-border)]'
                   }`}
               >
                 <div className="text-xs opacity-80">{wd}</div>
@@ -51,16 +51,16 @@ export function Schedule() {
             {todayReminders.map((r) => (
               <div
                 key={r.time}
-                className={`flex gap-3 p-3 rounded transition-colors border-l-[3px]
-                  ${r.tag === '今日' && r.time.startsWith('09') ? 'bg-error-100/30 border-error' : 'bg-gray-50 border-primary-500'}
+                className={`flex gap-3 p-3 rounded-lg transition-colors border-l-[3px]
+                  ${r.tag === '今日' && r.time.startsWith('09') ? 'bg-error-100/30 border-error' : 'bg-primary-50/80 border-accent'}
                 `}
               >
-                <div className="text-gray-600 font-medium text-sm whitespace-nowrap">{r.time}</div>
+                <div className="text-[var(--color-text-muted)] font-medium text-sm whitespace-nowrap">{r.time}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">{r.title}</div>
-                  <div className="text-sm text-gray-600 truncate">{r.desc}</div>
+                  <div className="font-medium text-[var(--color-text-strong)] truncate">{r.title}</div>
+                  <div className="text-sm text-[var(--color-text-muted)] truncate">{r.desc}</div>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded font-medium ${r.tag === '今日' ? 'bg-error-100 text-error-700' : 'bg-gray-200 text-gray-700'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${r.tag === '今日' ? 'bg-error-100 text-error-700' : 'bg-accent-100 text-accent-700'}`}>
                   {r.tag}
                 </span>
               </div>
@@ -68,21 +68,21 @@ export function Schedule() {
           </div>
         </div>
 
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+        <div className="bg-surface rounded-xl border border-[var(--color-border)] p-5 shadow-card">
           <div className="flex items-center gap-2 mb-4">
-            <Calendar size={18} strokeWidth={1.5} className="text-gray-600" />
-            <h3 className="font-medium text-gray-900">重要备忘</h3>
+            <Calendar size={18} strokeWidth={1.5} className="text-accent" />
+            <h3 className="font-medium text-[var(--color-text-strong)] font-serif">重要备忘</h3>
           </div>
           <div className="space-y-2">
             {memos.map((m) => (
               <div
                 key={m.deadline}
-                className="flex gap-3 p-3 rounded bg-gray-50 border-l-[3px] border-primary-500 hover:bg-gray-100 transition-colors"
+                className="flex gap-3 p-3 rounded-lg bg-primary-50/80 border-l-[3px] border-accent hover:bg-primary-50 transition-colors"
               >
-                <div className="text-gray-600 font-medium text-sm whitespace-nowrap">{m.deadline}</div>
+                <div className="text-[var(--color-text-muted)] font-medium text-sm whitespace-nowrap">{m.deadline}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">{m.title}</div>
-                  <div className="text-sm text-gray-600 truncate">{m.desc}</div>
+                  <div className="font-medium text-[var(--color-text-strong)] truncate">{m.title}</div>
+                  <div className="text-sm text-[var(--color-text-muted)] truncate">{m.desc}</div>
                 </div>
               </div>
             ))}

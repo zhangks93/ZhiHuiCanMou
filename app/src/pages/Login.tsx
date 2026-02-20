@@ -24,14 +24,14 @@ export function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md bg-surface rounded-lg border border-gray-200 p-8 shadow-card">
-        <div className="w-12 h-12 rounded bg-primary flex items-center justify-center text-white text-lg font-semibold mx-auto mb-5">
+      <div className="w-full max-w-md bg-surface rounded-2xl border border-[var(--color-border)] p-8 shadow-card-hover animate-slide-up">
+        <div className="w-14 h-14 rounded-xl bg-accent flex items-center justify-center text-white text-xl font-semibold mx-auto mb-6 shadow-inner-soft">
           智
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 text-center mb-1">
+        <h1 className="text-xl font-semibold text-[var(--color-text-strong)] text-center mb-1 font-serif">
           智汇参谋登录
         </h1>
-        <p className="text-sm text-gray-500 text-center mb-8">
+        <p className="text-sm text-[var(--color-text-muted)] text-center mb-8">
           使用飞书账号一键登录
         </p>
 
@@ -39,9 +39,9 @@ export function Login() {
           type="button"
           onClick={handleFeishuLogin}
           disabled={!canLogin}
-          className="w-full h-11 inline-flex items-center justify-center gap-2 rounded bg-primary text-white text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-12 inline-flex items-center justify-center gap-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-card hover:shadow-card-hover"
         >
-          <span className="w-5 h-5 rounded-sm bg-white/90 text-primary text-xs font-bold flex items-center justify-center">
+          <span className="w-6 h-6 rounded-md bg-white/90 text-accent text-xs font-bold flex items-center justify-center">
             飞
           </span>
           <span>使用飞书登录</span>
@@ -53,7 +53,7 @@ export function Login() {
           </p>
         )}
 
-        <p className="mt-6 text-[11px] leading-relaxed text-gray-400 text-center">
+        <p className="mt-6 text-[11px] leading-relaxed text-[var(--color-text-muted)] text-center">
           登录即表示你已阅读并同意本系统的相关条款。
         </p>
       </div>

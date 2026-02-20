@@ -9,7 +9,7 @@ interface StatCardProps {
 }
 
 const colorMap = {
-  default: 'border-t-primary',
+  default: 'border-t-accent',
   success: 'border-t-success',
   warning: 'border-t-warning',
   error: 'border-t-error',
@@ -33,19 +33,25 @@ export function StatCard({
     <div
       onClick={onClick}
       className={`
-        bg-surface border border-gray-200 rounded-lg p-4 relative overflow-hidden shadow-card
+        bg-surface border border-[var(--color-border)] rounded-xl p-5 relative overflow-hidden
         border-t-[3px] ${colorMap[color]}
-        transition-shadow duration-150
-        ${onClick ? 'cursor-pointer hover:shadow-card-hover' : ''}
+        transition-all duration-200
+        ${onClick ? 'cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5' : 'shadow-card'}
       `}
     >
-      <div className="text-sm text-gray-500 mb-1">{label}</div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-semibold text-gray-900">{value}</span>
-        {unit && <span className="text-sm text-gray-500">{unit}</span>}
+      <div className="text-sm text-[var(--color-text-muted)] mb-1.5 font-medium">
+        {label}
+      </div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-2xl font-semibold text-[var(--color-text-strong)] font-serif">
+          {value}
+        </span>
+        {unit && (
+          <span className="text-sm text-[var(--color-text-muted)]">{unit}</span>
+        )}
       </div>
       {trend && (
-        <div className={`text-xs mt-2 ${trendUp ? trendColorMap.up : trendColorMap.down}`}>
+        <div className={`text-xs mt-2.5 font-medium ${trendUp ? trendColorMap.up : trendColorMap.down}`}>
           {trend}
         </div>
       )}

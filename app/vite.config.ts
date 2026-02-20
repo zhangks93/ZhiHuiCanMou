@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: './', // 必须：Tauri 使用自定义协议加载，相对路径才能正确解析资源
   plugins: [react()],
   resolve: {
     alias: {

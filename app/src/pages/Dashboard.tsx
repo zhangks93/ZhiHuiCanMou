@@ -31,9 +31,9 @@ const barColorMap = {
 }
 
 const insightBorderMap = {
-  positive: 'border-l-success bg-gray-50',
-  alert: 'border-l-error bg-gray-50',
-  info: 'border-l-primary-500 bg-gray-50',
+  positive: 'border-l-success bg-success-100/30',
+  alert: 'border-l-error bg-error-100/30',
+  info: 'border-l-accent bg-accent-50/50',
 }
 
 export function Dashboard() {
@@ -47,7 +47,7 @@ export function Dashboard() {
         subtitle={`数据更新：${new Date().toLocaleString('zh-CN')}`}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 [&>*]:animate-slide-up [&>*:nth-child(2)]:[animation-delay:75ms] [&>*:nth-child(3)]:[animation-delay:150ms] [&>*:nth-child(4)]:[animation-delay:225ms]">
         <StatCard
           label="后勤集团总人数"
           value="1,248"
@@ -86,26 +86,26 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+        <div className="bg-surface rounded-xl border border-[var(--color-border)] p-5 shadow-card">
           <div className="flex items-center gap-2 mb-4">
-            <Calendar size={18} strokeWidth={1.5} className="text-gray-600" />
-            <h3 className="font-medium text-gray-900">今日日程（3条）</h3>
+            <Calendar size={18} strokeWidth={1.5} className="text-accent" />
+            <h3 className="font-medium text-[var(--color-text-strong)] font-serif">今日日程（3条）</h3>
           </div>
           <div className="space-y-2">
             {reminders.map((r) => (
               <div
                 key={r.time}
                 onClick={() => navigate(ROUTES.SCHEDULE)}
-                className={`flex gap-3 p-3 rounded-lg cursor-pointer transition-colors
-                  ${r.urgent ? 'bg-error-100/50 border-l-2 border-error' : 'bg-gray-50 border-l-2 border-primary-500'}
-                  hover:bg-gray-100`}
+                className={`flex gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200
+                  ${r.urgent ? 'bg-error-100/50 border-l-[3px] border-error' : 'bg-primary-50/80 border-l-[3px] border-accent'}
+                  hover:bg-primary-50`}
               >
-                <div className="text-gray-600 font-medium text-sm whitespace-nowrap">{r.time}</div>
+                <div className="text-[var(--color-text-muted)] font-medium text-sm whitespace-nowrap">{r.time}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">{r.title}</div>
-                  <div className="text-sm text-gray-600 truncate">{r.desc}</div>
+                  <div className="font-medium text-[var(--color-text-strong)] truncate">{r.title}</div>
+                  <div className="text-sm text-[var(--color-text-muted)] truncate">{r.desc}</div>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded font-medium ${r.urgent ? 'bg-error-100 text-error-700' : 'bg-gray-200 text-gray-700'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${r.urgent ? 'bg-error-100 text-error-700' : 'bg-accent-100 text-accent-700'}`}>
                   {r.tag}
                 </span>
               </div>
@@ -113,19 +113,19 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+        <div className="bg-surface rounded-xl border border-[var(--color-border)] p-5 shadow-card">
           <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle size={18} strokeWidth={1.5} className="text-gray-600" />
-            <h3 className="font-medium text-gray-900">经营预警（本月）</h3>
+            <AlertTriangle size={18} strokeWidth={1.5} className="text-accent" />
+            <h3 className="font-medium text-[var(--color-text-strong)] font-serif">经营预警（本月）</h3>
           </div>
           <div className="space-y-4">
             {warnings.map((w) => (
               <div key={w.name}>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">{w.name}</span>
-                  <span className="font-medium text-gray-900">{w.value}%</span>
+                  <span className="text-[var(--color-text-muted)]">{w.name}</span>
+                  <span className="font-medium text-[var(--color-text-strong)]">{w.value}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-primary-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${barColorMap[w.status]}`}
                     style={{ width: `${w.value}%` }}
@@ -137,9 +137,9 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+      <div className="bg-surface rounded-xl border border-[var(--color-border)] p-5 shadow-card">
         <div className="flex items-center gap-2 mb-4">
-          <h3 className="font-medium text-gray-900">智能分析 · 今日摘要</h3>
+          <h3 className="font-medium text-[var(--color-text-strong)] font-serif">智能分析 · 今日摘要</h3>
         </div>
         <div className="space-y-3">
           {insights.map((i, idx) => (
@@ -147,8 +147,8 @@ export function Dashboard() {
               key={idx}
               className={`p-4 rounded-lg border-l-[3px] ${insightBorderMap[i.type as keyof typeof insightBorderMap]}`}
             >
-              <div className="font-medium text-gray-900 mb-1">{i.title}</div>
-              <div className="text-sm text-gray-600 leading-relaxed">{i.desc}</div>
+              <div className="font-medium text-[var(--color-text-strong)] mb-1">{i.title}</div>
+              <div className="text-sm text-[var(--color-text-muted)] leading-relaxed">{i.desc}</div>
             </div>
           ))}
         </div>
