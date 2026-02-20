@@ -41,6 +41,20 @@ jobs:
                 tag: tagName
               });
               core.info(`Release for ${tagName} already exists, reusing id ${data.id}`);
+              // 删除已有 assets，避免重复上传时报 already_exists
+              const { data: assets } = await github.rest.repos.listReleaseAssets({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: data.id
+              });
+              for (const asset of assets) {
+                await github.rest.repos.deleteReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  asset_id: asset.id
+                });
+                core.info(`Deleted existing asset: ${asset.name}`);
+              }
               return data.id;
             } catch (e) {
               if (e.status !== 404) throw e;

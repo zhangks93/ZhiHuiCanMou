@@ -7,19 +7,31 @@ function generateState() {
   return window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)
 }
 
+function isTauriApp() {
+  return typeof window !== 'undefined' && '__TAURI__' in window
+}
+
 export function Login() {
   const state = useMemo(generateState, [])
   const { appId, redirectUri, scope } = env.feishu
   const canLogin = Boolean(appId && redirectUri)
 
-  const handleFeishuLogin = () => {
+  const handleFeishuLogin = async () => {
     if (!canLogin) return
     const loginUrl = new URL(FEISHU_AUTH_URL)
     loginUrl.searchParams.set('app_id', appId)
     loginUrl.searchParams.set('redirect_uri', redirectUri)
     loginUrl.searchParams.set('scope', scope)
     loginUrl.searchParams.set('state', state)
-    window.location.href = loginUrl.toString()
+    const urlStr = loginUrl.toString()
+
+    // 在 Tauri（桌面/安卓）中用系统浏览器打开，以完成第三方 OAuth 跳转鉴权
+    if (isTauriApp()) {
+      const { openUrl } = await import('@tauri-apps/plugin-opener')
+      await openUrl(urlStr)
+    } else {
+      window.location.href = urlStr
+    }
   }
 
   return (
