@@ -42,7 +42,8 @@
       "timestampUrl": "",
       "wix": {
         "language": "zh-CN"
-      }
+      },
+      "devtools": true 
     },
     "longDescription": "智汇参谋 - 企业智能助手平台，整合日程、数据、商机、考勤等核心业务管理功能",
     "shortDescription": "企业智能助手",
