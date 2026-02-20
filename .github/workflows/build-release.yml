@@ -28,21 +28,33 @@ jobs:
       - name: get version
         run: echo "PACKAGE_VERSION=$(node -p "require('./app/package.json').version")" >> $GITHUB_ENV
 
-      - name: create release
+      - name: create or get release
         id: create-release
         uses: actions/github-script@v6
         with:
           script: |
+            const tagName = `app-v${process.env.PACKAGE_VERSION}`;
+            try {
+              const { data } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: tagName
+              });
+              core.info(`Release for ${tagName} already exists, reusing id ${data.id}`);
+              return data.id;
+            } catch (e) {
+              if (e.status !== 404) throw e;
+            }
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: `app-v${process.env.PACKAGE_VERSION}`,
-              name: `Desktop App v${process.env.PACKAGE_VERSION}`,
-              body: 'Take a look at the assets to download and install this app.',
+              tag_name: tagName,
+              name: `智汇参谋 v${process.env.PACKAGE_VERSION}`,
+              body: 'See the assets to download this version and install.',
               draft: true,
               prerelease: false
-            })
-            return data.id
+            });
+            return data.id;
 
   build-tauri:
     needs: create-release
