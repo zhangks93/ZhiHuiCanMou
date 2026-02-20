@@ -48,3 +48,18 @@ npm run tauri:build
 ```
 
 在仓库 Settings → Secrets 中新增 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`。
+
+若使用飞书登录，还需添加 `VITE_FEISHU_APP_ID`、`VITE_FEISHU_REDIRECT_URI`、`VITE_FEISHU_SCOPE`。
+
+## 飞书 OAuth（Tauri 内嵌 WebView）
+
+桌面/安卓端使用内嵌 WebView 完成 OAuth，登录成功后会话会自动回传到主窗口。
+
+**Supabase Edge Function 需配置 `FEISHU_LOGIN_REDIRECT_TO`**：
+
+```bash
+supabase secrets set FEISHU_LOGIN_REDIRECT_TO="https://asset.localhost/#/auth-callback"
+```
+
+- 开发模式：`http://localhost:5173/#/auth-callback`
+- 打包后：`https://asset.localhost/#/auth-callback`

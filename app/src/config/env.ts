@@ -18,6 +18,11 @@ export const env = {
     redirectUri: getEnv('VITE_FEISHU_REDIRECT_URI', ''),
     scope: getEnv('VITE_FEISHU_SCOPE', 'contact:user.base:readonly'),
   },
+  /** OAuth 回调 URL，需与 Supabase Edge Function 的 FEISHU_LOGIN_REDIRECT_TO 一致 */
+  authCallbackUrl: getEnv(
+    'VITE_AUTH_CALLBACK_URL',
+    typeof window !== 'undefined' ? `${window.location.origin}/#/auth-callback` : ''
+  ),
 } as const
 
 export function validateEnv(): void {

@@ -7,6 +7,7 @@ export const APP_DESCRIPTION = '企业智能助手'
 
 export const ROUTES = {
   LOGIN: '/login',
+  AUTH_CALLBACK: '/auth-callback',
   HOME: '/',
   SCHEDULE: '/schedule',
   ORG_DATA: '/org-data',

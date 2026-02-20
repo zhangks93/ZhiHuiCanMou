@@ -50,6 +50,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub?.unsubscribe()
   }, [updateUser])
 
+  // Tauri OAuth 弹窗完成后，接收 token 并设置会话
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('__TAURI__' in window)) return
+    let unlisten: (() => void) | null = null
+    import('@tauri-apps/api/event')
+      .then(({ listen }) =>
+        listen<{ access_token?: string; refresh_token?: string }>('auth:oauth-complete', async (e) => {
+          const { access_token, refresh_token } = e.payload ?? {}
+          if (!access_token || !refresh_token) return
+          try {
+            await supabase.auth.setSession({ access_token, refresh_token })
+          } catch (err) {
+            console.warn('[Canmou] OAuth setSession failed:', err)
+          }
+        })
+      )
+      .then((fn) => {
+        unlisten = fn
+      })
+    return () => { unlisten?.() }
+  }, [])
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
     setUser(null)

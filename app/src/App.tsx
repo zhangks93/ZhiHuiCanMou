@@ -17,6 +17,7 @@ import {
   AiAnalysis,
   Settings,
   Login,
+  AuthCallback,
 } from '@/pages'
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
               </PublicRoute>
             }
           />
+          <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallback />} />
           <Route
             path={ROUTES.HOME}
             element={

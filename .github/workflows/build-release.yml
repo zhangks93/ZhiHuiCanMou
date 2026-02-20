@@ -118,6 +118,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_FEISHU_APP_ID: ${{ secrets.VITE_FEISHU_APP_ID }}
+          VITE_FEISHU_REDIRECT_URI: ${{ secrets.VITE_FEISHU_REDIRECT_URI }}
+          VITE_FEISHU_SCOPE: ${{ secrets.VITE_FEISHU_SCOPE }}
         with:
           projectPath: app
           releaseId: ${{ needs.create-release.outputs.release_id }}

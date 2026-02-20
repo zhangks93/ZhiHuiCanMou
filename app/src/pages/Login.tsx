@@ -25,10 +25,16 @@ export function Login() {
     loginUrl.searchParams.set('state', state)
     const urlStr = loginUrl.toString()
 
-    // 在 Tauri（桌面/安卓）中用系统浏览器打开，以完成第三方 OAuth 跳转鉴权
+    // 在 Tauri（桌面/安卓）中用内嵌 WebView 弹窗完成 OAuth，会话可回传到主窗口
     if (isTauriApp()) {
-      const { openUrl } = await import('@tauri-apps/plugin-opener')
-      await openUrl(urlStr)
+      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
+      const oauthWindow = new WebviewWindow('oauth', {
+        url: urlStr,
+        title: '飞书登录',
+        width: 520,
+        height: 680,
+      })
+      oauthWindow.once('tauri://error', (e) => console.warn('[Canmou] OAuth window error:', e))
     } else {
       window.location.href = urlStr
     }
