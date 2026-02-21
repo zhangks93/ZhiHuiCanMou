@@ -253,4 +253,3 @@ Deno.serve(async (req) => {
     )
   }
 })
-

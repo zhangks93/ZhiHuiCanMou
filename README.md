@@ -45,6 +45,20 @@ npm run tauri:dev
 npm run tauri:android:dev
 ```
 
+## 产品展示页（GitHub Pages）
+
+`docs/` 目录包含产品宣传页，推送代码后会自动部署到 GitHub Pages。
+
+**首次启用：**
+
+1. 打开仓库 **Settings** → **Pages**
+2. 在 **Build and deployment** 下，**Source** 选择 **GitHub Actions**
+3. 保存后，每次推送到 `main` 分支会自动构建并发布
+
+页面地址：`https://<你的用户名>.github.io/ZhiHuiCanMou/`
+
+---
+
 ## 构建发布
 
 ### Windows EXE
