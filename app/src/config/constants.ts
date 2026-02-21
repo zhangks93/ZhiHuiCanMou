@@ -9,6 +9,7 @@ export const ROUTES = {
   LOGIN: '/login',
   AUTH_CALLBACK: '/auth-callback',
   HOME: '/',
+  WORK_REPORT: '/work-report',
   SCHEDULE: '/schedule',
   ORG_DATA: '/org-data',
   BIZ_DATA: '/biz-data',

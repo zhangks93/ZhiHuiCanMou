@@ -6,6 +6,7 @@ import { PublicRoute } from '@/components/routes/PublicRoute'
 import { ROUTES } from '@/config/constants'
 import {
   Dashboard,
+  WorkReport,
   Schedule,
   OrgData,
   BizData,
@@ -43,6 +44,7 @@ function App() {
             }
           >
             <Route index element={<Dashboard />} />
+            <Route path="work-report" element={<WorkReport />} />
             <Route path="schedule" element={<Schedule />} />
             <Route path="org-data" element={<OrgData />} />
             <Route path="biz-data" element={<BizData />} />

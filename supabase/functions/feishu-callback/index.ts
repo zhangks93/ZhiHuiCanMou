@@ -194,6 +194,9 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Default org for single-tenant (from migration 20250221000000)
+    const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001'
+
     // Upsert profile: save feishu_open_id to public.profiles for querying and RLS
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
@@ -203,6 +206,7 @@ Deno.serve(async (req) => {
           feishu_open_id: feishuUser.open_id,
           name: feishuUser.name,
           avatar_url: feishuUser.avatar_url,
+          org_id: DEFAULT_ORG_ID,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' }

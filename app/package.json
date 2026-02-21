@@ -18,6 +18,7 @@
     "build:apk": "tauri android build --apk"
   },
   "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
     "@supabase/supabase-js": "^2.49.0",
     "@tauri-apps/plugin-opener": "^2.5.3",
     "lucide-react": "^0.468.0",

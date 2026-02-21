@@ -44,11 +44,69 @@ export interface Opportunity {
 }
 
 // --- Profile (public.profiles - synced from Feishu) ---
+export type UserRole = 'president' | 'director' | 'manager' | 'supervisor'
+
 export interface Profile {
   id: string
   feishu_open_id: string
   name: string | null
   avatar_url: string | null
+  org_id: string | null
+  org_node_id: string | null
+  reports_to_id: string | null
+  role: UserRole | null
+  updated_at: string
+}
+
+// --- Org & Modules ---
+export interface Organization {
+  id: string
+  name: string
+}
+
+export interface OrgNode {
+  id: string
+  org_id: string
+  parent_id: string | null
+  name: string
+  path: string | null
+}
+
+export interface OrgSettings {
+  id: string
+  org_id: string
+  enabled_module_ids: string[]
+}
+
+export interface Module {
+  id: string
+  name: string
+  section: string
+  route_path: string
+  sort_order: number
+  reporter_view_enabled: boolean
+  manager_view_enabled: boolean
+}
+
+// --- Work Items (Phase 2) ---
+export interface WorkItemLink {
+  url: string
+  title?: string
+}
+
+export interface WorkItem {
+  id: string
+  org_id: string
+  module_id: string
+  reporter_id: string
+  title: string | null
+  content: string | null
+  links: WorkItemLink[]
+  status: 'todo' | 'in_progress' | 'in_review' | 'done'
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  period_start: string | null
+  period_end: string | null
+  created_at: string
   updated_at: string
 }
 

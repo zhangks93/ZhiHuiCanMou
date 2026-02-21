@@ -1,4 +1,5 @@
 export { Dashboard } from './Dashboard'
+export { WorkReport } from './WorkReport'
 export { Schedule } from './Schedule'
 export { OrgData } from './OrgData'
 export { BizData } from './BizData'

@@ -1,53 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import {
-  Home,
-  Calendar,
-  Users,
-  BarChart3,
-  Target,
-  Trophy,
-  Plane,
-  Clock,
-  Link2,
-  Sparkles,
-  Settings,
-  PanelLeftClose,
-  PanelLeftOpen,
-} from 'lucide-react'
-
-const navSections = [
-  {
-    title: '工作台',
-    items: [
-      { to: '/', icon: Home, label: '首页总览' },
-      { to: '/schedule', icon: Calendar, label: '日程提醒', badge: 3 },
-    ],
-  },
-  {
-    title: '数据中心',
-    items: [
-      { to: '/org-data', icon: Users, label: '常用数据' },
-      { to: '/biz-data', icon: BarChart3, label: '经营数据', badge: '!' },
-    ],
-  },
-  {
-    title: '业务管理',
-    items: [
-      { to: '/opportunity', icon: Target, label: '商机管理' },
-      { to: '/competitor', icon: Trophy, label: '竞对档案' },
-      { to: '/trip', icon: Plane, label: '出差管理' },
-      { to: '/attendance', icon: Clock, label: '考勤管理' },
-    ],
-  },
-  {
-    title: '工具与分析',
-    items: [
-      { to: '/links', icon: Link2, label: '系统链接' },
-      { to: '/ai', icon: Sparkles, label: '智能分析' },
-      { to: '/settings', icon: Settings, label: '设置' },
-    ],
-  },
-]
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { useEnabledModules } from '@/hooks/useEnabledModules'
 
 interface SidebarProps {
   isOpen: boolean
@@ -57,6 +10,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
+  const { navSections } = useEnabledModules()
+
   return (
     <>
       {isOpen && (
