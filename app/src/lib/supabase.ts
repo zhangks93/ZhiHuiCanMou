@@ -110,6 +110,26 @@ export interface WorkItem {
   updated_at: string
 }
 
+// --- Opportunity Ledger (商机项目台账) ---
+export interface OpportunityLedger {
+  id: string
+  org_id: string | null
+  snapshot_date: string
+  item_type: 'operation' | 'expansion' | 'tracking'
+  region: string | null
+  project_name: string
+  estimated_amount: number | null
+  logistics_approved: boolean
+  group_approved: boolean
+  bid_date: string | null
+  status: 'tracking' | 'bidding' | 'contracted' | 'operating' | 'suspended' | 'lost' | null
+  remark: string | null
+  win_probability: number | null
+  manager_ready: boolean
+  created_at: string
+  updated_at: string
+}
+
 // --- User metadata from Feishu OAuth ---
 export interface UserMetadata {
   name?: string
