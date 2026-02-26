@@ -25,6 +25,7 @@ import {
   flexRender,
   type SortingState,
   type ExpandedState,
+  type Table,
 } from '@tanstack/react-table'
 
 // --- 常量映射 ---
@@ -73,11 +74,12 @@ function formatDate(v: string | null): string {
 
 // --- 小组件 ---
 
-function ApprovalDot({ approved }: { approved: boolean }) {
+function ApprovalDot({ approved, label }: { approved: boolean; label?: string }) {
+  const title = label ? `${label}：${approved ? '已通过' : '未通过'}` : (approved ? '已通过' : '未通过')
   return (
     <span
       className={`inline-block w-2.5 h-2.5 rounded-full ${approved ? 'bg-green-500' : 'bg-gray-300'}`}
-      title={approved ? '已通过' : '未通过'}
+      title={title}
     />
   )
 }
@@ -97,7 +99,14 @@ function ProbBar({ value }: { value: number | null }) {
   )
 }
 
-// --- TanStack 列定义 ---
+function ProbText({ value }: { value: number | null }) {
+  if (value == null) return <span className="text-gray-400">-</span>
+  const pct = Math.round(value * 100)
+  const color = pct >= 80 ? 'text-green-600' : pct >= 50 ? 'text-amber-600' : 'text-red-500'
+  return <span className={`text-sm font-medium ${color}`}>{pct}%</span>
+}
+
+// --- TanStack 列定义 (合并审批列: 10→8) ---
 
 const columnHelper = createColumnHelper<OpportunityLedger>()
 
@@ -121,7 +130,9 @@ const columns = [
     enableSorting: false,
     cell: ({ row }) => (
       <div>
-        <div className="font-medium text-gray-900">{row.original.project_name}</div>
+        <div className="font-medium text-gray-900 max-w-[220px] truncate" title={row.original.project_name}>
+          {row.original.project_name}
+        </div>
         {row.getIsExpanded() && row.original.remark && (
           <div className="mt-2 text-xs text-gray-500 leading-relaxed whitespace-pre-line bg-gray-50 rounded p-2">
             {row.original.remark}
@@ -134,19 +145,21 @@ const columns = [
     header: '预估金额',
     enableSorting: true,
     cell: (info) => (
-      <span className="font-medium text-gray-900 whitespace-nowrap">{formatAmount(info.getValue())}</span>
+      <span className="font-medium text-gray-900 whitespace-nowrap tabular-nums">{formatAmount(info.getValue())}</span>
     ),
     sortingFn: (a, b) => (a.original.estimated_amount ?? 0) - (b.original.estimated_amount ?? 0),
   }),
-  columnHelper.accessor('logistics_approved', {
-    header: '物流审批',
+  columnHelper.display({
+    id: 'approval',
+    header: '审批',
     enableSorting: false,
-    cell: (info) => <ApprovalDot approved={info.getValue()} />,
-  }),
-  columnHelper.accessor('group_approved', {
-    header: '集团审批',
-    enableSorting: false,
-    cell: (info) => <ApprovalDot approved={info.getValue()} />,
+    cell: ({ row }) => (
+      <div className="inline-flex items-center gap-1.5">
+        <ApprovalDot approved={row.original.logistics_approved} label="后勤投决" />
+        <ApprovalDot approved={row.original.group_approved} label="集团投决" />
+        <ApprovalDot approved={row.original.manager_ready} label="项目经理就绪" />
+      </div>
+    ),
   }),
   columnHelper.accessor('bid_date', {
     header: '投标日期',
@@ -177,22 +190,154 @@ const columns = [
     cell: (info) => <ProbBar value={info.getValue()} />,
     sortingFn: (a, b) => (a.original.win_probability ?? 0) - (b.original.win_probability ?? 0),
   }),
-  columnHelper.accessor('manager_ready', {
-    header: '项目经理就绪',
-    enableSorting: false,
-    cell: (info) => <ApprovalDot approved={info.getValue()} />,
-  }),
 ]
 
 // --- 列对齐映射 ---
 const RIGHT_ALIGN_COLS = new Set(['estimated_amount', 'win_probability'])
-const CENTER_ALIGN_COLS = new Set(['logistics_approved', 'group_approved', 'manager_ready'])
+const CENTER_ALIGN_COLS = new Set(['approval'])
 
 function getAlignClass(colId: string) {
   if (RIGHT_ALIGN_COLS.has(colId)) return 'text-right'
   if (CENTER_ALIGN_COLS.has(colId)) return 'text-center'
   return 'text-left'
 }
+
+// --- 桌面端表格 ---
+
+function DesktopTable({ table }: { table: Table<OpportunityLedger> }) {
+  return (
+    <div className="hidden lg:block overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id} className="bg-gray-50 border-b border-gray-200">
+              {headerGroup.headers.map((header) => {
+                const align = getAlignClass(header.column.id)
+                const canSort = header.column.getCanSort()
+                return (
+                  <th
+                    key={header.id}
+                    className={`${align} py-2.5 px-3 text-xs text-gray-500 uppercase tracking-wide font-medium whitespace-nowrap ${canSort ? 'cursor-pointer select-none hover:text-gray-900' : ''} ${header.column.id === 'project_name' ? 'min-w-[200px]' : ''}`}
+                    onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                  >
+                    <span className={canSort ? 'inline-flex items-center gap-1' : ''}>
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {canSort && (
+                        header.column.getIsSorted() === 'asc'
+                          ? <ChevronUp size={14} />
+                          : header.column.getIsSorted() === 'desc'
+                            ? <ChevronDown size={14} />
+                            : <ChevronDown size={14} className="opacity-30" />
+                      )}
+                    </span>
+                  </th>
+                )
+              })}
+            </tr>
+          ))}
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {table.getRowModel().rows.map((row) => (
+            <tr
+              key={row.id}
+              className="hover:bg-gray-50/60 transition-colors cursor-pointer"
+              onClick={() => row.toggleExpanded()}
+            >
+              {row.getVisibleCells().map((cell) => {
+                const align = getAlignClass(cell.column.id)
+                return (
+                  <td key={cell.id} className={`${align} py-2.5 px-3`}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// --- 移动端卡片 ---
+
+function MobileCards({ table }: { table: Table<OpportunityLedger> }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  return (
+    <div className="lg:hidden divide-y divide-gray-100">
+      {table.getRowModel().rows.map((row) => {
+        const d = row.original
+        const isOpen = expandedId === row.id
+        const statusVal = d.status ?? 'tracking'
+        const style = STATUS_STYLE[statusVal] ?? STATUS_STYLE.tracking
+        const Icon = style.icon
+
+        return (
+          <div
+            key={row.id}
+            className="px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors"
+            onClick={() => setExpandedId(isOpen ? null : row.id)}
+          >
+            {/* 第一行：项目名 + 状态 */}
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-medium text-gray-900 text-sm leading-snug line-clamp-2 flex-1">
+                {d.project_name}
+              </h3>
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${style.bg} ${style.text}`}>
+                <Icon size={12} />
+                {STATUS_LABEL[statusVal] ?? statusVal}
+              </span>
+            </div>
+
+            {/* 第二行：金额 + 概率 */}
+            <div className="flex items-center gap-4 mt-1.5">
+              <span className="text-sm font-medium text-gray-900 tabular-nums">
+                {formatAmount(d.estimated_amount)}
+              </span>
+              <ProbText value={d.win_probability} />
+            </div>
+
+            {/* 第三行：类型 + 区域标签 */}
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${TYPE_STYLE[d.item_type] ?? ''}`}>
+                {ITEM_TYPE_LABEL[d.item_type] ?? d.item_type}
+              </span>
+              {d.region && (
+                <span className="text-xs text-gray-500">{d.region}</span>
+              )}
+            </div>
+
+            {/* 展开详情 */}
+            {isOpen && (
+              <div className="mt-3 pt-3 border-t border-gray-100 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">投标日期</span>
+                  <span className="text-gray-700">{formatDate(d.bid_date)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">审批状态</span>
+                  <div className="inline-flex items-center gap-2">
+                    <ApprovalDot approved={d.logistics_approved} label="后勤投决" />
+                    <ApprovalDot approved={d.group_approved} label="集团投决" />
+                    <ApprovalDot approved={d.manager_ready} label="项目经理就绪" />
+                  </div>
+                </div>
+                {d.remark && (
+                  <div className="text-xs text-gray-500 leading-relaxed whitespace-pre-line bg-gray-50 rounded p-2">
+                    {d.remark}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// --- 主组件 ---
 
 export function Opportunity() {
   const [data, setData] = useState<OpportunityLedger[]>([])
@@ -252,11 +397,13 @@ export function Opportunity() {
   const stats = useMemo(() => {
     const total = filtered.length
     const totalAmount = filtered.reduce((s, d) => s + (d.estimated_amount ?? 0), 0)
-    const operating = filtered.filter((d) => d.status === 'operating').length
-    const bidding = filtered.filter((d) => d.status === 'bidding').length
-    const contracted = filtered.filter((d) => d.status === 'contracted').length
-    const tracking = filtered.filter((d) => d.status === 'tracking').length
-    return { total, totalAmount, operating, bidding, contracted, tracking }
+    const weightedAmount = filtered.reduce(
+      (s, d) => s + (d.estimated_amount ?? 0) * (d.win_probability ?? 0), 0,
+    )
+    const avgProb = total > 0
+      ? filtered.reduce((s, d) => s + (d.win_probability ?? 0), 0) / total
+      : 0
+    return { total, totalAmount, weightedAmount, avgProb }
   }, [filtered])
 
   const table = useReactTable({
@@ -285,13 +432,11 @@ export function Opportunity() {
       />
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="项目总数" value={stats.total} unit="个" />
         <StatCard label="预估总额" value={formatAmount(stats.totalAmount)} color="default" />
-        <StatCard label="运营中" value={stats.operating} unit="个" color="success" />
-        <StatCard label="已签约" value={stats.contracted} unit="个" color="success" />
-        <StatCard label="投标中" value={stats.bidding} unit="个" color="warning" />
-        <StatCard label="跟踪中" value={stats.tracking} unit="个" />
+        <StatCard label="加权金额" value={formatAmount(stats.weightedAmount)} color="warning" />
+        <StatCard label="平均概率" value={`${Math.round(stats.avgProb * 100)}%`} color={stats.avgProb >= 0.5 ? 'success' : 'error'} />
       </div>
 
       {/* 筛选栏 */}
@@ -349,56 +494,10 @@ export function Opportunity() {
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center text-gray-400">暂无数据</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id} className="bg-gray-50 border-b border-gray-200">
-                    {headerGroup.headers.map((header) => {
-                      const align = getAlignClass(header.column.id)
-                      const canSort = header.column.getCanSort()
-                      return (
-                        <th
-                          key={header.id}
-                          className={`${align} py-3 px-4 font-medium text-gray-700 whitespace-nowrap ${canSort ? 'cursor-pointer select-none hover:text-gray-900' : ''} ${header.column.id === 'project_name' ? 'min-w-[200px]' : ''}`}
-                          onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
-                        >
-                          <span className={canSort ? 'inline-flex items-center gap-1' : ''}>
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                            {canSort && (
-                              header.column.getIsSorted() === 'asc'
-                                ? <ChevronUp size={14} />
-                                : header.column.getIsSorted() === 'desc'
-                                  ? <ChevronDown size={14} />
-                                  : <ChevronDown size={14} className="opacity-30" />
-                            )}
-                          </span>
-                        </th>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-gray-100 hover:bg-gray-50/60 transition-colors cursor-pointer"
-                    onClick={() => row.toggleExpanded()}
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const align = getAlignClass(cell.column.id)
-                      return (
-                        <td key={cell.id} className={`${align} py-3 px-4`}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <DesktopTable table={table} />
+            <MobileCards table={table} />
+          </>
         )}
       </div>
 
@@ -410,7 +509,8 @@ export function Opportunity() {
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
-            <ChevronLeft size={16} /> 上一页
+            <ChevronLeft size={16} />
+            <span className="hidden lg:inline">上一页</span>
           </button>
           <span>
             第 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()} 页
@@ -420,7 +520,8 @@ export function Opportunity() {
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
-            下一页 <ChevronRight size={16} />
+            <span className="hidden lg:inline">下一页</span>
+            <ChevronRight size={16} />
           </button>
         </div>
       )}
