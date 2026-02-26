@@ -3,7 +3,7 @@ import { PageTitle } from '@/components/ui/PageTitle'
 import { StatCard } from '@/components/ui/StatCard'
 import { supabase, type BizDataSnapshot } from '@/lib/supabase'
 import {
-  BarChart3, TrendingDown, TrendingUp, Users, ChevronDown, ChevronRight,
+  BarChart3, TrendingUp, ChevronDown, ChevronRight,
   AlertTriangle, Lightbulb, ArrowUpRight, ArrowDownRight, Bot, Loader2,
 } from 'lucide-react'
 import { loadLLMConfig } from '@/lib/llmConfig'
