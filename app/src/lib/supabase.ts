@@ -33,6 +33,60 @@ export interface BizDataItem {
   updated_at?: string
 }
 
+// --- 经营数据快照 (biz_data_snapshot) ---
+export interface BizDataSnapshot {
+  id: string
+  org_id: string | null
+  fiscal_year: string
+  node_name: string
+  center: string | null
+  biz_class: string | null
+  biz_level1: string | null
+  org_tag: string | null
+  node_level: number
+  parent_name: string | null
+  actual_revenue: number | null
+  budget_revenue: number | null
+  revenue_completion_rate: number | null
+  revenue_diff: number | null
+  yoy_revenue: number | null
+  actual_gross_profit: number | null
+  budget_gross_profit: number | null
+  gross_profit_completion_rate: number | null
+  yoy_gross_profit: number | null
+  actual_gross_margin: number | null
+  budget_gross_margin: number | null
+  gross_margin_diff: number | null
+  yoy_gross_margin: number | null
+  actual_labor_cost: number | null
+  budget_labor_cost: number | null
+  labor_cost_completion_rate: number | null
+  yoy_labor_cost: number | null
+  actual_other_cost: number | null
+  budget_other_cost: number | null
+  other_cost_completion_rate: number | null
+  yoy_other_cost: number | null
+  actual_profit: number | null
+  budget_profit: number | null
+  profit_completion_rate: number | null
+  profit_diff: number | null
+  yoy_profit: number | null
+  actual_profit_margin: number | null
+  budget_profit_margin: number | null
+  profit_margin_diff: number | null
+  yoy_profit_margin: number | null
+  actual_labor_cost_rate: number | null
+  budget_labor_cost_rate: number | null
+  labor_cost_rate_completion: number | null
+  yoy_labor_cost_rate: number | null
+  actual_headcount: number | null
+  budget_headcount: number | null
+  headcount_diff: number | null
+  yoy_headcount: number | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Opportunity {
   id: string
   name: string
