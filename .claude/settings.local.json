@@ -15,7 +15,10 @@
       "Bash(cd D:/Code/ZhiHuiCanMou/app && npx tsc --noEmit 2>&1)",
       "Bash(cd \"D:/Code/ZhiHuiCanMou/docs/data\" && python3 -c \"\nimport csv\nimport sys\n\n# Read CSV and extract rows with '营收/利润取值' marker, plus the total row\nwith open\\('教育后勤2025经营数据.csv', 'r', encoding='utf-8-sig'\\) as f:\n    reader = csv.reader\\(f\\)\n    header = next\\(reader\\)\n    \n    # Print header indices for key columns\n    key_cols = [0,1,2,3,4,5,6,7,8,9,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,40,41,42,43,44,45,46,47,48,49,50,51,52,61,62,63,64,69]\n    for i in key_cols:\n        print\\(f'{i}: {header[i]}'\\)\n    \n    print\\('---'\\)\n    \n    # Count and list key rows\n    f.seek\\(0\\)\n    reader = csv.reader\\(f\\)\n    next\\(reader\\)  # skip header\n    \n    total_row = None\n    key_rows = []\n    for i, row in enumerate\\(reader, 2\\):\n        if len\\(row\\) < 70:\n            continue\n        if row[0] == '大后勤合计':\n            total_row = row\n            print\\(f'TOTAL: {row[0]}'\\)\n        if row[69].strip\\(\\) == '营收/利润取值':\n            key_rows.append\\(row\\)\n            print\\(f'ROW {i}: {row[0]} | {row[1]} | {row[2]} | {row[3]}'\\)\n    \n    print\\(f'\\\\\\\\nTotal key rows: {len\\(key_rows\\)}'\\)\n    if total_row:\n        print\\(f'Has total row: yes'\\)\n\" 2>&1)",
       "mcp__supabase__execute_sql",
-      "Bash(tail:*)"
+      "Bash(tail:*)",
+      "Bash(cd D:/Code/ZhiHuiCanMou/app && npx vite build 2>&1)",
+      "Bash(cd D:/Code/ZhiHuiCanMou/app && npm install @tauri-apps/plugin-http 2>&1)",
+      "Bash(cd D:/Code/ZhiHuiCanMou && git add -A && git status 2>&1)"
     ]
   },
   "enableAllProjectMcpServers": true,

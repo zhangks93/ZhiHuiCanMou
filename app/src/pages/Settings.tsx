@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react'
 import { PageTitle } from '@/components/ui/PageTitle'
-import { Settings as SettingsIcon } from 'lucide-react'
+import { Settings as SettingsIcon, Bot, Check, Trash2 } from 'lucide-react'
+import { loadLLMConfig, saveLLMConfig, clearLLMConfig, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig } from '@/lib/llmConfig'
 
 const modules = [
   '日程提醒', '常用数据', '经营数据', '商机管理',
@@ -7,6 +9,48 @@ const modules = [
 ]
 
 export function Settings() {
+  const [provider, setProvider] = useState<LLMConfig['provider']>('openai')
+  const [apiUrl, setApiUrl] = useState(DEFAULT_URLS.openai)
+  const [apiKey, setApiKey] = useState('')
+  const [model, setModel] = useState(DEFAULT_MODELS.openai)
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+  useEffect(() => {
+    const cfg = loadLLMConfig()
+    if (cfg) {
+      setProvider(cfg.provider)
+      setApiUrl(cfg.apiUrl)
+      setApiKey(cfg.apiKey)
+      setModel(cfg.model)
+    }
+  }, [])
+
+  const handleProviderChange = (p: LLMConfig['provider']) => {
+    setProvider(p)
+    setApiUrl(DEFAULT_URLS[p])
+    setModel(DEFAULT_MODELS[p])
+  }
+
+  const handleSave = () => {
+    if (!apiKey.trim()) {
+      setFeedback({ type: 'error', msg: '请输入 API Key' })
+      return
+    }
+    saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim() })
+    setFeedback({ type: 'success', msg: '已保存' })
+    setTimeout(() => setFeedback(null), 2000)
+  }
+
+  const handleClear = () => {
+    clearLLMConfig()
+    setProvider('openai')
+    setApiUrl(DEFAULT_URLS.openai)
+    setApiKey('')
+    setModel(DEFAULT_MODELS.openai)
+    setFeedback({ type: 'success', msg: '已清除' })
+    setTimeout(() => setFeedback(null), 2000)
+  }
+
   return (
     <>
       <PageTitle breadcrumb="/ 设置" title="设置" />
@@ -59,6 +103,94 @@ export function Settings() {
             + 动态添加模块
           </button>
           <p className="text-xs text-gray-600 mt-2">功能开发中，请联系IT部门</p>
+        </div>
+
+        {/* AI Analysis Config */}
+        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card lg:col-span-2">
+          <div className="flex items-center gap-2 mb-4">
+            <Bot size={18} strokeWidth={1.5} className="text-gray-600" />
+            <h3 className="font-medium text-gray-800">AI 分析配置</h3>
+          </div>
+
+          <div className="space-y-4 max-w-lg">
+            {/* Provider */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1.5">模型提供商</label>
+              <div className="flex gap-4">
+                {(['openai', 'claude'] as const).map((p) => (
+                  <label key={p} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                    <input
+                      type="radio"
+                      name="llm-provider"
+                      className="radio radio-sm radio-primary"
+                      checked={provider === p}
+                      onChange={() => handleProviderChange(p)}
+                    />
+                    {p === 'openai' ? 'OpenAI' : 'Claude'}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* API URL */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1.5">API URL</label>
+              <input
+                type="text"
+                className="input input-bordered input-sm w-full font-mono text-xs"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                placeholder={DEFAULT_URLS[provider]}
+              />
+              <p className="text-xs text-gray-400 mt-1">如使用代理，可修改为自定义地址</p>
+            </div>
+
+            {/* Model */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1.5">模型名称</label>
+              <input
+                type="text"
+                className="input input-bordered input-sm w-full font-mono text-xs"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={DEFAULT_MODELS[provider]}
+              />
+              <p className="text-xs text-gray-400 mt-1">如 gpt-4o、claude-sonnet-4-20250514 等</p>
+            </div>
+
+            {/* API Key */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1.5">API Key</label>
+              <input
+                type="password"
+                className="input input-bordered input-sm w-full font-mono text-xs"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={provider === 'openai' ? 'sk-...' : 'sk-ant-...'}
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSave}
+                className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary-700 transition-colors shadow-sm flex items-center gap-1.5"
+              >
+                <Check size={14} /> 保存
+              </button>
+              <button
+                onClick={handleClear}
+                className="px-4 py-1.5 text-sm font-medium rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 size={14} /> 清除
+              </button>
+              {feedback && (
+                <span className={`text-sm ${feedback.type === 'success' ? 'text-success-700' : 'text-error-700'}`}>
+                  {feedback.msg}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </>

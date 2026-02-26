@@ -4,8 +4,10 @@ import { StatCard } from '@/components/ui/StatCard'
 import { supabase, type BizDataSnapshot } from '@/lib/supabase'
 import {
   BarChart3, TrendingDown, TrendingUp, Users, ChevronDown, ChevronRight,
-  AlertTriangle, Lightbulb, ArrowUpRight, ArrowDownRight,
+  AlertTriangle, Lightbulb, ArrowUpRight, ArrowDownRight, Bot, Loader2,
 } from 'lucide-react'
+import { loadLLMConfig } from '@/lib/llmConfig'
+import { analyzeBizData, type Insight as LLMInsight } from '@/lib/llmService'
 
 // --- helpers ---
 
@@ -160,6 +162,9 @@ export function BizData() {
   const [loading, setLoading] = useState(true)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<'revenue' | 'profit' | 'cost'>('revenue')
+  const [llmInsights, setLlmInsights] = useState<LLMInsight[] | null>(null)
+  const [llmLoading, setLlmLoading] = useState(false)
+  const [llmError, setLlmError] = useState<string | null>(null)
 
   useEffect(() => {
     supabase
@@ -191,6 +196,25 @@ export function BizData() {
 
   const getChildren = (parentName: string) =>
     [...level2, ...level3].filter(d => d.parent_name === parentName)
+
+  const hasLLMConfig = loadLLMConfig() !== null
+
+  const handleAIAnalysis = async () => {
+    const config = loadLLMConfig()
+    if (!config || !total) return
+    setLlmLoading(true)
+    setLlmError(null)
+    try {
+      const results = await analyzeBizData(config, total, level1)
+      setLlmInsights(results)
+    } catch (e) {
+      setLlmError(e instanceof Error ? e.message : 'AI 分析失败')
+    } finally {
+      setLlmLoading(false)
+    }
+  }
+
+  const displayInsights = llmInsights ?? insights
 
   if (loading) {
     return (
@@ -344,29 +368,71 @@ export function BizData() {
       </div>
 
       {/* Smart Analysis */}
-      {insights.length > 0 && (
+      {(displayInsights.length > 0 || llmLoading || llmError) && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb size={18} className="text-accent" />
             <h3 className="font-medium text-gray-900">智能分析</h3>
+            <div className="ml-auto flex items-center gap-2">
+              {llmInsights && (
+                <button
+                  onClick={() => { setLlmInsights(null); setLlmError(null) }}
+                  className="px-3 py-1 text-xs rounded-md bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                >
+                  恢复规则分析
+                </button>
+              )}
+              <button
+                onClick={handleAIAnalysis}
+                disabled={!hasLLMConfig || llmLoading}
+                title={!hasLLMConfig ? '请先在设置中配置 AI 分析' : undefined}
+                className={`px-3 py-1 text-xs rounded-md flex items-center gap-1.5 transition-colors ${
+                  !hasLLMConfig
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-accent-50 text-accent-700 hover:bg-accent-100 border border-accent-200'
+                }`}
+              >
+                {llmLoading ? <Loader2 size={13} className="animate-spin" /> : <Bot size={13} />}
+                AI 深度分析
+              </button>
+            </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {insights.map((insight, i) => {
-              const style = INSIGHT_STYLE[insight.type]
-              const Icon = style.icon
-              return (
-                <div key={i} className={`rounded-lg border p-4 ${style.bg} ${style.border}`}>
-                  <div className="flex items-start gap-3">
-                    <Icon size={18} className={`${style.iconColor} mt-0.5 shrink-0`} />
-                    <div>
-                      <div className={`font-medium text-sm ${style.iconColor}`}>{insight.title}</div>
-                      <div className="text-sm text-gray-600 mt-1 leading-relaxed">{insight.detail}</div>
+          {llmError && (
+            <div className="mb-3 px-3 py-2 rounded-md bg-error-100/60 border border-error-200 text-sm text-error-700">
+              {llmError}
+            </div>
+          )}
+          {llmLoading ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="rounded-lg border border-gray-200 p-4 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
+                  <div className="h-3 bg-gray-100 rounded w-2/3" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {displayInsights.map((insight, i) => {
+                const style = INSIGHT_STYLE[insight.type]
+                const Icon = style.icon
+                return (
+                  <div key={i} className={`rounded-lg border p-4 ${style.bg} ${style.border}`}>
+                    <div className="flex items-start gap-3">
+                      <Icon size={18} className={`${style.iconColor} mt-0.5 shrink-0`} />
+                      <div>
+                        <div className={`font-medium text-sm ${style.iconColor}`}>{insight.title}</div>
+                        <div className="text-sm text-gray-600 mt-1 leading-relaxed">{insight.detail}</div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
+          {llmInsights && (
+            <p className="text-xs text-gray-400 mt-2">由 AI 生成，仅供参考</p>
+          )}
         </div>
       )}
     </>
