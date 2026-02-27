@@ -1,267 +1,333 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { PageTitle } from '@/components/ui/PageTitle'
-import { Sparkles, Loader2, MessageCircle } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-interface WorkItemForSummary {
-  module_id: string
-  content: string | null
-  links: { url: string; title?: string }[]
-  reporter_name?: string | null
-  period_start?: string | null
-  period_end?: string | null
+import { Send, Bot, User, Sparkles, Wrench, ChevronDown, ChevronRight, Loader2, Settings, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { loadLLMConfig } from '@/lib/llmConfig'
+import { runAgent } from '@/lib/agent/agent'
+import { generateSuggestedQuestions } from '@/lib/agent/suggestions'
+import type { ChatMessage, AgentStep } from '@/lib/agent/types'
+
+let msgId = 0
+const nextId = () => String(++msgId)
+
+const TOOL_NAME_MAP: Record<string, string> = {
+  query_biz_data: '查询经营数据',
+  query_opportunities: '查询商机台账',
+  query_work_items: '查询工作汇报',
+  web_search: '联网搜索',
 }
 
-const staticInsights = [
-  {
-    type: 'positive',
-    title: '优势业务：数智零售线上 —— 可深度挖掘',
-    desc: '当前达成率95%，盈利能力领先。建议在 Q3 推进 2~3 个同类学校园区线上零售项目落地，预计可增量营收约 400 万元。',
-  },
-  {
-    type: 'alert',
-    title: '缺口预警：北区餐饮配送 · 当前缺口 166 万 / 月',
-    desc: '按当前趋势，全年营收缺口约 996 万元。若通过商机转化弥补，需在 Q3 签约 A 级商机至少 2 单（合同体量 ≥ 500 万/单）；当前管道中可优先推进：广东某高校配餐（800万，A级）、深圳科技园项目（620万，A级）。',
-  },
-  {
-    type: 'warning',
-    title: '商机转化路径建议',
-    desc: '初期洽谈阶段商机过多（5项），中后期推进力度不足。建议重点资源向「拟标阶段」4项倾斜，预计90天内可触发2~3单签约。',
-  },
-  {
-    type: 'info',
-    title: '利润优化空间',
-    desc: '学校食堂特色餐利润率仅65%（红色预警），建议评估食材成本结构并与营养配餐供应商重新谈判，目标将利润率提升至75%以上，可增加约 8 万元/月利润贡献。',
-  },
-]
+function ToolCallGroup({ steps }: { steps: AgentStep[] }) {
+  const [open, setOpen] = useState(false)
+  const call = steps[0]
+  const result = steps.find(s => s.type === 'tool_result')
+  const isDone = !!result
+  const displayName = TOOL_NAME_MAP[call.toolName ?? ''] ?? call.toolName
 
-const insightStyles: Record<string, string> = {
-  positive: 'border-l-success bg-success-100/30',
-  alert: 'border-l-error bg-error-100/30',
-  warning: 'border-l-warning bg-warning-100/30',
-  info: 'border-l-primary-500 bg-primary-50/50',
+  let formattedResult = ''
+  if (result) {
+    try {
+      formattedResult = JSON.stringify(JSON.parse(result.content), null, 2)
+    } catch {
+      formattedResult = result.content
+    }
+  }
+
+  return (
+    <div className="my-0.5">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-xs hover:bg-gray-50 rounded-md px-2 py-1 -ml-2 transition-colors w-full text-left"
+      >
+        {isDone
+          ? <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+          : <Loader2 size={14} className="animate-spin text-accent shrink-0" />}
+        <Wrench size={12} className="text-primary/60 shrink-0" />
+        <span className="font-medium text-gray-700">{displayName}</span>
+        {call.toolArgs && Object.keys(call.toolArgs).length > 0 && (
+          <span className="flex gap-1 flex-wrap">
+            {Object.entries(call.toolArgs).map(([k, v]) => (
+              <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-mono">
+                {k}={typeof v === 'string' ? v : JSON.stringify(v)}
+              </span>
+            ))}
+          </span>
+        )}
+        <span className="ml-auto shrink-0">{open ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}</span>
+      </button>
+      {open && result && (
+        <div className="ml-6 mt-1 mb-2 max-h-48 overflow-y-auto rounded-lg bg-gray-50 border border-gray-200 p-3 text-xs font-mono text-gray-600 whitespace-pre-wrap leading-relaxed">
+          {formattedResult.slice(0, 2000)}{formattedResult.length > 2000 ? '\n...' : ''}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StepItem({ step }: { step: AgentStep }) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (step.type === 'thinking') {
+    const lines = step.content.split('\n')
+    const isLong = lines.length > 2 || step.content.length > 120
+    const preview = isLong ? lines.slice(0, 2).join('\n') + (lines.length > 2 ? '...' : '') : step.content
+
+    return (
+      <div className="my-1 rounded-lg bg-gradient-to-r from-accent/5 to-accent/10 border border-accent/10 px-3 py-2">
+        <div className="flex items-start gap-2">
+          <Sparkles size={14} className="mt-0.5 shrink-0 text-accent" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
+              {expanded ? step.content : preview}
+            </p>
+            {isLong && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="text-[10px] text-accent hover:text-accent/80 mt-1 transition-colors"
+              >
+                {expanded ? '收起' : '展开全部'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (step.type === 'error') {
+    return (
+      <div className="my-1 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+        <div className="flex items-start gap-2">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-red-500" />
+          <p className="text-xs text-red-700 leading-relaxed">{step.content}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return null
+}
+
+function getStepDotColor(group: AgentStep[]): string {
+  const first = group[0]
+  if (first.type === 'error') return 'bg-red-400'
+  if (first.type === 'tool_call') {
+    const hasResult = group.some(s => s.type === 'tool_result')
+    return hasResult ? 'bg-emerald-400' : 'bg-primary'
+  }
+  if (first.type === 'thinking') return 'bg-accent'
+  return 'bg-gray-300'
+}
+
+function getLoadingText(steps: AgentStep[]): string {
+  if (!steps.length) return '分析中...'
+  const lastToolCall = [...steps].reverse().find(s => s.type === 'tool_call')
+  if (lastToolCall?.toolName) {
+    const name = TOOL_NAME_MAP[lastToolCall.toolName] ?? lastToolCall.toolName
+    return `正在${name}...`
+  }
+  const lastStep = steps[steps.length - 1]
+  if (lastStep.type === 'thinking') return '正在思考...'
+  return '分析中...'
+}
+
+function MessageBubble({ msg, isStreaming }: { msg: ChatMessage; isStreaming?: boolean }) {
+  const isUser = msg.role === 'user'
+  // Group steps: pair tool_call with its following tool_result
+  const groupedSteps = (msg.steps ?? []).reduce<AgentStep[][]>((acc, step) => {
+    if (step.type === 'tool_call') {
+      acc.push([step])
+    } else if (step.type === 'tool_result' && acc.length > 0) {
+      acc[acc.length - 1].push(step)
+    } else {
+      acc.push([step])
+    }
+    return acc
+  }, [])
+
+  return (
+    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} animate-slide-up`}>
+      <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isUser ? 'bg-primary text-white' : 'bg-accent/10 text-accent'}`}>
+        {isUser ? <User size={16} /> : <Bot size={16} />}
+      </div>
+      <div className={`max-w-[80%] ${isUser ? 'text-right' : ''}`}>
+        {isUser ? (
+          <div className="inline-block rounded-2xl rounded-tr-sm bg-primary text-white px-4 py-2.5 text-sm">
+            {msg.content}
+          </div>
+        ) : (
+          <div className="rounded-2xl rounded-tl-sm bg-surface border border-gray-200 px-4 py-3 shadow-card">
+            {groupedSteps.length > 0 && (
+              <div className="relative ml-1 mb-2">
+                {/* Timeline left border */}
+                <div className="absolute left-[5px] top-3 bottom-1 w-px bg-gray-200" />
+                {groupedSteps.map((group, i) => (
+                  <div key={i} className="relative pl-6 pb-1">
+                    {/* Dot node */}
+                    <div className={`absolute left-0 top-2 w-[11px] h-[11px] rounded-full border-2 border-white shadow-sm ${getStepDotColor(group)}`} />
+                    {group[0]?.type === 'tool_call'
+                      ? <ToolCallGroup steps={group} />
+                      : group.map((step, j) => <StepItem key={j} step={step} />)}
+                  </div>
+                ))}
+              </div>
+            )}
+            {isStreaming && !msg.steps?.some(s => s.type === 'answer') && (
+              <div className="flex items-center gap-2 text-xs text-gray-400 my-2 ml-1">
+                <Loader2 size={14} className="animate-spin text-accent" />
+                <span>{getLoadingText(msg.steps ?? [])}</span>
+              </div>
+            )}
+            {msg.content && (
+              <div className="mt-2 text-sm text-gray-800 leading-relaxed prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-h2:text-base prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-sm prose-h3:mt-3 prose-h3:mb-1 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-table:my-2 prose-th:bg-gray-50 prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:text-xs prose-th:font-medium prose-th:text-gray-700 prose-td:px-3 prose-td:py-1.5 prose-td:text-xs prose-strong:text-gray-900 prose-code:text-accent prose-code:bg-gray-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export function AiAnalysis() {
-  const [workSummary, setWorkSummary] = useState<string | null>(null)
-  const [summaryLoading, setSummaryLoading] = useState(true)
-  const [summaryError, setSummaryError] = useState<string | null>(null)
-  const [qaQuestion, setQaQuestion] = useState('')
-  const [qaAnswer, setQaAnswer] = useState<string | null>(null)
-  const [qaLoading, setQaLoading] = useState(false)
-
-  const fetchAndSummarize = useCallback(async () => {
-    setSummaryLoading(true)
-    setSummaryError(null)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setWorkSummary(null)
-        return
-      }
-      const { data: teamItems } = await supabase
-        .from('work_items')
-        .select('*')
-        .neq('reporter_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50)
-
-      const items = (teamItems ?? []) as Array<{
-        module_id: string
-        content: string | null
-        links: unknown
-        reporter_id: string
-        period_start: string | null
-        period_end: string | null
-      }>
-
-      if (items.length === 0) {
-        setWorkSummary('暂无下属工作汇报数据，AI 汇总将在有汇报后生效。')
-        return
-      }
-
-      const reporterIds = [...new Set(items.map((i) => i.reporter_id))]
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .in('id', reporterIds)
-
-      const nameMap = new Map((profs ?? []).map((p) => [p.id, p.name]))
-
-      const payload: WorkItemForSummary[] = items.map((i) => ({
-        module_id: i.module_id,
-        content: i.content,
-        links: Array.isArray(i.links) ? i.links : [],
-        reporter_name: nameMap.get(i.reporter_id) ?? null,
-        period_start: i.period_start,
-        period_end: i.period_end,
-      }))
-
-      const { data, error } = await supabase.functions.invoke('ai-summarize', {
-        body: { work_items: payload },
-      })
-
-      if (error) {
-        setSummaryError(error.message)
-        setWorkSummary(null)
-        return
-      }
-      setWorkSummary(data?.summary ?? null)
-    } catch (e) {
-      setSummaryError(String(e))
-      setWorkSummary(null)
-    } finally {
-      setSummaryLoading(false)
-    }
-  }, [])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const config = loadLLMConfig()
 
   useEffect(() => {
-    fetchAndSummarize()
-  }, [fetchAndSummarize])
+    generateSuggestedQuestions(8).then(setSuggestions).catch(() => {})
+  }, [])
 
-  const askQuestion = useCallback(async () => {
-    if (!qaQuestion.trim()) return
-    setQaLoading(true)
-    setQaAnswer(null)
+  const scrollToBottom = useCallback(() => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    })
+  }, [])
+
+  useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
+
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || loading || !config) return
+    const userMsg: ChatMessage = { id: nextId(), role: 'user', content: text.trim(), timestamp: Date.now() }
+    const assistantMsg: ChatMessage = { id: nextId(), role: 'assistant', content: '', steps: [], timestamp: Date.now() }
+
+    setMessages(prev => [...prev, userMsg, assistantMsg])
+    setInput('')
+    setLoading(true)
+
+    // Build history from previous messages (only final Q&A, not steps)
+    const history = messages
+      .filter(m => m.role === 'user' || (m.role === 'assistant' && m.content))
+      .map(m => ({ role: m.role, content: m.content }))
+
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setQaAnswer('请先登录')
-        return
-      }
-      const { data: teamItems } = await supabase
-        .from('work_items')
-        .select('*')
-        .neq('reporter_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(30)
-
-      const items = (teamItems ?? []) as Array<{
-        module_id: string
-        content: string | null
-        reporter_id: string
-      }>
-      const reporterIds = [...new Set(items.map((i) => i.reporter_id))]
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .in('id', reporterIds)
-      const nameMap = new Map((profs ?? []).map((p) => [p.id, p.name]))
-
-      const context: WorkItemForSummary[] = items.map((i) => ({
-        module_id: i.module_id,
-        content: i.content,
-        links: [],
-        reporter_name: nameMap.get(i.reporter_id) ?? null,
-        period_start: null,
-        period_end: null,
-      }))
-
-      const { data, error } = await supabase.functions.invoke('ai-qa', {
-        body: { question: qaQuestion.trim(), context },
+      const answer = await runAgent(text.trim(), config, history, (step) => {
+        setMessages(prev => prev.map((m, i) =>
+          i === prev.length - 1 && m.role === 'assistant'
+            ? { ...m, steps: [...(m.steps ?? []), step] }
+            : m
+        ))
+        scrollToBottom()
       })
-
-      if (error) {
-        setQaAnswer(`请求失败：${error.message}`)
-        return
-      }
-      setQaAnswer(data?.answer ?? null)
+      setMessages(prev => prev.map((m, i) =>
+        i === prev.length - 1 && m.role === 'assistant'
+          ? { ...m, content: answer }
+          : m
+      ))
     } catch (e) {
-      setQaAnswer(`请求失败：${String(e)}`)
+      const errMsg = e instanceof Error ? e.message : String(e)
+      setMessages(prev => prev.map((m, i) =>
+        i === prev.length - 1 && m.role === 'assistant'
+          ? { ...m, steps: [...(m.steps ?? []), { type: 'error' as const, content: errMsg }], content: `分析出错：${errMsg}` }
+          : m
+      ))
     } finally {
-      setQaLoading(false)
+      setLoading(false)
     }
-  }, [qaQuestion])
+  }, [loading, config, messages, scrollToBottom])
+
+  // No LLM config
+  if (!config) {
+    return (
+      <>
+        <PageTitle breadcrumb="工具与分析 / 智能分析" title="智能分析" />
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <AlertTriangle size={40} className="text-warning mb-4" />
+          <h3 className="text-lg font-medium text-gray-800 mb-2">尚未配置 AI 模型</h3>
+          <p className="text-sm text-gray-500 mb-4">请先在设置页面配置 LLM 提供商和 API Key</p>
+          <a href="#/settings" className="btn btn-primary btn-sm gap-1.5">
+            <Settings size={14} /> 前往设置
+          </a>
+        </div>
+      </>
+    )
+  }
+
+  const isEmpty = messages.length === 0
 
   return (
     <>
-      <PageTitle breadcrumb="工具与分析 / 智能分析" title="智能分析" />
+      <PageTitle breadcrumb="工具与分析 / 智能分析" title="智能分析" subtitle="AI 自主数据分析助手" />
 
-      <div className="space-y-6">
-        {/* 工作进展 AI 汇总 */}
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles size={18} strokeWidth={1.5} className="text-accent" />
-              <h3 className="font-medium text-gray-900">下属工作进展 AI 汇总</h3>
-            </div>
-            <button
-              onClick={fetchAndSummarize}
-              disabled={summaryLoading}
-              className="btn btn-ghost btn-sm"
-            >
-              {summaryLoading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                '刷新'
-              )}
-            </button>
-          </div>
-          {summaryLoading ? (
-            <div className="py-8 text-center text-gray-500">正在生成汇总...</div>
-          ) : summaryError ? (
-            <div className="py-4 text-error text-sm">{summaryError}</div>
-          ) : workSummary ? (
-            <div className="text-sm text-gray-800 leading-relaxed whitespace-pre-line bg-gray-50 rounded-lg p-4">
-              {workSummary}
+      <div className="flex flex-col bg-surface rounded-lg border border-gray-200 shadow-card" style={{ height: 'calc(100vh - 160px)' }}>
+        {/* Messages area */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+          {isEmpty ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center mb-4">
+                <Bot size={28} className="text-accent" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-800 mb-1">智汇参谋 · AI 分析助手</h3>
+              <p className="text-sm text-gray-500 mb-6 max-w-md">
+                我能自主理解你的业务问题，从数据库获取经营数据、商机台账、工作汇报等信息，为你提供深度分析洞察。
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 max-w-2xl">
+                {suggestions.map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => sendMessage(q)}
+                    className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-accent hover:text-accent transition-colors"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
-            <div className="py-4 text-gray-500 text-sm">暂无数据</div>
+            messages.map((msg) => (
+              <MessageBubble key={msg.id} msg={msg} isStreaming={loading && msg === messages[messages.length - 1]} />
+            ))
           )}
         </div>
 
-        {/* 自然语言追问 */}
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
-          <div className="flex items-center gap-2 mb-4">
-            <MessageCircle size={18} strokeWidth={1.5} className="text-gray-600" />
-            <h3 className="font-medium text-gray-900">对汇报内容追问</h3>
-          </div>
-          <p className="text-sm text-gray-600 mb-3">
-            基于下属工作汇报，向 AI 提问获取更深入的信息。
-          </p>
-          <div className="flex gap-2 mb-4">
+        {/* Input area */}
+        <div className="border-t border-gray-200 p-3">
+          <div className="flex gap-2">
             <input
               type="text"
-              value={qaQuestion}
-              onChange={(e) => setQaQuestion(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && askQuestion()}
-              placeholder="例如：北区商机推进情况如何？"
-              className="input input-bordered flex-1"
-              disabled={qaLoading}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(input)}
+              placeholder="输入你的业务问题，如：各中心利润达成情况如何？"
+              className="input input-bordered flex-1 text-sm"
+              disabled={loading}
             />
             <button
-              onClick={askQuestion}
-              disabled={qaLoading || !qaQuestion.trim()}
-              className="btn btn-primary"
+              onClick={() => sendMessage(input)}
+              disabled={loading || !input.trim()}
+              className="btn btn-primary btn-square"
             >
-              {qaLoading ? <Loader2 size={18} className="animate-spin" /> : '提问'}
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
             </button>
           </div>
-          {qaAnswer && (
-            <div className="rounded-lg bg-primary-50 p-4 text-sm text-gray-800 leading-relaxed border-l-4 border-accent">
-              {qaAnswer}
-            </div>
-          )}
-        </div>
-
-        {/* 经营 × 商机智能匹配分析 */}
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
-          <div className="flex items-center gap-2 mb-6">
-            <Sparkles size={18} strokeWidth={1.5} className="text-gray-600" />
-            <h3 className="font-medium text-gray-900">经营 × 商机智能匹配分析（本月）</h3>
-          </div>
-          <div className="space-y-4">
-            {staticInsights.map((i, idx) => (
-              <div
-                key={idx}
-                className={`p-4 rounded-lg border-l-[3px] ${insightStyles[i.type]}`}
-              >
-                <div className="font-medium text-gray-900 mb-1">{i.title}</div>
-                <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
-                  {i.desc}
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="text-xs text-gray-400 mt-1.5 text-center">
+            Agent 会自主规划分析步骤并查询数据库 · 数据完全本地处理
+          </p>
         </div>
       </div>
     </>
