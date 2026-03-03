@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { PageTitle } from '@/components/ui/PageTitle'
-import { Settings as SettingsIcon, Bot, Check, Trash2 } from 'lucide-react'
-import { loadLLMConfig, saveLLMConfig, clearLLMConfig, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig } from '@/lib/llmConfig'
+import { Settings as SettingsIcon, Bot, Check, Trash2, Globe } from 'lucide-react'
+import { loadLLMConfig, saveLLMConfig, clearLLMConfig, loadProviderSettings, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig, type ProviderSettings } from '@/lib/llmConfig'
 
 const modules = [
   '日程提醒', '常用数据', '经营数据', '商机管理',
@@ -9,26 +9,33 @@ const modules = [
 ]
 
 export function Settings() {
-  const [provider, setProvider] = useState<LLMConfig['provider']>('openai')
-  const [apiUrl, setApiUrl] = useState(DEFAULT_URLS.openai)
-  const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState(DEFAULT_MODELS.openai)
+  const [initialConfig] = useState(() => loadLLMConfig())
+  const [provider, setProvider] = useState<LLMConfig['provider']>(initialConfig?.provider ?? 'openai')
+  const [apiUrl, setApiUrl] = useState(initialConfig?.apiUrl ?? DEFAULT_URLS[initialConfig?.provider ?? 'openai'])
+  const [apiKey, setApiKey] = useState(initialConfig?.apiKey ?? '')
+  const [model, setModel] = useState(initialConfig?.model ?? DEFAULT_MODELS[initialConfig?.provider ?? 'openai'])
+  const [tavilyApiKey, setTavilyApiKey] = useState(initialConfig?.tavilyApiKey ?? '')
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
-  useEffect(() => {
-    const cfg = loadLLMConfig()
-    if (cfg) {
-      setProvider(cfg.provider)
-      setApiUrl(cfg.apiUrl)
-      setApiKey(cfg.apiKey)
-      setModel(cfg.model)
-    }
-  }, [])
+  // Cache unsaved form values per provider so switching doesn't lose edits
+  const providerCache = useRef<Partial<Record<LLMConfig['provider'], ProviderSettings>>>({})
 
   const handleProviderChange = (p: LLMConfig['provider']) => {
+    // Cache current provider's form values
+    providerCache.current[provider] = { apiUrl, apiKey, model }
     setProvider(p)
-    setApiUrl(DEFAULT_URLS[p])
-    setModel(DEFAULT_MODELS[p])
+    // Restore from cache first, then localStorage, then defaults
+    const cached = providerCache.current[p]
+    const saved = cached || loadProviderSettings(p)
+    if (saved) {
+      setApiUrl(saved.apiUrl)
+      setApiKey(saved.apiKey)
+      setModel(saved.model)
+    } else {
+      setApiUrl(DEFAULT_URLS[p])
+      setApiKey('')
+      setModel(DEFAULT_MODELS[p])
+    }
   }
 
   const handleSave = () => {
@@ -36,7 +43,7 @@ export function Settings() {
       setFeedback({ type: 'error', msg: '请输入 API Key' })
       return
     }
-    saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim() })
+    saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim(), tavilyApiKey: tavilyApiKey.trim() || undefined })
     setFeedback({ type: 'success', msg: '已保存' })
     setTimeout(() => setFeedback(null), 2000)
   }
@@ -47,6 +54,7 @@ export function Settings() {
     setApiUrl(DEFAULT_URLS.openai)
     setApiKey('')
     setModel(DEFAULT_MODELS.openai)
+    setTavilyApiKey('')
     setFeedback({ type: 'success', msg: '已清除' })
     setTimeout(() => setFeedback(null), 2000)
   }
@@ -168,6 +176,27 @@ export function Settings() {
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={provider === 'openai' ? 'sk-...' : 'sk-ant-...'}
               />
+            </div>
+
+            {/* Tavily Search API Key */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Globe size={13} />
+                  Tavily Search API Key
+                  <span className="text-xs text-gray-400 font-normal">（可选，用于联网搜索）</span>
+                </span>
+              </label>
+              <input
+                type="password"
+                className="input input-bordered input-sm w-full font-mono text-xs"
+                value={tavilyApiKey}
+                onChange={(e) => setTavilyApiKey(e.target.value)}
+                placeholder="tvly-..."
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                免费申请：tavily.com（1000次/月）
+              </p>
             </div>
 
             {/* Actions */}

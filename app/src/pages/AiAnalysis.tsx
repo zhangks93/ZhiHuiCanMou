@@ -2,20 +2,24 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { PageTitle } from '@/components/ui/PageTitle'
-import { Send, Bot, User, Sparkles, Wrench, ChevronDown, ChevronRight, Loader2, Settings, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Send, Bot, User, Sparkles, Wrench, ChevronDown, ChevronRight, Loader2, Settings, AlertTriangle, CheckCircle2, Plus, Trash2, MessageSquare, PanelLeftClose, PanelLeftOpen, Brain, X } from 'lucide-react'
 import { loadLLMConfig } from '@/lib/llmConfig'
 import { runAgent } from '@/lib/agent/agent'
 import { generateSuggestedQuestions } from '@/lib/agent/suggestions'
-import type { ChatMessage, AgentStep } from '@/lib/agent/types'
+import { loadSessions, saveSession, loadSessionMessages, deleteSession as deleteSessionStorage, loadMemories, deleteMemory } from '@/lib/agent/memory'
+import type { ChatMessage, AgentStep, ChatSession, AgentMemory } from '@/lib/agent/types'
 
-let msgId = 0
+let msgId = Date.now()
 const nextId = () => String(++msgId)
 
 const TOOL_NAME_MAP: Record<string, string> = {
   query_biz_data: '查询经营数据',
   query_opportunities: '查询商机台账',
   query_work_items: '查询工作汇报',
+  query_schedules: '查询日程纪要',
   web_search: '联网搜索',
+  save_memory: '保存记忆',
+  recall_memory: '检索记忆',
 }
 
 function ToolCallGroup({ steps }: { steps: AgentStep[] }) {
@@ -191,36 +195,140 @@ function MessageBubble({ msg, isStreaming }: { msg: ChatMessage; isStreaming?: b
   )
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  insight: '洞察', conclusion: '结论', anomaly: '异常', trend: '趋势',
+}
+
+function MemoryModal({ onClose }: { onClose: () => void }) {
+  const [memories, setMemories] = useState<AgentMemory[]>(loadMemories)
+  const handleDelete = (id: string) => {
+    deleteMemory(id)
+    setMemories(loadMemories())
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <h3 className="text-sm font-medium flex items-center gap-2"><Brain size={16} className="text-accent" />记忆管理</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {memories.length === 0 && <p className="text-sm text-gray-400 text-center py-8">暂无记忆条目</p>}
+          {memories.map(m => (
+            <div key={m.id} className="border rounded-lg p-3 text-xs group">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-gray-700 leading-relaxed flex-1">{m.content}</p>
+                <button onClick={() => handleDelete(m.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded text-red-400 shrink-0"><Trash2 size={12} /></button>
+              </div>
+              <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                <span className="px-1.5 py-0.5 rounded bg-accent/10 text-accent">{CATEGORY_LABELS[m.category] || m.category}</span>
+                {m.keywords.map(k => <span key={k} className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{k}</span>)}
+                <span className="text-gray-300 ml-auto">{new Date(m.createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function AiAnalysis() {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [sessions, setSessions] = useState<ChatSession[]>(loadSessions)
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
+    const s = loadSessions()
+    return s.length > 0 ? s[0].id : null
+  })
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const s = loadSessions()
+    return s.length > 0 ? loadSessionMessages(s[0].id) : []
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [memoryOpen, setMemoryOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const config = loadLLMConfig()
 
-  useEffect(() => {
-    generateSuggestedQuestions(8).then(setSuggestions).catch(() => {})
-  }, [])
+  useEffect(() => { generateSuggestedQuestions(8).then(setSuggestions).catch(() => {}) }, [])
 
   const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-    })
+    requestAnimationFrame(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) })
   }, [])
 
   useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
 
+  // Persist messages whenever they change (skip empty)
+  useEffect(() => {
+    if (!activeSessionId || messages.length === 0) return
+    const session = sessions.find(s => s.id === activeSessionId)
+    if (session) {
+      const updated = { ...session, updatedAt: Date.now() }
+      saveSession(updated, messages)
+    }
+  }, [messages, activeSessionId])
+
+  const createSession = useCallback(() => {
+    const id = crypto.randomUUID()
+    const session: ChatSession = { id, title: '新对话', createdAt: Date.now(), updatedAt: Date.now() }
+    saveSession(session, [])
+    setSessions(loadSessions())
+    setActiveSessionId(id)
+    setMessages([])
+  }, [])
+
+  const switchSession = useCallback((id: string) => {
+    setActiveSessionId(id)
+    setMessages(loadSessionMessages(id))
+  }, [])
+
+  const handleDeleteSession = useCallback((id: string) => {
+    deleteSessionStorage(id)
+    const remaining = loadSessions()
+    setSessions(remaining)
+    if (activeSessionId === id) {
+      if (remaining.length > 0) {
+        setActiveSessionId(remaining[0].id)
+        setMessages(loadSessionMessages(remaining[0].id))
+      } else {
+        setActiveSessionId(null)
+        setMessages([])
+      }
+    }
+  }, [activeSessionId])
+
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || loading || !config) return
+
+    // Auto-create session if none active
+    let sid = activeSessionId
+    if (!sid) {
+      sid = crypto.randomUUID()
+      const session: ChatSession = { id: sid, title: text.trim().slice(0, 30), createdAt: Date.now(), updatedAt: Date.now() }
+      saveSession(session, [])
+      setSessions(loadSessions())
+      setActiveSessionId(sid)
+    }
+
     const userMsg: ChatMessage = { id: nextId(), role: 'user', content: text.trim(), timestamp: Date.now() }
     const assistantMsg: ChatMessage = { id: nextId(), role: 'assistant', content: '', steps: [], timestamp: Date.now() }
+
+    // Update title from first user message
+    const isFirst = messages.length === 0
+    if (isFirst) {
+      const s = sessions.find(s => s.id === sid)
+      if (s && s.title === '新对话') {
+        const updated = { ...s, title: text.trim().slice(0, 30), updatedAt: Date.now() }
+        saveSession(updated, [...messages, userMsg, assistantMsg])
+        setSessions(loadSessions())
+      }
+    }
 
     setMessages(prev => [...prev, userMsg, assistantMsg])
     setInput('')
     setLoading(true)
 
-    // Build history from previous messages (only final Q&A, not steps)
     const history = messages
       .filter(m => m.role === 'user' || (m.role === 'assistant' && m.content))
       .map(m => ({ role: m.role, content: m.content }))
@@ -233,7 +341,7 @@ export function AiAnalysis() {
             : m
         ))
         scrollToBottom()
-      })
+      }, sid)
       setMessages(prev => prev.map((m, i) =>
         i === prev.length - 1 && m.role === 'assistant'
           ? { ...m, content: answer }
@@ -249,7 +357,7 @@ export function AiAnalysis() {
     } finally {
       setLoading(false)
     }
-  }, [loading, config, messages, scrollToBottom])
+  }, [loading, config, messages, scrollToBottom, activeSessionId, sessions])
 
   // No LLM config
   if (!config) {
@@ -274,62 +382,110 @@ export function AiAnalysis() {
     <>
       <PageTitle breadcrumb="工具与分析 / 智能分析" title="智能分析" subtitle="AI 自主数据分析助手" />
 
-      <div className="flex flex-col bg-surface rounded-lg border border-gray-200 shadow-card" style={{ height: 'calc(100vh - 160px)' }}>
-        {/* Messages area */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-          {isEmpty ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center mb-4">
-                <Bot size={28} className="text-accent" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-800 mb-1">智汇参谋 · AI 分析助手</h3>
-              <p className="text-sm text-gray-500 mb-6 max-w-md">
-                我能自主理解你的业务问题，从数据库获取经营数据、商机台账、工作汇报等信息，为你提供深度分析洞察。
-              </p>
-              <div className="flex flex-wrap justify-center gap-2 max-w-2xl">
-                {suggestions.map((q, i) => (
-                  <button
-                    key={i}
-                    onClick={() => sendMessage(q)}
-                    className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-accent hover:text-accent transition-colors"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
+      <div className="flex rounded-lg border border-gray-200 shadow-card overflow-hidden" style={{ height: 'calc(100vh - 160px)' }}>
+        {/* Session sidebar */}
+        {sidebarOpen && (
+          <div className="w-56 shrink-0 bg-gray-50 border-r border-gray-200 flex flex-col">
+            <div className="p-2 border-b border-gray-200 flex items-center gap-1">
+              <button onClick={createSession} className="btn btn-ghost btn-xs flex-1 gap-1 justify-start text-xs">
+                <Plus size={14} /> 新对话
+              </button>
+              <button onClick={() => setMemoryOpen(true)} className="btn btn-ghost btn-xs gap-1 text-xs" title="记忆管理">
+                <Brain size={14} />
+              </button>
+              <button onClick={() => setSidebarOpen(false)} className="btn btn-ghost btn-xs">
+                <PanelLeftClose size={14} />
+              </button>
             </div>
-          ) : (
-            messages.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg} isStreaming={loading && msg === messages[messages.length - 1]} />
-            ))
-          )}
-        </div>
-
-        {/* Input area */}
-        <div className="border-t border-gray-200 p-3">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(input)}
-              placeholder="输入你的业务问题，如：各中心利润达成情况如何？"
-              className="input input-bordered flex-1 text-sm"
-              disabled={loading}
-            />
-            <button
-              onClick={() => sendMessage(input)}
-              disabled={loading || !input.trim()}
-              className="btn btn-primary btn-square"
-            >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            </button>
+            <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
+              {sessions.map(s => (
+                <div
+                  key={s.id}
+                  className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-xs transition-colors ${s.id === activeSessionId ? 'bg-accent/10 text-accent' : 'text-gray-600 hover:bg-gray-100'}`}
+                  onClick={() => switchSession(s.id)}
+                >
+                  <MessageSquare size={12} className="shrink-0" />
+                  <span className="flex-1 truncate">{s.title}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteSession(s.id) }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-400"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              ))}
+              {sessions.length === 0 && (
+                <p className="text-[11px] text-gray-400 text-center py-4">暂无对话</p>
+              )}
+            </div>
           </div>
-          <p className="text-xs text-gray-400 mt-1.5 text-center">
-            Agent 会自主规划分析步骤并查询数据库 · 数据完全本地处理
-          </p>
+        )}
+
+        {/* Main chat area */}
+        <div className="flex-1 flex flex-col bg-surface min-w-0">
+          {/* Messages area */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+            {!sidebarOpen && (
+              <button onClick={() => setSidebarOpen(true)} className="absolute top-2 left-2 z-10 btn btn-ghost btn-xs">
+                <PanelLeftOpen size={14} />
+              </button>
+            )}
+            {isEmpty ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center mb-4">
+                  <Bot size={28} className="text-accent" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-800 mb-1">智汇参谋 · AI 分析助手</h3>
+                <p className="text-sm text-gray-500 mb-6 max-w-md">
+                  我能自主理解你的业务问题，从数据库获取经营数据、商机台账、工作汇报等信息，为你提供深度分析洞察。
+                </p>
+                <div className="flex flex-wrap justify-center gap-2 max-w-2xl">
+                  {suggestions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => sendMessage(q)}
+                      className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-accent hover:text-accent transition-colors"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              messages.map((msg) => (
+                <MessageBubble key={msg.id} msg={msg} isStreaming={loading && msg === messages[messages.length - 1]} />
+              ))
+            )}
+          </div>
+
+          {/* Input area */}
+          <div className="border-t border-gray-200 p-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(input)}
+                placeholder="输入你的业务问题，如：各中心利润达成情况如何？"
+                className="input input-bordered flex-1 text-sm"
+                disabled={loading}
+              />
+              <button
+                onClick={() => sendMessage(input)}
+                disabled={loading || !input.trim()}
+                className="btn btn-primary btn-square"
+              >
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5 text-center">
+              Agent 会自主规划分析步骤并查询数据库 · 支持跨会话记忆
+            </p>
+          </div>
         </div>
       </div>
+
+      {memoryOpen && <MemoryModal onClose={() => setMemoryOpen(false)} />}
     </>
   )
 }

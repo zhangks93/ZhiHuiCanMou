@@ -127,7 +127,7 @@ export const FIXED_NAV = {
 }
 
 export const DEFAULT_ENABLED_MODULE_IDS = [
-  'work-report',
+  // 'work-report', // 暂时隐藏项目协同
   'schedule',
   'org-data',
   'biz-data',

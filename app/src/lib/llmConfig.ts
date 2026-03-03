@@ -3,6 +3,19 @@ export interface LLMConfig {
   apiUrl: string
   apiKey: string
   model: string
+  tavilyApiKey?: string
+}
+
+export interface ProviderSettings {
+  apiUrl: string
+  apiKey: string
+  model: string
+}
+
+interface LLMConfigStore {
+  provider: LLMConfig['provider']
+  tavilyApiKey?: string
+  providers: Partial<Record<LLMConfig['provider'], ProviderSettings>>
 }
 
 const STORAGE_KEY = 'llm_config'
@@ -17,20 +30,75 @@ export const DEFAULT_MODELS: Record<LLMConfig['provider'], string> = {
   claude: 'claude-sonnet-4-20250514',
 }
 
-export function loadLLMConfig(): LLMConfig | null {
+/** Read raw store from localStorage, migrating old flat format if needed */
+function loadStore(): LLMConfigStore | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as LLMConfig
-    if (!parsed.provider || !parsed.apiKey) return null
-    return parsed
+    const parsed = JSON.parse(raw)
+    // New format already has 'providers' key
+    if (parsed.providers) return parsed as LLMConfigStore
+    // Old flat format → migrate
+    if (parsed.provider && parsed.apiKey) {
+      const store: LLMConfigStore = {
+        provider: parsed.provider,
+        tavilyApiKey: parsed.tavilyApiKey,
+        providers: {
+          [parsed.provider]: {
+            apiUrl: parsed.apiUrl,
+            apiKey: parsed.apiKey,
+            model: parsed.model,
+          },
+        },
+      }
+      // Persist migrated format
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+      return store
+    }
+    return null
   } catch {
     return null
   }
 }
 
+/** Load active provider's config (used by AiAnalysis / BizData) */
+export function loadLLMConfig(): LLMConfig | null {
+  const store = loadStore()
+  if (!store) return null
+  const settings = store.providers[store.provider]
+  if (!settings?.apiKey) return null
+  return {
+    provider: store.provider,
+    apiUrl: settings.apiUrl,
+    apiKey: settings.apiKey,
+    model: settings.model,
+    tavilyApiKey: store.tavilyApiKey,
+  }
+}
+
+/** Load a specific provider's saved settings (used by Settings page) */
+export function loadProviderSettings(provider: LLMConfig['provider']): ProviderSettings | null {
+  const store = loadStore()
+  return store?.providers[provider] ?? null
+}
+
+/** Load tavilyApiKey from store */
+export function loadTavilyApiKey(): string | undefined {
+  const store = loadStore()
+  return store?.tavilyApiKey
+}
+
+/** Save config, preserving other provider's settings */
 export function saveLLMConfig(config: LLMConfig): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+  const store = loadStore() || { provider: config.provider, providers: {} }
+  store.provider = config.provider
+  store.tavilyApiKey = config.tavilyApiKey
+  store.providers[config.provider] = {
+    apiUrl: config.apiUrl,
+    apiKey: config.apiKey,
+    model: config.model,
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
 }
 
 export function clearLLMConfig(): void {

@@ -20,7 +20,16 @@
       "Bash(cd D:/Code/ZhiHuiCanMou/app && npm install @tauri-apps/plugin-http 2>&1)",
       "Bash(cd D:/Code/ZhiHuiCanMou && git add -A && git status 2>&1)",
       "Bash(cd D:/Code/ZhiHuiCanMou && git commit -m \"feat: AI-powered BizData analysis with configurable LLM provider\n\n- Add llmConfig.ts: localStorage helpers for provider, API URL, key, model\n- Add llmService.ts: LLM API calls \\(OpenAI/Claude\\) with financial analysis prompt\n- Settings: add AI config card with provider/URL/model/key inputs\n- BizData: add AI deep analysis button with loading/error/fallback states\n- Add tauri-plugin-http to bypass CORS for LLM API calls\n- Gitignore src-tauri/target build artifacts\" 2>&1)",
-      "Bash(cd D:/Code/ZhiHuiCanMou && git push 2>&1)"
+      "Bash(cd D:/Code/ZhiHuiCanMou && git push 2>&1)",
+      "Bash(npm install:*)",
+      "Bash(xargs wc:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git:*)",
+      "mcp__supabase__get_publishable_keys",
+      "Bash(python:*)",
+      "mcp__supabase__get_project_url",
+      "Bash(pip install:*)",
+      "Bash(\"/c/Users/HLJY/AppData/Local/Python/pythoncore-3.14-64/python.exe\":*)"
     ]
   },
   "enableAllProjectMcpServers": true,
