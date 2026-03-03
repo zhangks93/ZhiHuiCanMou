@@ -33,58 +33,104 @@ export interface BizDataItem {
   updated_at?: string
 }
 
-// --- 经营数据快照 (biz_data_snapshot) ---
+// --- 教育后勤经营数据 (edu_logistics_biz_data) ---
+// 层级由 center/biz_class/org_tag 列推导：
+//   level 0: center IS NULL（合计）
+//   level 1: center 有值, biz_class 为空（中心）
+//   level 2: node_name === biz_class（板块分类）
+//   level 3: org_tag 有值（业务单位）
+// 百分比/比率字段以小数存储（0.7563 = 75.63%）
 export interface BizDataSnapshot {
   id: string
-  org_id: string | null
-  fiscal_year: string
   node_name: string
   center: string | null
   biz_class: string | null
   biz_level1: string | null
   org_tag: string | null
-  node_level: number
-  parent_name: string | null
+  // Revenue 营收
   actual_revenue: number | null
   budget_revenue: number | null
   revenue_completion_rate: number | null
   revenue_diff: number | null
   yoy_revenue: number | null
+  // Material 物资
+  actual_material: number | null
+  budget_material: number | null
+  material_completion_rate: number | null
+  yoy_material: number | null
+  // Meal 餐费
+  actual_meal: number | null
+  budget_meal: number | null
+  meal_completion_rate: number | null
+  yoy_meal: number | null
+  // Gross Profit 毛利
   actual_gross_profit: number | null
   budget_gross_profit: number | null
   gross_profit_completion_rate: number | null
   yoy_gross_profit: number | null
+  // Gross Margin 毛利率
   actual_gross_margin: number | null
   budget_gross_margin: number | null
   gross_margin_diff: number | null
   yoy_gross_margin: number | null
+  // Labor Cost 人力成本
   actual_labor_cost: number | null
   budget_labor_cost: number | null
   labor_cost_completion_rate: number | null
   yoy_labor_cost: number | null
+  // Other Cost 其他成本
   actual_other_cost: number | null
   budget_other_cost: number | null
   other_cost_completion_rate: number | null
   yoy_other_cost: number | null
+  // External Revenue/Expense 外收/外支
+  actual_external_revenue: number | null
+  budget_external_revenue: number | null
+  yoy_external_revenue: number | null
+  actual_external_expense: number | null
+  budget_external_expense: number | null
+  yoy_external_expense: number | null
+  // Profit 利润
   actual_profit: number | null
   budget_profit: number | null
   profit_completion_rate: number | null
   profit_diff: number | null
   yoy_profit: number | null
+  // Profit Margin 利润率
   actual_profit_margin: number | null
   budget_profit_margin: number | null
   profit_margin_diff: number | null
   yoy_profit_margin: number | null
+  // Labor Cost Rate 人力成本率
   actual_labor_cost_rate: number | null
   budget_labor_cost_rate: number | null
   labor_cost_rate_completion: number | null
   yoy_labor_cost_rate: number | null
+  // Revenue/Profit Creation 创收/创利
+  actual_revenue_creation: number | null
+  budget_revenue_creation: number | null
+  revenue_creation_completion_rate: number | null
+  yoy_revenue_creation: number | null
+  actual_profit_creation: number | null
+  budget_profit_creation: number | null
+  profit_creation_completion_rate: number | null
+  yoy_profit_creation: number | null
+  // Headcount 人数
   actual_headcount: number | null
   budget_headcount: number | null
   headcount_diff: number | null
   yoy_headcount: number | null
+  // Per Capita Labor 人均人力
+  actual_per_capita_labor: number | null
+  yoy_per_capita_labor: number | null
+  budget_per_capita_labor: number | null
+  per_capita_labor_diff: number | null
+  // Meta
+  dashboard_flag: string | null
   created_at: string
-  updated_at: string
+  // Computed client-side
+  node_level: number
+  parent_name: string | null
 }
 
 export interface Opportunity {

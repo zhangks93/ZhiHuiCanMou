@@ -20,20 +20,20 @@ function fmt(v: number | null | undefined, suffix = ''): string {
 
 function fmtPct(v: number | null | undefined): string {
   if (v == null) return '-'
-  return v.toFixed(1) + '%'
+  return (v * 100).toFixed(1) + '%'
 }
 
 function rateColor(rate: number | null | undefined): string {
   if (rate == null) return 'text-gray-400'
-  if (rate >= 90) return 'text-success-700'
-  if (rate >= 70) return 'text-warning-700'
+  if (rate >= 0.90) return 'text-success-700'
+  if (rate >= 0.70) return 'text-warning-700'
   return 'text-error-700'
 }
 
 function rateBg(rate: number | null | undefined): string {
   if (rate == null) return 'bg-gray-100 text-gray-500'
-  if (rate >= 90) return 'bg-success-100 text-success-700'
-  if (rate >= 70) return 'bg-warning-100 text-warning-700'
+  if (rate >= 0.90) return 'bg-success-100 text-success-700'
+  if (rate >= 0.70) return 'bg-warning-100 text-warning-700'
   return 'bg-error-100 text-error-700'
 }
 
@@ -69,7 +69,7 @@ function generateInsights(total: BizDataSnapshot | undefined, level1: BizDataSna
 
   // Overall revenue completion
   const revRate = total.revenue_completion_rate
-  if (revRate != null && revRate < 80) {
+  if (revRate != null && revRate < 0.80) {
     insights.push({
       type: 'danger',
       title: '整体营收预算达成率偏低',
@@ -79,7 +79,7 @@ function generateInsights(total: BizDataSnapshot | undefined, level1: BizDataSna
 
   // Profit completion
   const profRate = total.profit_completion_rate
-  if (profRate != null && profRate < 50) {
+  if (profRate != null && profRate < 0.50) {
     insights.push({
       type: 'danger',
       title: '利润达成严重不足',
@@ -90,11 +90,11 @@ function generateInsights(total: BizDataSnapshot | undefined, level1: BizDataSna
   // Labor cost rate
   if (total.actual_labor_cost_rate != null && total.budget_labor_cost_rate != null) {
     const diff = total.actual_labor_cost_rate - total.budget_labor_cost_rate
-    if (diff > 3) {
+    if (diff > 0.03) {
       insights.push({
         type: 'warning',
         title: '人力成本率超预算',
-        detail: `实际人力成本率 ${fmtPct(total.actual_labor_cost_rate)} 高于预算 ${fmtPct(total.budget_labor_cost_rate)}，超出 ${diff.toFixed(1)} 个百分点，建议优化人员配置。`,
+        detail: `实际人力成本率 ${fmtPct(total.actual_labor_cost_rate)} 高于预算 ${fmtPct(total.budget_labor_cost_rate)}，超出 ${(diff * 100).toFixed(1)} 个百分点，建议优化人员配置。`,
       })
     }
   }
@@ -114,7 +114,7 @@ function generateInsights(total: BizDataSnapshot | undefined, level1: BizDataSna
 
   // Worst performing units
   const underperformers = level1
-    .filter(d => d.revenue_completion_rate != null && d.revenue_completion_rate < 70 && (d.budget_revenue ?? 0) > 100)
+    .filter(d => d.revenue_completion_rate != null && d.revenue_completion_rate < 0.70 && (d.budget_revenue ?? 0) > 100)
     .sort((a, b) => (a.revenue_completion_rate ?? 0) - (b.revenue_completion_rate ?? 0))
   for (const u of underperformers.slice(0, 2)) {
     insights.push({
@@ -137,11 +137,11 @@ function generateInsights(total: BizDataSnapshot | undefined, level1: BizDataSna
   }
 
   // Gross margin analysis
-  if (total.gross_margin_diff != null && total.gross_margin_diff > 3) {
+  if (total.gross_margin_diff != null && total.gross_margin_diff > 0.03) {
     insights.push({
       type: 'success',
       title: '毛利率优于预算',
-      detail: `实际毛利率 ${fmtPct(total.actual_gross_margin)} 高于预算 ${fmtPct(total.budget_gross_margin)}，差异 +${total.gross_margin_diff.toFixed(1)} 个百分点。`,
+      detail: `实际毛利率 ${fmtPct(total.actual_gross_margin)} 高于预算 ${fmtPct(total.budget_gross_margin)}，差异 +${(total.gross_margin_diff * 100).toFixed(1)} 个百分点。`,
     })
   }
 
@@ -168,13 +168,28 @@ export function BizData() {
 
   useEffect(() => {
     supabase
-      .from('biz_data_snapshot')
+      .from('edu_logistics_biz_data')
       .select('*')
-      .eq('fiscal_year', '2025')
-      .order('node_level')
       .order('node_name')
       .then(({ data: rows }) => {
-        setData(rows ?? [])
+        // Compute node_level and parent_name from center/biz_class/org_tag
+        const enriched: BizDataSnapshot[] = (rows ?? []).map(row => {
+          let node_level: number
+          let parent_name: string | null = null
+          if (!row.center) {
+            node_level = 0
+          } else if (!row.biz_class) {
+            node_level = 1
+          } else if (!row.org_tag || row.node_name === row.biz_class) {
+            node_level = 2
+            parent_name = row.center
+          } else {
+            node_level = 3
+            parent_name = row.biz_class
+          }
+          return { ...row, node_level, parent_name }
+        })
+        setData(enriched)
         setLoading(false)
       })
   }, [])
@@ -238,16 +253,16 @@ export function BizData() {
           value={fmt(total?.actual_revenue)}
           unit="万元"
           trend={`预算达成 ${fmtPct(total?.revenue_completion_rate)}`}
-          trendUp={(total?.revenue_completion_rate ?? 0) >= 80}
-          color={(total?.revenue_completion_rate ?? 0) >= 80 ? 'success' : 'warning'}
+          trendUp={(total?.revenue_completion_rate ?? 0) >= 0.80}
+          color={(total?.revenue_completion_rate ?? 0) >= 0.80 ? 'success' : 'warning'}
         />
         <StatCard
           label="实际利润"
           value={fmt(total?.actual_profit)}
           unit="万元"
           trend={`预算达成 ${fmtPct(total?.profit_completion_rate)}`}
-          trendUp={(total?.profit_completion_rate ?? 0) >= 80}
-          color={(total?.profit_completion_rate ?? 0) >= 80 ? 'success' : 'error'}
+          trendUp={(total?.profit_completion_rate ?? 0) >= 0.80}
+          color={(total?.profit_completion_rate ?? 0) >= 0.80 ? 'success' : 'error'}
         />
         <StatCard
           label="毛利率"
@@ -473,7 +488,7 @@ function TableGroup({
             <span className={`${level === 0 ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
               {row.node_name}
             </span>
-            {row.revenue_completion_rate != null && row.revenue_completion_rate < 70 && (row.budget_revenue ?? 0) > 50 && (
+            {row.revenue_completion_rate != null && row.revenue_completion_rate < 0.70 && (row.budget_revenue ?? 0) > 50 && (
               <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-error animate-pulse" />
             )}
           </div>
@@ -582,7 +597,7 @@ function DataCells({
   return (
     <>
       <td className={`text-right py-2.5 px-4 tabular-nums ${cls}`}>{fmt(row.actual_labor_cost)}</td>
-      <td className={`text-right py-2.5 px-4 tabular-nums ${rateColor(row.actual_labor_cost_rate != null && row.actual_labor_cost_rate <= (row.budget_labor_cost_rate ?? 100) ? 90 : 60)}`}>
+      <td className={`text-right py-2.5 px-4 tabular-nums ${rateColor(row.actual_labor_cost_rate != null && row.actual_labor_cost_rate <= (row.budget_labor_cost_rate ?? 1) ? 0.90 : 0.60)}`}>
         {fmtPct(row.actual_labor_cost_rate)}
       </td>
       <td className={`text-right py-2.5 px-4 tabular-nums ${cls}`}>{fmt(row.actual_other_cost)}</td>
