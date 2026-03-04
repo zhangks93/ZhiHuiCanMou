@@ -128,9 +128,6 @@ export interface BizDataSnapshot {
   // Meta
   dashboard_flag: string | null
   created_at: string
-  // Computed client-side
-  node_level: number
-  parent_name: string | null
 }
 
 export interface Opportunity {
@@ -243,4 +240,58 @@ export function getUserDisplayInfo(user: User): { name: string; avatarUrl?: stri
     name: meta?.name ?? user.email ?? '未命名用户',
     avatarUrl: meta?.avatar,
   }
+}
+
+// --- 考勤数据 ---
+export interface Employee {
+  id: string
+  employee_code: string
+  name: string
+  company: string | null
+  department: string | null
+  join_date: string | null
+  level: string | null
+  employee_type: string | null
+  created_at: string
+}
+
+export interface AttendanceRecord {
+  id: string
+  employee_id: string
+  period_start: string
+  period_end: string
+  expected_days: number | null
+  actual_days: number | null
+  work_days: number | null
+  overtime_days: number | null
+  personal_leave: number | null
+  sick_leave: number | null
+  bereavement_leave: number | null
+  marriage_leave: number | null
+  maternity_leave: number | null
+  annual_leave: number | null
+  compensatory_leave: number | null
+  other_leave: number | null
+  absent_days: number | null
+  late_times: number | null
+  early_leave_times: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AttendanceWithEmployee extends AttendanceRecord {
+  employee: Employee
+}
+
+export interface DepartmentAttendanceSummary {
+  department: string
+  employee_count: number
+  total_expected: number
+  total_actual: number
+  rate: number
+  total_leave: number
+  total_late: number
+  total_early: number
+  total_absent: number
+  total_overtime: number
 }

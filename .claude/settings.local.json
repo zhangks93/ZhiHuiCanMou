@@ -29,7 +29,9 @@
       "Bash(python:*)",
       "mcp__supabase__get_project_url",
       "Bash(pip install:*)",
-      "Bash(\"/c/Users/HLJY/AppData/Local/Python/pythoncore-3.14-64/python.exe\":*)"
+      "Bash(\"/c/Users/HLJY/AppData/Local/Python/pythoncore-3.14-64/python.exe\":*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:supabase.com)"
     ]
   },
   "enableAllProjectMcpServers": true,
