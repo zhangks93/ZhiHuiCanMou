@@ -11,6 +11,11 @@ function isTauriApp() {
   return typeof window !== 'undefined' && '__TAURI__' in window
 }
 
+function isMobile() {
+  if (typeof navigator === 'undefined') return false
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
 export function Login() {
   const state = useMemo(generateState, [])
   const { appId, redirectUri, scope } = env.feishu
@@ -25,8 +30,8 @@ export function Login() {
     loginUrl.searchParams.set('state', state)
     const urlStr = loginUrl.toString()
 
-    // 在 Tauri（桌面/安卓）中用内嵌 WebView 弹窗完成 OAuth，会话可回传到主窗口
-    if (isTauriApp()) {
+    // 桌面 Tauri：使用弹窗 WebView；移动端 / Web：直接在当前窗口跳转
+    if (isTauriApp() && !isMobile()) {
       const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
       const oauthWindow = new WebviewWindow('oauth', {
         url: urlStr,

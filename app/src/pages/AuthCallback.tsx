@@ -34,7 +34,11 @@ export function AuthCallback() {
       }
 
       const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
-      if (isTauri) {
+      const isMobile =
+        typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
+      if (isTauri && !isMobile) {
+        // 桌面 Tauri：通过事件通知主窗口并关闭弹窗
         try {
           const { emit } = await import('@tauri-apps/api/event')
           emit('auth:oauth-complete', { access_token: accessToken, refresh_token: refreshToken })
@@ -49,7 +53,7 @@ export function AuthCallback() {
           }
         }
       } else {
-        // Web 端：在同一页面直接 setSession
+        // Web / 移动端：在当前窗口直接 setSession 并返回首页
         const { supabase } = await import('@/lib/supabase')
         const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         if (error) throw error
