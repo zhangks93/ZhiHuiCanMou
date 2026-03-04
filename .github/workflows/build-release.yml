@@ -191,7 +191,11 @@ jobs:
       - name: list generated APKs
         run: |
           echo "Generated APK files:"
-          find app/src-tauri/gen/android/app/build/outputs/apk/release -name "*.apk" -exec ls -lh {} \;
+          if [ -d app/src-tauri/gen/android/app/build/outputs/apk ]; then
+            find app/src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -exec ls -lh {} \;
+          else
+            echo "No APK directory found at app/src-tauri/gen/android/app/build/outputs/apk"
+          fi
 
       - name: upload APKs to release
         env:
@@ -199,7 +203,11 @@ jobs:
         run: |
           VERSION=$(node -p "require('./app/package.json').version")
           TAG="app-v$VERSION"
-          find app/src-tauri/gen/android/app/build/outputs/apk/release -name "*.apk" -exec gh release upload "$TAG" {} --clobber \;
+          if [ -d app/src-tauri/gen/android/app/build/outputs/apk ]; then
+            find app/src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -exec gh release upload "$TAG" {} --clobber \;
+          else
+            echo "No APK directory found at app/src-tauri/gen/android/app/build/outputs/apk, skip upload"
+          fi
 
   publish-release:
     permissions:
