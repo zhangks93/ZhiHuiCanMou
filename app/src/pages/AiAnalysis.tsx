@@ -17,6 +17,8 @@ const TOOL_NAME_MAP: Record<string, string> = {
   query_opportunities: '查询商机台账',
   query_work_items: '查询工作汇报',
   query_schedules: '查询日程纪要',
+  query_attendance: '查询考勤记录',
+  query_trips: '查询出差记录',
   web_search: '联网搜索',
   save_memory: '保存记忆',
   recall_memory: '检索记忆',

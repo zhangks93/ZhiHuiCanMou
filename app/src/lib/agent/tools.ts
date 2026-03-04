@@ -21,10 +21,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: 'query_opportunities',
-    description: '查询商机项目台账。包含项目名称、预估金额、状态、中标概率、区域等信息。可用于分析商机管道和转化情况。支持指定返回字段。',
+    description: '查询商机项目台账。包含项目名称、预估金额、状态、中标概率、区域等信息。默认返回最新快照日期的数据。可用于分析商机管道和转化情况。支持指定返回字段。',
     parameters: {
       type: 'object',
       properties: {
+        snapshot_date: { type: 'string', description: '快照日期(YYYY-MM-DD)，不传则自动使用最新日期' },
         item_type: { type: 'string', description: '商机类型', enum: ['operation', 'expansion', 'tracking'] },
         status: { type: 'string', description: '商机状态', enum: ['tracking', 'bidding', 'contracted', 'operating', 'suspended', 'lost'] },
         region: { type: 'string', description: '区域名称，支持模糊匹配' },
@@ -60,6 +61,40 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         has_notes: { type: 'string', description: '是否有会议纪要，传 "true" 只返回有纪要的日程' },
         columns: { type: 'string', description: '需要返回的字段，逗号分隔。不传则返回全部字段。' },
         limit: { type: 'number', description: '返回条数上限，默认50' },
+      },
+    },
+  },
+  {
+    name: 'query_attendance',
+    description: '查询员工考勤数据。包含应出勤天数、实出勤天数、请假天数、旷工天数、迟到早退次数等。可按部门、月份分析考勤情况和出勤率。支持指定返回字段。',
+    parameters: {
+      type: 'object',
+      properties: {
+        year_month: { type: 'number', description: '年月，如 202601 表示2026年1月' },
+        department: { type: 'string', description: '部门名称，支持模糊匹配' },
+        employee_name: { type: 'string', description: '员工姓名，支持模糊匹配' },
+        min_attendance_rate: { type: 'number', description: '最低出勤率（0-100），筛选出勤率高于此值的记录' },
+        max_attendance_rate: { type: 'number', description: '最高出勤率（0-100），筛选出勤率低于此值的记录' },
+        columns: { type: 'string', description: '需要返回的字段，逗号分隔。不传则返回全部字段。' },
+        limit: { type: 'number', description: '返回条数上限，默认100' },
+      },
+    },
+  },
+  {
+    name: 'query_trips',
+    description: '查询员工出差记录。包含出差人员、部门、客户、商机、出发/返回时间、出差天数、事由等。可用于分析出差频率、客户拜访情况、出差成本等。支持指定返回字段。',
+    parameters: {
+      type: 'object',
+      properties: {
+        employee_name: { type: 'string', description: '员工姓名，支持模糊匹配' },
+        department: { type: 'string', description: '部门名称，支持模糊匹配' },
+        customer_name: { type: 'string', description: '客户名称，支持模糊匹配' },
+        opportunity_name: { type: 'string', description: '商机名称，支持模糊匹配' },
+        start_date_from: { type: 'string', description: '出发日期起始，如 "2026-01-01"' },
+        start_date_to: { type: 'string', description: '出发日期结束，如 "2026-01-31"' },
+        min_days: { type: 'number', description: '最少出差天数' },
+        columns: { type: 'string', description: '需要返回的字段，逗号分隔。不传则返回全部字段。' },
+        limit: { type: 'number', description: '返回条数上限，默认100' },
       },
     },
   },
@@ -123,7 +158,20 @@ async function queryBizData(args: Args): Promise<string> {
 
 async function queryOpportunities(args: Args): Promise<string> {
   const cols = typeof args.columns === 'string' ? args.columns : '*'
+
+  // 如果没有指定快照日期，先获取最新的快照日期
+  let snapshotDate = args.snapshot_date
+  if (!snapshotDate) {
+    const { data: latest } = await supabase
+      .from('opportunity_ledger')
+      .select('snapshot_date')
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+    snapshotDate = latest?.[0]?.snapshot_date
+  }
+
   let query = supabase.from('opportunity_ledger').select(cols)
+  if (snapshotDate) query = query.eq('snapshot_date', snapshotDate)
   if (args.item_type) query = query.eq('item_type', args.item_type)
   if (args.status) query = query.eq('status', args.status)
   if (args.region) query = query.ilike('region', `%${args.region}%`)
@@ -132,7 +180,7 @@ async function queryOpportunities(args: Args): Promise<string> {
   const { data, error } = await query.order('estimated_amount', { ascending: false }).limit(limit)
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
-  return JSON.stringify({ total: data.length, data })
+  return JSON.stringify({ snapshot_date: snapshotDate, total: data.length, data })
 }
 
 async function queryWorkItems(args: Args): Promise<string> {
@@ -160,6 +208,51 @@ async function querySchedules(args: Args): Promise<string> {
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
   return JSON.stringify({ total: data.length, data })
+}
+
+async function queryAttendance(args: Args): Promise<string> {
+  const cols = typeof args.columns === 'string' ? args.columns : '*'
+  let query = supabase.from('attendance_records').select(cols.includes('employees') ? cols : `${cols === '*' ? '*' : cols},employees(name,department,company)`)
+  if (args.year_month) query = query.eq('year_month', args.year_month)
+  if (args.department) query = query.ilike('employees.department', `%${args.department}%`)
+  if (args.employee_name) query = query.ilike('employees.name', `%${args.employee_name}%`)
+  const limit = typeof args.limit === 'number' ? args.limit : 100
+  const { data, error } = await query.order('year_month', { ascending: false }).limit(limit)
+  if (error) return JSON.stringify({ error: error.message })
+  if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
+  let filtered = data
+  if (typeof args.min_attendance_rate === 'number' || typeof args.max_attendance_rate === 'number') {
+    filtered = data.filter(r => {
+      const rate = r.expected_days > 0 ? (r.actual_days / r.expected_days) * 100 : 0
+      if (typeof args.min_attendance_rate === 'number' && rate < args.min_attendance_rate) return false
+      if (typeof args.max_attendance_rate === 'number' && rate > args.max_attendance_rate) return false
+      return true
+    })
+  }
+  return JSON.stringify({ total: filtered.length, data: filtered })
+}
+
+async function queryTrips(args: Args): Promise<string> {
+  const cols = typeof args.columns === 'string' ? args.columns : '*'
+  let query = supabase.from('business_trips').select(cols)
+  if (args.employee_name) query = query.ilike('employee_name', `%${args.employee_name}%`)
+  if (args.department) query = query.ilike('department', `%${args.department}%`)
+  if (args.customer_name) query = query.ilike('customer_name', `%${args.customer_name}%`)
+  if (args.opportunity_name) query = query.ilike('opportunity_name', `%${args.opportunity_name}%`)
+  if (args.start_date_from) query = query.gte('start_time', args.start_date_from)
+  if (args.start_date_to) query = query.lte('start_time', args.start_date_to)
+  const limit = typeof args.limit === 'number' ? args.limit : 100
+  const { data, error } = await query.order('start_time', { ascending: false }).limit(limit)
+  if (error) return JSON.stringify({ error: error.message })
+  if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
+  let filtered = data
+  if (typeof args.min_days === 'number') {
+    filtered = data.filter(r => {
+      const days = Math.ceil((new Date(r.end_time).getTime() - new Date(r.start_time).getTime()) / (1000 * 60 * 60 * 24))
+      return days >= args.min_days
+    })
+  }
+  return JSON.stringify({ total: filtered.length, data: filtered })
 }
 
 async function webSearch(args: Args, tavilyApiKey?: string): Promise<string> {
@@ -201,6 +294,8 @@ const EXECUTORS: Record<string, (args: Args) => Promise<string>> = {
   query_opportunities: queryOpportunities,
   query_work_items: queryWorkItems,
   query_schedules: querySchedules,
+  query_attendance: queryAttendance,
+  query_trips: queryTrips,
 }
 
 export async function executeTool(

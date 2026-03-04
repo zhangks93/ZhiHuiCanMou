@@ -238,25 +238,27 @@ def main():
     base_url = f"{SUPABASE_URL}/rest/v1/opportunity_ledger"
 
     with httpx.Client(timeout=30) as client:
-        # 先清除已有数据（避免重复导入）
-        print("\n清除 opportunity_ledger 表现有数据...")
-        resp = client.delete(
-            base_url,
-            headers=headers,
-            params={"id": "neq.00000000-0000-0000-0000-000000000000"},
-        )
-        resp.raise_for_status()
-        print("  已清除旧数据")
+        # 先清空表中所有数据
+        print("\n[1/2] 清空 opportunity_ledger 表...")
+        try:
+            resp = client.delete(f"{base_url}?id=gte.0", headers=headers)
+            if resp.status_code in (200, 204):
+                print("  > 已清空旧数据")
+            else:
+                print(f"  > 清空失败 (状态码 {resp.status_code})，继续导入...")
+        except Exception as e:
+            print(f"  > 清空失败，继续导入...")
 
         # 分批插入 (每批50条)
         BATCH_SIZE = 50
         inserted = 0
+        print(f"\n[2/2] 开始导入 {len(all_records)} 条记录...")
         for i in range(0, len(all_records), BATCH_SIZE):
             batch = all_records[i : i + BATCH_SIZE]
             resp = client.post(base_url, headers=headers, json=batch)
             resp.raise_for_status()
             inserted += len(resp.json())
-            print(f"  已插入 {inserted}/{len(all_records)} 条")
+            print(f"  > 进度: {inserted}/{len(all_records)} 条")
 
     print(f"\n导入完成! 共插入 {inserted} 条记录到 opportunity_ledger 表")
 

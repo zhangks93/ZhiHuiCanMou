@@ -31,7 +31,7 @@ async function fetchDataMeta(): Promise<DataMeta> {
 
   if (l1?.length) {
     meta.centers = l1.map(r => r.node_name)
-    meta.fiscalYear = '2025'
+    meta.fiscalYear = '2026'
     meta.lowRevenueNodes = l1
       .filter(r => r.revenue_completion_rate != null && r.revenue_completion_rate < 0.85)
       .map(r => r.node_name)
@@ -134,6 +134,30 @@ export async function generateSuggestedQuestions(count = 8): Promise<string[]> {
     '结合经营数据和商机情况，给出下季度重点工作建议',
     '哪些区域的经营缺口可以通过现有商机弥补？',
     '当前团队工作重点是什么？有哪些高优先级任务？',
+  )
+
+  // Attendance questions
+  pool.push(
+    '本月各部门考勤情况如何？哪些部门出勤率偏低？',
+    '分析最近3个月的考勤趋势，有什么异常情况？',
+    '迟到早退最频繁的部门是哪些？如何改善？',
+    '请假天数最多的员工有哪些？是否影响业务？',
+  )
+
+  // Trip questions
+  pool.push(
+    '本月出差人次和天数统计，哪些部门出差最频繁？',
+    '分析出差与商机的关联，哪些客户拜访频率最高？',
+    '当前有哪些人员在途？预计何时返回？',
+    '人均出差天数最多的部门是哪个？成本如何？',
+    '出差超过5天的记录有哪些？事由是什么？',
+  )
+
+  // Combined analysis questions
+  pool.push(
+    '结合考勤和出差数据，分析团队工作强度',
+    '出差频繁的员工考勤情况如何？是否有异常？',
+    '哪些商机投入了最多的出差资源？转化效果如何？',
   )
 
   // Web search questions
