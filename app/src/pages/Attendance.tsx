@@ -1,24 +1,6 @@
 import { useState, useEffect } from 'react'
-import { PageTitle } from '@/components/ui/PageTitle'
 import { supabase } from '@/lib/supabase'
 import { Clock, User, AlertCircle, CheckCircle2 } from 'lucide-react'
-
-interface AttendanceRecord {
-  id: string
-  employee_id: string
-  year_month: number
-  expected_days: number
-  actual_days: number
-  leave_days: number
-  absent_days: number
-  late_times: number
-  early_leave_times: number
-  employees: {
-    name: string
-    department: string
-    company: string
-  }
-}
 
 interface DeptSummary {
   department: string
@@ -158,7 +140,14 @@ export function Attendance() {
   if (loading && summaries.length === 0) {
     return (
       <>
-        <PageTitle breadcrumb="业务管理 / 考勤管理" title="考勤管理" />
+        <div className="mb-6 animate-slide-up">
+          <div className="text-sm text-[var(--color-text-muted)] mb-0.5 font-medium">
+            业务管理 / 考勤管理
+          </div>
+          <h1 className="text-2xl font-semibold text-[var(--color-text-strong)] font-serif tracking-tight">
+            考勤管理
+          </h1>
+        </div>
         <div className="bg-white rounded-lg border border-gray-200 p-10 text-center">
           <Clock size={40} className="mx-auto text-gray-300 animate-spin" />
           <p className="text-gray-400 mt-4">加载中...</p>
@@ -175,19 +164,27 @@ export function Attendance() {
 
   return (
     <>
-      <PageTitle breadcrumb="业务管理 / 考勤管理" title="考勤管理">
-        {availableMonths.length > 0 && (
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="ml-4 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {availableMonths.map(m => (
-              <option key={m} value={m}>{formatMonth(m)}</option>
-            ))}
-          </select>
-        )}
-      </PageTitle>
+      <div className="mb-6 animate-slide-up">
+        <div className="text-sm text-[var(--color-text-muted)] mb-0.5 font-medium">
+          业务管理 / 考勤管理
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <h1 className="text-2xl font-semibold text-[var(--color-text-strong)] font-serif tracking-tight">
+            考勤管理
+          </h1>
+          {availableMonths.length > 0 && (
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {availableMonths.map(m => (
+                <option key={m} value={m}>{formatMonth(m)}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard

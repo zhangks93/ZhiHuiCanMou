@@ -222,7 +222,7 @@ async function queryAttendance(args: Args): Promise<string> {
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
   let filtered = data
   if (typeof args.min_attendance_rate === 'number' || typeof args.max_attendance_rate === 'number') {
-    filtered = data.filter(r => {
+    filtered = data.filter((r: any) => {
       const rate = r.expected_days > 0 ? (r.actual_days / r.expected_days) * 100 : 0
       if (typeof args.min_attendance_rate === 'number' && rate < args.min_attendance_rate) return false
       if (typeof args.max_attendance_rate === 'number' && rate > args.max_attendance_rate) return false
@@ -247,9 +247,9 @@ async function queryTrips(args: Args): Promise<string> {
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
   let filtered = data
   if (typeof args.min_days === 'number') {
-    filtered = data.filter(r => {
+    filtered = data.filter((r: any) => {
       const days = Math.ceil((new Date(r.end_time).getTime() - new Date(r.start_time).getTime()) / (1000 * 60 * 60 * 24))
-      return days >= args.min_days
+      return days >= (args.min_days as number)
     })
   }
   return JSON.stringify({ total: filtered.length, data: filtered })

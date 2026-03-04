@@ -254,7 +254,7 @@ export function Schedule() {
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-[var(--color-text-strong)] truncate">{item.title}</span>
                               {item.type && <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${TYPE_COLOR[item.type]}`}>{TYPE_LABEL[item.type]}</span>}
-                              {item.meeting_notes && <FileText size={12} className="text-accent" title="已有会议纪要" />}
+                              {item.meeting_notes && <FileText size={12} className="text-accent" />}
                             </div>
                             {(item.description || item.location) && (
                               <div className="text-sm text-[var(--color-text-muted)] truncate mt-0.5">

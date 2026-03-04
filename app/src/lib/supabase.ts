@@ -47,6 +47,8 @@ export interface BizDataSnapshot {
   biz_class: string | null
   biz_level1: string | null
   org_tag: string | null
+  node_level?: number
+  parent_name?: string | null
   // Revenue 营收
   actual_revenue: number | null
   budget_revenue: number | null
