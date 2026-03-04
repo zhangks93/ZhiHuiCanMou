@@ -163,6 +163,14 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_SDK" >> $GITHUB_ENV
           echo "NDK_HOME=$ANDROID_SDK/ndk/26.1.10909125" >> $GITHUB_ENV
 
+      - name: setup debug keystore
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
       - name: install frontend dependencies
         run: npm ci --prefix app
 
@@ -170,7 +178,7 @@ jobs:
         working-directory: app
         run: npm run tauri:android:init
 
-      - name: build Android APK
+      - name: build Android APK (multi-arch)
         working-directory: app
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -180,13 +188,18 @@ jobs:
           VITE_FEISHU_SCOPE: ${{ secrets.VITE_FEISHU_SCOPE }}
         run: npm run build:apk
 
-      - name: upload APK to release
+      - name: list generated APKs
+        run: |
+          echo "Generated APK files:"
+          find app/src-tauri/gen/android/app/build/outputs/apk/release -name "*.apk" -exec ls -lh {} \;
+
+      - name: upload APKs to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(node -p "require('./app/package.json').version")
           TAG="app-v$VERSION"
-          find app/src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -exec gh release upload "$TAG" {} --clobber \;
+          find app/src-tauri/gen/android/app/build/outputs/apk/release -name "*.apk" -exec gh release upload "$TAG" {} --clobber \;
 
   publish-release:
     permissions:
