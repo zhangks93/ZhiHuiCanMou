@@ -10,20 +10,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-deep: #030306;
-      --bg-surface: #08080d;
-      --bg-elevated: #0e0e16;
-      --bg-card: rgba(14, 14, 22, 0.6);
-      --border: rgba(255, 255, 255, 0.06);
-      --border-accent: rgba(34, 211, 238, 0.2);
-      --text-primary: #f6f6f8;
-      --text-secondary: #9a9aab;
-      --text-muted: #5c5c6e;
-      --accent: #22d3ee;
-      --accent-dim: rgba(34, 211, 238, 0.12);
-      --accent-glow: rgba(34, 211, 238, 0.35);
-      --gradient-accent: linear-gradient(135deg, #22d3ee 0%, #06b6d4 45%, #0891b2 100%);
-      --gradient-orb: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(34, 211, 238, 0.15) 0%, transparent 70%);
+      --bg-deep: #040816;
+      --bg-surface: #050819;
+      --bg-elevated: #0b1024;
+      --bg-card: rgba(11, 16, 36, 0.7);
+      --border: rgba(148, 163, 184, 0.18);
+      --border-accent: rgba(56, 189, 248, 0.45);
+      --text-primary: #e5f0ff;
+      --text-secondary: #a5b4fc;
+      --text-muted: #64748b;
+      --accent: #38bdf8;
+      --accent-soft: #818cf8;
+      --accent-dim: rgba(56, 189, 248, 0.1);
+      --accent-glow: rgba(56, 189, 248, 0.4);
+      --gradient-accent: linear-gradient(135deg, #38bdf8 0%, #6366f1 45%, #f97316 100%);
+      --gradient-orb: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(56, 189, 248, 0.16) 0%, transparent 70%);
     }
 
     * {
@@ -54,8 +55,8 @@
       position: fixed;
       inset: 0;
       background-image:
-        linear-gradient(rgba(34, 211, 238, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(34, 211, 238, 0.02) 1px, transparent 1px);
+        linear-gradient(rgba(56, 189, 248, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.018) 1px, transparent 1px);
       background-size: 80px 80px;
       pointer-events: none;
       z-index: 0;
@@ -66,9 +67,9 @@
       position: absolute;
       inset: 0;
       background: 
-        radial-gradient(ellipse 100% 60% at 20% 0%, rgba(34, 211, 238, 0.08) 0%, transparent 50%),
-        radial-gradient(ellipse 80% 50% at 80% 100%, rgba(6, 182, 212, 0.05) 0%, transparent 50%),
-        radial-gradient(ellipse 60% 40% at 50% 40%, rgba(34, 211, 238, 0.04) 0%, transparent 60%);
+        radial-gradient(ellipse 100% 60% at 20% 0%, rgba(56, 189, 248, 0.1) 0%, transparent 55%),
+        radial-gradient(ellipse 80% 50% at 80% 100%, rgba(99, 102, 241, 0.07) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 50% 40%, rgba(248, 250, 252, 0.05) 0%, transparent 65%);
       pointer-events: none;
     }
 
@@ -76,7 +77,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
       pointer-events: none;
       mix-blend-mode: overlay;
     }
@@ -249,6 +250,24 @@
       animation: fadeUp 1s ease-out 0.6s both;
     }
 
+    .hero-vision-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.22), transparent 60%);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      margin-bottom: 8px;
+    }
+
+    .hero-vision-label span {
+      font-weight: 600;
+      color: var(--accent);
+    }
+
     /* Feature pills - Neon style */
     .hero-pills {
       display: flex;
@@ -331,6 +350,307 @@
       width: 100%;
       height: auto;
       filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.4));
+    }
+
+    /* Vision section: P-P → P-A-P → A-A-P */
+    .vision {
+      padding: 40px 0 120px;
+    }
+
+    .vision-inner {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.1fr);
+      gap: 48px;
+      align-items: center;
+    }
+
+    .vision-eyebrow {
+      font-size: 0.8rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    .vision-title {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(1.9rem, 3.4vw, 2.4rem);
+      letter-spacing: -0.03em;
+      margin-bottom: 14px;
+      color: var(--text-primary);
+    }
+
+    .vision-subtitle {
+      font-size: 0.98rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+      margin-bottom: 18px;
+    }
+
+    .vision-explain {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .vision-explain span {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .vision-badges {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 26px;
+    }
+
+    .vision-badge {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      background: radial-gradient(circle at 20% 0%, rgba(56, 189, 248, 0.18), transparent 60%);
+    }
+
+    .vision-badge strong {
+      color: var(--accent);
+      margin-right: 4px;
+    }
+
+    .vision-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-top: 10px;
+    }
+
+    .vision-metric {
+      min-width: 120px;
+    }
+
+    .vision-metric strong {
+      display: block;
+      font-size: 1.25rem;
+      color: var(--accent-soft);
+      margin-bottom: 4px;
+    }
+
+    .vision-metric span {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .vision-diagram {
+      position: relative;
+      padding: 26px 26px 24px;
+      border-radius: 24px;
+      background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.18), transparent 55%),
+                  radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.18), transparent 55%),
+                  var(--bg-card);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+      overflow: hidden;
+    }
+
+    .vision-diagram::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      border: 1px solid rgba(94, 234, 212, 0.1);
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+
+    .vision-diagram-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .vision-diagram-header span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .vision-diagram-header span::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+    }
+
+    .vision-stages {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      position: relative;
+      margin-bottom: 18px;
+    }
+
+    .vision-stage {
+      padding: 14px 12px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      position: relative;
+    }
+
+    .vision-stage.highlight {
+      border-color: var(--border-accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35), 0 14px 40px rgba(15, 23, 42, 0.9);
+      background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.35), transparent 65%),
+                  rgba(15, 23, 42, 0.9);
+    }
+
+    .vision-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .vision-tag span {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+    }
+
+    .vision-stage h4 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1rem;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+
+    .vision-stage p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .vision-arrow-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 4px 2px 0;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+    }
+
+    .vision-arrow-row span {
+      opacity: 0.8;
+    }
+
+    .vision-arrow {
+      flex: 1;
+      height: 1px;
+      margin: 0 8px;
+      background: linear-gradient(90deg, rgba(56, 189, 248, 0.1), rgba(56, 189, 248, 0.8), rgba(249, 115, 22, 0.7));
+      position: relative;
+    }
+
+    .vision-arrow::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #f97316;
+      box-shadow: 0 0 18px rgba(249, 115, 22, 0.9);
+      transform: translateY(-50%);
+    }
+
+    .vision-footnote {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      margin-top: 10px;
+    }
+
+    .vision-footnote code {
+      font-family: 'DM Sans', monospace;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.8);
+      color: var(--text-secondary);
+    }
+
+    .vision-gallery {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .vision-photo {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.38);
+      background: #020617;
+      transform-origin: center;
+      transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+    }
+
+    .vision-photo:nth-child(1) {
+      transform: rotate(-2.2deg) translateY(4px);
+    }
+
+    .vision-photo:nth-child(2) {
+      transform: rotate(3.5deg) translateY(-2px);
+    }
+
+    .vision-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(1.2) contrast(1.05);
+    }
+
+    .vision-photo::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.92));
+      mix-blend-mode: multiply;
+    }
+
+    .vision-photo::after {
+      content: attr(data-label);
+      position: absolute;
+      left: 14px;
+      bottom: 12px;
+      font-size: 0.78rem;
+      color: #e5e7eb;
+      text-shadow: 0 8px 18px rgba(15, 23, 42, 0.9);
+    }
+
+    .vision-photo:hover {
+      transform: rotate(0deg) translateY(-2px) scale(1.02);
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.95);
+      border-color: rgba(56, 189, 248, 0.6);
     }
 
     /* Features */
@@ -577,6 +897,19 @@
 
     /* Responsive */
     @media (max-width: 768px) {
+      .vision-inner {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+
+      .vision-diagram {
+        margin-top: 8px;
+      }
+
+      .vision-gallery {
+        grid-template-columns: 1fr 1fr;
+      }
+
       .illustration-block {
         grid-template-columns: 1fr;
         direction: ltr !important;
@@ -618,6 +951,14 @@
         flex-direction: column;
       }
 
+      .vision {
+        padding-top: 20px;
+      }
+
+      .vision-gallery {
+        grid-template-columns: 1fr;
+      }
+
       .btn {
         width: 100%;
         justify-content: center;
@@ -654,8 +995,12 @@
       <div class="container">
         <div class="hero-tag">数字秘书</div>
         <h1>让员工向 <span class="highlight">AI</span> 汇报工作</h1>
-        <p class="hero-desc">统一汇报入口、AI 智能汇总、多层级权限、插件式模块 —— 智汇参谋让总裁、总监、经理、主管各层级在瞬息万变的市场中快速获取洞察，做出更高效的决策。</p>
-        <p class="hero-desc-sub">类 Jira 的工作项同步、飞书文档深度集成、自然语言追问式分析，将分散的汇报信息转化为可行动的智能洞察。</p>
+        <p class="hero-desc">一个统一入口，让员工把工作讲给 AI，由智汇参谋替你整理成管理者看得懂的决策视图。</p>
+        <p class="hero-desc-sub">少写 PPT、多做事情；汇报交给 Agent，总裁和管理者只看关键摘要和风险提醒。</p>
+        <div class="hero-vision-label">
+          愿景路径：
+          <span>P-P → P-A-P → A-A-P</span>
+        </div>
         <div class="hero-pills">
           <span class="hero-pill">工作汇报</span>
           <span class="hero-pill">AI 汇总</span>
@@ -708,6 +1053,81 @@
             <path d="M90 212 Q205 180 320 212" stroke="rgba(34,211,238,0.2)" stroke-width="1" fill="none"/>
             <path d="M320 212 Q435 180 550 212" stroke="rgba(34,211,238,0.2)" stroke-width="1" fill="none"/>
           </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="vision">
+      <div class="container">
+        <div class="vision-inner">
+          <div>
+            <p class="vision-eyebrow">PRODUCT VISION</p>
+            <h2 class="vision-title">从 P-P，到 P-A-P，再到 A-A-P</h2>
+            <p class="vision-subtitle">今天，员工先向 Agent 汇报，再交由 Agent 汇总给管理者；明天，让智能体彼此对话，人只在关键节点做判断。</p>
+            <p class="vision-explain">
+              在智汇参谋的愿景中：<span>P = People（人）</span>，<span>A = Agent（智能体）</span>。
+              汇报不再是重复劳动，而是人与智能体之间持续协同的过程。
+            </p>
+            <div class="vision-badges">
+              <div class="vision-badge"><strong>P-P</strong> 传统：人与人逐级汇报</div>
+              <div class="vision-badge"><strong>P-A-P</strong> 现在：人 → Agent → 管理者</div>
+              <div class="vision-badge"><strong>A-A-P</strong> 未来：Agent ↔ Agent → 管理者</div>
+            </div>
+            <div class="vision-metrics">
+              <div class="vision-metric">
+                <strong>70%</strong>
+                <span>预期减少重复性汇报编辑时间</span>
+              </div>
+              <div class="vision-metric">
+                <strong>3-5×</strong>
+                <span>管理者获取全局态势的速度提升</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="vision-diagram">
+              <div class="vision-diagram-header">
+                <span>Reporting Paradigm Shift</span>
+                <span>Canmou · Agent First</span>
+              </div>
+              <div class="vision-stages">
+                <div class="vision-stage">
+                  <div class="vision-tag"><span></span>P-P</div>
+                  <h4>People → People</h4>
+                  <p>员工直接写给上级，再层层转发和复述，精力花在“整理说法”上。</p>
+                </div>
+                <div class="vision-stage highlight">
+                  <div class="vision-tag"><span></span>P-A-P</div>
+                  <h4>People → Agent → People</h4>
+                  <p>员工统一向 Agent 汇报，Agent 帮你拆解、汇总、生成结构化视图，再推送给管理者。</p>
+                </div>
+                <div class="vision-stage">
+                  <div class="vision-tag"><span></span>A-A-P</div>
+                  <h4>Agent ↔ Agent → People</h4>
+                  <p>业务智能体互相对话、主动发现异常，人只看关键问题、关键机会和少量决策选项。</p>
+                </div>
+              </div>
+              <div class="vision-arrow-row">
+                <span>传统</span>
+                <div class="vision-arrow"></div>
+                <span>智能体时代</span>
+              </div>
+              <p class="vision-footnote">
+                记法：
+                <code>P = People</code>
+                <code>A = Agent</code>
+                —— 汇报链条越少“P”，越少人为搬运；越多“A”，越多智能协同。
+              </p>
+              <div class="vision-gallery">
+                <figure class="vision-photo" data-label="团队向统一 Agent 汇报">
+                  <img src="https://images.pexels.com/photos/1181355/pexels-photo-1181355.jpeg?auto=compress&cs=tinysrgb&w=800" alt="团队成员围绕屏幕协作讨论的场景" loading="lazy">
+                </figure>
+                <figure class="vision-photo" data-label="管理者浏览 AI 汇总视图">
+                  <img src="https://images.pexels.com/photos/3861964/pexels-photo-3861964.jpeg?auto=compress&cs=tinysrgb&w=800" alt="管理者在电脑前查看可视化数据与看板" loading="lazy">
+                </figure>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -767,36 +1187,6 @@
               <rect x="305" y="98" width="60" height="5" rx="2" fill="rgba(34,211,238,0.2)"/>
               <rect x="305" y="111" width="50" height="5" rx="2" fill="rgba(34,211,238,0.2)"/>
               <rect x="305" y="124" width="70" height="5" rx="2" fill="rgba(34,211,238,0.2)"/>
-            </svg>
-          </div>
-        </div>
-        <div class="illustration-block">
-          <div class="illustration-content">
-            <h3>权限与组织架构</h3>
-            <p>权限模型与组织层级深度绑定：总裁可见全公司，总监可见分管部门，经理与主管逐层下沉。汇报链路清晰，敏感数据仅对授权人开放。</p>
-            <p>支持飞书组织架构同步，权限随人事变动自动更新，减少手工维护成本。</p>
-          </div>
-          <div class="illustration-visual">
-            <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="180" y="20" width="40" height="36" rx="6" fill="#0e0e16" stroke="#22d3ee" stroke-width="1.5"/>
-              <text x="200" y="42" fill="#22d3ee" font-size="10" font-weight="600" text-anchor="middle">总裁</text>
-              <line x1="200" y1="56" x2="120" y2="100" stroke="rgba(34,211,238,0.4)" stroke-width="1"/>
-              <line x1="200" y1="56" x2="200" y2="100" stroke="rgba(34,211,238,0.4)" stroke-width="1"/>
-              <line x1="200" y1="56" x2="280" y2="100" stroke="rgba(34,211,238,0.4)" stroke-width="1"/>
-              <rect x="80" y="100" width="40" height="32" rx="6" fill="#0e0e16" stroke="rgba(34,211,238,0.5)" stroke-width="1"/>
-              <text x="100" y="120" fill="#9a9aab" font-size="9" text-anchor="middle">总监A</text>
-              <rect x="180" y="100" width="40" height="32" rx="6" fill="#0e0e16" stroke="rgba(34,211,238,0.5)" stroke-width="1"/>
-              <text x="200" y="120" fill="#9a9aab" font-size="9" text-anchor="middle">总监B</text>
-              <rect x="260" y="100" width="40" height="32" rx="6" fill="#0e0e16" stroke="rgba(34,211,238,0.5)" stroke-width="1"/>
-              <text x="280" y="120" fill="#9a9aab" font-size="9" text-anchor="middle">总监C</text>
-              <line x1="100" y1="132" x2="80" y2="168" stroke="rgba(34,211,238,0.25)" stroke-width="1"/>
-              <line x1="100" y1="132" x2="120" y2="168" stroke="rgba(34,211,238,0.25)" stroke-width="1"/>
-              <line x1="200" y1="132" x2="180" y2="168" stroke="rgba(34,211,238,0.25)" stroke-width="1"/>
-              <line x1="200" y1="132" x2="220" y2="168" stroke="rgba(34,211,238,0.25)" stroke-width="1"/>
-              <rect x="60" y="168" width="36" height="28" rx="4" fill="#0e0e16" stroke="rgba(34,211,238,0.2)" stroke-width="1"/>
-              <rect x="108" y="168" width="36" height="28" rx="4" fill="#0e0e16" stroke="rgba(34,211,238,0.2)" stroke-width="1"/>
-              <rect x="172" y="168" width="36" height="28" rx="4" fill="#0e0e16" stroke="rgba(34,211,238,0.2)" stroke-width="1"/>
-              <rect x="220" y="168" width="36" height="28" rx="4" fill="#0e0e16" stroke="rgba(34,211,238,0.2)" stroke-width="1"/>
             </svg>
           </div>
         </div>
