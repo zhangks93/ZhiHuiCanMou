@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Clock, User, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Clock, User, AlertCircle, CheckCircle2, TrendingUp, TrendingDown, ChevronDown, ChevronRight } from 'lucide-react'
 
 interface DeptSummary {
-  department: string
+  department_id: string
+  department_name: string
+  parent_name: string | null
   employee_count: number
   total_expected: number
   total_actual: number
@@ -11,6 +13,20 @@ interface DeptSummary {
   total_absent: number
   total_late: number
   total_early: number
+  rate: number
+}
+
+interface MemberRecord {
+  id: string
+  member_name: string
+  employee_no: string
+  job_title: string | null
+  expected_days: number
+  actual_days: number
+  leave_days: number
+  absent_days: number
+  late_times: number
+  early_leave_times: number
   rate: number
 }
 
@@ -43,6 +59,9 @@ export function Attendance() {
   const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(202601)
   const [availableMonths, setAvailableMonths] = useState<number[]>([])
+  const [expandedDept, setExpandedDept] = useState<string | null>(null)
+  const [memberRecords, setMemberRecords] = useState<MemberRecord[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
 
   const overallStats = {
     employeeCount: summaries.reduce((sum, s) => sum + s.employee_count, 0),
@@ -83,15 +102,20 @@ export function Attendance() {
   const fetchAttendanceData = async () => {
     setLoading(true)
 
+    // 获取考勤记录（已包含部门关联）
     const { data, error } = await supabase
       .from('attendance_records')
       .select(`
         *,
-        feishu_members:employee_id (
+        feishu_members:member_id (
           name,
           employee_no,
-          job_title,
-          department_id
+          job_title
+        ),
+        feishu_departments:department_id (
+          department_id,
+          name,
+          parent_id
         )
       `)
       .eq('year_month', selectedMonth)
@@ -102,30 +126,32 @@ export function Attendance() {
       return
     }
 
-    // 获取所有部门信息
-    const { data: departments } = await supabase
+    // 获取所有部门信息用于查找父部门
+    const { data: allDepts } = await supabase
       .from('feishu_departments')
-      .select('department_id, name')
+      .select('department_id, name, parent_id')
 
-    const deptMap = new Map<string, string>()
-    departments?.forEach(d => {
-      deptMap.set(d.department_id, d.name)
+    const deptMap = new Map<string, { name: string; parent_id: string | null }>()
+    allDepts?.forEach(d => {
+      deptMap.set(d.department_id, { name: d.name, parent_id: d.parent_id })
     })
 
     const summaryMap = new Map<string, DeptSummary>()
 
     data?.forEach((record: any) => {
-      const member = record.feishu_members
-      if (!member) return
+      const dept = record.feishu_departments
+      if (!dept) return
 
-      // 获取员工的第一个部门
-      const deptIds = member.department_id?.split(',') || []
-      const deptId = deptIds[0]
-      const deptName = deptMap.get(deptId) || '未分类'
+      const deptId = dept.department_id
+      const deptName = dept.name
+      const parentInfo = dept.parent_id ? deptMap.get(dept.parent_id) : null
+      const parentName = parentInfo?.name || null
 
-      if (!summaryMap.has(deptName)) {
-        summaryMap.set(deptName, {
-          department: deptName,
+      if (!summaryMap.has(deptId)) {
+        summaryMap.set(deptId, {
+          department_id: deptId,
+          department_name: deptName,
+          parent_name: parentName,
           employee_count: 0,
           total_expected: 0,
           total_actual: 0,
@@ -137,7 +163,7 @@ export function Attendance() {
         })
       }
 
-      const summary = summaryMap.get(deptName)!
+      const summary = summaryMap.get(deptId)!
       summary.employee_count += 1
       summary.total_expected += Number(record.expected_days) || 0
       summary.total_actual += Number(record.actual_days) || 0
@@ -150,10 +176,65 @@ export function Attendance() {
     const result = Array.from(summaryMap.values()).map(s => ({
       ...s,
       rate: s.total_expected > 0 ? (s.total_actual / s.total_expected) * 100 : 0,
-    })).sort((a, b) => b.total_actual - a.total_actual)
+    })).sort((a, b) => b.rate - a.rate)
 
     setSummaries(result)
     setLoading(false)
+  }
+
+  const fetchMemberRecords = async (deptId: string) => {
+    setLoadingMembers(true)
+    const { data, error } = await supabase
+      .from('attendance_records')
+      .select(`
+        id,
+        expected_days,
+        actual_days,
+        leave_days,
+        absent_days,
+        late_times,
+        early_leave_times,
+        feishu_members:member_id (
+          name,
+          employee_no,
+          job_title
+        )
+      `)
+      .eq('year_month', selectedMonth)
+      .eq('department_id', deptId)
+
+    if (error) {
+      console.error('获取成员记录失败:', error)
+      setLoadingMembers(false)
+      return
+    }
+
+    const records: MemberRecord[] = data?.map((r: any) => ({
+      id: r.id,
+      member_name: r.feishu_members?.name || '未知',
+      employee_no: r.feishu_members?.employee_no || '-',
+      job_title: r.feishu_members?.job_title || null,
+      expected_days: Number(r.expected_days) || 0,
+      actual_days: Number(r.actual_days) || 0,
+      leave_days: Number(r.leave_days) || 0,
+      absent_days: Number(r.absent_days) || 0,
+      late_times: Number(r.late_times) || 0,
+      early_leave_times: Number(r.early_leave_times) || 0,
+      rate: Number(r.expected_days) > 0 ? (Number(r.actual_days) / Number(r.expected_days)) * 100 : 0,
+    })) || []
+
+    setMemberRecords(records)
+    setLoadingMembers(false)
+  }
+
+  const toggleDepartment = (deptId: string) => {
+    if (expandedDept === deptId) {
+      setExpandedDept(null)
+      setMemberRecords([])
+    } else {
+      setExpandedDept(deptId)
+      fetchMemberRecords(deptId)
+    }
   }
 
   if (loading && summaries.length === 0) {
@@ -243,6 +324,7 @@ export function Attendance() {
             <thead>
               <tr className="bg-gray-50 border-y border-gray-200">
                 <th className="text-left py-3 px-3 font-medium text-gray-700">部门</th>
+                <th className="text-left py-3 px-3 font-medium text-gray-700">上级部门</th>
                 <th className="text-center py-3 px-3 font-medium text-gray-700">人数</th>
                 <th className="text-right py-3 px-3 font-medium text-gray-700">应出勤</th>
                 <th className="text-right py-3 px-3 font-medium text-gray-700">实出勤</th>
@@ -255,17 +337,89 @@ export function Attendance() {
             </thead>
             <tbody>
               {summaries.map((s) => (
-                <tr key={s.department} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-3 font-medium text-gray-800">{s.department}</td>
-                  <td className="py-3 px-3 text-center text-gray-600">{s.employee_count}</td>
-                  <td className="py-3 px-3 text-right text-gray-600">{s.total_expected.toFixed(1)}</td>
-                  <td className="py-3 px-3 text-right text-gray-600">{s.total_actual.toFixed(1)}</td>
-                  <td className="py-3 px-3 text-center"><RateBadge rate={s.rate} /></td>
-                  <td className="py-3 px-3 text-right text-gray-600">{s.total_leave.toFixed(1)}</td>
-                  <td className="py-3 px-3 text-right text-gray-600">{s.total_late}</td>
-                  <td className="py-3 px-3 text-right text-gray-600">{s.total_early}</td>
-                  <td className="py-3 px-3 text-right text-gray-600">{s.total_absent.toFixed(1)}</td>
-                </tr>
+                <>
+                  <tr
+                    key={s.department_id}
+                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleDepartment(s.department_id)}
+                  >
+                    <td className="py-3 px-3 font-medium text-gray-800">
+                      <div className="flex items-center gap-2">
+                        {expandedDept === s.department_id ? (
+                          <ChevronDown size={16} className="text-gray-400" />
+                        ) : (
+                          <ChevronRight size={16} className="text-gray-400" />
+                        )}
+                        {s.department_name}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-gray-500 text-xs">
+                      {s.parent_name || '-'}
+                    </td>
+                    <td className="py-3 px-3 text-center text-gray-600">{s.employee_count}</td>
+                    <td className="py-3 px-3 text-right text-gray-600">{s.total_expected.toFixed(1)}</td>
+                    <td className="py-3 px-3 text-right text-gray-600">{s.total_actual.toFixed(1)}</td>
+                    <td className="py-3 px-3 text-center"><RateBadge rate={s.rate} /></td>
+                    <td className="py-3 px-3 text-right text-gray-600">{s.total_leave.toFixed(1)}</td>
+                    <td className="py-3 px-3 text-right text-gray-600">{s.total_late}</td>
+                    <td className="py-3 px-3 text-right text-gray-600">{s.total_early}</td>
+                    <td className="py-3 px-3 text-right text-gray-600">{s.total_absent.toFixed(1)}</td>
+                  </tr>
+                  {expandedDept === s.department_id && (
+                    <tr>
+                      <td colSpan={10} className="bg-gray-50 p-0">
+                        <div className="px-8 py-4">
+                          {loadingMembers ? (
+                            <div className="text-center py-4 text-gray-400">加载中...</div>
+                          ) : memberRecords.length > 0 ? (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-gray-200">
+                                  <th className="text-left py-2 px-2 font-medium text-gray-600">姓名</th>
+                                  <th className="text-left py-2 px-2 font-medium text-gray-600">工号</th>
+                                  <th className="text-left py-2 px-2 font-medium text-gray-600">职位</th>
+                                  <th className="text-right py-2 px-2 font-medium text-gray-600">应出勤</th>
+                                  <th className="text-right py-2 px-2 font-medium text-gray-600">实出勤</th>
+                                  <th className="text-center py-2 px-2 font-medium text-gray-600">出勤率</th>
+                                  <th className="text-right py-2 px-2 font-medium text-gray-600">请假</th>
+                                  <th className="text-right py-2 px-2 font-medium text-gray-600">迟到</th>
+                                  <th className="text-right py-2 px-2 font-medium text-gray-600">早退</th>
+                                  <th className="text-right py-2 px-2 font-medium text-gray-600">旷工</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {memberRecords.map((m) => (
+                                  <tr key={m.id} className="border-b border-gray-100">
+                                    <td className="py-2 px-2 text-gray-700">{m.member_name}</td>
+                                    <td className="py-2 px-2 text-gray-600">{m.employee_no}</td>
+                                    <td className="py-2 px-2 text-gray-600">{m.job_title || '-'}</td>
+                                    <td className="py-2 px-2 text-right text-gray-600">{m.expected_days.toFixed(1)}</td>
+                                    <td className="py-2 px-2 text-right text-gray-600">{m.actual_days.toFixed(1)}</td>
+                                    <td className="py-2 px-2 text-center">
+                                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                        m.rate >= 95 ? 'bg-green-100 text-green-700' :
+                                        m.rate >= 90 ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-red-100 text-red-700'
+                                      }`}>
+                                        {m.rate.toFixed(1)}%
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-2 text-right text-gray-600">{m.leave_days.toFixed(1)}</td>
+                                    <td className="py-2 px-2 text-right text-gray-600">{m.late_times}</td>
+                                    <td className="py-2 px-2 text-right text-gray-600">{m.early_leave_times}</td>
+                                    <td className="py-2 px-2 text-right text-gray-600">{m.absent_days.toFixed(1)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : (
+                            <div className="text-center py-4 text-gray-400">暂无成员记录</div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
             </tbody>
           </table>
