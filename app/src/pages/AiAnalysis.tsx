@@ -101,6 +101,17 @@ function StepItem({ step }: { step: AgentStep }) {
     )
   }
 
+  if (step.type === 'reasoning') {
+    return (
+      <div className="my-1 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
+        <div className="flex items-start gap-2">
+          <Brain size={14} className="mt-0.5 shrink-0 text-blue-500" />
+          <p className="text-xs text-blue-700 leading-relaxed whitespace-pre-wrap">{step.content}</p>
+        </div>
+      </div>
+    )
+  }
+
   if (step.type === 'error') {
     return (
       <div className="my-1 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
@@ -140,17 +151,31 @@ function getLoadingText(steps: AgentStep[]): string {
 
 function MessageBubble({ msg, isStreaming }: { msg: ChatMessage; isStreaming?: boolean }) {
   const isUser = msg.role === 'user'
+  const steps = msg.steps ?? []
+
+  // Handle clear_stream: if present, remove answer_delta steps before it
+  const clearStreamIdx = steps.findIndex(s => s.type === 'clear_stream')
+  const filteredSteps = clearStreamIdx >= 0
+    ? steps.filter((s, i) => i <= clearStreamIdx || s.type !== 'answer_delta')
+    : steps
+
   // Group steps: pair tool_call with its following tool_result
-  const groupedSteps = (msg.steps ?? []).reduce<AgentStep[][]>((acc, step) => {
+  const groupedSteps = filteredSteps.reduce<AgentStep[][]>((acc, step) => {
     if (step.type === 'tool_call') {
       acc.push([step])
     } else if (step.type === 'tool_result' && acc.length > 0) {
       acc[acc.length - 1].push(step)
-    } else {
+    } else if (step.type !== 'clear_stream') {
       acc.push([step])
     }
     return acc
   }, [])
+
+  // Collect streamed answer_delta content
+  const streamedAnswer = steps
+    .filter(s => s.type === 'answer_delta')
+    .map(s => s.content)
+    .join('')
 
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} animate-slide-up`}>
@@ -185,9 +210,9 @@ function MessageBubble({ msg, isStreaming }: { msg: ChatMessage; isStreaming?: b
                 <span>{getLoadingText(msg.steps ?? [])}</span>
               </div>
             )}
-            {msg.content && (
+            {(msg.content || streamedAnswer) && (
               <div className="mt-2 text-sm text-gray-800 leading-relaxed prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-h2:text-base prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-sm prose-h3:mt-3 prose-h3:mb-1 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-table:my-2 prose-th:bg-gray-50 prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:text-xs prose-th:font-medium prose-th:text-gray-700 prose-td:px-3 prose-td:py-1.5 prose-td:text-xs prose-strong:text-gray-900 prose-code:text-accent prose-code:bg-gray-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content || streamedAnswer}</ReactMarkdown>
               </div>
             )}
           </div>
@@ -251,6 +276,7 @@ export function AiAnalysis() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [memoryOpen, setMemoryOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
   const config = loadLLMConfig()
 
   useEffect(() => { generateSuggestedQuestions(8).then(setSuggestions).catch(() => {}) }, [])
@@ -281,6 +307,7 @@ export function AiAnalysis() {
   }, [])
 
   const switchSession = useCallback((id: string) => {
+    abortControllerRef.current?.abort()
     setActiveSessionId(id)
     setMessages(loadSessionMessages(id))
   }, [])
@@ -302,6 +329,10 @@ export function AiAnalysis() {
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || loading || !config) return
+
+    // Abort any pending request
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = new AbortController()
 
     // Auto-create session if none active
     let sid = activeSessionId
@@ -343,13 +374,36 @@ export function AiAnalysis() {
             : m
         ))
         scrollToBottom()
-      }, sid)
+      }, sid, abortControllerRef.current.signal)
+
       setMessages(prev => prev.map((m, i) =>
         i === prev.length - 1 && m.role === 'assistant'
           ? { ...m, content: answer }
           : m
       ))
+
+      // Auto-generate title after first response
+      if (isFirst) {
+        try {
+          const { callLLMSimple } = await import('@/lib/agent/llm')
+          const title = await callLLMSimple(config, `用5个字以内总结这个问题的主题，只返回标题，不要其他内容：${text.trim()}`, abortControllerRef.current.signal)
+          if (title && title.trim()) {
+            const s = sessions.find(s => s.id === sid)
+            if (s) {
+              const updated = { ...s, title: title.trim().slice(0, 30), updatedAt: Date.now() }
+              setSessions(prev => prev.map(ss => ss.id === sid ? updated : ss))
+              saveSession(updated, messages)
+            }
+          }
+        } catch (e) {
+          // Silently fail title generation
+        }
+      }
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        setMessages(prev => prev.slice(0, -1))
+        return
+      }
       const errMsg = e instanceof Error ? e.message : String(e)
       setMessages(prev => prev.map((m, i) =>
         i === prev.length - 1 && m.role === 'assistant'

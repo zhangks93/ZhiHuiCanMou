@@ -19,10 +19,11 @@ export interface ToolCall {
 }
 
 export interface AgentStep {
-  type: 'thinking' | 'tool_call' | 'tool_result' | 'answer' | 'error'
+  type: 'thinking' | 'tool_call' | 'tool_result' | 'answer' | 'answer_delta' | 'reasoning' | 'clear_stream' | 'error'
   content: string
   toolName?: string
   toolArgs?: Record<string, unknown>
+  toolCallId?: string  // for matching tool_call with tool_result when parallel
 }
 
 export interface ChatMessage {

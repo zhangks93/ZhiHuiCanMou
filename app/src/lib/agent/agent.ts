@@ -1,11 +1,16 @@
 import type { LLMConfig } from '@/lib/llmConfig'
-import type { AgentStep, AgentLLMMessage } from './types'
+import type { AgentStep, AgentLLMMessage, ToolCall } from './types'
 import { TOOL_DEFINITIONS } from './tools'
 import { executeTool } from './tools'
 import { AGENT_SYSTEM_PROMPT } from './prompt'
 import { callLLM } from './llm'
+import { trimHistory } from './memory'
 
 const MAX_ITERATIONS = 8
+// How many user↔assistant turns to keep in the rolling context window
+const MAX_HISTORY_TURNS = 6
+// Max characters per tool result before truncation
+const TOOL_RESULT_LIMIT = 12000
 
 export async function runAgent(
   question: string,
@@ -13,35 +18,87 @@ export async function runAgent(
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
   onStep: (step: AgentStep) => void,
   sessionId?: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   // Only include web_search tool when API key is configured
   const tools = config.tavilyApiKey
     ? TOOL_DEFINITIONS
     : TOOL_DEFINITIONS.filter((t) => t.name !== 'web_search')
 
+  // Trim history to avoid blowing up the context window
+  const trimmedHistory = trimHistory(history, MAX_HISTORY_TURNS)
+
   // Build message history: previous Q&A pairs + current question
   const messages: AgentLLMMessage[] = []
-  for (const h of history) {
+  for (const h of trimmedHistory) {
     messages.push({ role: h.role, content: h.content })
   }
   messages.push({ role: 'user', content: question })
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const response = await callLLM(config, AGENT_SYSTEM_PROMPT, messages, tools)
+  // Track call signatures to detect and break loops
+  const callSignatures = new Set<string>()
 
-    // Emit thinking if there's text alongside tool calls
-    if (response.text && response.toolCalls.length > 0) {
-      onStep({ type: 'thinking', content: response.text })
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+
+    // On the last iteration: strip tools to force a final synthesised answer
+    const iterTools = i === MAX_ITERATIONS - 1 ? [] : tools
+
+    let streamedText = ''
+    let streamedReasoning = ''
+
+    const response = await callLLM(config, AGENT_SYSTEM_PROMPT, messages, iterTools, {
+      signal,
+      streaming: true,
+      callbacks: {
+        onText: (delta) => {
+          // Only stream deltas when no tool calls are expected yet
+          // (we'll know after the full response; handle via clear_stream if needed)
+          streamedText += delta
+          onStep({ type: 'answer_delta', content: delta })
+        },
+        onReasoning: (delta) => {
+          streamedReasoning += delta
+          onStep({ type: 'reasoning', content: delta })
+        },
+      },
+    })
+
+    // If the model streamed text but then also emitted tool calls, the streamed
+    // text was "thinking aloud" — signal the UI to clear the streamed answer.
+    if (streamedText && response.toolCalls.length > 0) {
+      onStep({ type: 'clear_stream', content: '' })
+      onStep({ type: 'thinking', content: streamedText })
     }
 
-    // No tool calls → final answer
+    // No tool calls → final answer (already streamed)
     if (response.toolCalls.length === 0) {
       const answer = response.text || '抱歉，我无法生成回答。'
       onStep({ type: 'answer', content: answer })
       return answer
     }
 
-    // Record assistant message with tool calls
+    // Dedup: filter out tool calls we've already made with identical args
+    const newToolCalls: ToolCall[] = []
+    for (const tc of response.toolCalls) {
+      const sig = `${tc.name}:${JSON.stringify(tc.args)}`
+      if (callSignatures.has(sig)) {
+        // Duplicate call detected — add a synthetic result to keep the message
+        // chain valid and hint the model to move on
+        onStep({ type: 'thinking', content: `⚠️ 检测到重复调用 ${tc.name}，跳过以避免无限循环。` })
+        messages.push({
+          role: 'tool',
+          toolCallId: tc.id,
+          name: tc.name,
+          content: JSON.stringify({ warning: '此工具已被调用过相同参数，结果不变，请基于已有数据给出结论。' }),
+        })
+      } else {
+        callSignatures.add(sig)
+        newToolCalls.push(tc)
+      }
+    }
+
+    // Record assistant message with all tool calls (including dupes, for API correctness)
     messages.push({
       role: 'assistant',
       content: response.text || '',
@@ -49,21 +106,34 @@ export async function runAgent(
       reasoningContent: response.reasoningContent,
     })
 
-    // Execute each tool call
-    for (const tc of response.toolCalls) {
-      onStep({ type: 'tool_call', content: `调用 ${tc.name}`, toolName: tc.name, toolArgs: tc.args })
+    if (!newToolCalls.length) continue
 
-      const result = await executeTool(tc.name, tc.args, { tavilyApiKey: config.tavilyApiKey, sessionId })
+    // Execute non-duplicate tool calls in parallel
+    const toolCallStepIds = newToolCalls.map((tc) => {
+      onStep({ type: 'tool_call', content: `调用 ${tc.name}`, toolName: tc.name, toolArgs: tc.args, toolCallId: tc.id })
+      return tc
+    })
 
-      // Truncate large results to avoid blowing up context
-      const truncated = result.length > 12000 ? result.slice(0, 12000) + '\n...(数据已截断，请使用 columns 参数指定需要的字段以减少数据量)' : result
-      onStep({ type: 'tool_result', content: truncated, toolName: tc.name })
+    const results = await Promise.all(
+      toolCallStepIds.map(async (tc) => {
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+        const raw = await executeTool(tc.name, tc.args, { tavilyApiKey: config.tavilyApiKey, sessionId })
+        const truncated = raw.length > TOOL_RESULT_LIMIT
+          ? raw.slice(0, TOOL_RESULT_LIMIT) + '\n...(数据已截断，请使用 columns 参数指定需要的字段以减少数据量)'
+          : raw
+        return { tc, result: truncated }
+      }),
+    )
 
-      messages.push({ role: 'tool', toolCallId: tc.id, name: tc.name, content: truncated })
+    for (const { tc, result } of results) {
+      onStep({ type: 'tool_result', content: result, toolName: tc.name, toolCallId: tc.id })
+      messages.push({ role: 'tool', toolCallId: tc.id, name: tc.name, content: result })
     }
   }
 
-  const fallback = '已达到最大分析轮次，以下是基于已获取数据的分析。请尝试更具体的问题。'
+  // MAX_ITERATIONS reached — the last iteration already stripped tools so the
+  // model should have returned a final answer above. This is the last fallback.
+  const fallback = '已完成数据收集，但超出分析轮次上限。请尝试更具体的问题以获取精准答案。'
   onStep({ type: 'answer', content: fallback })
   return fallback
 }

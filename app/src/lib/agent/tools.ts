@@ -138,18 +138,37 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
 
 type Args = Record<string, unknown>
 
+// Lightweight runtime coercion (no zod dependency)
+function coerceNumber(v: unknown, defaultVal: number): number {
+  if (typeof v === 'number') return v
+  if (typeof v === 'string') {
+    const n = Number(v)
+    return isNaN(n) ? defaultVal : n
+  }
+  return defaultVal
+}
+
+function coerceString(v: unknown): string {
+  return typeof v === 'string' ? v : String(v || '')
+}
+
 async function queryBizData(args: Args): Promise<string> {
-  const cols = typeof args.columns === 'string' ? args.columns : '*'
+  const cols = coerceString(args.columns) || '*'
   let query = supabase.from('edu_logistics_biz_data').select(cols)
-  if (args.node_name) query = query.ilike('node_name', `%${args.node_name}%`)
-  if (args.center) query = query.ilike('center', `%${args.center}%`)
-  if (args.biz_class) query = query.ilike('biz_class', `%${args.biz_class}%`)
-  if (args.org_tag) query = query.ilike('org_tag', `%${args.org_tag}%`)
-  if (args.level === 'total') query = query.is('center', null)
-  else if (args.level === 'center') query = query.not('center', 'is', null).is('biz_class', null)
-  else if (args.level === 'biz_class') query = query.not('biz_class', 'is', null)
-  else if (args.level === 'unit') query = query.not('org_tag', 'is', null)
-  const limit = typeof args.limit === 'number' ? args.limit : 200
+  const nodeName = coerceString(args.node_name)
+  if (nodeName) query = query.ilike('node_name', `%${nodeName}%`)
+  const center = coerceString(args.center)
+  if (center) query = query.ilike('center', `%${center}%`)
+  const bizClass = coerceString(args.biz_class)
+  if (bizClass) query = query.ilike('biz_class', `%${bizClass}%`)
+  const orgTag = coerceString(args.org_tag)
+  if (orgTag) query = query.ilike('org_tag', `%${orgTag}%`)
+  const level = coerceString(args.level)
+  if (level === 'total') query = query.is('center', null)
+  else if (level === 'center') query = query.not('center', 'is', null).is('biz_class', null)
+  else if (level === 'biz_class') query = query.not('biz_class', 'is', null)
+  else if (level === 'unit') query = query.not('org_tag', 'is', null)
+  const limit = coerceNumber(args.limit, 200)
   const { data, error } = await query.limit(limit)
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
@@ -157,26 +176,29 @@ async function queryBizData(args: Args): Promise<string> {
 }
 
 async function queryOpportunities(args: Args): Promise<string> {
-  const cols = typeof args.columns === 'string' ? args.columns : '*'
+  const cols = coerceString(args.columns) || '*'
 
-  // 如果没有指定快照日期，先获取最新的快照日期
-  let snapshotDate = args.snapshot_date
+  let snapshotDate = coerceString(args.snapshot_date)
   if (!snapshotDate) {
     const { data: latest } = await supabase
       .from('opportunity_ledger')
       .select('snapshot_date')
       .order('snapshot_date', { ascending: false })
       .limit(1)
-    snapshotDate = latest?.[0]?.snapshot_date
+    snapshotDate = latest?.[0]?.snapshot_date || ''
   }
 
   let query = supabase.from('opportunity_ledger').select(cols)
   if (snapshotDate) query = query.eq('snapshot_date', snapshotDate)
-  if (args.item_type) query = query.eq('item_type', args.item_type)
-  if (args.status) query = query.eq('status', args.status)
-  if (args.region) query = query.ilike('region', `%${args.region}%`)
-  if (typeof args.min_amount === 'number') query = query.gte('estimated_amount', args.min_amount)
-  const limit = typeof args.limit === 'number' ? args.limit : 100
+  const itemType = coerceString(args.item_type)
+  if (itemType) query = query.eq('item_type', itemType)
+  const status = coerceString(args.status)
+  if (status) query = query.eq('status', status)
+  const region = coerceString(args.region)
+  if (region) query = query.ilike('region', `%${region}%`)
+  const minAmount = coerceNumber(args.min_amount, -1)
+  if (minAmount >= 0) query = query.gte('estimated_amount', minAmount)
+  const limit = coerceNumber(args.limit, 100)
   const { data, error } = await query.order('estimated_amount', { ascending: false }).limit(limit)
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
@@ -184,12 +206,15 @@ async function queryOpportunities(args: Args): Promise<string> {
 }
 
 async function queryWorkItems(args: Args): Promise<string> {
-  const cols = typeof args.columns === 'string' ? args.columns : '*'
+  const cols = coerceString(args.columns) || '*'
   let query = supabase.from('work_items').select(cols)
-  if (args.status) query = query.eq('status', args.status)
-  if (args.priority) query = query.eq('priority', args.priority)
-  if (args.module_id) query = query.eq('module_id', args.module_id)
-  const limit = typeof args.limit === 'number' ? args.limit : 50
+  const status = coerceString(args.status)
+  if (status) query = query.eq('status', status)
+  const priority = coerceString(args.priority)
+  if (priority) query = query.eq('priority', priority)
+  const moduleId = coerceString(args.module_id)
+  if (moduleId) query = query.eq('module_id', moduleId)
+  const limit = coerceNumber(args.limit, 50)
   const { data, error } = await query.order('created_at', { ascending: false }).limit(limit)
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
@@ -197,13 +222,16 @@ async function queryWorkItems(args: Args): Promise<string> {
 }
 
 async function querySchedules(args: Args): Promise<string> {
-  const cols = typeof args.columns === 'string' ? args.columns : '*'
+  const cols = coerceString(args.columns) || '*'
   let query = supabase.from('schedule_items').select(cols)
-  if (args.date_from) query = query.gte('date', args.date_from)
-  if (args.date_to) query = query.lte('date', args.date_to)
-  if (args.type) query = query.eq('type', args.type)
+  const dateFrom = coerceString(args.date_from)
+  if (dateFrom) query = query.gte('date', dateFrom)
+  const dateTo = coerceString(args.date_to)
+  if (dateTo) query = query.lte('date', dateTo)
+  const type = coerceString(args.type)
+  if (type) query = query.eq('type', type)
   if (args.has_notes === 'true') query = query.not('meeting_notes', 'is', null)
-  const limit = typeof args.limit === 'number' ? args.limit : 50
+  const limit = coerceNumber(args.limit, 50)
   const { data, error } = await query.order('date', { ascending: false }).limit(limit)
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
@@ -211,21 +239,26 @@ async function querySchedules(args: Args): Promise<string> {
 }
 
 async function queryAttendance(args: Args): Promise<string> {
-  const cols = typeof args.columns === 'string' ? args.columns : '*'
+  const cols = coerceString(args.columns) || '*'
   let query = supabase.from('attendance_records').select(cols.includes('employees') ? cols : `${cols === '*' ? '*' : cols},employees(name,department,company)`)
-  if (args.year_month) query = query.eq('year_month', args.year_month)
-  if (args.department) query = query.ilike('employees.department', `%${args.department}%`)
-  if (args.employee_name) query = query.ilike('employees.name', `%${args.employee_name}%`)
-  const limit = typeof args.limit === 'number' ? args.limit : 100
+  const yearMonth = coerceNumber(args.year_month, -1)
+  if (yearMonth > 0) query = query.eq('year_month', yearMonth)
+  const department = coerceString(args.department)
+  if (department) query = query.ilike('employees.department', `%${department}%`)
+  const employeeName = coerceString(args.employee_name)
+  if (employeeName) query = query.ilike('employees.name', `%${employeeName}%`)
+  const limit = coerceNumber(args.limit, 100)
   const { data, error } = await query.order('year_month', { ascending: false }).limit(limit)
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
   let filtered = data
-  if (typeof args.min_attendance_rate === 'number' || typeof args.max_attendance_rate === 'number') {
+  const minRate = coerceNumber(args.min_attendance_rate, -1)
+  const maxRate = coerceNumber(args.max_attendance_rate, -1)
+  if (minRate >= 0 || maxRate >= 0) {
     filtered = data.filter((r: any) => {
       const rate = r.expected_days > 0 ? (r.actual_days / r.expected_days) * 100 : 0
-      if (typeof args.min_attendance_rate === 'number' && rate < args.min_attendance_rate) return false
-      if (typeof args.max_attendance_rate === 'number' && rate > args.max_attendance_rate) return false
+      if (minRate >= 0 && rate < minRate) return false
+      if (maxRate >= 0 && rate > maxRate) return false
       return true
     })
   }
@@ -233,23 +266,30 @@ async function queryAttendance(args: Args): Promise<string> {
 }
 
 async function queryTrips(args: Args): Promise<string> {
-  const cols = typeof args.columns === 'string' ? args.columns : '*'
+  const cols = coerceString(args.columns) || '*'
   let query = supabase.from('business_trips').select(cols)
-  if (args.employee_name) query = query.ilike('employee_name', `%${args.employee_name}%`)
-  if (args.department) query = query.ilike('department', `%${args.department}%`)
-  if (args.customer_name) query = query.ilike('customer_name', `%${args.customer_name}%`)
-  if (args.opportunity_name) query = query.ilike('opportunity_name', `%${args.opportunity_name}%`)
-  if (args.start_date_from) query = query.gte('start_time', args.start_date_from)
-  if (args.start_date_to) query = query.lte('start_time', args.start_date_to)
-  const limit = typeof args.limit === 'number' ? args.limit : 100
+  const employeeName = coerceString(args.employee_name)
+  if (employeeName) query = query.ilike('employee_name', `%${employeeName}%`)
+  const department = coerceString(args.department)
+  if (department) query = query.ilike('department', `%${department}%`)
+  const customerName = coerceString(args.customer_name)
+  if (customerName) query = query.ilike('customer_name', `%${customerName}%`)
+  const opportunityName = coerceString(args.opportunity_name)
+  if (opportunityName) query = query.ilike('opportunity_name', `%${opportunityName}%`)
+  const startDateFrom = coerceString(args.start_date_from)
+  if (startDateFrom) query = query.gte('start_time', startDateFrom)
+  const startDateTo = coerceString(args.start_date_to)
+  if (startDateTo) query = query.lte('start_time', startDateTo)
+  const limit = coerceNumber(args.limit, 100)
   const { data, error } = await query.order('start_time', { ascending: false }).limit(limit)
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
   let filtered = data
-  if (typeof args.min_days === 'number') {
+  const minDays = coerceNumber(args.min_days, -1)
+  if (minDays > 0) {
     filtered = data.filter((r: any) => {
       const days = Math.ceil((new Date(r.end_time).getTime() - new Date(r.start_time).getTime()) / (1000 * 60 * 60 * 24))
-      return days >= (args.min_days as number)
+      return days >= minDays
     })
   }
   return JSON.stringify({ total: filtered.length, data: filtered })
@@ -259,9 +299,9 @@ async function webSearch(args: Args, tavilyApiKey?: string): Promise<string> {
   if (!tavilyApiKey) {
     return JSON.stringify({ error: '未配置 Tavily API Key，请在「设置」页面添加。免费申请：https://tavily.com/' })
   }
-  const query = String(args.query || '')
+  const query = coerceString(args.query)
   if (!query) return JSON.stringify({ error: '请提供搜索关键词' })
-  const maxResults = Math.min(Math.max(Number(args.count) || 5, 1), 20)
+  const maxResults = Math.min(Math.max(coerceNumber(args.count, 5), 1), 20)
   const resp = await fetch('https://api.tavily.com/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
