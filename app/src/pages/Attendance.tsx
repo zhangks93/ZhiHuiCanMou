@@ -87,8 +87,11 @@ export function Attendance() {
       .from('attendance_records')
       .select(`
         *,
-        employees:employee_id (
-          name, department, company
+        feishu_members:employee_id (
+          name,
+          employee_no,
+          job_title,
+          department_id
         )
       `)
       .eq('year_month', selectedMonth)
@@ -99,14 +102,30 @@ export function Attendance() {
       return
     }
 
-    const deptMap = new Map<string, DeptSummary>()
+    // 获取所有部门信息
+    const { data: departments } = await supabase
+      .from('feishu_departments')
+      .select('department_id, name')
+
+    const deptMap = new Map<string, string>()
+    departments?.forEach(d => {
+      deptMap.set(d.department_id, d.name)
+    })
+
+    const summaryMap = new Map<string, DeptSummary>()
 
     data?.forEach((record: any) => {
-      const dept = record.employees?.department || '未分类'
+      const member = record.feishu_members
+      if (!member) return
 
-      if (!deptMap.has(dept)) {
-        deptMap.set(dept, {
-          department: dept,
+      // 获取员工的第一个部门
+      const deptIds = member.department_id?.split(',') || []
+      const deptId = deptIds[0]
+      const deptName = deptMap.get(deptId) || '未分类'
+
+      if (!summaryMap.has(deptName)) {
+        summaryMap.set(deptName, {
+          department: deptName,
           employee_count: 0,
           total_expected: 0,
           total_actual: 0,
@@ -118,7 +137,7 @@ export function Attendance() {
         })
       }
 
-      const summary = deptMap.get(dept)!
+      const summary = summaryMap.get(deptName)!
       summary.employee_count += 1
       summary.total_expected += Number(record.expected_days) || 0
       summary.total_actual += Number(record.actual_days) || 0
@@ -128,7 +147,7 @@ export function Attendance() {
       summary.total_early += Number(record.early_leave_times) || 0
     })
 
-    const result = Array.from(deptMap.values()).map(s => ({
+    const result = Array.from(summaryMap.values()).map(s => ({
       ...s,
       rate: s.total_expected > 0 ? (s.total_actual / s.total_expected) * 100 : 0,
     })).sort((a, b) => b.total_actual - a.total_actual)

@@ -20,6 +20,36 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: 'query_org_data',
+    description: '查询组织通讯录数据（feishu_departments / feishu_members）。可按部门名称、部门ID、上级部门筛选，支持返回部门基础统计，并可附带部门成员样本，便于做经营数据与组织数据关联分析。',
+    parameters: {
+      type: 'object',
+      properties: {
+        department_name: { type: 'string', description: '部门名称，支持模糊匹配' },
+        department_id: { type: 'string', description: '部门ID，精确匹配' },
+        parent_id: { type: 'string', description: '上级部门ID，精确匹配' },
+        include_children: { type: 'string', description: '是否包含子部门（传 "true" 开启）' },
+        include_members: { type: 'string', description: '是否返回部门成员样本（传 "true" 开启）' },
+        member_sample_limit: { type: 'number', description: '成员样本上限，默认60，最大300' },
+        sort_by: { type: 'string', description: '排序字段', enum: ['member_count', 'name', 'order_value'] },
+        limit: { type: 'number', description: '返回部门数量上限，默认100，最大500' },
+      },
+    },
+  },
+  {
+    name: 'analyze_biz_org_insights',
+    description: '执行经营数据与组织数据的联合分析。自动把中心级经营数据与通讯录部门规模做匹配，计算人均营收/人均利润、营收缺口、成本压力等指标，并返回可直接引用的洞察数据。',
+    parameters: {
+      type: 'object',
+      properties: {
+        center: { type: 'string', description: '聚焦某个中心或区域（按 node_name 模糊匹配）' },
+        focus: { type: 'string', description: '分析重点', enum: ['overview', 'revenue_gap', 'per_capita_profit', 'cost_pressure'] },
+        top_n: { type: 'number', description: '返回重点条目数量，默认5，最大10' },
+        min_member_count: { type: 'number', description: '最小组织人数门槛（仅保留匹配人数不低于该值的中心）' },
+      },
+    },
+  },
+  {
     name: 'query_opportunities',
     description: '查询商机项目台账。包含项目名称、预估金额、状态、中标概率、区域等信息。默认返回最新快照日期的数据。可用于分析商机管道和转化情况。支持指定返回字段。',
     parameters: {
@@ -152,6 +182,84 @@ function coerceString(v: unknown): string {
   return typeof v === 'string' ? v : String(v || '')
 }
 
+function coerceBoolean(v: unknown): boolean {
+  if (typeof v === 'boolean') return v
+  if (typeof v === 'string') {
+    const val = v.trim().toLowerCase()
+    return val === 'true' || val === '1' || val === 'yes'
+  }
+  if (typeof v === 'number') return v === 1
+  return false
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(Math.max(n, min), max)
+}
+
+function toNullableNumber(v: unknown): number | null {
+  if (v == null) return null
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v === 'string') {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+function normalizeRate(v: unknown): number | null {
+  const n = toNullableNumber(v)
+  if (n == null) return null
+  return n > 1 ? n / 100 : n
+}
+
+function round(n: number, digits = 4): number {
+  const base = 10 ** digits
+  return Math.round(n * base) / base
+}
+
+function safeDivide(numerator: number | null, denominator: number | null): number | null {
+  if (numerator == null || denominator == null || denominator <= 0) return null
+  return numerator / denominator
+}
+
+function normalizeText(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[()（）\-_/]/g, '')
+}
+
+function isLikelyNameMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false
+  const na = normalizeText(a)
+  const nb = normalizeText(b)
+  if (!na || !nb) return false
+  if (na === nb) return true
+  const shorter = na.length <= nb.length ? na : nb
+  const longer = na.length <= nb.length ? nb : na
+  if (shorter.length < 3) return false
+  return longer.includes(shorter)
+}
+
+interface DepartmentRow {
+  department_id: string
+  name: string
+  parent_id: string | null
+  order_value: number | null
+  member_count: number | null
+  leader_user_id: string | null
+}
+
+interface MemberRow {
+  open_id: string | null
+  user_id: string | null
+  name: string | null
+  job_title: string | null
+  department_id?: string | null
+  department_ids?: string[] | string | null
+}
+
 async function queryBizData(args: Args): Promise<string> {
   const cols = coerceString(args.columns) || '*'
   let query = supabase.from('edu_logistics_biz_data').select(cols)
@@ -173,6 +281,298 @@ async function queryBizData(args: Args): Promise<string> {
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
   return JSON.stringify({ total: data.length, data })
+}
+
+function collectDescendantDeptIds(seedIds: string[], allDepartments: DepartmentRow[]): Set<string> {
+  const byParent = new Map<string, string[]>()
+  for (const d of allDepartments) {
+    if (!d.parent_id) continue
+    if (!byParent.has(d.parent_id)) byParent.set(d.parent_id, [])
+    byParent.get(d.parent_id)!.push(d.department_id)
+  }
+  const visited = new Set<string>()
+  const queue = [...seedIds]
+  while (queue.length > 0) {
+    const id = queue.shift()!
+    if (visited.has(id)) continue
+    visited.add(id)
+    const children = byParent.get(id) ?? []
+    for (const c of children) queue.push(c)
+  }
+  return visited
+}
+
+function extractMemberDeptIds(member: MemberRow): string[] {
+  const raw = member.department_id ?? member.department_ids ?? null
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw.filter((v): v is string => typeof v === 'string' && !!v)
+  if (typeof raw === 'string') return raw ? [raw] : []
+  return []
+}
+
+function buildMemberSamples(members: MemberRow[], selectedDeptIds: Set<string>, sampleLimit: number) {
+  const samplesByDept: Record<string, Array<Record<string, unknown>>> = {}
+  for (const m of members) {
+    const deptIds = extractMemberDeptIds(m)
+    for (const dId of deptIds) {
+      if (!selectedDeptIds.has(dId)) continue
+      if (!samplesByDept[dId]) samplesByDept[dId] = []
+      if (samplesByDept[dId].length >= sampleLimit) continue
+      samplesByDept[dId].push({
+        open_id: m.open_id,
+        user_id: m.user_id,
+        name: m.name,
+        job_title: m.job_title,
+      })
+    }
+  }
+  return samplesByDept
+}
+
+function isMissingColumnError(msg: string, column: string): boolean {
+  const text = msg.toLowerCase()
+  return text.includes('column')
+    && text.includes(column.toLowerCase())
+    && text.includes('does not exist')
+}
+
+async function fetchMembersPortable(limit = 6000): Promise<{ data: MemberRow[]; error?: string }> {
+  const primary = await supabase
+    .from('feishu_members')
+    .select('open_id,user_id,name,job_title,department_id')
+    .limit(limit)
+  if (!primary.error) {
+    return { data: (primary.data ?? []) as MemberRow[] }
+  }
+  if (!isMissingColumnError(primary.error.message, 'department_id')) {
+    return { data: [], error: primary.error.message }
+  }
+
+  const fallback = await supabase
+    .from('feishu_members')
+    .select('open_id,user_id,name,job_title,department_ids')
+    .limit(limit)
+  if (fallback.error) return { data: [], error: fallback.error.message }
+  return { data: (fallback.data ?? []) as MemberRow[] }
+}
+
+async function queryOrgData(args: Args): Promise<string> {
+  const includeChildren = coerceBoolean(args.include_children)
+  const includeMembers = coerceBoolean(args.include_members)
+  const memberSampleLimit = clamp(coerceNumber(args.member_sample_limit, 60), 10, 300)
+  const limit = clamp(coerceNumber(args.limit, 100), 1, 500)
+  const sortBy = coerceString(args.sort_by) || 'member_count'
+
+  const { data: allDeptRows, error: deptError } = await supabase
+    .from('feishu_departments')
+    .select('department_id,name,parent_id,order_value,member_count,leader_user_id')
+    .limit(3000)
+
+  if (deptError) return JSON.stringify({ error: deptError.message })
+  if (!allDeptRows?.length) return JSON.stringify({ message: '未查询到组织通讯录数据', data: [] })
+
+  const allDepartments = allDeptRows as DepartmentRow[]
+  const departmentName = coerceString(args.department_name).trim()
+  const departmentId = coerceString(args.department_id).trim()
+  const parentId = coerceString(args.parent_id).trim()
+
+  let filtered = allDepartments
+  if (departmentName) filtered = filtered.filter((d) => d.name?.includes(departmentName))
+  if (departmentId) filtered = filtered.filter((d) => d.department_id === departmentId)
+  if (parentId) filtered = filtered.filter((d) => d.parent_id === parentId)
+
+  if (includeChildren && filtered.length > 0) {
+    const baseIds = filtered.map((d) => d.department_id)
+    const subtreeIds = collectDescendantDeptIds(baseIds, allDepartments)
+    filtered = allDepartments.filter((d) => subtreeIds.has(d.department_id))
+  }
+
+  if (sortBy === 'name') filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+  else if (sortBy === 'order_value') filtered = [...filtered].sort((a, b) => (a.order_value ?? 0) - (b.order_value ?? 0))
+  else filtered = [...filtered].sort((a, b) => (b.member_count ?? 0) - (a.member_count ?? 0))
+
+  const selected = filtered.slice(0, limit)
+  const selectedDeptIds = new Set(selected.map((d) => d.department_id))
+
+  const summary = {
+    total_departments: selected.length,
+    root_departments: selected.filter((d) => !d.parent_id).length,
+    total_member_count: selected.reduce((sum, d) => sum + (d.member_count ?? 0), 0),
+    avg_member_count: selected.length > 0
+      ? round(selected.reduce((sum, d) => sum + (d.member_count ?? 0), 0) / selected.length, 2)
+      : 0,
+  }
+
+  if (!includeMembers) {
+    return JSON.stringify({
+      summary,
+      total: selected.length,
+      data: selected,
+    })
+  }
+
+  const membersResult = await fetchMembersPortable(6000)
+  if (membersResult.error) {
+    return JSON.stringify({
+      summary,
+      total: selected.length,
+      data: selected,
+      member_warning: `部门数据已返回，但成员样本读取失败: ${membersResult.error}`,
+    })
+  }
+
+  const members = membersResult.data
+  const memberSamples = buildMemberSamples(members, selectedDeptIds, memberSampleLimit)
+  const withSamples = selected.map((d) => ({
+    ...d,
+    member_samples: memberSamples[d.department_id] ?? [],
+  }))
+
+  return JSON.stringify({
+    summary: {
+      ...summary,
+      member_sample_count: withSamples.reduce((sum, d) => sum + d.member_samples.length, 0),
+    },
+    total: withSamples.length,
+    data: withSamples,
+  })
+}
+
+async function analyzeBizOrgInsights(args: Args): Promise<string> {
+  const focus = coerceString(args.focus) || 'overview'
+  const topN = clamp(coerceNumber(args.top_n, 5), 1, 10)
+  const minMemberCount = Math.max(0, coerceNumber(args.min_member_count, 0))
+
+  let bizQuery = supabase
+    .from('edu_logistics_biz_data')
+    .select('node_name,center,biz_class,actual_revenue,budget_revenue,revenue_completion_rate,actual_profit,budget_profit,profit_completion_rate,actual_labor_cost_rate,budget_labor_cost_rate,actual_headcount,budget_headcount,headcount_diff')
+    .not('center', 'is', null)
+    .is('biz_class', null)
+    .limit(200)
+
+  const center = coerceString(args.center).trim()
+  if (center) bizQuery = bizQuery.ilike('node_name', `%${center}%`)
+
+  const [{ data: bizRows, error: bizError }, { data: deptRows, error: deptError }, membersResult] = await Promise.all([
+    bizQuery,
+    supabase.from('feishu_departments').select('department_id,name,parent_id,member_count').limit(3000),
+    fetchMembersPortable(6000),
+  ])
+
+  if (bizError) return JSON.stringify({ error: bizError.message })
+  if (deptError) return JSON.stringify({ error: deptError.message })
+  if (membersResult.error) return JSON.stringify({ error: membersResult.error })
+  if (!bizRows?.length) return JSON.stringify({ message: '未查询到可分析的中心级经营数据', data: [] })
+
+  const departments = (deptRows ?? []) as Array<Pick<DepartmentRow, 'department_id' | 'name' | 'parent_id' | 'member_count'>>
+  const members = membersResult.data
+
+  const metrics = bizRows.map((row) => {
+    const nodeName = String((row as Record<string, unknown>).node_name ?? '')
+    const matchedDepartments = departments.filter((d) => isLikelyNameMatch(nodeName, d.name))
+    const matchedDeptIds = new Set(matchedDepartments.map((d) => d.department_id))
+    const memberCountFromDept = matchedDepartments.reduce((sum, d) => sum + (d.member_count ?? 0), 0)
+    const memberCountFromMembers = members.reduce((sum, m) => {
+      const ids = extractMemberDeptIds(m)
+      return ids.some((id) => matchedDeptIds.has(id)) ? sum + 1 : sum
+    }, 0)
+    const orgMemberCount = memberCountFromMembers > 0 ? memberCountFromMembers : memberCountFromDept
+
+    const actualRevenue = toNullableNumber((row as Record<string, unknown>).actual_revenue)
+    const budgetRevenue = toNullableNumber((row as Record<string, unknown>).budget_revenue)
+    const actualProfit = toNullableNumber((row as Record<string, unknown>).actual_profit)
+    const budgetProfit = toNullableNumber((row as Record<string, unknown>).budget_profit)
+    const revenueRate = normalizeRate((row as Record<string, unknown>).revenue_completion_rate)
+    const profitRate = normalizeRate((row as Record<string, unknown>).profit_completion_rate)
+    const laborRate = normalizeRate((row as Record<string, unknown>).actual_labor_cost_rate)
+    const laborBudgetRate = normalizeRate((row as Record<string, unknown>).budget_labor_cost_rate)
+    const headcount = toNullableNumber((row as Record<string, unknown>).actual_headcount)
+    const budgetHeadcount = toNullableNumber((row as Record<string, unknown>).budget_headcount)
+    const headcountDiff = toNullableNumber((row as Record<string, unknown>).headcount_diff)
+    const revenueGap = actualRevenue != null && budgetRevenue != null ? budgetRevenue - actualRevenue : null
+    const profitGap = actualProfit != null && budgetProfit != null ? budgetProfit - actualProfit : null
+    const costPressure = laborRate != null && laborBudgetRate != null ? laborRate - laborBudgetRate : null
+
+    return {
+      node_name: nodeName,
+      org_member_count: orgMemberCount,
+      matched_department_count: matchedDepartments.length,
+      matched_department_names: matchedDepartments.map((d) => d.name),
+      actual_revenue: actualRevenue,
+      budget_revenue: budgetRevenue,
+      revenue_gap: revenueGap,
+      revenue_completion_rate: revenueRate,
+      revenue_completion_rate_pct: revenueRate == null ? null : round(revenueRate * 100, 2),
+      actual_profit: actualProfit,
+      budget_profit: budgetProfit,
+      profit_gap: profitGap,
+      profit_completion_rate: profitRate,
+      profit_completion_rate_pct: profitRate == null ? null : round(profitRate * 100, 2),
+      actual_labor_cost_rate: laborRate,
+      budget_labor_cost_rate: laborBudgetRate,
+      cost_pressure: costPressure,
+      cost_pressure_pct: costPressure == null ? null : round(costPressure * 100, 2),
+      actual_headcount: headcount,
+      budget_headcount: budgetHeadcount,
+      headcount_diff: headcountDiff,
+      revenue_per_member: round(safeDivide(actualRevenue, orgMemberCount) ?? 0, 2),
+      profit_per_member: round(safeDivide(actualProfit, orgMemberCount) ?? 0, 2),
+    }
+  })
+
+  const filteredMetrics = metrics.filter((m) => m.org_member_count >= minMemberCount)
+  if (!filteredMetrics.length) {
+    return JSON.stringify({
+      message: `未找到满足最小人数门槛（${minMemberCount}）的联合分析数据`,
+      data: [],
+    })
+  }
+
+  const revenueGapRank = [...filteredMetrics]
+    .filter((m) => m.revenue_gap != null)
+    .sort((a, b) => (b.revenue_gap ?? 0) - (a.revenue_gap ?? 0))
+    .slice(0, topN)
+
+  const perCapitaProfitRank = [...filteredMetrics]
+    .filter((m) => m.org_member_count > 0)
+    .sort((a, b) => (b.profit_per_member ?? 0) - (a.profit_per_member ?? 0))
+    .slice(0, topN)
+
+  const costPressureRank = [...filteredMetrics]
+    .filter((m) => m.cost_pressure != null)
+    .sort((a, b) => (b.cost_pressure ?? 0) - (a.cost_pressure ?? 0))
+    .slice(0, topN)
+
+  const lowExecutionRisk = [...filteredMetrics]
+    .filter((m) => (m.revenue_completion_rate ?? 1) < 0.85 || (m.profit_completion_rate ?? 1) < 0.85)
+    .sort((a, b) => (a.revenue_completion_rate ?? 1) - (b.revenue_completion_rate ?? 1))
+    .slice(0, topN)
+
+  const focusData = focus === 'revenue_gap'
+    ? revenueGapRank
+    : focus === 'per_capita_profit'
+      ? perCapitaProfitRank
+      : focus === 'cost_pressure'
+        ? costPressureRank
+        : filteredMetrics.slice(0, topN)
+
+  return JSON.stringify({
+    summary: {
+      focus,
+      total_centers: filteredMetrics.length,
+      matched_centers: filteredMetrics.filter((m) => m.matched_department_count > 0).length,
+      unmatched_centers: filteredMetrics.filter((m) => m.matched_department_count === 0).map((m) => m.node_name),
+      total_departments: departments.length,
+      total_members: members.length,
+    },
+    insights: {
+      top_revenue_gap: revenueGapRank,
+      top_profit_per_member: perCapitaProfitRank,
+      top_cost_pressure: costPressureRank,
+      low_execution_risk: lowExecutionRisk,
+    },
+    data: focusData,
+  })
 }
 
 async function queryOpportunities(args: Args): Promise<string> {
@@ -240,13 +640,11 @@ async function querySchedules(args: Args): Promise<string> {
 
 async function queryAttendance(args: Args): Promise<string> {
   const cols = coerceString(args.columns) || '*'
-  let query = supabase.from('attendance_records').select(cols.includes('employees') ? cols : `${cols === '*' ? '*' : cols},employees(name,department,company)`)
+  let query = supabase.from('attendance_records').select(cols.includes('feishu_members') ? cols : `${cols === '*' ? '*' : cols},feishu_members:employee_id(name,employee_no,job_title,department_id)`)
   const yearMonth = coerceNumber(args.year_month, -1)
   if (yearMonth > 0) query = query.eq('year_month', yearMonth)
-  const department = coerceString(args.department)
-  if (department) query = query.ilike('employees.department', `%${department}%`)
   const employeeName = coerceString(args.employee_name)
-  if (employeeName) query = query.ilike('employees.name', `%${employeeName}%`)
+  if (employeeName) query = query.ilike('feishu_members.name', `%${employeeName}%`)
   const limit = coerceNumber(args.limit, 100)
   const { data, error } = await query.order('year_month', { ascending: false }).limit(limit)
   if (error) return JSON.stringify({ error: error.message })
@@ -331,6 +729,8 @@ async function webSearch(args: Args, tavilyApiKey?: string): Promise<string> {
 
 const EXECUTORS: Record<string, (args: Args) => Promise<string>> = {
   query_biz_data: queryBizData,
+  query_org_data: queryOrgData,
+  analyze_biz_org_insights: analyzeBizOrgInsights,
   query_opportunities: queryOpportunities,
   query_work_items: queryWorkItems,
   query_schedules: querySchedules,
