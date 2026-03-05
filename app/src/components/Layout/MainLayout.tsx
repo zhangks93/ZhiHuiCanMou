@@ -15,7 +15,7 @@ export function MainLayout() {
   }, [sidebarOpen])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen overflow-hidden bg-background">
       <Header
         onMenuClick={() => setSidebarOpen(true)}
         userName={currentUser?.name ?? null}
@@ -29,7 +29,7 @@ export function MainLayout() {
       />
       <main
         className={`
-          min-h-screen transition-[padding] duration-200 ease-out
+          h-screen overflow-y-auto transition-[padding] duration-200 ease-out
           pt-[5.5rem] pl-4 pr-4 pb-8
           lg:pr-8
           ${sidebarCollapsed ? 'lg:pl-[96px]' : 'lg:pl-[244px]'}
