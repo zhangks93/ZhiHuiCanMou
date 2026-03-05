@@ -11,6 +11,17 @@ const MAX_ITERATIONS = 8
 const MAX_HISTORY_TURNS = 6
 // Max characters per tool result before truncation
 const TOOL_RESULT_LIMIT = 12000
+// Guardrail: avoid too many tool calls in one iteration
+const MAX_TOOL_CALLS_PER_ITERATION = 6
+
+function stableStringify(value: unknown): string {
+  if (value == null) return 'null'
+  if (typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  const obj = value as Record<string, unknown>
+  const keys = Object.keys(obj).sort()
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(',')}}`
+}
 
 export async function runAgent(
   question: string,
@@ -78,10 +89,29 @@ export async function runAgent(
       return answer
     }
 
-    // Dedup: filter out tool calls we've already made with identical args
+    // Dedup + guardrail: filter duplicate calls and cap per-iteration volume
     const newToolCalls: ToolCall[] = []
-    for (const tc of response.toolCalls) {
-      const sig = `${tc.name}:${JSON.stringify(tc.args)}`
+    if (response.toolCalls.length > MAX_TOOL_CALLS_PER_ITERATION) {
+      onStep({
+        type: 'thinking',
+        content: `本轮工具调用请求过多（${response.toolCalls.length} 个），仅执行前 ${MAX_TOOL_CALLS_PER_ITERATION} 个，剩余调用将以提示结果返回。`,
+      })
+    }
+
+    for (let idx = 0; idx < response.toolCalls.length; idx++) {
+      const tc = response.toolCalls[idx]
+
+      if (idx >= MAX_TOOL_CALLS_PER_ITERATION) {
+        messages.push({
+          role: 'tool',
+          toolCallId: tc.id,
+          name: tc.name,
+          content: JSON.stringify({ warning: '本轮工具调用数量超限，已跳过该调用，请基于已返回数据继续分析。' }),
+        })
+        continue
+      }
+
+      const sig = `${tc.name}:${stableStringify(tc.args)}`
       if (callSignatures.has(sig)) {
         // Duplicate call detected — add a synthetic result to keep the message
         // chain valid and hint the model to move on

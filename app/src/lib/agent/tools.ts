@@ -5,31 +5,31 @@ import { saveMemory, searchMemories } from './memory'
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: 'query_biz_data',
-    description: '查询教育后勤经营数据。可按节点名称、所属中心、板块分类、组织标签筛选。支持指定返回字段以减少数据量。数据共约428条。层级通过 center/biz_class/org_tag 判断：center为空=合计，biz_class为空=中心级，org_tag有值=业务单位。百分比字段以小数存储（0.75=75%）。',
+    description: '查询教育后勤经营数据（116条）。包含营收、利润、成本、人效等60+指标。主要中心：三大区域（营收1.89亿，达成率62%）、后勤管理中心（营收8529万，达成率97%）、商业业务（营收7188万，达成率105%）。支持按中心/板块/业务单位多层级筛选，可计算同比、环比、达成率等衍生指标。',
     parameters: {
       type: 'object',
       properties: {
         node_name: { type: 'string', description: '节点名称，支持模糊匹配' },
-        center: { type: 'string', description: '所属中心名称，支持模糊匹配。如 "后勤管理中心"、"三大区域"' },
+        center: { type: 'string', description: '所属中心名称，支持模糊匹配。主要中心：三大区域、后勤管理中心、商业业务、战略支持中心、科创发展中心' },
         biz_class: { type: 'string', description: '板块业务分类，支持模糊匹配。如 "西南区域"、"教育园特色餐饮"' },
         org_tag: { type: 'string', description: '组织标签（最末级业务单位），支持模糊匹配' },
         level: { type: 'string', description: '层级筛选：total=合计(center为空), center=中心级(有center无biz_class), biz_class=板块级, unit=最末级(有org_tag)', enum: ['total', 'center', 'biz_class', 'unit'] },
-        columns: { type: 'string', description: '需要返回的字段，逗号分隔。如 "node_name,center,actual_revenue,budget_revenue,revenue_completion_rate"。不传则返回全部字段。建议只选需要的字段以提高效率。' },
+        columns: { type: 'string', description: '需要返回的字段，逗号分隔。常用字段：node_name,center,actual_revenue,budget_revenue,revenue_completion_rate,actual_profit,profit_completion_rate,actual_labor_cost_rate,actual_headcount。不传则返回全部60+字段。' },
         limit: { type: 'number', description: '返回条数上限，默认200' },
       },
     },
   },
   {
     name: 'query_org_data',
-    description: '查询组织通讯录数据（feishu_departments / feishu_members）。可按部门名称、部门ID、上级部门筛选，支持返回部门基础统计，并可附带部门成员样本，便于做经营数据与组织数据关联分析。',
+    description: '查询组织通讯录数据。242个部门，891名成员，覆盖161个有成员的部门。可按部门名称、层级关系筛选，支持返回部门统计和成员样本。用于分析组织架构、人员分布、部门规模，以及与经营数据做关联分析（如人均营收、人均利润、人效对比）。',
     parameters: {
       type: 'object',
       properties: {
         department_name: { type: 'string', description: '部门名称，支持模糊匹配' },
         department_id: { type: 'string', description: '部门ID，精确匹配' },
         parent_id: { type: 'string', description: '上级部门ID，精确匹配' },
-        include_children: { type: 'string', description: '是否包含子部门（传 "true" 开启）' },
-        include_members: { type: 'string', description: '是否返回部门成员样本（传 "true" 开启）' },
+        include_children: { type: 'string', description: '是否包含子部门（传 "true" 开启），用于获取完整组织树' },
+        include_members: { type: 'string', description: '是否返回部门成员样本（传 "true" 开启），包含姓名、工号、职位等' },
         member_sample_limit: { type: 'number', description: '成员样本上限，默认60，最大300' },
         sort_by: { type: 'string', description: '排序字段', enum: ['member_count', 'name', 'order_value'] },
         limit: { type: 'number', description: '返回部门数量上限，默认100，最大500' },
@@ -51,16 +51,16 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: 'query_opportunities',
-    description: '查询商机项目台账。包含项目名称、预估金额、状态、中标概率、区域等信息。默认返回最新快照日期的数据。可用于分析商机管道和转化情况。支持指定返回字段。',
+    description: '查询商机项目台账（630条）。当前管道：20个跟踪中（总额2.02亿，平均中标率58%），9个运营中（总额1.67亿），3个已签约（总额6500万）。包含项目名称、预估金额、状态、中标概率、区域、投标日期、审批状态等。可分析商机管道健康度、转化漏斗、区域分布、金额分层等。',
     parameters: {
       type: 'object',
       properties: {
         snapshot_date: { type: 'string', description: '快照日期(YYYY-MM-DD)，不传则自动使用最新日期' },
         item_type: { type: 'string', description: '商机类型', enum: ['operation', 'expansion', 'tracking'] },
-        status: { type: 'string', description: '商机状态', enum: ['tracking', 'bidding', 'contracted', 'operating', 'suspended', 'lost'] },
+        status: { type: 'string', description: '商机状态。tracking=跟踪中(20个), bidding=投标中, contracted=已签约(3个), operating=运营中(9个), suspended=暂停, lost=丢失', enum: ['tracking', 'bidding', 'contracted', 'operating', 'suspended', 'lost'] },
         region: { type: 'string', description: '区域名称，支持模糊匹配' },
         min_amount: { type: 'number', description: '最小预估金额（万元）' },
-        columns: { type: 'string', description: '需要返回的字段，逗号分隔。不传则返回全部字段。' },
+        columns: { type: 'string', description: '需要返回的字段，逗号分隔。常用：project_name,estimated_amount,status,win_probability,region,bid_date,logistics_approved,group_approved' },
         limit: { type: 'number', description: '返回条数上限，默认100' },
       },
     },
@@ -81,49 +81,49 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: 'query_schedules',
-    description: '查询日程安排和会议纪要。包含日程标题、日期、时段（上午/下午/晚上）、类型、地点、会议纪要等。可用于了解用户的日程安排和会议决议。',
+    description: '查询日程安排和会议纪要（4条记录）。包含日程标题、日期、时段（上午/下午/晚上）、类型（会议/商务/日常/紧急）、地点、会议纪要等。可用于了解用户的日程安排、会议决议、工作重点、时间分配等。支持按日期范围、类型、是否有纪要筛选。',
     parameters: {
       type: 'object',
       properties: {
-        date_from: { type: 'string', description: '起始日期，如 "2025-06-01"' },
-        date_to: { type: 'string', description: '结束日期，如 "2025-06-30"' },
-        type: { type: 'string', description: '日程类型', enum: ['meeting', 'business', 'routine', 'urgent'] },
-        has_notes: { type: 'string', description: '是否有会议纪要，传 "true" 只返回有纪要的日程' },
-        columns: { type: 'string', description: '需要返回的字段，逗号分隔。不传则返回全部字段。' },
+        date_from: { type: 'string', description: '起始日期，如 "2026-01-01"' },
+        date_to: { type: 'string', description: '结束日期，如 "2026-03-31"' },
+        type: { type: 'string', description: '日程类型。meeting=会议, business=商务, routine=日常, urgent=紧急', enum: ['meeting', 'business', 'routine', 'urgent'] },
+        has_notes: { type: 'string', description: '是否有会议纪要，传 "true" 只返回有纪要的日程，用于查看会议决议和行动项' },
+        columns: { type: 'string', description: '需要返回的字段，逗号分隔。常用：title,date,period,type,location,meeting_notes,start_time,end_time' },
         limit: { type: 'number', description: '返回条数上限，默认50' },
       },
     },
   },
   {
     name: 'query_attendance',
-    description: '查询员工考勤数据。包含应出勤天数、实出勤天数、请假天数、旷工天数、迟到早退次数等。可按部门、月份分析考勤情况和出勤率。支持指定返回字段。',
+    description: '查询员工考勤数据（369条记录）。2026年1月数据：实际出勤9109天，请假224.5天，迟到856次。包含应出勤天数、实出勤天数、请假天数、旷工天数、迟到早退次数等。可按部门、月份、出勤率区间分析考勤情况，识别考勤异常、出勤率低的部门/员工，评估团队工作状态。',
     parameters: {
       type: 'object',
       properties: {
-        year_month: { type: 'number', description: '年月，如 202601 表示2026年1月' },
+        year_month: { type: 'number', description: '年月，如 202601 表示2026年1月。当前有202601月份数据' },
         department: { type: 'string', description: '部门名称，支持模糊匹配' },
         employee_name: { type: 'string', description: '员工姓名，支持模糊匹配' },
         min_attendance_rate: { type: 'number', description: '最低出勤率（0-100），筛选出勤率高于此值的记录' },
-        max_attendance_rate: { type: 'number', description: '最高出勤率（0-100），筛选出勤率低于此值的记录' },
-        columns: { type: 'string', description: '需要返回的字段，逗号分隔。不传则返回全部字段。' },
+        max_attendance_rate: { type: 'number', description: '最高出勤率（0-100），筛选出勤率低于此值的记录。如设置80可找出勤率偏低的员工' },
+        columns: { type: 'string', description: '需要返回的字段，逗号分隔。常用：employee_id,year_month,expected_days,actual_days,leave_days,absent_days,late_times,early_leave_times,feishu_members(name,department_id,job_title)' },
         limit: { type: 'number', description: '返回条数上限，默认100' },
       },
     },
   },
   {
     name: 'query_trips',
-    description: '查询员工出差记录。包含出差人员、部门、客户、商机、出发/返回时间、出差天数、事由等。可用于分析出差频率、客户拜访情况、出差成本等。支持指定返回字段。',
+    description: '查询员工出差记录（44条）。涉及9名员工，13个客户。2026年1月33次出差（平均4.7天），2月7次（平均2.9天），3月4次（平均2.5天）。包含出差人员、部门、客户、商机、出发/返回时间、出差天数、事由等。可分析出差频率、客户拜访情况、出差成本、商机跟进强度、人员工作负荷等。',
     parameters: {
       type: 'object',
       properties: {
         employee_name: { type: 'string', description: '员工姓名，支持模糊匹配' },
         department: { type: 'string', description: '部门名称，支持模糊匹配' },
-        customer_name: { type: 'string', description: '客户名称，支持模糊匹配' },
-        opportunity_name: { type: 'string', description: '商机名称，支持模糊匹配' },
-        start_date_from: { type: 'string', description: '出发日期起始，如 "2026-01-01"' },
+        customer_name: { type: 'string', description: '客户名称，支持模糊匹配。当前涉及13个客户' },
+        opportunity_name: { type: 'string', description: '商机名称，支持模糊匹配。可关联商机台账分析出差投入与转化效果' },
+        start_date_from: { type: 'string', description: '出发日期起始，如 "2026-01-01"。数据范围：2026-01-04至2026-03-08' },
         start_date_to: { type: 'string', description: '出发日期结束，如 "2026-01-31"' },
-        min_days: { type: 'number', description: '最少出差天数' },
-        columns: { type: 'string', description: '需要返回的字段，逗号分隔。不传则返回全部字段。' },
+        min_days: { type: 'number', description: '最少出差天数。如设置5可找长期出差记录' },
+        columns: { type: 'string', description: '需要返回的字段，逗号分隔。常用：employee_name,employee_id,department,customer_name,opportunity_name,start_time,end_time,reason' },
         limit: { type: 'number', description: '返回条数上限，默认100' },
       },
     },
@@ -653,8 +653,8 @@ async function queryAttendance(args: Args): Promise<string> {
   const minRate = coerceNumber(args.min_attendance_rate, -1)
   const maxRate = coerceNumber(args.max_attendance_rate, -1)
   if (minRate >= 0 || maxRate >= 0) {
-    filtered = data.filter((r: any) => {
-      const rate = r.expected_days > 0 ? (r.actual_days / r.expected_days) * 100 : 0
+    filtered = data.filter((r: Record<string, unknown>) => {
+      const rate = r.expected_days > 0 ? (Number(r.actual_days) / Number(r.expected_days)) * 100 : 0
       if (minRate >= 0 && rate < minRate) return false
       if (maxRate >= 0 && rate > maxRate) return false
       return true
@@ -685,8 +685,10 @@ async function queryTrips(args: Args): Promise<string> {
   let filtered = data
   const minDays = coerceNumber(args.min_days, -1)
   if (minDays > 0) {
-    filtered = data.filter((r: any) => {
-      const days = Math.ceil((new Date(r.end_time).getTime() - new Date(r.start_time).getTime()) / (1000 * 60 * 60 * 24))
+    filtered = data.filter((r: Record<string, unknown>) => {
+      const endTime = r.end_time as string
+      const startTime = r.start_time as string
+      const days = Math.ceil((new Date(endTime).getTime() - new Date(startTime).getTime()) / (1000 * 60 * 60 * 24))
       return days >= minDays
     })
   }

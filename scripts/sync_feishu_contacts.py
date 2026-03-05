@@ -21,6 +21,34 @@ USER_LIST_URL = f"{FEISHU_HOST}/contact/v3/users"
 SCOPES_URL = f"{FEISHU_HOST}/contact/v3/scopes"
 
 
+def _extract_parent_department_id(
+    dept: dict,
+    fallback_parent_id: str | None = None,
+) -> str | None:
+    """
+    Normalize parent department id from Feishu payload.
+    Feishu may return parent info as:
+      - parent_department_id: str
+      - parent_department_ids: list[str] | str
+    """
+    parent = dept.get("parent_department_id")
+    if isinstance(parent, str) and parent:
+        return parent
+
+    parent_ids = dept.get("parent_department_ids")
+    if isinstance(parent_ids, list):
+        for value in parent_ids:
+            if isinstance(value, str) and value:
+                return value
+    elif isinstance(parent_ids, str) and parent_ids:
+        return parent_ids
+
+    if isinstance(fallback_parent_id, str) and fallback_parent_id:
+        return fallback_parent_id
+
+    return None
+
+
 def discover_root_departments(token: str) -> list[str]:
     """通过多种方式自动发现应用可访问的根部门 ID 列表"""
     headers = {"Authorization": f"Bearer {token}"}
@@ -136,6 +164,10 @@ def fetch_departments(token: str, root_dept_id: str) -> list[dict]:
             if root_data:
                 dept = root_data.get("department", {})
                 if dept:
+                    dept = dict(dept)
+                    parent_department_id = _extract_parent_department_id(dept)
+                    if parent_department_id:
+                        dept["parent_department_id"] = parent_department_id
                     all_depts.append(dept)
                     print(f"  根部门: {dept.get('name')} ({dept.get('department_id')})")
         except Exception as e:
@@ -157,6 +189,10 @@ def fetch_departments(token: str, root_dept_id: str) -> list[dict]:
             items = data.get("items", [])
             for dept in items:
                 dept_id = dept.get("department_id", "")
+                normalized_parent = _extract_parent_department_id(
+                    dept,
+                    None if parent_id == "0" else parent_id,
+                )
                 # 获取部门详情以获得 order 字段
                 try:
                     detail_data = feishu_get(token, f"{DEPT_BASE_URL}/{dept_id}", {
@@ -165,10 +201,23 @@ def fetch_departments(token: str, root_dept_id: str) -> list[dict]:
                     })
                     dept_detail = detail_data.get("department", {})
                     if dept_detail:
-                        all_depts.append(dept_detail)
+                        merged = {**dept, **dept_detail}
+                        merged_parent = _extract_parent_department_id(
+                            merged,
+                            normalized_parent,
+                        )
+                        if merged_parent:
+                            merged["parent_department_id"] = merged_parent
+                        all_depts.append(merged)
                     else:
+                        dept = dict(dept)
+                        if normalized_parent:
+                            dept["parent_department_id"] = normalized_parent
                         all_depts.append(dept)
                 except Exception:
+                    dept = dict(dept)
+                    if normalized_parent:
+                        dept["parent_department_id"] = normalized_parent
                     all_depts.append(dept)
                 print(f"  部门: {dept.get('name')} ({dept_id}) <- {parent_id}")
                 _crawl(dept_id)
@@ -220,6 +269,8 @@ def upsert_departments(
     rows = []
     for d in departments:
         dept_id = d.get("department_id", "") or ""
+        parent_department_id = _extract_parent_department_id(d)
+        parent_id = parent_department_id if parent_department_id and parent_department_id != "0" else None
 
         # 处理排序字段，兼容字符串 / 数字
         order_raw = d.get("order", 0)
@@ -241,7 +292,7 @@ def upsert_departments(
         rows.append({
             "department_id": dept_id,
             "name": d.get("name", ""),
-            "parent_id": d.get("parent_department_id", ""),
+            "parent_id": parent_id,
             "order_value": order_value,
             "member_count": mc,
             "leader_user_id": d.get("leader_user_id", None),

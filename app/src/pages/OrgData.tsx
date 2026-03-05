@@ -1,23 +1,19 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { PageTitle } from '@/components/ui/PageTitle'
-import { StatCard } from '@/components/ui/StatCard'
 import { supabase, type FeishuDepartment, type FeishuMember } from '@/lib/supabase'
-import { Users, Building2, UserCheck, ChevronRight, ChevronDown } from 'lucide-react'
+import { Users, Building2, ChevronRight, ChevronDown, Layers3 } from 'lucide-react'
 
-// 部门树节点
 interface DeptNode extends FeishuDepartment {
   children: DeptNode[]
-  totalMembers: number // 含子部门的递归人数
+  totalMembers: number
 }
 
-// 构建部门树
 function buildTree(depts: FeishuDepartment[], members: FeishuMember[]): DeptNode[] {
   const nodeMap = new Map<string, DeptNode>()
   for (const d of depts) {
     nodeMap.set(d.department_id, { ...d, children: [], totalMembers: 0 })
   }
 
-  // 统计每个部门的直属人数
   const directCount = new Map<string, number>()
   for (const m of members) {
     for (const deptId of m.department_ids ?? []) {
@@ -29,23 +25,18 @@ function buildTree(depts: FeishuDepartment[], members: FeishuMember[]): DeptNode
   for (const node of nodeMap.values()) {
     node.member_count = directCount.get(node.department_id) ?? node.member_count
     const parent = node.parent_id ? nodeMap.get(node.parent_id) : null
-    if (parent) {
-      parent.children.push(node)
-    } else {
-      roots.push(node)
-    }
+    if (parent) parent.children.push(node)
+    else roots.push(node)
   }
 
-  // 按 order_value 排序
-  const sortChildren = (nodes: DeptNode[]) => {
+  const sortNodes = (nodes: DeptNode[]) => {
     nodes.sort((a, b) => (a.order_value ?? 0) - (b.order_value ?? 0))
-    for (const n of nodes) sortChildren(n.children)
+    for (const n of nodes) sortNodes(n.children)
   }
-  sortChildren(roots)
+  sortNodes(roots)
 
-  // 递归计算总人数
   const calcTotal = (node: DeptNode): number => {
-    node.totalMembers = node.member_count + node.children.reduce((s, c) => s + calcTotal(c), 0)
+    node.totalMembers = node.member_count + node.children.reduce((sum, child) => sum + calcTotal(child), 0)
     return node.totalMembers
   }
   roots.forEach(calcTotal)
@@ -53,61 +44,87 @@ function buildTree(depts: FeishuDepartment[], members: FeishuMember[]): DeptNode
   return roots
 }
 
-// 员工类型映射
-const EMP_TYPE_LABEL: Record<number, string> = {
-  1: '正式',
-  2: '实习',
-  3: '外包',
-  4: '劳务',
-  5: '顾问',
+function flattenTree(nodes: DeptNode[]): DeptNode[] {
+  const list: DeptNode[] = []
+  const visit = (node: DeptNode) => {
+    list.push(node)
+    node.children.forEach(visit)
+  }
+  nodes.forEach(visit)
+  return list
 }
 
-// 部门树行组件
-function DeptRow({ node, depth, expanded, onToggle }: {
+function OrgTreeNode({
+  node,
+  depth,
+  expanded,
+  selectedId,
+  onSelect,
+  onToggle,
+}: {
   node: DeptNode
   depth: number
   expanded: Set<string>
+  selectedId: string
+  onSelect: (id: string) => void
   onToggle: (id: string) => void
 }) {
   const hasChildren = node.children.length > 0
   const isOpen = expanded.has(node.department_id)
-  const pct = node.totalMembers > 0
-    ? ((node.member_count / node.totalMembers) * 100).toFixed(1)
-    : '—'
+  const isSelected = selectedId === node.department_id
 
   return (
-    <>
-      <tr
-        className={`border-t border-gray-100 hover:bg-gray-50/60 transition-colors ${depth === 0 ? 'bg-gray-50/40 font-medium' : ''}`}
-        onClick={() => hasChildren && onToggle(node.department_id)}
-        style={{ cursor: hasChildren ? 'pointer' : 'default' }}
-      >
-        <td className="py-2.5 px-4 text-gray-700">
-          <span style={{ paddingLeft: depth * 20 }} className="inline-flex items-center gap-1">
+    <li className="space-y-2">
+      <div className="relative" style={{ marginLeft: depth * 16 }}>
+        {depth > 0 && <span className="absolute -left-3 top-5 h-px w-3 bg-gray-300" />}
+        <div
+          className={`flex items-center gap-2 rounded-xl border p-2 transition-colors ${
+            isSelected ? 'border-accent/30 bg-accent/5' : 'border-gray-200 bg-white hover:bg-gray-50'
+          }`}
+        >
+          <button
+            type="button"
+            className="h-7 w-7 shrink-0 rounded-md text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
+            disabled={!hasChildren}
+            onClick={() => hasChildren && onToggle(node.department_id)}
+            aria-label={isOpen ? '收起子部门' : '展开子部门'}
+          >
             {hasChildren ? (
-              isOpen
-                ? <ChevronDown size={14} className="text-gray-400 shrink-0" />
-                : <ChevronRight size={14} className="text-gray-400 shrink-0" />
+              isOpen ? <ChevronDown size={14} className="mx-auto" /> : <ChevronRight size={14} className="mx-auto" />
             ) : (
-              <span className="w-3.5" />
+              <span className="block h-3.5" />
             )}
-            {node.name}
-          </span>
-        </td>
-        <td className="py-2.5 px-4 text-right text-gray-700 tabular-nums">{node.member_count}</td>
-        <td className="py-2.5 px-4 text-right text-gray-700 tabular-nums">{node.totalMembers}</td>
-        <td className="py-2.5 px-4 text-right">
-          {depth > 0 && pct !== '—' && (
-            <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-              {pct}%
+          </button>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+            onClick={() => onSelect(node.department_id)}
+          >
+            <span className="truncate text-sm text-gray-800">{node.name}</span>
+            <span className="flex shrink-0 items-center gap-1 text-xs">
+              <span className="rounded bg-sky-100 px-2 py-0.5 text-sky-700 tabular-nums">{node.member_count}</span>
+              <span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-700 tabular-nums">{node.totalMembers}</span>
             </span>
-          )}
-        </td>
-      </tr>
-      {isOpen && node.children.map(child => (
-        <DeptRow key={child.department_id} node={child} depth={depth + 1} expanded={expanded} onToggle={onToggle} />
-      ))}
-    </>
+          </button>
+        </div>
+      </div>
+
+      {hasChildren && isOpen && (
+        <ul className="ml-3 space-y-2 border-l border-dashed border-gray-200 pl-3">
+          {node.children.map(child => (
+            <OrgTreeNode
+              key={child.department_id}
+              node={child}
+              depth={depth + 1}
+              expanded={expanded}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              onToggle={onToggle}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
   )
 }
 
@@ -116,6 +133,7 @@ export function OrgData() {
   const [members, setMembers] = useState<FeishuMember[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [selectedId, setSelectedId] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -129,27 +147,51 @@ export function OrgData() {
   }, [])
 
   const tree = useMemo(() => buildTree(departments, members), [departments, members])
+  const allNodes = useMemo(() => flattenTree(tree), [tree])
+  const nodeMap = useMemo(() => new Map(allNodes.map(node => [node.department_id, node])), [allNodes])
+  const departmentMap = useMemo(
+    () => new Map(departments.map(dept => [dept.department_id, dept])),
+    [departments],
+  )
 
-  // 默认展开第一层
   useEffect(() => {
     if (tree.length > 0 && expanded.size === 0) {
-      setExpanded(new Set(tree.map(n => n.department_id)))
+      setExpanded(new Set(tree.map(node => node.department_id)))
     }
-  }, [tree])
+  }, [tree, expanded.size])
 
-  // 统计数据
-  const stats = useMemo(() => {
-    const total = members.length
-    const typeCount = new Map<number, number>()
-    let genderM = 0, genderF = 0
-    for (const m of members) {
-      if (m.employee_type) typeCount.set(m.employee_type, (typeCount.get(m.employee_type) ?? 0) + 1)
-      if (m.gender === 1) genderM++
-      if (m.gender === 2) genderF++
+  useEffect(() => {
+    if (allNodes.length === 0) return
+    if (!selectedId || !nodeMap.has(selectedId)) {
+      setSelectedId(allNodes[0].department_id)
     }
-    const formal = typeCount.get(1) ?? 0
-    return { total, formal, genderM, genderF, typeCount, deptCount: departments.length }
-  }, [members, departments])
+  }, [allNodes, nodeMap, selectedId])
+
+  const stats = useMemo(() => {
+    const totalMembers = members.length
+    const deptCount = departments.length
+    const rootCount = tree.length
+    const averagePerDept = deptCount > 0 ? totalMembers / deptCount : 0
+    const activeDeptCount = allNodes.filter(node => node.member_count > 0).length
+    const largestDept = allNodes.reduce<DeptNode | null>((max, node) => {
+      if (!max || node.totalMembers > max.totalMembers) return node
+      return max
+    }, null)
+    return { totalMembers, deptCount, rootCount, averagePerDept, activeDeptCount, largestDept }
+  }, [allNodes, departments, members, tree.length])
+
+  const selectedNode = selectedId ? nodeMap.get(selectedId) : null
+  const selectedParent = selectedNode?.parent_id ? departmentMap.get(selectedNode.parent_id) : null
+  const selectedRatio =
+    selectedNode && stats.totalMembers > 0
+      ? (selectedNode.totalMembers / stats.totalMembers) * 100
+      : 0
+
+  const rankedDepartments = [...allNodes]
+    .filter(node => node.totalMembers > 0)
+    .sort((a, b) => b.totalMembers - a.totalMembers)
+    .slice(0, 8)
+  const maxRankCount = rankedDepartments[0]?.totalMembers ?? 1
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
@@ -160,19 +202,14 @@ export function OrgData() {
     })
   }
 
-  const expandAll = () => {
-    setExpanded(new Set(departments.map(d => d.department_id)))
-  }
-
-  const collapseAll = () => {
-    setExpanded(new Set())
-  }
+  const expandAll = () => setExpanded(new Set(departments.map(dept => dept.department_id)))
+  const collapseAll = () => setExpanded(new Set())
 
   if (loading) {
     return (
       <>
         <PageTitle breadcrumb="数据中心 / 常用数据" title="常用数据" />
-        <div className="flex items-center justify-center h-64 text-gray-400">加载中...</div>
+        <div className="flex h-64 items-center justify-center text-gray-400">加载中...</div>
       </>
     )
   }
@@ -181,143 +218,177 @@ export function OrgData() {
     return (
       <>
         <PageTitle breadcrumb="数据中心 / 常用数据" title="常用数据" />
-        <div className="bg-surface rounded-lg border border-gray-200 p-10 text-center">
+        <div className="rounded-lg border border-gray-200 bg-surface p-10 text-center">
           <Users size={40} className="mx-auto text-gray-300" />
-          <p className="text-gray-400 mt-4">暂无通讯录数据</p>
-          <p className="text-gray-400 text-sm mt-1">请先运行同步脚本: python scripts/sync_feishu_contacts.py</p>
+          <p className="mt-4 text-gray-400">暂无通讯录数据</p>
+          <p className="mt-1 text-sm text-gray-400">请先运行同步脚本: python scripts/sync_feishu_contacts.py</p>
         </div>
       </>
     )
   }
 
-  // 员工类型分布
-  const typeEntries = Array.from(stats.typeCount.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([type, count]) => ({ label: EMP_TYPE_LABEL[type] ?? `类型${type}`, count }))
-
   return (
-    <>
-      <PageTitle breadcrumb="数据中心 / 常用数据" title="常用数据" subtitle={`数据来源：飞书通讯录`} />
+    <div className="space-y-6">
+      <PageTitle breadcrumb="数据中心 / 常用数据" title="常用数据" subtitle="数据来源：飞书通讯录" />
 
-      {/* KPI 卡片 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="总人数" value={stats.total.toLocaleString()} color="default" />
-        <StatCard label="部门数" value={stats.deptCount} color="default" />
-        <StatCard
-          label="正式员工"
-          value={stats.formal.toLocaleString()}
-          trend={`占比 ${stats.total ? ((stats.formal / stats.total) * 100).toFixed(1) : 0}%`}
-          trendUp
-          color="success"
-        />
-        <StatCard
-          label="性别比例"
-          value={`${stats.genderM} : ${stats.genderF}`}
-          trend={`男 ${stats.total ? ((stats.genderM / stats.total) * 100).toFixed(0) : 0}% · 女 ${stats.total ? ((stats.genderF / stats.total) * 100).toFixed(0) : 0}%`}
-          trendUp
-          color="default"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 部门架构树 */}
-        <div className="lg:col-span-2 bg-surface rounded-lg border border-gray-200 shadow-card overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50/50">
-            <div className="flex items-center gap-2">
-              <Building2 size={16} className="text-gray-500" />
-              <h3 className="font-medium text-gray-700">组织架构</h3>
-            </div>
-            <div className="flex gap-2 text-xs">
-              <button onClick={expandAll} className="px-2 py-1 rounded hover:bg-gray-200 text-gray-500 transition-colors">全部展开</button>
-              <button onClick={collapseAll} className="px-2 py-1 rounded hover:bg-gray-200 text-gray-500 transition-colors">全部收起</button>
-            </div>
+      <section className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-5">
+        <div className="flex items-center gap-2 text-sky-700">
+          <Layers3 size={16} />
+          <p className="text-sm font-medium">组织总览</p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-xl border border-sky-100 bg-white/90 p-3">
+            <p className="text-xs text-gray-500">在册成员</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-800 tabular-nums">{stats.totalMembers.toLocaleString()}</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left py-2.5 px-4 font-medium text-gray-600">部门</th>
-                  <th className="text-right py-2.5 px-4 font-medium text-gray-600 w-24">直属人数</th>
-                  <th className="text-right py-2.5 px-4 font-medium text-gray-600 w-24">总人数</th>
-                  <th className="text-right py-2.5 px-4 font-medium text-gray-600 w-20">占比</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {tree.map(root => (
-                  <DeptRow key={root.department_id} node={root} depth={0} expanded={expanded} onToggle={toggleExpand} />
-                ))}
-              </tbody>
-            </table>
+          <div className="rounded-xl border border-sky-100 bg-white/90 p-3">
+            <p className="text-xs text-gray-500">部门总数</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-800 tabular-nums">{stats.deptCount}</p>
+          </div>
+          <div className="rounded-xl border border-sky-100 bg-white/90 p-3">
+            <p className="text-xs text-gray-500">活跃部门</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-800 tabular-nums">{stats.activeDeptCount}</p>
+          </div>
+          <div className="rounded-xl border border-sky-100 bg-white/90 p-3">
+            <p className="text-xs text-gray-500">平均每部门</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-800 tabular-nums">{stats.averagePerDept.toFixed(1)}</p>
           </div>
         </div>
+        <p className="mt-3 text-xs text-gray-500">
+          架构根节点 {stats.rootCount} 个
+          {stats.largestDept ? ` · 最大部门：${stats.largestDept.name}（${stats.largestDept.totalMembers} 人）` : ''}
+        </p>
+      </section>
 
-        {/* 右侧统计面板 */}
-        <div className="space-y-6">
-          {/* 员工类型分布 */}
-          <div className="bg-surface rounded-lg border border-gray-200 shadow-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <UserCheck size={16} className="text-gray-500" />
-              <h3 className="font-medium text-gray-700">员工类型分布</h3>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-surface shadow-card xl:col-span-2">
+          <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/60 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Building2 size={16} className="text-gray-600" />
+              <h3 className="font-medium text-gray-800">组织架构树</h3>
             </div>
-            <div className="space-y-3">
-              {typeEntries.map(({ label, count }) => {
-                const pct = stats.total ? (count / stats.total) * 100 : 0
-                return (
-                  <div key={label}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">{label}</span>
-                      <span className="text-gray-700 font-medium tabular-nums">{count} 人</span>
+            <div className="flex gap-2 text-xs">
+              <button
+                type="button"
+                onClick={expandAll}
+                className="rounded-md px-2 py-1 text-gray-600 transition-colors hover:bg-gray-200"
+              >
+                全部展开
+              </button>
+              <button
+                type="button"
+                onClick={collapseAll}
+                className="rounded-md px-2 py-1 text-gray-600 transition-colors hover:bg-gray-200"
+              >
+                全部收起
+              </button>
+            </div>
+          </div>
+          <div className="max-h-[620px] overflow-auto p-4">
+            <div className="mb-3 flex items-center justify-end gap-3 text-xs text-gray-500">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded bg-sky-300" />
+                直属人数
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded bg-emerald-300" />
+                含子部门总人数
+              </span>
+            </div>
+            <ul className="space-y-2">
+              {tree.map(root => (
+                <OrgTreeNode
+                  key={root.department_id}
+                  node={root}
+                  depth={0}
+                  expanded={expanded}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onToggle={toggleExpand}
+                />
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-gray-200 bg-surface p-5 shadow-card">
+            <div className="flex items-center gap-2">
+              <Building2 size={16} className="text-gray-600" />
+              <h3 className="font-medium text-gray-800">部门详情</h3>
+            </div>
+            {selectedNode && (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <p className="text-sm text-gray-500">当前部门</p>
+                  <p className="mt-1 text-lg font-semibold text-gray-800">{selectedNode.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {selectedParent ? `上级部门：${selectedParent.name}` : '顶层部门'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-lg bg-gray-50 p-2 text-center">
+                    <p className="text-xs text-gray-500">直属</p>
+                    <p className="text-base font-semibold text-gray-800 tabular-nums">{selectedNode.member_count}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-2 text-center">
+                    <p className="text-xs text-gray-500">总人数</p>
+                    <p className="text-base font-semibold text-gray-800 tabular-nums">{selectedNode.totalMembers}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-2 text-center">
+                    <p className="text-xs text-gray-500">子部门</p>
+                    <p className="text-base font-semibold text-gray-800 tabular-nums">{selectedNode.children.length}</p>
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+                    <span>占全体成员比例</span>
+                    <span className="tabular-nums">{selectedRatio.toFixed(1)}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-gray-100">
+                    <div
+                      className="h-2 rounded-full bg-accent"
+                      style={{ width: `${Math.max(selectedRatio, 1)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-surface p-5 shadow-card">
+            <div className="mb-4 flex items-center gap-2">
+              <Users size={16} className="text-gray-600" />
+              <h3 className="font-medium text-gray-800">部门规模排行</h3>
+            </div>
+            <div className="space-y-2">
+              {rankedDepartments.map((dept, index) => (
+                <div key={dept.department_id} className="flex items-center gap-3">
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-medium ${
+                      index < 3 ? 'bg-accent text-white' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-0.5 flex justify-between text-sm">
+                      <span className="truncate text-gray-700">{dept.name}</span>
+                      <span className="ml-2 shrink-0 text-gray-500 tabular-nums">{dept.totalMembers}</span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className="h-1.5 rounded-full bg-gray-100">
                       <div
-                        className="bg-accent h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(pct, 1)}%` }}
+                        className="h-1.5 rounded-full bg-accent/70"
+                        style={{ width: `${(dept.totalMembers / maxRankCount) * 100}%` }}
                       />
                     </div>
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
-          </div>
-
-          {/* 各部门人数 Top */}
-          <div className="bg-surface rounded-lg border border-gray-200 shadow-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Users size={16} className="text-gray-500" />
-              <h3 className="font-medium text-gray-700">部门人数排行</h3>
-            </div>
-            <div className="space-y-2">
-              {[...departments]
-                .sort((a, b) => (b.member_count ?? 0) - (a.member_count ?? 0))
-                .filter(d => (d.member_count ?? 0) > 0)
-                .slice(0, 10)
-                .map((d, i) => {
-                  const count = d.member_count ?? 0
-                  const maxCount = departments.reduce((m, dd) => Math.max(m, dd.member_count ?? 0), 1)
-                  return (
-                    <div key={d.department_id} className="flex items-center gap-3">
-                      <span className={`w-5 h-5 rounded text-xs flex items-center justify-center font-medium shrink-0 ${i < 3 ? 'bg-accent text-white' : 'bg-gray-100 text-gray-500'}`}>
-                        {i + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between text-sm mb-0.5">
-                          <span className="text-gray-700 truncate">{d.name}</span>
-                          <span className="text-gray-500 tabular-nums shrink-0 ml-2">{count}</span>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5">
-                          <div
-                            className="bg-accent/60 h-1.5 rounded-full transition-all duration-500"
-                            style={{ width: `${(count / maxCount) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-            </div>
-          </div>
+          </section>
         </div>
       </div>
-    </>
+    </div>
   )
 }

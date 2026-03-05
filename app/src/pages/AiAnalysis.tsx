@@ -14,6 +14,8 @@ const nextId = () => String(++msgId)
 
 const TOOL_NAME_MAP: Record<string, string> = {
   query_biz_data: '查询经营数据',
+  query_org_data: '查询组织数据',
+  analyze_biz_org_insights: '经营组织联合洞察',
   query_opportunities: '查询商机台账',
   query_work_items: '查询工作汇报',
   query_schedules: '查询日程纪要',
@@ -493,7 +495,7 @@ export function AiAnalysis() {
                 </div>
                 <h3 className="text-lg font-medium text-gray-800 mb-1">智汇参谋 · AI 分析助手</h3>
                 <p className="text-sm text-gray-500 mb-6 max-w-md">
-                  我能自主理解你的业务问题，从数据库获取经营数据、商机台账、工作汇报等信息，为你提供深度分析洞察。
+                  我能自主理解你的业务问题，从数据库获取经营数据、组织通讯录、商机台账、工作汇报等信息，为你提供深度分析洞察。
                 </p>
                 <div className="flex flex-wrap justify-center gap-2 max-w-2xl">
                   {suggestions.map((q, i) => (
