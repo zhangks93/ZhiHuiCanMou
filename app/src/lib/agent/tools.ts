@@ -649,12 +649,15 @@ async function queryAttendance(args: Args): Promise<string> {
   const { data, error } = await query.order('year_month', { ascending: false }).limit(limit)
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
-  let filtered = data
+  let filtered = data as unknown[]
   const minRate = coerceNumber(args.min_attendance_rate, -1)
   const maxRate = coerceNumber(args.max_attendance_rate, -1)
   if (minRate >= 0 || maxRate >= 0) {
-    filtered = data.filter((r: Record<string, unknown>) => {
-      const rate = r.expected_days > 0 ? (Number(r.actual_days) / Number(r.expected_days)) * 100 : 0
+    filtered = (data as unknown[]).filter((r) => {
+      const record = r as Record<string, unknown>
+      const expectedDays = Number(record.expected_days) || 0
+      const actualDays = Number(record.actual_days) || 0
+      const rate = expectedDays > 0 ? (actualDays / expectedDays) * 100 : 0
       if (minRate >= 0 && rate < minRate) return false
       if (maxRate >= 0 && rate > maxRate) return false
       return true
@@ -682,12 +685,13 @@ async function queryTrips(args: Args): Promise<string> {
   const { data, error } = await query.order('start_time', { ascending: false }).limit(limit)
   if (error) return JSON.stringify({ error: error.message })
   if (!data?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
-  let filtered = data
+  let filtered = data as unknown[]
   const minDays = coerceNumber(args.min_days, -1)
   if (minDays > 0) {
-    filtered = data.filter((r: Record<string, unknown>) => {
-      const endTime = r.end_time as string
-      const startTime = r.start_time as string
+    filtered = (data as unknown[]).filter((r) => {
+      const record = r as Record<string, unknown>
+      const endTime = record.end_time as string
+      const startTime = record.start_time as string
       const days = Math.ceil((new Date(endTime).getTime() - new Date(startTime).getTime()) / (1000 * 60 * 60 * 24))
       return days >= minDays
     })
