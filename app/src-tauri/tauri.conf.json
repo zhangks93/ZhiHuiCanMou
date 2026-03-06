@@ -69,5 +69,11 @@
       "versionCode": 1000000
     }
   },
-  "plugins": {}
+  "plugins": {
+    "deep-link": {
+      "mobile": {
+        "scheme": "canmou"
+      }
+    }
+  }
 }
