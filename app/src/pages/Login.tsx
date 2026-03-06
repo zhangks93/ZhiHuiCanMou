@@ -23,15 +23,21 @@ export function Login() {
 
   const handleFeishuLogin = async () => {
     if (!canLogin) return
+    const mobile = isMobile()
+
+    // 构建飞书授权URL，移动端需要在redirect_uri中添加platform参数
     const loginUrl = new URL(FEISHU_AUTH_URL)
     loginUrl.searchParams.set('app_id', appId)
-    loginUrl.searchParams.set('redirect_uri', redirectUri)
+
+    // 移动端：在redirect_uri中添加platform=mobile参数
+    const finalRedirectUri = mobile ? `${redirectUri}?platform=mobile` : redirectUri
+    loginUrl.searchParams.set('redirect_uri', finalRedirectUri)
     loginUrl.searchParams.set('scope', scope)
     loginUrl.searchParams.set('state', state)
     const urlStr = loginUrl.toString()
 
     // 桌面 Tauri：使用弹窗 WebView；移动端 / Web：直接在当前窗口跳转
-    if (isTauriApp() && !isMobile()) {
+    if (isTauriApp() && !mobile) {
       const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
       const oauthWindow = new WebviewWindow('oauth', {
         url: urlStr,

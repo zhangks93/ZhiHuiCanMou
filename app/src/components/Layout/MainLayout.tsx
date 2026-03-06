@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 
 export function MainLayout() {
   const { user: currentUser } = useAuth()

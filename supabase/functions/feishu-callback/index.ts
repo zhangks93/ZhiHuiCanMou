@@ -12,6 +12,7 @@ const FEISHU_APP_SECRET = Deno.env.get('FEISHU_APP_SECRET') ?? ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const LOGIN_REDIRECT_TO = Deno.env.get('FEISHU_LOGIN_REDIRECT_TO') || undefined
+const LOGIN_REDIRECT_TO_MOBILE = Deno.env.get('FEISHU_LOGIN_REDIRECT_TO_MOBILE') || 'canmou://auth-callback'
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -38,6 +39,7 @@ Deno.serve(async (req) => {
     const url = new URL(req.url)
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
+    const platform = url.searchParams.get('platform') // 'mobile' or 'desktop'
 
     if (!code) {
       return jsonResponse({ error: 'Missing code in query string' }, 400)
@@ -218,6 +220,7 @@ Deno.serve(async (req) => {
     }
 
     // 生成 magic link / 会话
+    const redirectUrl = platform === 'mobile' ? LOGIN_REDIRECT_TO_MOBILE : LOGIN_REDIRECT_TO
     const { data: linkData, error: linkError } =
       await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
@@ -228,7 +231,7 @@ Deno.serve(async (req) => {
             name: feishuUser.name,
             avatar: feishuUser.avatar_url,
           },
-          redirectTo: LOGIN_REDIRECT_TO,
+          redirectTo: redirectUrl,
         },
       })
 

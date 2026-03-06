@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Clock, User, AlertCircle, CheckCircle2, TrendingUp, TrendingDown, ChevronDown, ChevronRight } from 'lucide-react'
+import { Clock, User, AlertCircle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
 
 interface DeptSummary {
   department_id: string
@@ -76,112 +76,6 @@ export function Attendance() {
     ? (overallStats.actualDays / overallStats.expectedDays) * 100
     : 0
 
-  useEffect(() => {
-    fetchAvailableMonths()
-  }, [])
-
-  useEffect(() => {
-    if (selectedMonth) {
-      fetchAttendanceData()
-    }
-  }, [selectedMonth])
-
-  const fetchAvailableMonths = async () => {
-    const { data } = await supabase
-      .from('attendance_records')
-      .select('year_month')
-      .order('year_month', { ascending: false })
-
-    const months = [...new Set(data?.map(d => d.year_month) || [])]
-    setAvailableMonths(months)
-    if (months.length > 0) {
-      setSelectedMonth(months[0])
-    }
-  }
-
-  const fetchAttendanceData = async () => {
-    setLoading(true)
-
-    // 获取考勤记录（已包含部门关联）
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .select(`
-        *,
-        feishu_members:member_id (
-          name,
-          employee_no,
-          job_title
-        ),
-        feishu_departments:department_id (
-          department_id,
-          name,
-          parent_id
-        )
-      `)
-      .eq('year_month', selectedMonth)
-
-    if (error) {
-      console.error('获取考勤数据失败:', error)
-      setLoading(false)
-      return
-    }
-
-    // 获取所有部门信息用于查找父部门
-    const { data: allDepts } = await supabase
-      .from('feishu_departments')
-      .select('department_id, name, parent_id')
-
-    const deptMap = new Map<string, { name: string; parent_id: string | null }>()
-    allDepts?.forEach(d => {
-      deptMap.set(d.department_id, { name: d.name, parent_id: d.parent_id })
-    })
-
-    const summaryMap = new Map<string, DeptSummary>()
-
-    data?.forEach((record: any) => {
-      const dept = record.feishu_departments
-      if (!dept) return
-
-      const deptId = dept.department_id
-      const deptName = dept.name
-      const parentInfo = dept.parent_id ? deptMap.get(dept.parent_id) : null
-      const parentName = parentInfo?.name || null
-
-      if (!summaryMap.has(deptId)) {
-        summaryMap.set(deptId, {
-          department_id: deptId,
-          department_name: deptName,
-          parent_name: parentName,
-          employee_count: 0,
-          total_expected: 0,
-          total_actual: 0,
-          total_leave: 0,
-          total_absent: 0,
-          total_late: 0,
-          total_early: 0,
-          rate: 0,
-        })
-      }
-
-      const summary = summaryMap.get(deptId)!
-      summary.employee_count += 1
-      summary.total_expected += Number(record.expected_days) || 0
-      summary.total_actual += Number(record.actual_days) || 0
-      summary.total_leave += Number(record.leave_days) || 0
-      summary.total_absent += Number(record.absent_days) || 0
-      summary.total_late += Number(record.late_times) || 0
-      summary.total_early += Number(record.early_leave_times) || 0
-    })
-
-    const result = Array.from(summaryMap.values()).map(s => ({
-      ...s,
-      rate: s.total_expected > 0 ? (s.total_actual / s.total_expected) * 100 : 0,
-    })).sort((a, b) => b.rate - a.rate)
-
-    setSummaries(result)
-    setLoading(false)
-  }
-
   const fetchMemberRecords = async (deptId: string) => {
     setLoadingMembers(true)
     const { data, error } = await supabase
@@ -209,11 +103,13 @@ export function Attendance() {
       return
     }
 
-    const records: MemberRecord[] = data?.map((r: any) => ({
-      id: r.id,
-      member_name: r.feishu_members?.name || '未知',
-      employee_no: r.feishu_members?.employee_no || '-',
-      job_title: r.feishu_members?.job_title || null,
+    const records: MemberRecord[] = data?.map((r: Record<string, unknown>) => {
+      const member = r.feishu_members as { name?: string; employee_no?: string; job_title?: string } | null
+      return {
+      id: r.id as string,
+      member_name: member?.name || '未知',
+      employee_no: member?.employee_no || '-',
+      job_title: member?.job_title || null,
       expected_days: Number(r.expected_days) || 0,
       actual_days: Number(r.actual_days) || 0,
       leave_days: Number(r.leave_days) || 0,
@@ -221,11 +117,116 @@ export function Attendance() {
       late_times: Number(r.late_times) || 0,
       early_leave_times: Number(r.early_leave_times) || 0,
       rate: Number(r.expected_days) > 0 ? (Number(r.actual_days) / Number(r.expected_days)) * 100 : 0,
-    })) || []
+    }}) || []
 
     setMemberRecords(records)
     setLoadingMembers(false)
   }
+
+  useEffect(() => {
+    const loadMonths = async () => {
+      const { data } = await supabase
+        .from('attendance_records')
+        .select('year_month')
+        .order('year_month', { ascending: false })
+
+      const months = [...new Set(data?.map(d => d.year_month) || [])]
+      setAvailableMonths(months)
+      if (months.length > 0) {
+        setSelectedMonth(months[0])
+      }
+    }
+    void loadMonths()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedMonth) return
+
+    const loadData = async () => {
+      setLoading(true)
+
+      // 获取考勤记录（已包含部门关联）
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .select(`
+          *,
+          feishu_members:member_id (
+            name,
+            employee_no,
+            job_title
+          ),
+          feishu_departments:department_id (
+            department_id,
+            name,
+            parent_id
+          )
+        `)
+        .eq('year_month', selectedMonth)
+
+      if (error) {
+        console.error('获取考勤数据失败:', error)
+        setLoading(false)
+        return
+      }
+
+      // 获取所有部门信息用于查找父部门
+      const { data: allDepts } = await supabase
+        .from('feishu_departments')
+        .select('department_id, name, parent_id')
+
+      const deptMap = new Map<string, { name: string; parent_id: string | null }>()
+      allDepts?.forEach(d => {
+        deptMap.set(d.department_id, { name: d.name, parent_id: d.parent_id })
+      })
+
+      const summaryMap = new Map<string, DeptSummary>()
+
+      data?.forEach((record: Record<string, unknown>) => {
+        const dept = record.feishu_departments as { department_id: string; name: string; parent_id: string | null } | null
+        if (!dept) return
+
+        const deptId = dept.department_id
+        const deptName = dept.name
+        const parentInfo = dept.parent_id ? deptMap.get(dept.parent_id) : null
+        const parentName = parentInfo?.name || null
+
+        if (!summaryMap.has(deptId)) {
+          summaryMap.set(deptId, {
+            department_id: deptId,
+            department_name: deptName,
+            parent_name: parentName,
+            employee_count: 0,
+            total_expected: 0,
+            total_actual: 0,
+            total_leave: 0,
+            total_absent: 0,
+            total_late: 0,
+            total_early: 0,
+            rate: 0,
+          })
+        }
+
+        const summary = summaryMap.get(deptId)!
+        summary.employee_count += 1
+        summary.total_expected += Number(record.expected_days) || 0
+        summary.total_actual += Number(record.actual_days) || 0
+        summary.total_leave += Number(record.leave_days) || 0
+        summary.total_absent += Number(record.absent_days) || 0
+        summary.total_late += Number(record.late_times) || 0
+        summary.total_early += Number(record.early_leave_times) || 0
+      })
+
+      const result = Array.from(summaryMap.values()).map(s => ({
+        ...s,
+        rate: s.total_expected > 0 ? (s.total_actual / s.total_expected) * 100 : 0,
+      })).sort((a, b) => b.rate - a.rate)
+
+      setSummaries(result)
+      setLoading(false)
+    }
+
+    void loadData()
+  }, [selectedMonth])
 
   const toggleDepartment = (deptId: string) => {
     if (expandedDept === deptId) {

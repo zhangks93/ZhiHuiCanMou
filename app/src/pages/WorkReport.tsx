@@ -81,18 +81,16 @@ export function WorkReport() {
   const [formLinkUrl, setFormLinkUrl] = useState('')
   const [formLinkTitle, setFormLinkTitle] = useState('')
 
-  const fetchItems = useCallback(async () => {
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (!u) return []
-    const { data } = await supabase
-      .from('work_items')
-      .select('*')
-      .eq('reporter_id', u.id)
-      .order('created_at', { ascending: false })
-    return normalizeItems(data ?? [])
-  }, [])
+  function mapStatus(s: string): string {
+    const m: Record<string, string> = {
+      draft: 'todo',
+      submitted: 'in_progress',
+      approved: 'done',
+    }
+    return m[s] ?? (STATUSES.some((st) => st.id === s) ? s : 'todo')
+  }
 
-  function normalizeItems(raw: unknown[]): WorkItem[] {
+  const normalizeItems = useCallback((raw: unknown[]): WorkItem[] => {
     return raw.map((r) => {
       const row = r as Record<string, unknown>
       return {
@@ -109,29 +107,33 @@ export function WorkReport() {
         reporter_id: String(row.reporter_id ?? ''),
       }
     })
-  }
+  }, [])
 
-  function mapStatus(s: string): string {
-    const m: Record<string, string> = {
-      draft: 'todo',
-      submitted: 'in_progress',
-      approved: 'done',
-    }
-    return m[s] ?? (STATUSES.some((st) => st.id === s) ? s : 'todo')
-  }
+  const fetchItems = useCallback(async () => {
+    const { data: { user: u } } = await supabase.auth.getUser()
+    if (!u) return []
+    const { data } = await supabase
+      .from('work_items')
+      .select('*')
+      .eq('reporter_id', u.id)
+      .order('created_at', { ascending: false })
+    return normalizeItems(data ?? [])
+  }, [normalizeItems])
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     fetchItems()
       .then((items) => {
-        if (!cancelled) setWorkItems(items)
+        if (!cancelled) {
+          setWorkItems(items)
+          setLoading(false)
+        }
       })
       .catch((e) => {
-        if (!cancelled) console.warn('[WorkReport] Fetch failed:', e)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          console.warn('[WorkReport] Fetch failed:', e)
+          setLoading(false)
+        }
       })
     return () => { cancelled = true }
   }, [fetchItems])
@@ -158,7 +160,7 @@ export function WorkReport() {
 
       if (error) {
         console.error('[WorkReport] Update failed:', error)
-        fetchItems().then(setWorkItems)
+        void fetchItems().then(setWorkItems)
       }
     },
     [workItems, fetchItems]

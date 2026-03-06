@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PageTitle } from '@/components/ui/PageTitle'
 import { supabase } from '@/lib/supabase'
 import { Calendar, Plus, Trash2, FileText, X, Sun, Sunset, Moon } from 'lucide-react'
@@ -139,16 +139,20 @@ function NotesModal({ item, onClose, onSaved }: { item: ScheduleItem; onClose: (
 
 // --- Main Component ---
 export function Schedule() {
-  const today = new Date()
+  const today = useMemo(() => new Date(), [])
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(fmtDate(today))
   const [items, setItems] = useState<ScheduleItem[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [notesItem, setNotesItem] = useState<ScheduleItem | null>(null)
 
-  const refDate = new Date(today)
-  refDate.setDate(refDate.getDate() + weekOffset * 7)
-  const weekDates = getWeekDates(refDate)
+  const refDate = useMemo(() => {
+    const date = new Date(today)
+    date.setDate(date.getDate() + weekOffset * 7)
+    return date
+  }, [weekOffset, today])
+
+  const weekDates = useMemo(() => getWeekDates(refDate), [refDate])
 
   const fetchItems = useCallback(async () => {
     const start = fmtDate(weekDates[0])
@@ -161,13 +165,29 @@ export function Schedule() {
       .order('date')
       .order('period')
     setItems((data as ScheduleItem[]) || [])
-  }, [weekOffset])
+  }, [weekDates])
 
-  useEffect(() => { fetchItems() }, [fetchItems])
+  useEffect(() => {
+    const start = fmtDate(weekDates[0])
+    const end = fmtDate(weekDates[6])
+
+    const loadItems = async () => {
+      const { data } = await supabase
+        .from('schedule_items')
+        .select('*')
+        .gte('date', start)
+        .lte('date', end)
+        .order('date')
+        .order('period')
+      setItems((data as ScheduleItem[]) || [])
+    }
+
+    void loadItems()
+  }, [weekDates])
 
   const handleDelete = async (id: string) => {
     await supabase.from('schedule_items').delete().eq('id', id)
-    fetchItems()
+    void fetchItems()
   }
 
   const dayItems = items.filter(i => i.date === selectedDate)

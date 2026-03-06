@@ -297,7 +297,7 @@ export function AiAnalysis() {
       const updated = { ...session, updatedAt: Date.now() }
       saveSession(updated, messages)
     }
-  }, [messages, activeSessionId])
+  }, [messages, activeSessionId, sessions])
 
   const createSession = useCallback(() => {
     const id = crypto.randomUUID()
@@ -397,7 +397,7 @@ export function AiAnalysis() {
               saveSession(updated, messages)
             }
           }
-        } catch (e) {
+        } catch {
           // Silently fail title generation
         }
       }

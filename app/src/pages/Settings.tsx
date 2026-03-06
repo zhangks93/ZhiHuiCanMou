@@ -1,12 +1,9 @@
 import { useState, useRef } from 'react'
 import { PageTitle } from '@/components/ui/PageTitle'
-import { Settings as SettingsIcon, Bot, Check, Trash2, Globe } from 'lucide-react'
+import { Settings as SettingsIcon, Bot, Check, Trash2, Globe, Plus } from 'lucide-react'
 import { loadLLMConfig, saveLLMConfig, clearLLMConfig, loadProviderSettings, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig, type ProviderSettings } from '@/lib/llmConfig'
-
-const modules = [
-  '日程提醒', '常用数据', '经营数据', '商机管理',
-  '竞对档案', '出差管理', '考勤管理', '系统链接', '智能分析',
-]
+import { MODULE_NAV_CONFIG } from '@/config/modules'
+import { getEnabledModules, saveEnabledModules } from '@/lib/moduleStorage'
 
 export function Settings() {
   const [initialConfig] = useState(() => loadLLMConfig())
@@ -16,6 +13,9 @@ export function Settings() {
   const [model, setModel] = useState(initialConfig?.model ?? DEFAULT_MODELS[initialConfig?.provider ?? 'openai'])
   const [tavilyApiKey, setTavilyApiKey] = useState(initialConfig?.tavilyApiKey ?? '')
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+  // Module management state
+  const [enabledModules, setEnabledModules] = useState<string[]>(() => getEnabledModules())
 
   // Cache unsaved form values per provider so switching doesn't lose edits
   const providerCache = useRef<Partial<Record<LLMConfig['provider'], ProviderSettings>>>({})
@@ -59,6 +59,27 @@ export function Settings() {
     setTimeout(() => setFeedback(null), 2000)
   }
 
+  const toggleModule = (moduleId: string) => {
+    const newEnabled = enabledModules.includes(moduleId)
+      ? enabledModules.filter(id => id !== moduleId)
+      : [...enabledModules, moduleId]
+
+    setEnabledModules(newEnabled)
+    saveEnabledModules(newEnabled)
+
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new Event('modules-updated'))
+
+    setFeedback({ type: 'success', msg: '模块配置已更新' })
+    setTimeout(() => setFeedback(null), 2000)
+  }
+
+  const allModules = Object.entries(MODULE_NAV_CONFIG).map(([id, config]) => ({
+    id,
+    label: config.label,
+    section: config.section,
+  }))
+
   return (
     <>
       <PageTitle breadcrumb="/ 设置" title="设置" />
@@ -96,21 +117,53 @@ export function Settings() {
         </div>
 
         <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
-          <div className="flex items-center gap-2 mb-4">
-            <SettingsIcon size={18} strokeWidth={1.5} className="text-gray-600" />
-            <h3 className="font-medium text-gray-800">功能模块管理</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <SettingsIcon size={18} strokeWidth={1.5} className="text-gray-600" />
+              <h3 className="font-medium text-gray-800">功能模块管理</h3>
+            </div>
+            <div className="text-xs text-gray-500">
+              已启用 <span className="font-semibold text-primary">{enabledModules.length}</span> / {allModules.length}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {modules.map((m) => (
-              <span key={m} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
-                {m}
-              </span>
-            ))}
+
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {allModules.map((module) => {
+              const isEnabled = enabledModules.includes(module.id)
+              return (
+                <button
+                  key={module.id}
+                  onClick={() => toggleModule(module.id)}
+                  className={`flex items-center justify-between p-2 rounded-lg border transition-all text-left ${
+                    isEnabled
+                      ? 'bg-primary/5 border-primary/30 hover:bg-primary/10'
+                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-700 truncate">{module.label}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {module.section === 'workbench' && '工作台'}
+                      {module.section === 'data-center' && '数据中心'}
+                      {module.section === 'business' && '业务管理'}
+                      {module.section === 'tools' && '工具与分析'}
+                    </div>
+                  </div>
+                  <div className={`ml-2 p-1 rounded ${
+                    isEnabled
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {isEnabled ? <Check size={14} /> : <Plus size={14} />}
+                  </div>
+                </button>
+              )
+            })}
           </div>
-          <button className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary-700 transition-colors shadow-sm">
-            + 动态添加模块
-          </button>
-          <p className="text-xs text-gray-600 mt-2">功能开发中，请联系IT部门</p>
+
+          <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200">
+            点击模块卡片即可启用或禁用，配置会立即生效
+          </p>
         </div>
 
         {/* AI Analysis Config */}

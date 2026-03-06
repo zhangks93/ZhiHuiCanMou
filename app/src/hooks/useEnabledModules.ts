@@ -1,11 +1,10 @@
 import { useMemo, useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import {
   MODULE_NAV_CONFIG,
   SECTION_LABELS,
   FIXED_NAV,
-  DEFAULT_ENABLED_MODULE_IDS,
 } from '@/config/modules'
+import { getEnabledModules } from '@/lib/moduleStorage'
 
 export interface NavItem {
   to: string
@@ -21,84 +20,31 @@ export interface NavSection {
 }
 
 export function useEnabledModules() {
-  const { navSections, isLoading } = useOrgModuleSettings()
+  const [enabledModuleIds, setEnabledModuleIds] = useState<string[]>(() => getEnabledModules())
 
-  const enabledModuleIds = useMemo(() => {
-    if (!navSections) return DEFAULT_ENABLED_MODULE_IDS
-    const ids = new Set<string>()
-    navSections.forEach((s) =>
-      s.items.forEach((i) => {
-        if (i.moduleId) ids.add(i.moduleId)
-      })
-    )
-    return Array.from(ids)
-  }, [navSections])
-
-  return {
-    navSections: navSections ?? buildNavSections(DEFAULT_ENABLED_MODULE_IDS),
-    enabledModuleIds,
-    isLoading,
-  }
-}
-
-/** Fetches org_settings and builds nav sections. */
-function useOrgModuleSettings(): {
-  navSections: NavSection[] | null
-  isLoading: boolean
-} {
-  const [state, setState] = useState<{
-    navSections: NavSection[] | null
-    isLoading: boolean
-  }>({ navSections: null, isLoading: true })
-
+  // Listen for storage changes (when modules are updated in Settings)
   useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (!user) {
-          if (!cancelled) setState({ navSections: buildNavSections(DEFAULT_ENABLED_MODULE_IDS), isLoading: false })
-          return
-        }
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('org_id')
-          .eq('id', user.id)
-          .single()
-
-        const orgId = profile?.org_id ?? '00000000-0000-0000-0000-000000000001'
-
-        const { data: settings } = await supabase
-          .from('org_settings')
-          .select('enabled_module_ids')
-          .eq('org_id', orgId)
-          .single()
-
-        const enabledIds =
-          (settings?.enabled_module_ids as string[] | null) ?? DEFAULT_ENABLED_MODULE_IDS
-
-        if (!cancelled) {
-          setState({ navSections: buildNavSections(enabledIds), isLoading: false })
-        }
-      } catch (e) {
-        console.warn('[Canmou] Failed to load org settings:', e)
-        if (!cancelled) {
-          setState({ navSections: buildNavSections(DEFAULT_ENABLED_MODULE_IDS), isLoading: false })
-        }
-      }
+    const handleStorageChange = () => {
+      setEnabledModuleIds(getEnabledModules())
     }
 
-    load()
+    window.addEventListener('storage', handleStorageChange)
+    // Also listen for custom event for same-tab updates
+    window.addEventListener('modules-updated', handleStorageChange)
+
     return () => {
-      cancelled = true
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('modules-updated', handleStorageChange)
     }
   }, [])
 
-  return state
+  const navSections = useMemo(() => buildNavSections(enabledModuleIds), [enabledModuleIds])
+
+  return {
+    navSections,
+    enabledModuleIds,
+    isLoading: false,
+  }
 }
 
 function buildNavSections(enabledModuleIds: string[]): NavSection[] {
@@ -116,7 +62,6 @@ function buildNavSections(enabledModuleIds: string[]): NavSection[] {
       to: config.routePath,
       icon: config.icon,
       label: config.label,
-      badge: id === 'schedule' ? 3 : id === 'biz-data' ? '!' : undefined,
       moduleId: id,
     }
     if (config.section === 'workbench') workbench.push(item)

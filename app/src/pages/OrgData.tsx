@@ -154,18 +154,21 @@ export function OrgData() {
     [departments],
   )
 
+  // Initialize expanded state once when tree is loaded
   useEffect(() => {
     if (tree.length > 0 && expanded.size === 0) {
       setExpanded(new Set(tree.map(node => node.department_id)))
     }
-  }, [tree, expanded.size])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree.length])
 
+  // Initialize selectedId when nodes are loaded
   useEffect(() => {
-    if (allNodes.length === 0) return
-    if (!selectedId || !nodeMap.has(selectedId)) {
+    if (allNodes.length > 0 && !selectedId) {
       setSelectedId(allNodes[0].department_id)
     }
-  }, [allNodes, nodeMap, selectedId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allNodes.length])
 
   const stats = useMemo(() => {
     const totalMembers = members.length

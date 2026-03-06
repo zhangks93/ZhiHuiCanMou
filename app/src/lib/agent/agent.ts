@@ -56,7 +56,6 @@ export async function runAgent(
     const iterTools = i === MAX_ITERATIONS - 1 ? [] : tools
 
     let streamedText = ''
-    let streamedReasoning = ''
 
     const response = await callLLM(config, AGENT_SYSTEM_PROMPT, messages, iterTools, {
       signal,
@@ -69,7 +68,6 @@ export async function runAgent(
           onStep({ type: 'answer_delta', content: delta })
         },
         onReasoning: (delta) => {
-          streamedReasoning += delta
           onStep({ type: 'reasoning', content: delta })
         },
       },

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, Menu, LogOut } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { ROUTES } from '@/config/constants'
 
 type HeaderProps = {
