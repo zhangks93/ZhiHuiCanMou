@@ -96,7 +96,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: 'query_attendance',
-    description: '查询员工考勤数据（369条记录）。2026年1月数据：实际出勤9109天，请假224.5天，迟到856次。包含应出勤天数、实出勤天数、请假天数、旷工天数、迟到早退次数等。可按部门、月份、出勤率区间分析考勤情况，识别考勤异常、出勤率低的部门/员工，评估团队工作状态。',
+    description: '查询员工考勤数据（369条记录）。2026年1月数据：实际出勤9109天，请假224.5天，迟到856次。关联 feishu_members 和 feishu_departments 表，支持外键关联查询。包含应出勤天数、实出勤天数、请假天数、旷工天数、迟到早退次数等。可按部门、月份、出勤率区间分析考勤情况，识别考勤异常、出勤率低的部门/员工，评估团队工作状态。',
     parameters: {
       type: 'object',
       properties: {
@@ -105,18 +105,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         employee_name: { type: 'string', description: '员工姓名，支持模糊匹配' },
         min_attendance_rate: { type: 'number', description: '最低出勤率（0-100），筛选出勤率高于此值的记录' },
         max_attendance_rate: { type: 'number', description: '最高出勤率（0-100），筛选出勤率低于此值的记录。如设置80可找出勤率偏低的员工' },
-        columns: { type: 'string', description: '需要返回的字段，逗号分隔。常用：member_id,department_id,year_month,expected_days,actual_days,leave_days,absent_days,late_times,early_leave_times,feishu_members(name,employee_no,job_title)' },
+        columns: { type: 'string', description: '需要返回的字段，逗号分隔。常用：member_id,department_id,year_month,expected_days,actual_days,leave_days,absent_days,late_times,early_leave_times,feishu_members(name,employee_no,job_title,department_id)' },
         limit: { type: 'number', description: '返回条数上限，默认100' },
       },
     },
   },
   {
     name: 'query_trips',
-    description: '查询员工出差记录（44条）。涉及9名员工，13个客户。2026年1月33次出差（平均4.7天），2月7次（平均2.9天），3月4次（平均2.5天）。包含出差人员、部门、客户、商机、出发/返回时间、出差天数、事由等。可分析出差频率、客户拜访情况、出差成本、商机跟进强度、人员工作负荷等。',
+    description: '查询员工出差记录（44条）。涉及9名员工，13个客户。2026年1月33次出差（平均4.7天），2月7次（平均2.9天），3月4次（平均2.5天）。包含出差人员、员工ID、部门、客户、商机、出发/返回时间、出差天数、事由等。可分析出差频率、客户拜访情况、出差成本、商机跟进强度、人员工作负荷等。',
     parameters: {
       type: 'object',
       properties: {
         employee_name: { type: 'string', description: '员工姓名，支持模糊匹配' },
+        employee_id: { type: 'string', description: '员工ID，支持模糊匹配' },
         department: { type: 'string', description: '部门名称，支持模糊匹配' },
         customer_name: { type: 'string', description: '客户名称，支持模糊匹配。当前涉及13个客户' },
         opportunity_name: { type: 'string', description: '商机名称，支持模糊匹配。可关联商机台账分析出差投入与转化效果' },
