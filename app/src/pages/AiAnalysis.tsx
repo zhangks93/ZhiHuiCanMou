@@ -28,15 +28,25 @@ const TOOL_NAME_MAP: Record<string, string> = {
 
 function ToolCallGroup({ steps }: { steps: AgentStep[] }) {
   const [open, setOpen] = useState(false)
-  const call = steps[0]
+  const call = steps.find(s => s.type === 'tool_call')
   const result = steps.find(s => s.type === 'tool_result')
+
+  if (!call) return null
+
   const isDone = !!result
   const displayName = TOOL_NAME_MAP[call.toolName ?? ''] ?? call.toolName
 
   let formattedResult = ''
+  let hasError = false
   if (result) {
     try {
-      formattedResult = JSON.stringify(JSON.parse(result.content), null, 2)
+      const parsed = JSON.parse(result.content)
+      if (parsed.error) {
+        hasError = true
+        formattedResult = `错误: ${parsed.error}`
+      } else {
+        formattedResult = JSON.stringify(parsed, null, 2)
+      }
     } catch {
       formattedResult = result.content
     }
@@ -49,24 +59,29 @@ function ToolCallGroup({ steps }: { steps: AgentStep[] }) {
         className="flex items-center gap-2 text-xs hover:bg-gray-50 rounded-md px-2 py-1 -ml-2 transition-colors w-full text-left"
       >
         {isDone
-          ? <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+          ? hasError
+            ? <AlertTriangle size={14} className="text-warning shrink-0" />
+            : <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
           : <Loader2 size={14} className="animate-spin text-accent shrink-0" />}
         <Wrench size={12} className="text-primary/60 shrink-0" />
         <span className="font-medium text-gray-700">{displayName}</span>
         {call.toolArgs && Object.keys(call.toolArgs).length > 0 && (
           <span className="flex gap-1 flex-wrap">
-            {Object.entries(call.toolArgs).map(([k, v]) => (
+            {Object.entries(call.toolArgs).slice(0, 3).map(([k, v]) => (
               <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-mono">
-                {k}={typeof v === 'string' ? v : JSON.stringify(v)}
+                {k}={typeof v === 'string' ? (v.length > 20 ? v.slice(0, 20) + '...' : v) : JSON.stringify(v)}
               </span>
             ))}
+            {Object.keys(call.toolArgs).length > 3 && (
+              <span className="text-gray-400 text-[10px]">+{Object.keys(call.toolArgs).length - 3}</span>
+            )}
           </span>
         )}
         <span className="ml-auto shrink-0">{open ? <ChevronDown size={12} className="text-gray-400" /> : <ChevronRight size={12} className="text-gray-400" />}</span>
       </button>
       {open && result && (
-        <div className="ml-6 mt-1 mb-2 max-h-48 overflow-y-auto rounded-lg bg-gray-50 border border-gray-200 p-3 text-xs font-mono text-gray-600 whitespace-pre-wrap leading-relaxed">
-          {formattedResult.slice(0, 2000)}{formattedResult.length > 2000 ? '\n...' : ''}
+        <div className={`ml-6 mt-1 mb-2 max-h-48 overflow-y-auto rounded-lg border p-3 text-xs font-mono whitespace-pre-wrap leading-relaxed ${hasError ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+          {formattedResult.slice(0, 2000)}{formattedResult.length > 2000 ? '\n...(结果过长，已截断)' : ''}
         </div>
       )}
     </div>
@@ -77,9 +92,11 @@ function StepItem({ step }: { step: AgentStep }) {
   const [expanded, setExpanded] = useState(false)
 
   if (step.type === 'thinking') {
-    const lines = step.content.split('\n')
-    const isLong = lines.length > 2 || step.content.length > 120
-    const preview = isLong ? lines.slice(0, 2).join('\n') + (lines.length > 2 ? '...' : '') : step.content
+    const lines = step.content.split('\n').filter(l => l.trim())
+    const isLong = lines.length > 3 || step.content.length > 150
+    const preview = isLong
+      ? lines.slice(0, 3).join('\n') + (lines.length > 3 ? '\n...' : '')
+      : step.content
 
     return (
       <div className="my-1 rounded-lg bg-gradient-to-r from-accent/5 to-accent/10 border border-accent/10 px-3 py-2">
@@ -92,7 +109,7 @@ function StepItem({ step }: { step: AgentStep }) {
             {isLong && (
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="text-[10px] text-accent hover:text-accent/80 mt-1 transition-colors"
+                className="text-[10px] text-accent hover:text-accent/80 mt-1 transition-colors font-medium"
               >
                 {expanded ? '收起' : '展开全部'}
               </button>
@@ -104,11 +121,29 @@ function StepItem({ step }: { step: AgentStep }) {
   }
 
   if (step.type === 'reasoning') {
+    const lines = step.content.split('\n').filter(l => l.trim())
+    const isLong = lines.length > 3 || step.content.length > 150
+    const preview = isLong
+      ? lines.slice(0, 3).join('\n') + (lines.length > 3 ? '\n...' : '')
+      : step.content
+
     return (
       <div className="my-1 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
         <div className="flex items-start gap-2">
           <Brain size={14} className="mt-0.5 shrink-0 text-blue-500" />
-          <p className="text-xs text-blue-700 leading-relaxed whitespace-pre-wrap">{step.content}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-blue-700 leading-relaxed whitespace-pre-wrap">
+              {expanded ? step.content : preview}
+            </p>
+            {isLong && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="text-[10px] text-blue-500 hover:text-blue-600 mt-1 transition-colors font-medium"
+              >
+                {expanded ? '收起' : '展开全部'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -130,12 +165,27 @@ function StepItem({ step }: { step: AgentStep }) {
 
 function getStepDotColor(group: AgentStep[]): string {
   const first = group[0]
+  if (!first) return 'bg-gray-300'
+
   if (first.type === 'error') return 'bg-red-400'
+
   if (first.type === 'tool_call') {
-    const hasResult = group.some(s => s.type === 'tool_result')
-    return hasResult ? 'bg-emerald-400' : 'bg-primary'
+    const result = group.find(s => s.type === 'tool_result')
+    if (!result) return 'bg-primary animate-pulse' // Still loading
+
+    // Check if result contains error
+    try {
+      const parsed = JSON.parse(result.content)
+      if (parsed.error) return 'bg-warning'
+    } catch {
+      // Not JSON or no error field
+    }
+    return 'bg-emerald-400'
   }
+
   if (first.type === 'thinking') return 'bg-accent'
+  if (first.type === 'reasoning') return 'bg-blue-400'
+
   return 'bg-gray-300'
 }
 
@@ -158,20 +208,38 @@ function MessageBubble({ msg, isStreaming }: { msg: ChatMessage; isStreaming?: b
   // Handle clear_stream: if present, remove answer_delta steps before it
   const clearStreamIdx = steps.findIndex(s => s.type === 'clear_stream')
   const filteredSteps = clearStreamIdx >= 0
-    ? steps.filter((s, i) => i <= clearStreamIdx || s.type !== 'answer_delta')
+    ? steps.filter((s, i) => {
+        // Remove answer_delta before clear_stream, and remove clear_stream itself
+        if (s.type === 'clear_stream') return false
+        if (s.type === 'answer_delta' && i < clearStreamIdx) return false
+        return true
+      })
     : steps
 
-  // Group steps: pair tool_call with its following tool_result
-  const groupedSteps = filteredSteps.reduce<AgentStep[][]>((acc, step) => {
-    if (step.type === 'tool_call') {
-      acc.push([step])
-    } else if (step.type === 'tool_result' && acc.length > 0) {
-      acc[acc.length - 1].push(step)
-    } else if (step.type !== 'clear_stream') {
-      acc.push([step])
+  // Group steps: pair tool_call with its tool_result using toolCallId
+  const groupedSteps: AgentStep[][] = []
+  const toolCallMap = new Map<string, AgentStep[]>()
+
+  for (const step of filteredSteps) {
+    if (step.type === 'tool_call' && step.toolCallId) {
+      // Create a new group for this tool call
+      const group = [step]
+      toolCallMap.set(step.toolCallId, group)
+      groupedSteps.push(group)
+    } else if (step.type === 'tool_result' && step.toolCallId) {
+      // Find the matching tool_call group and add result to it
+      const group = toolCallMap.get(step.toolCallId)
+      if (group) {
+        group.push(step)
+      } else {
+        // Orphaned tool_result, create standalone group
+        groupedSteps.push([step])
+      }
+    } else if (step.type !== 'answer_delta' && step.type !== 'answer') {
+      // Other steps (thinking, reasoning, error) get their own group
+      groupedSteps.push([step])
     }
-    return acc
-  }, [])
+  }
 
   // Collect streamed answer_delta content
   const streamedAnswer = steps
@@ -192,11 +260,13 @@ function MessageBubble({ msg, isStreaming }: { msg: ChatMessage; isStreaming?: b
         ) : (
           <div className="rounded-2xl rounded-tl-sm bg-surface border border-gray-200 px-4 py-3 shadow-card">
             {groupedSteps.length > 0 && (
-              <div className="relative ml-1 mb-2">
-                {/* Timeline left border */}
-                <div className="absolute left-[5px] top-3 bottom-1 w-px bg-gray-200" />
+              <div className="relative ml-1 mb-3">
+                {/* Timeline left border - only show if there are multiple steps */}
+                {groupedSteps.length > 1 && (
+                  <div className="absolute left-[5px] top-3 bottom-1 w-px bg-gray-200" />
+                )}
                 {groupedSteps.map((group, i) => (
-                  <div key={i} className="relative pl-6 pb-1">
+                  <div key={i} className="relative pl-6 pb-1 last:pb-0">
                     {/* Dot node */}
                     <div className={`absolute left-0 top-2 w-[11px] h-[11px] rounded-full border-2 border-white shadow-sm ${getStepDotColor(group)}`} />
                     {group[0]?.type === 'tool_call'
@@ -206,14 +276,14 @@ function MessageBubble({ msg, isStreaming }: { msg: ChatMessage; isStreaming?: b
                 ))}
               </div>
             )}
-            {isStreaming && !msg.steps?.some(s => s.type === 'answer') && (
+            {isStreaming && !msg.steps?.some(s => s.type === 'answer') && !streamedAnswer && (
               <div className="flex items-center gap-2 text-xs text-gray-400 my-2 ml-1">
                 <Loader2 size={14} className="animate-spin text-accent" />
                 <span>{getLoadingText(msg.steps ?? [])}</span>
               </div>
             )}
             {(msg.content || streamedAnswer) && (
-              <div className="mt-2 text-sm text-gray-800 leading-relaxed prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-h2:text-base prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-sm prose-h3:mt-3 prose-h3:mb-1 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-table:my-2 prose-th:bg-gray-50 prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:text-xs prose-th:font-medium prose-th:text-gray-700 prose-td:px-3 prose-td:py-1.5 prose-td:text-xs prose-strong:text-gray-900 prose-code:text-accent prose-code:bg-gray-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none">
+              <div className={`text-sm text-gray-800 leading-relaxed prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-h2:text-base prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-sm prose-h3:mt-3 prose-h3:mb-1 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-table:my-2 prose-th:bg-gray-50 prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:text-xs prose-th:font-medium prose-th:text-gray-700 prose-td:px-3 prose-td:py-1.5 prose-td:text-xs prose-strong:text-gray-900 prose-code:text-accent prose-code:bg-gray-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none ${groupedSteps.length > 0 ? 'mt-2' : ''}`}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content || streamedAnswer}</ReactMarkdown>
               </div>
             )}

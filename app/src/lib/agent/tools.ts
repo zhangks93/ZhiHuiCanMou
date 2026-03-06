@@ -105,7 +105,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         employee_name: { type: 'string', description: '员工姓名，支持模糊匹配' },
         min_attendance_rate: { type: 'number', description: '最低出勤率（0-100），筛选出勤率高于此值的记录' },
         max_attendance_rate: { type: 'number', description: '最高出勤率（0-100），筛选出勤率低于此值的记录。如设置80可找出勤率偏低的员工' },
-        columns: { type: 'string', description: '需要返回的字段，逗号分隔。常用：employee_id,year_month,expected_days,actual_days,leave_days,absent_days,late_times,early_leave_times,feishu_members(name,department_id,job_title)' },
+        columns: { type: 'string', description: '需要返回的字段，逗号分隔。常用：member_id,department_id,year_month,expected_days,actual_days,leave_days,absent_days,late_times,early_leave_times,feishu_members(name,employee_no,job_title)' },
         limit: { type: 'number', description: '返回条数上限，默认100' },
       },
     },
@@ -640,7 +640,7 @@ async function querySchedules(args: Args): Promise<string> {
 
 async function queryAttendance(args: Args): Promise<string> {
   const cols = coerceString(args.columns) || '*'
-  let query = supabase.from('attendance_records').select(cols.includes('feishu_members') ? cols : `${cols === '*' ? '*' : cols},feishu_members:employee_id(name,employee_no,job_title,department_id)`)
+  let query = supabase.from('attendance_records').select(cols.includes('feishu_members') ? cols : `${cols === '*' ? '*' : cols},feishu_members:member_id(name,employee_no,job_title,department_id)`)
   const yearMonth = coerceNumber(args.year_month, -1)
   if (yearMonth > 0) query = query.eq('year_month', yearMonth)
   const employeeName = coerceString(args.employee_name)
