@@ -11,8 +11,6 @@ import {
 
 function fmt(v: number | null | undefined, suffix = ''): string {
   if (v == null) return '-'
-  const abs = Math.abs(v)
-  if (abs >= 10000) return (v / 10000).toFixed(2) + '亿' + suffix
   return v.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) + suffix
 }
 

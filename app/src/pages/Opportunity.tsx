@@ -64,7 +64,7 @@ const STATUS_ORDER = ['operating', 'contracted', 'bidding', 'tracking', 'suspend
 
 function formatAmount(v: number | null): string {
   if (v == null) return '-'
-  return v >= 10000 ? `${(v / 10000).toFixed(1)}亿` : `${v}万`
+  return `${v.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}万`
 }
 
 function formatDate(v: string | null): string {
