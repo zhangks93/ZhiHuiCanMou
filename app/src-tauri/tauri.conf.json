@@ -70,10 +70,12 @@
     }
   },
   "plugins": {
-    "deep-link": [
-      {
-        "scheme": "canmou"
-      }
-    ]
+    "deep-link": {
+      "domains": [
+        {
+          "scheme": "canmou"
+        }
+      ]
+    }
   }
 }
