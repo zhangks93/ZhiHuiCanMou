@@ -51,8 +51,8 @@ export function Login() {
       oauthWindow.once('tauri://error', (e) => console.warn('[Canmou] OAuth window error:', e))
     } else if (isTauri && mobile) {
       // 移动端 Tauri：使用系统浏览器打开 OAuth，这样 deep link 回调才能正常工作
-      const { open } = await import('@tauri-apps/plugin-opener')
-      await open(urlStr)
+      const { openUrl } = await import('@tauri-apps/plugin-opener')
+      await openUrl(urlStr)
     } else {
       // Web 环境：直接跳转
       window.location.href = urlStr
