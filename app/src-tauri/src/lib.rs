@@ -1,4 +1,4 @@
-use tauri::Manager;
+use tauri::{Listener, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -12,14 +12,15 @@ pub fn run() {
             {
                 // 监听 deep link 事件
                 let handle = app.handle().clone();
-                app.listen("deep-link://new-url", move |event| {
+                app.listen("deep-link://new-url", move |event: tauri::Event| {
                     // 尝试解析 payload - 可能是字符串或 JSON 数组
-                    let url_opt = if let Ok(urls) = serde_json::from_str::<Vec<Option<String>>>(event.payload()) {
+                    let payload_str = event.payload();
+                    let url_opt = if let Ok(urls) = serde_json::from_str::<Vec<Option<String>>>(payload_str) {
                         // 如果是数组格式，取第一个元素
                         urls.into_iter().next().and_then(|u| u)
                     } else {
                         // 如果是字符串格式，直接使用
-                        Some(event.payload().trim_matches('"').to_string())
+                        Some(payload_str.trim_matches('"').to_string())
                     };
 
                     if let Some(url) = url_opt {
