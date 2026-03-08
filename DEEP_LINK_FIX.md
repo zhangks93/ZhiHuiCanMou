@@ -1,12 +1,12 @@
 # 飞书认证 Deep Link 修复
 
 ## 问题
-在 Android 应用中，飞书认证完成后跳转到 `canmou://auth-callback` 地址时，页面报错显示"网页无法打开"。
+在 Android 应用中，飞书认证完成后跳转到 `canmou://auth-callback` 地址时，页面报错显示"网页无法打开"，错误信息为 `net::ERR_UNKNOWN_URL_SCHEME`。
 
 ## 根本原因
-1. Tauri 应用缺少 deep link 插件来处理自定义 URL scheme
-2. 前端代码没有正确解析来自 deep link 的参数
-3. 缺少从 deep link 到前端路由的桥接逻辑
+1. **主要原因**：移动端 OAuth 流程在 WebView 内打开，当 Supabase 重定向到 `canmou://` 时，WebView 尝试直接加载该 URL，导致 `ERR_UNKNOWN_URL_SCHEME` 错误
+2. WebView 无法处理自定义 URL scheme，必须由 Android 系统的 deep link 机制处理
+3. 需要在系统浏览器中打开 OAuth 流程，这样重定向时才能触发 deep link 并正确打开应用
 
 ## 修复内容
 
@@ -39,16 +39,18 @@ tauri-plugin-deep-link = "2"
 
 ### 2. 前端修复 (TypeScript)
 
-#### `app/src/pages/AuthCallback.tsx`
-- 添加 `parseUrlParams` 函数来解析多种 URL 格式
-- 改进参数解析逻辑，支持 hash、query string 和 deep link URL
-- 添加详细的日志输出用于调试
-- 延迟跳转以让用户看到成功提示
+#### `app/src/pages/Login.tsx` ⭐ 关键修复
+- **移动端使用系统浏览器**：通过 `@tauri-apps/plugin-opener` 在系统浏览器中打开 OAuth 流程
+- 这样当 Supabase 重定向到 `canmou://` 时，Android 系统会正确处理 deep link 并打开应用
+- 桌面端继续使用 WebView 弹窗（因为桌面环境可以正常处理）
+- Web 环境直接跳转（不涉及 deep link）
 
-#### `app/package.json`
-安装 deep link 插件的 JavaScript 绑定：
-```bash
-npm install @tauri-apps/plugin-deep-link
+```typescript
+// 移动端 Tauri：使用系统浏览器打开 OAuth
+if (isTauri && mobile) {
+  const { open } = await import('@tauri-apps/plugin-opener')
+  await open(urlStr)
+}
 ```
 
 ### 3. 配置验证
@@ -66,14 +68,15 @@ npm install @tauri-apps/plugin-deep-link
 
 ## 工作流程
 
-1. **用户点击飞书登录** → 打开飞书授权页面
+1. **用户点击飞书登录** → 在系统浏览器中打开飞书授权页面（移动端）
 2. **用户授权** → 飞书回调到 Supabase Edge Function
 3. **Edge Function 处理** → 生成 magic link 并重定向到 `canmou://auth-callback#access_token=xxx&refresh_token=xxx`
-4. **Android 系统** → 识别 deep link 并打开智汇参谋应用
-5. **Tauri Deep Link 处理器** → 接收 URL 并解析参数
-6. **JavaScript 导航** → 通过 `window.location.hash` 导航到 `/auth-callback`
-7. **AuthCallback 组件** → 解析 token 并调用 `supabase.auth.setSession()`
-8. **登录成功** → 跳转到首页
+4. **系统浏览器重定向** → 触发 `canmou://` deep link
+5. **Android 系统** → 识别 deep link 并打开智汇参谋应用
+6. **Tauri Deep Link 处理器** → 接收 URL 并解析参数
+7. **JavaScript 导航** → 通过 `window.location.hash` 导航到 `/auth-callback`
+8. **AuthCallback 组件** → 解析 token 并调用 `supabase.auth.setSession()`
+9. **登录成功** → 跳转到首页
 
 ## 测试步骤
 

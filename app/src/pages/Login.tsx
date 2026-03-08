@@ -24,6 +24,7 @@ export function Login() {
   const handleFeishuLogin = async () => {
     if (!canLogin) return
     const mobile = isMobile()
+    const isTauri = isTauriApp()
 
     // 构建飞书授权URL，移动端需要在redirect_uri中添加platform参数
     const loginUrl = new URL(FEISHU_AUTH_URL)
@@ -36,8 +37,10 @@ export function Login() {
     loginUrl.searchParams.set('state', state)
     const urlStr = loginUrl.toString()
 
-    // 桌面 Tauri：使用弹窗 WebView；移动端 / Web：直接在当前窗口跳转
-    if (isTauriApp() && !mobile) {
+    // 桌面 Tauri：使用弹窗 WebView
+    // 移动端 Tauri：使用系统浏览器（避免 WebView 无法处理 deep link）
+    // Web：直接在当前窗口跳转
+    if (isTauri && !mobile) {
       const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
       const oauthWindow = new WebviewWindow('oauth', {
         url: urlStr,
@@ -46,7 +49,12 @@ export function Login() {
         height: 680,
       })
       oauthWindow.once('tauri://error', (e) => console.warn('[Canmou] OAuth window error:', e))
+    } else if (isTauri && mobile) {
+      // 移动端 Tauri：使用系统浏览器打开 OAuth，这样 deep link 回调才能正常工作
+      const { open } = await import('@tauri-apps/plugin-opener')
+      await open(urlStr)
     } else {
+      // Web 环境：直接跳转
       window.location.href = urlStr
     }
   }
