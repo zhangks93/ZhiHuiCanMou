@@ -10,46 +10,54 @@ pub fn run() {
         .setup(|app| {
             #[cfg(mobile)]
             {
-                use tauri_plugin_deep_link::DeepLinkExt;
-
-                // 注册 deep link 处理器
+                // 监听 deep link 事件
                 let handle = app.handle().clone();
-                app.deep_link().register("canmou", move |request| {
-                    let url = request.to_string();
-                    println!("[Canmou] Deep link received: {}", url);
+                app.listen("deep-link://new-url", move |event| {
+                    // 尝试解析 payload - 可能是字符串或 JSON 数组
+                    let url_opt = if let Ok(urls) = serde_json::from_str::<Vec<Option<String>>>(event.payload()) {
+                        // 如果是数组格式，取第一个元素
+                        urls.into_iter().next().and_then(|u| u)
+                    } else {
+                        // 如果是字符串格式，直接使用
+                        Some(event.payload().trim_matches('"').to_string())
+                    };
 
-                    // 解析 URL 并导航到对应页面
-                    if url.starts_with("canmou://auth-callback") {
-                        println!("[Canmou] Processing auth callback");
+                    if let Some(url) = url_opt {
+                        println!("[Canmou] Deep link received: {}", url);
 
-                        // 获取 URL 的 fragment 或 query 部分
-                        let url_suffix = url.split("canmou://auth-callback").nth(1).unwrap_or("");
-                        println!("[Canmou] URL suffix: {}", url_suffix);
+                        // 解析 URL 并导航到对应页面
+                        if url.starts_with("canmou://auth-callback") {
+                            println!("[Canmou] Processing auth callback");
 
-                        // 通知前端处理认证回调
-                        if let Some(window) = handle.get_webview_window("main") {
-                            // 构造完整的 hash URL
-                            let js_code = if url_suffix.starts_with('#') {
-                                format!("window.location.hash = '/auth-callback{}'", url_suffix)
-                            } else if url_suffix.starts_with('?') {
-                                // 将 query string 转换为 hash
-                                format!("window.location.hash = '/auth-callback#{}'", &url_suffix[1..])
-                            } else if !url_suffix.is_empty() {
-                                format!("window.location.hash = '/auth-callback#{}'", url_suffix)
+                            // 获取 URL 的 fragment 或 query 部分
+                            let url_suffix = url.split("canmou://auth-callback").nth(1).unwrap_or("");
+                            println!("[Canmou] URL suffix: {}", url_suffix);
+
+                            // 通知前端处理认证回调
+                            if let Some(window) = handle.get_webview_window("main") {
+                                // 构造完整的 hash URL
+                                let js_code = if url_suffix.starts_with('#') {
+                                    format!("window.location.hash = '/auth-callback{}'", url_suffix)
+                                } else if url_suffix.starts_with('?') {
+                                    // 将 query string 转换为 hash
+                                    format!("window.location.hash = '/auth-callback#{}'", &url_suffix[1..])
+                                } else if !url_suffix.is_empty() {
+                                    format!("window.location.hash = '/auth-callback#{}'", url_suffix)
+                                } else {
+                                    "window.location.hash = '/auth-callback'".to_string()
+                                };
+
+                                println!("[Canmou] Executing JS: {}", js_code);
+
+                                if let Err(e) = window.eval(&js_code) {
+                                    eprintln!("[Canmou] Failed to navigate: {}", e);
+                                }
                             } else {
-                                "window.location.hash = '/auth-callback'".to_string()
-                            };
-
-                            println!("[Canmou] Executing JS: {}", js_code);
-
-                            if let Err(e) = window.eval(&js_code) {
-                                eprintln!("[Canmou] Failed to navigate: {}", e);
+                                eprintln!("[Canmou] Main window not found");
                             }
-                        } else {
-                            eprintln!("[Canmou] Main window not found");
                         }
                     }
-                })?;
+                });
             }
             Ok(())
         })
