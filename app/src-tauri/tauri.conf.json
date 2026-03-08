@@ -70,10 +70,10 @@
     }
   },
   "plugins": {
-    "deep-link": {
-      "mobile": {
+    "deep-link": [
+      {
         "scheme": "canmou"
       }
-    }
+    ]
   }
 }
