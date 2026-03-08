@@ -7,6 +7,7 @@ import type { AuthUser } from './AuthContextDefinition'
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authInProgress, setAuthInProgress] = useState(false)
 
   const updateUser = useCallback((rawUser: User | null) => {
     if (!rawUser) {
@@ -52,9 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { access_token, refresh_token } = e.payload ?? {}
           if (!access_token || !refresh_token) return
           try {
+            setAuthInProgress(true)
+            console.log('[Canmou] Received OAuth tokens, setting session...')
             await supabase.auth.setSession({ access_token, refresh_token })
+            console.log('[Canmou] Session set successfully')
           } catch (err) {
             console.warn('[Canmou] OAuth setSession failed:', err)
+          } finally {
+            setAuthInProgress(false)
           }
         })
       )
@@ -72,6 +78,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{ user, loading, signOut }}>
       {children}
+      {authInProgress && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div style={{
+            textAlign: 'center',
+            color: 'white',
+            fontFamily: 'Inter, sans-serif'
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              border: '4px solid rgba(251, 191, 36, 0.3)',
+              borderTopColor: '#fbbf24',
+              borderRadius: '50%',
+              margin: '0 auto 1rem',
+              animation: 'spin 0.8s linear infinite'
+            }}></div>
+            <p style={{ fontSize: '16px', fontWeight: 500 }}>正在登录...</p>
+          </div>
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
     </AuthContext.Provider>
   )
 }

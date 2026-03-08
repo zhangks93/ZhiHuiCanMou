@@ -36,12 +36,25 @@ function parseUrlParams(url: string): Record<string, string> {
   return params
 }
 
+type AuthStatus = 'parsing' | 'authenticating' | 'success' | 'error'
+
 export function AuthCallback() {
-  const [status, setStatus] = useState<'parsing' | 'success' | 'error'>('parsing')
+  const [status, setStatus] = useState<AuthStatus>('parsing')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     let mounted = true
+    let progressInterval: number | undefined
+
+    // 模拟进度条
+    progressInterval = window.setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) return prev
+        return prev + 10
+      })
+    }, 200)
+
     const run = async () => {
       // 尝试从多个来源获取 token
       const hash = window.location.hash
@@ -69,6 +82,11 @@ export function AuthCallback() {
         return
       }
 
+      if (mounted) {
+        setStatus('authenticating')
+        setProgress(50)
+      }
+
       const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
       const isMobile =
         typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -78,10 +96,18 @@ export function AuthCallback() {
         try {
           const { emit } = await import('@tauri-apps/api/event')
           emit('auth:oauth-complete', { access_token: accessToken, refresh_token: refreshToken })
-          const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow')
-          const win = getCurrentWebviewWindow()
-          if (win) win.close()
-          if (mounted) setStatus('success')
+
+          if (mounted) {
+            setStatus('success')
+            setProgress(100)
+          }
+
+          // 延迟关闭，让用户看到成功状态
+          setTimeout(async () => {
+            const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow')
+            const win = getCurrentWebviewWindow()
+            if (win) win.close()
+          }, 1500)
         } catch (e) {
           if (mounted) {
             setStatus('error')
@@ -92,17 +118,28 @@ export function AuthCallback() {
         // Web / 移动端：在当前窗口直接 setSession 并返回首页
         const { supabase } = await import('@/lib/supabase')
         const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+
         if (error) {
           console.error('setSession error:', error)
-          throw error
+          if (mounted) {
+            setStatus('error')
+            setErrorMsg(error.message || '登录失败')
+          }
+          return
         }
-        if (mounted) setStatus('success')
+
+        if (mounted) {
+          setStatus('success')
+          setProgress(100)
+        }
+
         // 延迟跳转，让用户看到成功提示
         setTimeout(() => {
           window.location.hash = '/'
-        }, 1000)
+        }, 1500)
       }
     }
+
     run().catch((e) => {
       if (mounted) {
         setStatus('error')
@@ -110,20 +147,278 @@ export function AuthCallback() {
         console.error('AuthCallback error:', e)
       }
     })
-    return () => { mounted = false }
+
+    return () => {
+      mounted = false
+      if (progressInterval) clearInterval(progressInterval)
+    }
   }, [])
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-      <div className="text-center">
+    <div className="auth-callback-container">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+
+        .auth-callback-container {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem;
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .auth-callback-container::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -20%;
+          width: 80%;
+          height: 150%;
+          background: radial-gradient(circle, rgba(251, 191, 36, 0.08) 0%, transparent 70%);
+          animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(-30px, 30px) scale(1.1); }
+        }
+
+        .auth-callback-card {
+          position: relative;
+          width: 100%;
+          max-width: 400px;
+          background: rgba(255, 255, 255, 0.98);
+          backdrop-filter: blur(20px);
+          border-radius: 24px;
+          padding: 3rem 2rem;
+          box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.3),
+            0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+          animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+          z-index: 1;
+          text-align: center;
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .status-icon {
+          width: 80px;
+          height: 80px;
+          margin: 0 auto 1.5rem;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 40px;
+          animation: iconAppear 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes iconAppear {
+          from {
+            opacity: 0;
+            transform: scale(0.5);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .status-icon.parsing,
+        .status-icon.authenticating {
+          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+          box-shadow: 0 8px 24px rgba(251, 191, 36, 0.4);
+        }
+
+        .status-icon.success {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+        }
+
+        .status-icon.error {
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+        }
+
+        .spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid rgba(15, 23, 42, 0.2);
+          border-top-color: #0f172a;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .status-title {
+          font-family: 'Crimson Text', serif;
+          font-size: 24px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 0.5rem;
+          animation: fadeIn 0.6s ease-out 0.2s backwards;
+        }
+
+        .status-message {
+          font-family: 'Inter', sans-serif;
+          font-size: 15px;
+          font-weight: 400;
+          color: #64748b;
+          margin-bottom: 2rem;
+          animation: fadeIn 0.6s ease-out 0.3s backwards;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .progress-bar-container {
+          width: 100%;
+          height: 6px;
+          background: rgba(15, 23, 42, 0.1);
+          border-radius: 3px;
+          overflow: hidden;
+          animation: fadeIn 0.6s ease-out 0.4s backwards;
+        }
+
+        .progress-bar {
+          height: 100%;
+          background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+          border-radius: 3px;
+          transition: width 0.3s ease-out;
+          box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+        }
+
+        .progress-bar.success {
+          background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+          box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+
+        .error-details {
+          margin-top: 1rem;
+          padding: 1rem;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 12px;
+          font-family: 'Inter', sans-serif;
+          font-size: 13px;
+          color: #dc2626;
+          animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-8px); }
+          75% { transform: translateX(8px); }
+        }
+
+        .checkmark {
+          width: 40px;
+          height: 40px;
+          stroke: #0f172a;
+          stroke-width: 3;
+          stroke-linecap: round;
+          fill: none;
+          animation: checkmark 0.6s ease-out;
+        }
+
+        @keyframes checkmark {
+          0% { stroke-dashoffset: 100; }
+          100% { stroke-dashoffset: 0; }
+        }
+
+        .checkmark path {
+          stroke-dasharray: 100;
+          stroke-dashoffset: 100;
+          animation: checkmark 0.6s ease-out forwards;
+        }
+
+        @media (max-width: 640px) {
+          .auth-callback-card {
+            padding: 2.5rem 1.5rem;
+          }
+
+          .status-title {
+            font-size: 20px;
+          }
+
+          .status-icon {
+            width: 64px;
+            height: 64px;
+            font-size: 32px;
+          }
+        }
+      `}</style>
+
+      <div className="auth-callback-card">
         {status === 'parsing' && (
-          <p className="text-[var(--color-text-muted)]">正在完成登录...</p>
+          <>
+            <div className="status-icon parsing">
+              <div className="spinner"></div>
+            </div>
+            <h2 className="status-title">正在验证</h2>
+            <p className="status-message">正在解析认证信息...</p>
+            <div className="progress-bar-container">
+              <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+            </div>
+          </>
         )}
+
+        {status === 'authenticating' && (
+          <>
+            <div className="status-icon authenticating">
+              <div className="spinner"></div>
+            </div>
+            <h2 className="status-title">登录中</h2>
+            <p className="status-message">正在完成身份认证...</p>
+            <div className="progress-bar-container">
+              <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+            </div>
+          </>
+        )}
+
         {status === 'success' && (
-          <p className="text-accent">登录成功，窗口即将关闭</p>
+          <>
+            <div className="status-icon success">
+              <svg className="checkmark" viewBox="0 0 52 52">
+                <path d="M14 27l8 8 16-16" />
+              </svg>
+            </div>
+            <h2 className="status-title">登录成功</h2>
+            <p className="status-message">正在跳转到应用...</p>
+            <div className="progress-bar-container">
+              <div className="progress-bar success" style={{ width: '100%' }}></div>
+            </div>
+          </>
         )}
+
         {status === 'error' && (
-          <p className="text-warning-700">{errorMsg}</p>
+          <>
+            <div className="status-icon error">
+              <span>✕</span>
+            </div>
+            <h2 className="status-title">登录失败</h2>
+            <p className="status-message">认证过程出现问题</p>
+            {errorMsg && (
+              <div className="error-details">{errorMsg}</div>
+            )}
+          </>
         )}
       </div>
     </div>
