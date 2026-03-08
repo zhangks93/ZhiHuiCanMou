@@ -21,15 +21,24 @@ export function Login() {
   const { appId, redirectUri, scope } = env.feishu
   const canLogin = Boolean(appId && redirectUri)
   const [isLoading, setIsLoading] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<string[]>([])
+
+  const addDebugInfo = (msg: string) => {
+    console.log('[Canmou Login]', msg)
+    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`])
+  }
 
   const handleFeishuLogin = async () => {
     if (!canLogin || isLoading) return
 
     setIsLoading(true)
+    setDebugInfo([])
 
     try {
       const mobile = isMobile()
       const isTauri = isTauriApp()
+
+      addDebugInfo(`环境检测: ${isTauri ? 'Tauri' : 'Web'}, ${mobile ? '移动端' : '桌面端'}`)
 
       // 构建飞书授权URL，移动端需要在redirect_uri中添加platform参数
       const loginUrl = new URL(FEISHU_AUTH_URL)
@@ -42,10 +51,13 @@ export function Login() {
       loginUrl.searchParams.set('state', state)
       const urlStr = loginUrl.toString()
 
+      addDebugInfo(`授权URL: ${urlStr.substring(0, 100)}...`)
+
       // 桌面 Tauri：使用弹窗 WebView
       // 移动端 Tauri：使用系统浏览器（避免 WebView 无法处理 deep link）
       // Web：直接在当前窗口跳转
       if (isTauri && !mobile) {
+        addDebugInfo('使用桌面弹窗模式')
         const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
         const oauthWindow = new WebviewWindow('oauth', {
           url: urlStr,
@@ -54,22 +66,36 @@ export function Login() {
           height: 680,
         })
         oauthWindow.once('tauri://error', (e) => {
-          console.warn('[Canmou] OAuth window error:', e)
+          addDebugInfo(`OAuth窗口错误: ${JSON.stringify(e)}`)
           setIsLoading(false)
         })
         oauthWindow.once('tauri://destroyed', () => {
+          addDebugInfo('OAuth窗口已关闭')
           setIsLoading(false)
         })
       } else if (isTauri && mobile) {
         // 移动端 Tauri：使用系统浏览器打开 OAuth，这样 deep link 回调才能正常工作
+        addDebugInfo('使用系统浏览器打开授权页面')
         const { openUrl } = await import('@tauri-apps/plugin-opener')
         await openUrl(urlStr)
+        addDebugInfo('已打开系统浏览器，等待回调...')
         // 移动端打开浏览器后，保持加载状态，等待 deep link 回调
+
+        // 设置超时，如果30秒后还没有回调，提示用户
+        setTimeout(() => {
+          if (isLoading) {
+            addDebugInfo('等待超时，请检查是否完成授权')
+            setIsLoading(false)
+          }
+        }, 30000)
       } else {
         // Web 环境：直接跳转
+        addDebugInfo('Web环境，直接跳转')
         window.location.href = urlStr
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      addDebugInfo(`登录错误: ${errorMsg}`)
       console.error('[Canmou] Login error:', error)
       setIsLoading(false)
     }
@@ -335,6 +361,32 @@ export function Login() {
           50% { opacity: 0.5; transform: scale(0.9); }
         }
 
+        .debug-info {
+          margin-top: 1.5rem;
+          padding: 1rem;
+          background: rgba(15, 23, 42, 0.05);
+          border: 1px solid rgba(15, 23, 42, 0.1);
+          border-radius: 12px;
+          max-height: 200px;
+          overflow-y: auto;
+        }
+
+        .debug-title {
+          font-family: 'Inter', sans-serif;
+          font-size: 12px;
+          font-weight: 600;
+          color: #64748b;
+          margin-bottom: 0.5rem;
+        }
+
+        .debug-line {
+          font-family: 'Courier New', monospace;
+          font-size: 11px;
+          color: #475569;
+          line-height: 1.6;
+          padding: 2px 0;
+        }
+
         @media (max-width: 640px) {
           .login-card {
             padding: 2.5rem 1.5rem;
@@ -390,6 +442,15 @@ export function Login() {
         <p className="login-footer">
           登录即表示你已阅读并同意本系统的相关条款
         </p>
+
+        {debugInfo.length > 0 && (
+          <div className="debug-info">
+            <div className="debug-title">调试信息</div>
+            {debugInfo.map((info, idx) => (
+              <div key={idx} className="debug-line">{info}</div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

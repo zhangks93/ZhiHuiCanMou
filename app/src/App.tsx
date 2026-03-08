@@ -20,6 +20,7 @@ import {
   Login,
   AuthCallback,
 } from '@/pages'
+import { DeepLinkTest } from '@/pages/DeepLinkTest'
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
             }
           />
           <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallback />} />
+          <Route path="/deep-link-test" element={<DeepLinkTest />} />
           <Route
             path={ROUTES.HOME}
             element={

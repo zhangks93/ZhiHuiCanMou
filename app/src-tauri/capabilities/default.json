@@ -6,13 +6,20 @@
   "permissions": [
     "core:default",
     "shell:allow-open",
-    "opener:allow-default-urls",
+    "opener:default",
     "core:webview:allow-create-webview-window",
     {
       "identifier": "http:default",
       "allow": [
         { "url": "http://**" },
         { "url": "https://**" }
+      ]
+    },
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://**" },
+        { "url": "http://**" }
       ]
     }
   ]

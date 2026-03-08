@@ -42,6 +42,12 @@ export function AuthCallback() {
   const [status, setStatus] = useState<AuthStatus>('parsing')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
+  const [debugInfo, setDebugInfo] = useState<string[]>([])
+
+  const addDebugInfo = (msg: string) => {
+    console.log('[Canmou AuthCallback]', msg)
+    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`])
+  }
 
   useEffect(() => {
     let mounted = true
@@ -61,14 +67,17 @@ export function AuthCallback() {
       const search = window.location.search
       const fullUrl = window.location.href
 
+      addDebugInfo(`完整URL: ${fullUrl}`)
+      addDebugInfo(`Hash: ${hash}`)
+      addDebugInfo(`Search: ${search}`)
+
       // 合并所有可能的参数来源
       const hashParams = parseHashParams(hash)
       const urlParams = parseUrlParams(fullUrl)
       const searchParams = parseUrlParams(search)
       const params = { ...urlParams, ...searchParams, ...hashParams }
 
-      console.log('AuthCallback - Full URL:', fullUrl)
-      console.log('AuthCallback - Parsed params:', params)
+      addDebugInfo(`解析参数: ${JSON.stringify(params)}`)
 
       const accessToken = params.access_token
       const refreshToken = params.refresh_token
@@ -77,10 +86,12 @@ export function AuthCallback() {
         if (mounted) {
           setStatus('error')
           setErrorMsg('未找到认证信息，请重试登录')
-          console.error('Missing tokens. Hash:', hash, 'Search:', search, 'Params:', params)
+          addDebugInfo('错误: 缺少 access_token 或 refresh_token')
         }
         return
       }
+
+      addDebugInfo('Token 解析成功')
 
       if (mounted) {
         setStatus('authenticating')
@@ -91,9 +102,12 @@ export function AuthCallback() {
       const isMobile =
         typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
+      addDebugInfo(`环境: ${isTauri ? 'Tauri' : 'Web'}, ${isMobile ? '移动端' : '桌面端'}`)
+
       if (isTauri && !isMobile) {
         // 桌面 Tauri：通过事件通知主窗口并关闭弹窗
         try {
+          addDebugInfo('桌面模式: 发送事件到主窗口')
           const { emit } = await import('@tauri-apps/api/event')
           emit('auth:oauth-complete', { access_token: accessToken, refresh_token: refreshToken })
 
@@ -102,6 +116,8 @@ export function AuthCallback() {
             setProgress(100)
           }
 
+          addDebugInfo('事件发送成功，准备关闭窗口')
+
           // 延迟关闭，让用户看到成功状态
           setTimeout(async () => {
             const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow')
@@ -109,17 +125,21 @@ export function AuthCallback() {
             if (win) win.close()
           }, 1500)
         } catch (e) {
+          const errorMsg = e instanceof Error ? e.message : String(e)
+          addDebugInfo(`桌面模式错误: ${errorMsg}`)
           if (mounted) {
             setStatus('error')
-            setErrorMsg(e instanceof Error ? e.message : '登录失败')
+            setErrorMsg(errorMsg)
           }
         }
       } else {
         // Web / 移动端：在当前窗口直接 setSession 并返回首页
+        addDebugInfo('移动端/Web模式: 直接设置会话')
         const { supabase } = await import('@/lib/supabase')
         const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
 
         if (error) {
+          addDebugInfo(`setSession 错误: ${error.message}`)
           console.error('setSession error:', error)
           if (mounted) {
             setStatus('error')
@@ -128,6 +148,8 @@ export function AuthCallback() {
           return
         }
 
+        addDebugInfo('会话设置成功')
+
         if (mounted) {
           setStatus('success')
           setProgress(100)
@@ -135,6 +157,7 @@ export function AuthCallback() {
 
         // 延迟跳转，让用户看到成功提示
         setTimeout(() => {
+          addDebugInfo('跳转到首页')
           window.location.hash = '/'
         }, 1500)
       }
@@ -349,6 +372,33 @@ export function AuthCallback() {
           animation: checkmark 0.6s ease-out forwards;
         }
 
+        .debug-info {
+          margin-top: 1rem;
+          padding: 1rem;
+          background: rgba(15, 23, 42, 0.05);
+          border: 1px solid rgba(15, 23, 42, 0.1);
+          border-radius: 12px;
+          max-height: 200px;
+          overflow-y: auto;
+          text-align: left;
+        }
+
+        .debug-title {
+          font-family: 'Inter', sans-serif;
+          font-size: 12px;
+          font-weight: 600;
+          color: #64748b;
+          margin-bottom: 0.5rem;
+        }
+
+        .debug-line {
+          font-family: 'Courier New', monospace;
+          font-size: 11px;
+          color: #475569;
+          line-height: 1.6;
+          padding: 2px 0;
+        }
+
         @media (max-width: 640px) {
           .auth-callback-card {
             padding: 2.5rem 1.5rem;
@@ -417,6 +467,14 @@ export function AuthCallback() {
             <p className="status-message">认证过程出现问题</p>
             {errorMsg && (
               <div className="error-details">{errorMsg}</div>
+            )}
+            {debugInfo.length > 0 && (
+              <div className="debug-info">
+                <div className="debug-title">调试信息</div>
+                {debugInfo.map((info, idx) => (
+                  <div key={idx} className="debug-line">{info}</div>
+                ))}
+              </div>
             )}
           </>
         )}
