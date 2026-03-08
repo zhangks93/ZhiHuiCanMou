@@ -73,13 +73,10 @@ function fmtToday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function toPercent(v: number | null | undefined): number {
-  if (v == null || Number.isNaN(v)) return 0
-  return v > 1 ? v : v * 100
-}
-
 function asRate(v: number | null | undefined): number {
-  return Math.round(toPercent(v) * 100) / 100
+  if (v == null || Number.isNaN(v)) return 0
+  // 数据库中存储的是小数形式（如 0.6249 = 62.49%），直接乘以100转换为百分比
+  return Math.round(Number(v) * 10000) / 100
 }
 
 function formatDate(input: string | number | null | undefined): string {
@@ -129,7 +126,8 @@ export function Dashboard() {
             .from('edu_logistics_biz_data')
             .select('node_name,revenue_completion_rate')
             .not('center', 'is', null)
-            .is('biz_class', null),
+            .is('biz_class', null)
+            .not('revenue_completion_rate', 'is', null),
           supabase
             .from('opportunity_ledger')
             .select('snapshot_date,status,estimated_amount,win_probability,updated_at')
@@ -192,7 +190,7 @@ export function Dashboard() {
           const latestRows = latestSnapshotDate ? rows.filter((r) => r.snapshot_date === latestSnapshotDate) : []
 
           const activeCount = latestRows.filter((r) =>
-            ['tracking', 'bidding', 'contracted', 'operating'].includes(r.status ?? ''),
+            r.status === 'tracking',
           ).length
 
           const weightedAmount = latestRows.reduce((sum, r) => {

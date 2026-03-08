@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { appFetch } from '@/lib/httpClient'
 import type { ToolDefinition, AgentMemory } from './types'
 import { saveMemory, searchMemories } from './memory'
 
@@ -707,7 +708,7 @@ async function webSearch(args: Args, tavilyApiKey?: string): Promise<string> {
   const query = coerceString(args.query)
   if (!query) return JSON.stringify({ error: '请提供搜索关键词' })
   const maxResults = Math.min(Math.max(coerceNumber(args.count, 5), 1), 20)
-  const resp = await fetch('https://api.tavily.com/search', {
+  const resp = await appFetch('https://api.tavily.com/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

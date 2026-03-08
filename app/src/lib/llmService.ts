@@ -1,4 +1,4 @@
-import { fetch } from '@tauri-apps/plugin-http'
+import { appFetch } from '@/lib/httpClient'
 import type { LLMConfig } from './llmConfig'
 import type { BizDataSnapshot } from './supabase'
 
@@ -37,7 +37,7 @@ const SYSTEM_PROMPT = `你是一位教育后勤集团高级经营分析师。根
 5. 不要返回 markdown 或其他格式，只返回 JSON`
 
 async function callOpenAI(config: LLMConfig, dataSummary: string): Promise<Insight[]> {
-  const res = await fetch(config.apiUrl, {
+  const res = await appFetch(config.apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -68,7 +68,7 @@ async function callOpenAI(config: LLMConfig, dataSummary: string): Promise<Insig
 }
 
 async function callClaude(config: LLMConfig, dataSummary: string): Promise<Insight[]> {
-  const res = await fetch(config.apiUrl, {
+  const res = await appFetch(config.apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

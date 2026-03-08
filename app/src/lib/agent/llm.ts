@@ -1,3 +1,4 @@
+import { appFetch } from '@/lib/httpClient'
 import type { LLMConfig } from '@/lib/llmConfig'
 import type { ToolDefinition, ToolCall, LLMResponse, AgentLLMMessage } from './types'
 
@@ -264,7 +265,7 @@ export async function callLLM(
   const { signal, streaming = false, callbacks = {} } = opts ?? {}
 
   if (config.provider === 'claude') {
-    const res = await fetch(config.apiUrl, {
+    const res = await appFetch(config.apiUrl, {
       method: 'POST',
       signal,
       headers: {
@@ -290,7 +291,7 @@ export async function callLLM(
   }
 
   // OpenAI-compatible
-  const res = await fetch(config.apiUrl, {
+  const res = await appFetch(config.apiUrl, {
     method: 'POST',
     signal,
     headers: {

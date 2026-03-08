@@ -15,6 +15,13 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      '/__proxy__/ai-last-ee': {
+        target: 'https://ai.last.ee',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/__proxy__\/ai-last-ee/, ''),
+      },
+    },
   },
   envPrefix: ['VITE_', 'TAURI_'],
   build: {
