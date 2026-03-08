@@ -14,7 +14,7 @@ pub fn run() {
 
                 // 注册 deep link 处理器
                 let handle = app.handle().clone();
-                app.deep_link().register_all(move |request| {
+                app.deep_link().register("canmou", move |request| {
                     let url = request.to_string();
                     println!("[Canmou] Deep link received: {}", url);
 
