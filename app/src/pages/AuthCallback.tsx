@@ -166,7 +166,8 @@ export function AuthCallback() {
         const result = await retrySetSession(
           () => supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
           (attempt, error) => {
-            addDebugInfo(`重试第 ${attempt} 次: ${error?.message || String(error)}`)
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            addDebugInfo(`重试第 ${attempt} 次: ${errorMessage}`)
             if (mounted) {
               setStatus('retrying')
               setRetryAttempt(attempt)

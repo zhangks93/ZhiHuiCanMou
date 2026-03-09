@@ -33,7 +33,7 @@ class AuthCache {
       return null
     }
 
-    return entry.data
+    return entry.data as T
   }
 
   /**
@@ -96,7 +96,7 @@ class AuthCache {
     if (pending) {
       // Check if pending request is not too old
       if (Date.now() - pending.timestamp < deduplicateTimeout) {
-        return pending.promise
+        return pending.promise as Promise<T>
       } else {
         // Pending request timed out, remove it
         this.pendingRequests.delete(key)
