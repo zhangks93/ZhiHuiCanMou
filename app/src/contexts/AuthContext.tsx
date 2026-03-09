@@ -1,27 +1,105 @@
-import { useEffect, useState, useCallback, type ReactNode } from 'react'
+import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react'
 import { supabase, getUserDisplayInfo } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
+import type { User, Session } from '@supabase/supabase-js'
 import { AuthContext } from './AuthContextDefinition'
 import type { AuthUser } from './AuthContextDefinition'
+import { storeSessionToken, getSessionToken, clearSessionToken } from '@/lib/auth-storage'
+
+// Refresh token 5 minutes before expiry
+const REFRESH_THRESHOLD_MS = 5 * 60 * 1000
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [authInProgress, setAuthInProgress] = useState(false)
+  const refreshTimerRef = useRef<number | null>(null)
+  const sessionRef = useRef<Session | null>(null)
 
   const updateUser = useCallback((rawUser: User | null) => {
     if (!rawUser) {
       setUser(null)
+      clearSessionToken()
       return
     }
     setUser(getUserDisplayInfo(rawUser))
   }, [])
 
+  // Schedule token refresh before expiry
+  const scheduleTokenRefresh = useCallback((session: Session | null) => {
+    // Clear existing timer
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current)
+      refreshTimerRef.current = null
+    }
+
+    if (!session) return
+
+    sessionRef.current = session
+
+    // Store session token with expiry
+    const expiresIn = session.expires_in || 3600
+    storeSessionToken(session.access_token, expiresIn)
+
+    // Calculate time until refresh (5 minutes before expiry)
+    const expiresAt = session.expires_at ? new Date(session.expires_at).getTime() : Date.now() + expiresIn * 1000
+    const timeUntilRefresh = expiresAt - Date.now() - REFRESH_THRESHOLD_MS
+
+    if (timeUntilRefresh > 0) {
+      console.log(`[Canmou] Scheduling token refresh in ${Math.round(timeUntilRefresh / 1000)}s`)
+      refreshTimerRef.current = window.setTimeout(async () => {
+        console.log('[Canmou] Auto-refreshing session...')
+        try {
+          const { data, error } = await supabase.auth.refreshSession()
+          if (error) {
+            console.error('[Canmou] Auto-refresh failed:', error)
+            // If refresh fails, user will need to re-authenticate
+            return
+          }
+          if (data.session) {
+            console.log('[Canmou] Session refreshed successfully')
+            scheduleTokenRefresh(data.session)
+          }
+        } catch (err) {
+          console.error('[Canmou] Auto-refresh error:', err)
+        }
+      }, timeUntilRefresh)
+    } else {
+      // Token already expired or about to expire, refresh immediately
+      console.log('[Canmou] Token expired, refreshing immediately...')
+      supabase.auth.refreshSession().then(({ data, error }) => {
+        if (error) {
+          console.error('[Canmou] Immediate refresh failed:', error)
+          return
+        }
+        if (data.session) {
+          scheduleTokenRefresh(data.session)
+        }
+      })
+    }
+  }, [])
+
   useEffect(() => {
     const init = async () => {
       try {
-        const { data: { user: u } } = await supabase.auth.getUser()
-        updateUser(u)
+        // Try to recover session from storage
+        const storedToken = getSessionToken()
+        if (storedToken) {
+          console.log('[Canmou] Found stored session, attempting recovery...')
+          // Validate stored session
+          const { data: { session }, error } = await supabase.auth.getSession()
+          if (session && !error) {
+            console.log('[Canmou] Session recovered successfully')
+            updateUser(session.user)
+            scheduleTokenRefresh(session)
+          } else {
+            console.log('[Canmou] Stored session invalid, clearing...')
+            clearSessionToken()
+          }
+        } else {
+          // No stored session, check current session
+          const { data: { user: u } } = await supabase.auth.getUser()
+          updateUser(u)
+        }
       } catch (e) {
         console.warn('[Canmou] Auth init failed:', e)
       } finally {
@@ -34,14 +112,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         updateUser(session?.user ?? null)
+        scheduleTokenRefresh(session)
       })
       sub = subscription
     } catch (e) {
       console.warn('[Canmou] Auth subscription failed:', e)
     }
 
-    return () => sub?.unsubscribe()
-  }, [updateUser])
+    return () => {
+      sub?.unsubscribe()
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current)
+      }
+    }
+  }, [updateUser, scheduleTokenRefresh])
 
   // Tauri OAuth 弹窗完成后，接收 token 并设置会话
   useEffect(() => {
@@ -73,6 +157,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
     setUser(null)
+    clearSessionToken()
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current)
+      refreshTimerRef.current = null
+    }
+    sessionRef.current = null
   }, [])
 
   return (

@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { validateAuthState, clearAuthState } from '@/lib/auth-storage'
+import { retrySetSession } from '@/lib/auth-retry'
+import { createAuthError, getAuthError, type AuthError } from '@/lib/auth-errors'
 
 /**
  * OAuth 回调页：解析 Supabase magic link 重定向中的 token，通过事件传给主窗口
@@ -36,12 +39,14 @@ function parseUrlParams(url: string): Record<string, string> {
   return params
 }
 
-type AuthStatus = 'parsing' | 'authenticating' | 'success' | 'error'
+type AuthStatus = 'parsing' | 'authenticating' | 'retrying' | 'success' | 'error'
 
 export function AuthCallback() {
   const [status, setStatus] = useState<AuthStatus>('parsing')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<AuthError | null>(null)
   const [progress, setProgress] = useState(0)
+  const [retryAttempt, setRetryAttempt] = useState(0)
   const [debugInfo, setDebugInfo] = useState<string[]>([])
 
   const addDebugInfo = (msg: string) => {
@@ -51,10 +56,7 @@ export function AuthCallback() {
 
   useEffect(() => {
     let mounted = true
-    let progressInterval: number | undefined
-
-    // 模拟进度条
-    progressInterval = window.setInterval(() => {
+    const progressInterval: number | undefined = window.setInterval(() => {
       setProgress((prev) => {
         if (prev >= 90) return prev
         return prev + 10
@@ -81,11 +83,34 @@ export function AuthCallback() {
 
       const accessToken = params.access_token
       const refreshToken = params.refresh_token
+      const state = params.state
+
+      // Validate CSRF state parameter
+      if (state) {
+        const isValidState = validateAuthState(state)
+        if (!isValidState) {
+          addDebugInfo('错误: State 验证失败 (可能的 CSRF 攻击)')
+          const error = getAuthError('STATE_VALIDATION_FAILED')
+          if (mounted) {
+            setStatus('error')
+            setErrorMsg(error.message)
+            setAuthError(error)
+          }
+          return
+        }
+        addDebugInfo('State 验证成功')
+      } else {
+        addDebugInfo('警告: 未收到 state 参数')
+        // Clear any stored state to prevent reuse
+        clearAuthState()
+      }
 
       if (!accessToken || !refreshToken) {
+        const error = getAuthError('MISSING_TOKENS')
         if (mounted) {
           setStatus('error')
-          setErrorMsg('未找到认证信息，请重试登录')
+          setErrorMsg(error.message)
+          setAuthError(error)
           addDebugInfo('错误: 缺少 access_token 或 refresh_token')
         }
         return
@@ -136,19 +161,34 @@ export function AuthCallback() {
         // Web / 移动端：在当前窗口直接 setSession 并返回首页
         addDebugInfo('移动端/Web模式: 直接设置会话')
         const { supabase } = await import('@/lib/supabase')
-        const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
 
-        if (error) {
-          addDebugInfo(`setSession 错误: ${error.message}`)
+        // Use retry mechanism for setSession
+        const result = await retrySetSession(
+          () => supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
+          (attempt, error) => {
+            addDebugInfo(`重试第 ${attempt} 次: ${error?.message || String(error)}`)
+            if (mounted) {
+              setStatus('retrying')
+              setRetryAttempt(attempt)
+              setProgress(50 + (attempt * 10))
+            }
+          }
+        )
+
+        if (!result.success) {
+          const error = result.error as { code?: string; message?: string } | undefined
+          const authErr = error?.code ? getAuthError(error.code) : createAuthError(error)
+          addDebugInfo(`setSession 失败 (${result.attempts} 次尝试): ${error?.message || String(error)}`)
           console.error('setSession error:', error)
           if (mounted) {
             setStatus('error')
-            setErrorMsg(error.message || '登录失败')
+            setErrorMsg(authErr.message)
+            setAuthError(authErr)
           }
           return
         }
 
-        addDebugInfo('会话设置成功')
+        addDebugInfo(`会话设置成功 (${result.attempts} 次尝试)`)
 
         if (mounted) {
           setStatus('success')
@@ -164,9 +204,11 @@ export function AuthCallback() {
     }
 
     run().catch((e) => {
+      const authErr = createAuthError(e)
       if (mounted) {
         setStatus('error')
-        setErrorMsg(e instanceof Error ? e.message : '登录失败')
+        setErrorMsg(authErr.message)
+        setAuthError(authErr)
         console.error('AuthCallback error:', e)
       }
     })
@@ -345,6 +387,34 @@ export function AuthCallback() {
           animation: shake 0.4s ease-in-out;
         }
 
+        .error-suggestion {
+          margin-bottom: 0.75rem;
+          line-height: 1.5;
+        }
+
+        .retry-button {
+          width: 100%;
+          padding: 0.75rem;
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+          border: none;
+          border-radius: 8px;
+          font-family: 'Inter', sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          color: white;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .retry-button:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+        }
+
+        .retry-button:active {
+          transform: translateY(0);
+        }
+
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
           25% { transform: translateX(-8px); }
@@ -443,6 +513,19 @@ export function AuthCallback() {
           </>
         )}
 
+        {status === 'retrying' && (
+          <>
+            <div className="status-icon authenticating">
+              <div className="spinner"></div>
+            </div>
+            <h2 className="status-title">重试中</h2>
+            <p className="status-message">正在重试连接 (第 {retryAttempt} 次)...</p>
+            <div className="progress-bar-container">
+              <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+            </div>
+          </>
+        )}
+
         {status === 'success' && (
           <>
             <div className="status-icon success">
@@ -463,9 +546,22 @@ export function AuthCallback() {
             <div className="status-icon error">
               <span>✕</span>
             </div>
-            <h2 className="status-title">登录失败</h2>
-            <p className="status-message">认证过程出现问题</p>
-            {errorMsg && (
+            <h2 className="status-title">{authError?.title || '登录失败'}</h2>
+            <p className="status-message">{authError?.message || '认证过程出现问题'}</p>
+            {authError && (
+              <div className="error-details">
+                <div className="error-suggestion">{authError.suggestion}</div>
+                {authError.retryable && (
+                  <button
+                    className="retry-button"
+                    onClick={() => window.location.reload()}
+                  >
+                    重试登录
+                  </button>
+                )}
+              </div>
+            )}
+            {!authError && errorMsg && (
               <div className="error-details">{errorMsg}</div>
             )}
             {debugInfo.length > 0 && (

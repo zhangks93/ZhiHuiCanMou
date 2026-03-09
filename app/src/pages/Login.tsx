@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { env } from '@/config/env'
+import { storeAuthState } from '@/lib/auth-storage'
 
 const FEISHU_AUTH_URL = 'https://open.feishu.cn/open-apis/authen/v1/authorize'
 
@@ -22,11 +23,61 @@ export function Login() {
   const canLogin = Boolean(appId && redirectUri)
   const [isLoading, setIsLoading] = useState(false)
   const [debugInfo, setDebugInfo] = useState<string[]>([])
+  const [showFallback, setShowFallback] = useState(false)
+  const [deepLinkError, setDeepLinkError] = useState<string | null>(null)
 
   const addDebugInfo = (msg: string) => {
     console.log('[Canmou Login]', msg)
     setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`])
   }
+
+  // Preload Tauri modules for faster login
+  useEffect(() => {
+    if (!isTauriApp()) return
+
+    const preloadModules = async () => {
+      try {
+        const mobile = isMobile()
+        if (mobile) {
+          // Preload opener plugin for mobile
+          await import('@tauri-apps/plugin-opener')
+          addDebugInfo('已预加载 opener 插件')
+        } else {
+          // Preload WebviewWindow for desktop
+          await import('@tauri-apps/api/webviewWindow')
+          addDebugInfo('已预加载 WebviewWindow')
+        }
+      } catch (error) {
+        console.error('[Canmou] Failed to preload Tauri modules:', error)
+      }
+    }
+
+    preloadModules()
+  }, [])
+
+  // Listen for deep link errors on mobile
+  useEffect(() => {
+    if (!isTauriApp() || !isMobile()) return
+
+    let unlisten: (() => void) | null = null
+    import('@tauri-apps/api/event')
+      .then(({ listen }) =>
+        listen<{ code: string; message: string }>('deep-link:error', (event) => {
+          const { code, message } = event.payload
+          addDebugInfo(`Deep link 错误: ${code} - ${message}`)
+          setDeepLinkError(message)
+          setShowFallback(true)
+          setIsLoading(false)
+        })
+      )
+      .then((fn) => {
+        unlisten = fn
+      })
+
+    return () => {
+      unlisten?.()
+    }
+  }, [])
 
   const handleFeishuLogin = async () => {
     if (!canLogin || isLoading) return
@@ -39,6 +90,11 @@ export function Login() {
       const isTauri = isTauriApp()
 
       addDebugInfo(`环境检测: ${isTauri ? 'Tauri' : 'Web'}, ${mobile ? '移动端' : '桌面端'}`)
+
+      // Store state for CSRF validation
+      const platform = mobile ? 'mobile' : 'desktop'
+      storeAuthState(state, platform)
+      addDebugInfo(`已存储 state 用于 CSRF 验证: ${state.substring(0, 8)}...`)
 
       // 构建飞书授权URL，移动端需要在redirect_uri中添加platform参数
       const loginUrl = new URL(FEISHU_AUTH_URL)
@@ -387,6 +443,82 @@ export function Login() {
           padding: 2px 0;
         }
 
+        .fallback-container {
+          margin-top: 1.5rem;
+          padding: 1.5rem;
+          background: rgba(251, 191, 36, 0.1);
+          border: 1px solid rgba(251, 191, 36, 0.3);
+          border-radius: 12px;
+          animation: slideDown 0.4s ease-out;
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .fallback-title {
+          font-family: 'Inter', sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          color: #92400e;
+          margin-bottom: 0.5rem;
+        }
+
+        .fallback-message {
+          font-family: 'Inter', sans-serif;
+          font-size: 13px;
+          color: #78350f;
+          margin-bottom: 1rem;
+          line-height: 1.5;
+        }
+
+        .fallback-suggestion {
+          font-family: 'Inter', sans-serif;
+          font-size: 12px;
+          color: #78350f;
+          margin-bottom: 1rem;
+          line-height: 1.6;
+        }
+
+        .fallback-suggestion ol {
+          margin: 0.5rem 0 0 1.25rem;
+          padding: 0;
+        }
+
+        .fallback-suggestion li {
+          margin: 0.25rem 0;
+        }
+
+        .fallback-button {
+          width: 100%;
+          padding: 0.75rem;
+          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+          border: none;
+          border-radius: 8px;
+          font-family: 'Inter', sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          color: #0f172a;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .fallback-button:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+        }
+
+        .fallback-button:active {
+          transform: translateY(0);
+        }
+
         @media (max-width: 640px) {
           .login-card {
             padding: 2.5rem 1.5rem;
@@ -436,6 +568,32 @@ export function Login() {
         {!canLogin && (
           <div className="error-message">
             未配置飞书登录，请设置环境变量
+          </div>
+        )}
+
+        {showFallback && deepLinkError && (
+          <div className="fallback-container">
+            <div className="fallback-title">Deep Link 回调失败</div>
+            <div className="fallback-message">{deepLinkError}</div>
+            <div className="fallback-suggestion">
+              请尝试以下方法：
+              <ol>
+                <li>返回飞书授权页面，重新完成授权</li>
+                <li>确保应用已正确安装并注册 Deep Link</li>
+                <li>重启应用后重试</li>
+              </ol>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowFallback(false)
+                setDeepLinkError(null)
+                setDebugInfo([])
+              }}
+              className="fallback-button"
+            >
+              重新尝试
+            </button>
           </div>
         )}
 
