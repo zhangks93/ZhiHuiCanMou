@@ -1,4 +1,4 @@
-use tauri::Manager;
+use tauri::{Manager, Emitter};
 use tauri_plugin_deep_link::DeepLinkExt;
 use std::time::{Duration, SystemTime};
 use std::sync::{Arc, Mutex};
@@ -47,7 +47,7 @@ pub fn run() {
                 println!("[Canmou] App started with deep link: {:?}", urls);
                 if let Some(url) = urls.first() {
                     let state = deep_link_state.clone();
-                    handle_deep_link(app.handle(), url, state);
+                    handle_deep_link(app.handle(), url.as_str(), state);
                 }
             }
 
@@ -58,7 +58,7 @@ pub fn run() {
                 println!("[Canmou] Deep link event received: {:?}", event.urls());
                 if let Some(url) = event.urls().first() {
                     let state_clone = state.clone();
-                    handle_deep_link(&handle, url, state_clone);
+                    handle_deep_link(&handle, url.as_str(), state_clone);
                 }
             });
 
