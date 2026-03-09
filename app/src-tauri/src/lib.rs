@@ -55,8 +55,9 @@ pub fn run() {
             let handle = app.handle().clone();
             let state = deep_link_state.clone();
             app.deep_link().on_open_url(move |event| {
-                println!("[Canmou] Deep link event received: {:?}", event.urls());
-                if let Some(url) = event.urls().first() {
+                let urls = event.urls();
+                println!("[Canmou] Deep link event received: {:?}", urls);
+                if let Some(url) = urls.first() {
                     let state_clone = state.clone();
                     handle_deep_link(&handle, url.as_str(), state_clone);
                 }
