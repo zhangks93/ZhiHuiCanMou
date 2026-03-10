@@ -278,12 +278,50 @@ export interface HierarchyTree {
  * 构建层级树
  */
 export function buildHierarchyTree(nodes: BizDataNode[]): HierarchyTree {
+  console.log('[buildHierarchyTree] Input nodes:', nodes.length)
+
   const total = nodes.filter(n => n.hierarchy.is_aggregated && n.hierarchy.aggregation_level === 'total')
-  const centers = nodes.filter(n => n.hierarchy.center_region && !n.hierarchy.business_segment && !n.hierarchy.is_aggregated)
-  const segments = nodes.filter(n => n.hierarchy.business_segment && !n.hierarchy.report_level1 && !n.hierarchy.is_aggregated)
-  const level1 = nodes.filter(n => n.hierarchy.report_level1 && !n.hierarchy.report_level2 && !n.hierarchy.is_aggregated)
-  const level2 = nodes.filter(n => n.hierarchy.report_level2 && !n.hierarchy.is_aggregated)
+
+  // Centers: aggregated center-level rows (center_region exists, business_segment is null, is_aggregated=true, aggregation_level='center')
+  const centers = nodes.filter(n =>
+    n.hierarchy.is_aggregated &&
+    n.hierarchy.aggregation_level === 'center' &&
+    n.hierarchy.center_region &&
+    !n.hierarchy.business_segment
+  )
+
+  // Segments: aggregated region-level rows (both center_region and business_segment exist, is_aggregated=true, aggregation_level='region')
+  const segments = nodes.filter(n =>
+    n.hierarchy.is_aggregated &&
+    n.hierarchy.aggregation_level === 'region' &&
+    n.hierarchy.center_region &&
+    n.hierarchy.business_segment &&
+    !n.hierarchy.report_level1
+  )
+
+  // Level1: leaf nodes with report_level1 but no report_level2
+  const level1 = nodes.filter(n =>
+    !n.hierarchy.is_aggregated &&
+    n.hierarchy.report_level1 &&
+    !n.hierarchy.report_level2
+  )
+
+  // Level2: leaf nodes with report_level2
+  const level2 = nodes.filter(n =>
+    !n.hierarchy.is_aggregated &&
+    n.hierarchy.report_level2
+  )
+
   const leafNodes = nodes.filter(n => !n.hierarchy.is_aggregated)
+
+  console.log('[buildHierarchyTree] Results:', {
+    total: total.length,
+    centers: centers.length,
+    segments: segments.length,
+    level1: level1.length,
+    level2: level2.length,
+    leafNodes: leafNodes.length
+  })
 
   return {
     total,
@@ -299,34 +337,34 @@ export function buildHierarchyTree(nodes: BizDataNode[]): HierarchyTree {
  * 获取子节点
  */
 export function getChildren(parentNode: BizDataNode, allNodes: BizDataNode[]): BizDataNode[] {
-  const { center_region, business_segment, report_level1 } = parentNode.hierarchy
+  const { center_region, business_segment, report_level1, is_aggregated, aggregation_level } = parentNode.hierarchy
 
-  // 如果是中心节点，返回其下的板块
-  if (center_region && !business_segment) {
+  // 如果是中心级聚合节点 (aggregation_level='center')，返回其下的区域级聚合节点
+  if (is_aggregated && aggregation_level === 'center' && center_region && !business_segment) {
     return allNodes.filter(n =>
+      n.hierarchy.is_aggregated &&
+      n.hierarchy.aggregation_level === 'region' &&
       n.hierarchy.center_region === center_region &&
-      n.hierarchy.business_segment &&
-      !n.hierarchy.report_level1 &&
-      !n.hierarchy.is_aggregated
+      n.hierarchy.business_segment
     )
   }
 
-  // 如果是板块节点，返回其下的一级单元
-  if (business_segment && !report_level1) {
+  // 如果是区域级聚合节点 (aggregation_level='region')，返回其下的叶子节点（一级单元）
+  if (is_aggregated && aggregation_level === 'region' && business_segment) {
     return allNodes.filter(n =>
+      !n.hierarchy.is_aggregated &&
       n.hierarchy.business_segment === business_segment &&
       n.hierarchy.report_level1 &&
-      !n.hierarchy.report_level2 &&
-      !n.hierarchy.is_aggregated
+      !n.hierarchy.report_level2
     )
   }
 
-  // 如果是一级单元，返回其下的二级单元
-  if (report_level1) {
+  // 如果是一级单元叶子节点，返回其下的二级单元
+  if (!is_aggregated && report_level1 && !parentNode.hierarchy.report_level2) {
     return allNodes.filter(n =>
+      !n.hierarchy.is_aggregated &&
       n.hierarchy.report_level1 === report_level1 &&
-      n.hierarchy.report_level2 &&
-      !n.hierarchy.is_aggregated
+      n.hierarchy.report_level2
     )
   }
 
