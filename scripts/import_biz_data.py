@@ -1,8 +1,9 @@
 """
 读取 25学年经营数据.xlsx 中的 1.1/1.2/2.1/2.2/2.3/3 sheet 页，
-解析第5-139行经营数据，整理后写入 Supabase 数据库。
+解析第8-139行经营数据，按原始数据写入 Supabase 数据库。
 
 同时读取组织标签映射表，创建独立的 edu_org_hierarchy 表。
+数据表之间无外键约束，仅通过 node_name 字段关联。
 
 用法: python scripts/import_biz_data.py
 """
@@ -141,54 +142,6 @@ def load_org_hierarchy(excel_path: Path) -> list[dict]:
     return rows
 
 
-def detect_aggregation(node_name: str) -> tuple:
-    """
-    检测节点是否为合计/小计行，并提取聚合层级
-    返回: (is_aggregated, aggregation_level)
-    """
-    # 总计
-    if "总计" in node_name:
-        return (True, "总计")
-
-    # 集团合计
-    if "集团" in node_name and "合计" in node_name:
-        return (True, "集团合计")
-
-    # 中心合计
-    if "中心合计" in node_name:
-        return (True, "中心合计")
-
-    # 区域合计
-    if "区域合计" in node_name:
-        return (True, "区域合计")
-
-    # 区域小计
-    if "区域小计" in node_name:
-        return (True, "区域小计")
-
-    # 部门小计
-    if "部门小计" in node_name:
-        return (True, "部门小计")
-
-    # 业务合计
-    if "业务" in node_name and "合计" in node_name:
-        return (True, "业务合计")
-
-    # 本级小计
-    if "本级小计" in node_name:
-        return (True, "本级小计")
-
-    # 存量/增量（无合计字样）
-    if ("存量" in node_name or "增量" in node_name) and "合计" not in node_name and "小计" not in node_name:
-        return (True, "分类")
-
-    # 其他合计/小计
-    if "合计" in node_name or "小计" in node_name:
-        return (True, "合计")
-
-    return (False, None)
-
-
 def safe_num(v):
     """将 Excel 单元格值转为 float 或 None"""
     if v is None:
@@ -232,9 +185,10 @@ def clear_table(table: str):
         print(f"  清空 {table} 失败: {resp.status_code} {resp.text[:200]}")
 
 
-def parse_main_sheets(wb):
-    """解析 sheets 1.1, 1.2, 2.1, 2.2, 2.3"""
+def parse_main_sheets(wb, valid_nodes: set):
+    """解析 sheets 1.1, 1.2, 2.1, 2.2, 2.3，只导入映射表中存在的节点"""
     all_rows = []
+    skipped_nodes = set()
 
     for sheet_code, config in SHEET_CONFIG.items():
         # 找到匹配的 sheet
@@ -257,6 +211,11 @@ def parse_main_sheets(wb):
                 continue
             node_name = str(node_name).strip()
             if not node_name:
+                continue
+
+            # 只导入映射表中存在的节点
+            if node_name not in valid_nodes:
+                skipped_nodes.add(node_name)
                 continue
 
             for metric_en, metric_cn, start_col in METRIC_CATEGORIES:
@@ -299,11 +258,16 @@ def parse_main_sheets(wb):
 
         print(f"    -> {sheet_rows} 条指标数据")
 
+    if skipped_nodes:
+        print(f"\n  跳过了 {len(skipped_nodes)} 个不在映射表中的节点:")
+        for node in sorted(skipped_nodes):
+            print(f"    - {node}")
+
     return all_rows
 
 
-def parse_sheet3(wb):
-    """解析 sheet 3（突围计划分月版）"""
+def parse_sheet3(wb, valid_nodes: set):
+    """解析 sheet 3（突围计划分月版），只导入映射表中存在的节点"""
     matched = [s for s in wb.sheetnames if s.startswith("3")]
     if not matched:
         print("  警告: 未找到 sheet 3")
@@ -314,6 +278,7 @@ def parse_sheet3(wb):
 
     all_rows = []
     row_count = 0
+    skipped_nodes = set()
 
     for row_idx in range(DATA_ROW_START, DATA_ROW_END + 1):
         node_name = ws.cell(row=row_idx, column=1).value
@@ -321,6 +286,11 @@ def parse_sheet3(wb):
             continue
         node_name = str(node_name).strip()
         if not node_name:
+            continue
+
+        # 只导入映射表中存在的节点
+        if node_name not in valid_nodes:
+            skipped_nodes.add(node_name)
             continue
 
         for metric_en, metric_cn, start_col, end_col in SHEET3_METRICS:
@@ -341,6 +311,12 @@ def parse_sheet3(wb):
                 col_idx += 1
 
     print(f"    -> {row_count} 条计划数据")
+
+    if skipped_nodes:
+        print(f"\n  跳过了 {len(skipped_nodes)} 个不在映射表中的节点:")
+        for node in sorted(skipped_nodes):
+            print(f"    - {node}")
+
     return all_rows
 
 
@@ -354,6 +330,10 @@ def main():
     print(f"\n加载组织层级映射: {ORG_HIERARCHY_PATH}")
     org_hierarchy_rows = load_org_hierarchy(ORG_HIERARCHY_PATH)
 
+    # 构建有效节点集合
+    valid_nodes = {row["node_name"] for row in org_hierarchy_rows}
+    print(f"  映射表中有 {len(valid_nodes)} 个有效节点")
+
     wb = openpyxl.load_workbook(str(EXCEL_PATH), data_only=True)
     print(f"共 {len(wb.sheetnames)} 个 sheet\n")
 
@@ -364,17 +344,17 @@ def main():
     clear_table("edu_org_hierarchy")
     print()
 
-    # 解析主报表
+    # 解析主报表（只导入映射表中存在的节点）
     print("解析经营数据报表 (1.1-2.3)...")
-    report_rows = parse_main_sheets(wb)
+    report_rows = parse_main_sheets(wb, valid_nodes)
     print(f"\n共 {len(report_rows)} 条报表数据")
 
-    # 解析突围计划
+    # 解析突围计划（只导入映射表中存在的节点）
     print("\n解析突围计划分月版 (3)...")
-    plan_rows = parse_sheet3(wb)
+    plan_rows = parse_sheet3(wb, valid_nodes)
     print(f"共 {len(plan_rows)} 条计划数据")
 
-    # 写入 Supabase
+    # 写入 Supabase（先写入层级表，再写入数据表，但无外键约束）
     print("\n写入 Supabase...")
 
     if org_hierarchy_rows:

@@ -56,7 +56,12 @@
       "Bash(cargo check:*)",
       "Bash(npx:*)",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__query-docs"
+      "mcp__context7__query-docs",
+      "Bash(where:*)",
+      "Bash(\"C:/Users/HLJY/AppData/Local/Python/bin/python3.exe\":*)",
+      "Bash(~/.claude/bin/codeagent-wrapper:*)",
+      "Bash(grep:*)",
+      "Bash(npm list:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
