@@ -191,16 +191,34 @@ export function AuthCallback() {
 
         addDebugInfo(`会话设置成功 (${result.attempts} 次尝试)`)
 
+        // Wait for auth state to propagate by checking getUser()
+        addDebugInfo('等待认证状态更新...')
+        let authStateReady = false
+        for (let i = 0; i < 10; i++) {
+          const { data: { user: currentUser }, error: getUserError } = await supabase.auth.getUser()
+          if (currentUser && !getUserError) {
+            addDebugInfo(`认证状态已更新 (${i + 1} 次检查)`)
+            authStateReady = true
+            break
+          }
+          addDebugInfo(`等待认证状态... (${i + 1}/10)`)
+          await new Promise(resolve => setTimeout(resolve, 300))
+        }
+
+        if (!authStateReady) {
+          addDebugInfo('警告: 认证状态未及时更新，但仍将跳转')
+        }
+
         if (mounted) {
           setStatus('success')
           setProgress(100)
         }
 
-        // 延迟跳转，让用户看到成功提示
+        // 短暂延迟让用户看到成功提示
         setTimeout(() => {
           addDebugInfo('跳转到首页')
           window.location.hash = '/'
-        }, 1500)
+        }, 800)
       }
     }
 

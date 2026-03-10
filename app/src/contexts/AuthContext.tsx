@@ -14,6 +14,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authInProgress, setAuthInProgress] = useState(false)
   const refreshTimerRef = useRef<number | null>(null)
   const sessionRef = useRef<Session | null>(null)
+  const refreshInProgressRef = useRef<boolean>(false)
 
   const updateUser = useCallback((rawUser: User | null) => {
     if (!rawUser) {
@@ -41,8 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storeSessionToken(session.access_token, expiresIn)
 
     // Calculate time until refresh (5 minutes before expiry)
-    const expiresAt = session.expires_at ? new Date(session.expires_at).getTime() : Date.now() + expiresIn * 1000
+    // IMPORTANT: expires_at is in UNIX seconds, not milliseconds
+    const expiresAt = session.expires_at ? session.expires_at * 1000 : Date.now() + expiresIn * 1000
     const timeUntilRefresh = expiresAt - Date.now() - REFRESH_THRESHOLD_MS
+
+    console.log(`[Canmou] Token expires at: ${new Date(expiresAt).toLocaleString()}, time until refresh: ${Math.round(timeUntilRefresh / 1000)}s`)
 
     if (timeUntilRefresh > 0) {
       console.log(`[Canmou] Scheduling token refresh in ${Math.round(timeUntilRefresh / 1000)}s`)
@@ -65,8 +69,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, timeUntilRefresh)
     } else {
       // Token already expired or about to expire, refresh immediately
+      // But prevent multiple simultaneous refresh attempts
+      if (refreshInProgressRef.current) {
+        console.log('[Canmou] Refresh already in progress, skipping...')
+        return
+      }
+
       console.log('[Canmou] Token expired, refreshing immediately...')
+      refreshInProgressRef.current = true
       supabase.auth.refreshSession().then(({ data, error }) => {
+        refreshInProgressRef.current = false
         if (error) {
           console.error('[Canmou] Immediate refresh failed:', error)
           return
@@ -74,6 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session) {
           scheduleTokenRefresh(data.session)
         }
+      }).catch((err) => {
+        refreshInProgressRef.current = false
+        console.error('[Canmou] Immediate refresh error:', err)
       })
     }
   }, [])
@@ -110,7 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let sub: { unsubscribe: () => void } | undefined
     try {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log('[Canmou AuthContext] Auth state changed:', event, session?.user?.id ? 'User logged in' : 'No user')
         updateUser(session?.user ?? null)
         scheduleTokenRefresh(session)
       })
