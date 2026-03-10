@@ -5,14 +5,13 @@ import type { EnrichedBizDataNode } from '@/lib/supabase'
 import {
   fetchBizReport,
   fetchMonthlyPlan,
-  fetchAvailablePeriods,
+  fetchAvailableMonths,
   aggregateByNode,
   buildHierarchyTree,
 } from '@/services/bizDataService'
-import { IntegratedComparisonTable } from '@/components/BizData/IntegratedComparisonTable'
 import { ReportTypeToggle } from '@/components/BizData/ReportTypeToggle'
-import { PeriodSelector } from '@/components/BizData/PeriodSelector'
-import { ViewModeTabs } from '@/components/BizData/ViewModeTabs'
+import { PeriodTypeToggle } from '@/components/BizData/PeriodTypeToggle'
+import { MonthSelector } from '@/components/BizData/MonthSelector'
 import { ChartView } from '@/components/BizData/ChartView'
 
 // --- Helpers ---
@@ -35,7 +34,11 @@ interface Insight {
   detail: string
 }
 
-function generateInsights(totalNode: EnrichedBizDataNode | undefined, centerNodes: EnrichedBizDataNode[]): Insight[] {
+function generateInsights(
+  totalNode: EnrichedBizDataNode | undefined,
+  centerNodes: EnrichedBizDataNode[],
+  reportType: 'fone' | 'tuwei'
+): Insight[] {
   if (!totalNode) return []
   const insights: Insight[] = []
 
@@ -44,46 +47,33 @@ function generateInsights(totalNode: EnrichedBizDataNode | undefined, centerNode
   const margin = totalNode.metrics.gross_margin
   const laborCostRate = totalNode.metrics.labor_cost_rate
 
+  // Determine which fields to use based on reportType
+  const budgetField = reportType === 'fone' ? 'budget_fone' : 'budget_tuwei'
+  const completionField = reportType === 'fone' ? 'completion_fone' : 'completion_tuwei'
+  const diffField = reportType === 'fone' ? 'diff_fone' : 'diff_tuwei'
+  const budgetLabel = reportType === 'fone' ? '年初预算' : '突围考核'
+
   // 1. 预算达成率分析
-  if (revenue?.completion_fone != null && revenue.completion_fone < 0.80) {
+  const revenueCompletion = revenue?.[completionField]
+  if (revenueCompletion != null && revenueCompletion < 0.80) {
     insights.push({
       type: 'danger',
       title: '营收预算达成率偏低',
-      detail: `年初预算达成率 ${fmtPct(revenue.completion_fone)}，缺口 ${fmt(revenue.diff_fone)} 万元`,
+      detail: `${budgetLabel}达成率 ${fmtPct(revenueCompletion)}，缺口 ${fmt(revenue?.[diffField])} 万元`,
     })
   }
 
-  // 2. 突围对比分析
-  if (revenue?.completion_tuwei != null && revenue.completion_tuwei < 0.85) {
-    insights.push({
-      type: 'warning',
-      title: '营收突围目标未达成',
-      detail: `突围考核达成率 ${fmtPct(revenue.completion_tuwei)}，需加大业务拓展力度`,
-    })
-  }
-
-  // 3. Fone vs Tuwei 差异分析
-  if (revenue?.completion_fone != null && revenue?.completion_tuwei != null) {
-    const gap = Math.abs(revenue.completion_fone - revenue.completion_tuwei)
-    if (gap > 0.10) {
-      insights.push({
-        type: 'info',
-        title: '预算与突围目标存在较大差异',
-        detail: `年初预算达成 ${fmtPct(revenue.completion_fone)}，突围考核达成 ${fmtPct(revenue.completion_tuwei)}，差距 ${(gap * 100).toFixed(1)} 个百分点`,
-      })
-    }
-  }
-
-  // 4. 利润分析
-  if (profit?.completion_fone != null && profit.completion_fone < 0.70) {
+  // 2. 利润分析
+  const profitCompletion = profit?.[completionField]
+  if (profitCompletion != null && profitCompletion < 0.70) {
     insights.push({
       type: 'danger',
       title: '利润达成严重不足',
-      detail: `利润预算达成率 ${fmtPct(profit.completion_fone)}，实际 ${fmt(profit.actual)} vs 预算 ${fmt(profit.budget_fone)} 万元`,
+      detail: `利润${budgetLabel}达成率 ${fmtPct(profitCompletion)}，实际 ${fmt(profit?.actual)} vs 预算 ${fmt(profit?.[budgetField])} 万元`,
     })
   }
 
-  // 5. 同比增长分析
+  // 3. 同比增长分析
   if (revenue?.yoy != null && revenue.actual != null && revenue.yoy > 0) {
     const yoyGrowth = ((revenue.actual - revenue.yoy) / revenue.yoy) * 100
     if (yoyGrowth > 10) {
@@ -101,42 +91,44 @@ function generateInsights(totalNode: EnrichedBizDataNode | undefined, centerNode
     }
   }
 
-  // 6. 毛利率分析
-  if (margin?.actual != null && margin?.budget_fone != null) {
-    const marginDiff = margin.actual - margin.budget_fone
+  // 4. 毛利率分析
+  const marginBudget = margin?.[budgetField]
+  if (margin?.actual != null && marginBudget != null) {
+    const marginDiff = margin.actual - marginBudget
     if (marginDiff > 0.03) {
       insights.push({
         type: 'success',
         title: '毛利率优于预算',
-        detail: `实际毛利率 ${fmtPct(margin.actual)} 高于预算 ${fmtPct(margin.budget_fone)}，超出 ${(marginDiff * 100).toFixed(1)} 个百分点`,
+        detail: `实际毛利率 ${fmtPct(margin.actual)} 高于预算 ${fmtPct(marginBudget)}，超出 ${(marginDiff * 100).toFixed(1)} 个百分点`,
       })
     } else if (marginDiff < -0.03) {
       insights.push({
         type: 'warning',
         title: '毛利率低于预算',
-        detail: `实际毛利率 ${fmtPct(margin.actual)} 低于预算 ${fmtPct(margin.budget_fone)}，需关注成本控制`,
+        detail: `实际毛利率 ${fmtPct(margin.actual)} 低于预算 ${fmtPct(marginBudget)}，需关注成本控制`,
       })
     }
   }
 
-  // 7. 人力成本率分析
-  if (laborCostRate?.actual != null && laborCostRate?.budget_fone != null) {
-    const rateDiff = laborCostRate.actual - laborCostRate.budget_fone
+  // 5. 人力成本率分析
+  const laborBudget = laborCostRate?.[budgetField]
+  if (laborCostRate?.actual != null && laborBudget != null) {
+    const rateDiff = laborCostRate.actual - laborBudget
     if (rateDiff > 0.03) {
       insights.push({
         type: 'warning',
         title: '人力成本率超预算',
-        detail: `实际人力成本率 ${fmtPct(laborCostRate.actual)} 高于预算 ${fmtPct(laborCostRate.budget_fone)}，超出 ${(rateDiff * 100).toFixed(1)} 个百分点`,
+        detail: `实际人力成本率 ${fmtPct(laborCostRate.actual)} 高于预算 ${fmtPct(laborBudget)}，超出 ${(rateDiff * 100).toFixed(1)} 个百分点`,
       })
     }
   }
 
-  // 8. 中心级表现分析
+  // 6. 中心级表现分析
   const centerPerformance = centerNodes
-    .filter(c => c.metrics.revenue?.completion_fone != null)
+    .filter(c => c.metrics.revenue?.[completionField] != null)
     .map(c => ({
       name: c.node_name,
-      completion: c.metrics.revenue!.completion_fone!,
+      completion: c.metrics.revenue![completionField]!,
       actual: c.metrics.revenue!.actual,
     }))
     .sort((a, b) => b.completion - a.completion)
@@ -147,7 +139,7 @@ function generateInsights(totalNode: EnrichedBizDataNode | undefined, centerNode
       insights.push({
         type: 'success',
         title: `${best.name} 表现突出`,
-        detail: `营收预算达成率 ${fmtPct(best.completion)}，实际营收 ${fmt(best.actual)} 万元`,
+        detail: `营收${budgetLabel}达成率 ${fmtPct(best.completion)}，实际营收 ${fmt(best.actual)} 万元`,
       })
     }
 
@@ -156,7 +148,7 @@ function generateInsights(totalNode: EnrichedBizDataNode | undefined, centerNode
       insights.push({
         type: 'warning',
         title: `${worst.name} 营收达成率低`,
-        detail: `营收预算达成率 ${fmtPct(worst.completion)}，需重点关注`,
+        detail: `营收${budgetLabel}达成率 ${fmtPct(worst.completion)}，需重点关注`,
       })
     }
   }
@@ -176,51 +168,46 @@ const INSIGHT_STYLE: Record<string, { icon: typeof AlertTriangle; bg: string; bo
 export function BizData() {
   const [loading, setLoading] = useState(true)
   const [nodes, setNodes] = useState<EnrichedBizDataNode[]>([])
+  const [reportType, setReportType] = useState<'fone' | 'tuwei'>('fone')
   const [periodType, setPeriodType] = useState<'cumulative' | 'monthly'>('cumulative')
-  const [reportType, setReportType] = useState<'fone' | 'tuwei' | 'comparison'>('comparison')
-  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table')
-  const [availablePeriods, setAvailablePeriods] = useState<Array<{ period_type: 'cumulative' | 'monthly'; period: string; label: string }>>([])
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('')
+  const [availableMonths, setAvailableMonths] = useState<string[]>([])
+  const [selectedMonth, setSelectedMonth] = useState<string>('')
 
-  // Load available periods on mount
+  // Load available months when reportType or periodType changes
   useEffect(() => {
-    async function loadPeriods() {
-      const periods = await fetchAvailablePeriods()
-      setAvailablePeriods(periods)
-      if (periods.length > 0) {
-        const defaultPeriod = periods.find(p => p.period_type === 'cumulative') || periods[0]
-        setSelectedPeriod(defaultPeriod.period)
-        setPeriodType(defaultPeriod.period_type)
+    async function loadMonths() {
+      const months = await fetchAvailableMonths(periodType, reportType)
+      setAvailableMonths(months)
+      if (months.length > 0) {
+        setSelectedMonth(months[0])
       }
     }
-    loadPeriods()
-  }, [])
+    loadMonths()
+  }, [reportType, periodType])
 
   // Load data when filters change
   useEffect(() => {
     async function loadData() {
-      if (!selectedPeriod) return
+      if (!selectedMonth) return
 
       setLoading(true)
       try {
-        console.log('[BizData] Loading data for:', { periodType, reportType, selectedPeriod })
+        console.log('[BizData] Loading data for:', { reportType, periodType, selectedMonth })
 
-        // Determine which report types to fetch
-        const reportTypes = reportType === 'comparison' ? ['fone', 'tuwei'] : [reportType]
+        const reports = await fetchBizReport({
+          period: selectedMonth,
+          periodType,
+          reportTypes: [reportType],
+        })
 
-        const foneReports = reportTypes.includes('fone')
-          ? await fetchBizReport({ periodType, reportTypes: ['fone'] })
-          : []
-
-        const tuweiReports = reportTypes.includes('tuwei')
-          ? await fetchBizReport({ periodType, reportTypes: ['tuwei'] })
-          : []
-
-        console.log('[BizData] Fone reports:', foneReports.length)
-        console.log('[BizData] Tuwei reports:', tuweiReports.length)
+        console.log('[BizData] Reports:', reports.length)
 
         const monthlyPlans = await fetchMonthlyPlan()
         console.log('[BizData] Monthly plans:', monthlyPlans.length)
+
+        // For single report type, pass empty array for the other type
+        const foneReports = reportType === 'fone' ? reports : []
+        const tuweiReports = reportType === 'tuwei' ? reports : []
 
         const aggregated = aggregateByNode(foneReports, tuweiReports, monthlyPlans)
         console.log('[BizData] Aggregated nodes:', aggregated.length)
@@ -233,11 +220,11 @@ export function BizData() {
     }
 
     loadData()
-  }, [periodType, reportType, selectedPeriod])
+  }, [reportType, periodType, selectedMonth])
 
   const tree = useMemo(() => buildHierarchyTree(nodes), [nodes])
   const totalNode = tree.total[0]
-  const insights = useMemo(() => generateInsights(totalNode, tree.centers), [totalNode, tree.centers])
+  const insights = useMemo(() => generateInsights(totalNode, tree.centers, reportType), [totalNode, tree.centers, reportType])
 
   if (loading) {
     return (
@@ -278,39 +265,22 @@ export function BizData() {
       <PageTitle breadcrumb="数据中心 / 经营数据" title="经营数据" subtitle="2025学年 · 单位：万元" />
 
       {/* Filter Bar */}
-      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <ReportTypeToggle value={reportType} onChange={setReportType} />
-          {availablePeriods.length > 0 && (
-            <PeriodSelector
-              value={selectedPeriod}
-              options={availablePeriods}
-              onChange={(period, type) => {
-                setSelectedPeriod(period)
-                setPeriodType(type)
-              }}
-            />
-          )}
-        </div>
+      <div className="flex items-center gap-4 mb-6 flex-wrap">
+        <ReportTypeToggle value={reportType} onChange={setReportType} />
+        <PeriodTypeToggle value={periodType} onChange={setPeriodType} />
+        {availableMonths.length > 0 && (
+          <MonthSelector
+            value={selectedMonth}
+            options={availableMonths}
+            onChange={setSelectedMonth}
+          />
+        )}
       </div>
 
-      {/* View Mode Tabs */}
-      <ViewModeTabs value={viewMode} onChange={setViewMode} />
-
-      {/* Conditional View Rendering */}
-      {viewMode === 'table' ? (
-        <div className="mb-6">
-          <IntegratedComparisonTable
-            nodes={tree.centers}
-            allNodes={nodes}
-            reportType={reportType}
-          />
-        </div>
-      ) : (
-        <div className="mb-6">
-          <ChartView nodes={nodes} reportType={reportType} />
-        </div>
-      )}
+      {/* Chart View */}
+      <div className="mb-6">
+        <ChartView nodes={nodes} reportType={reportType} />
+      </div>
 
       {/* Smart Insights */}
       {insights.length > 0 && (
