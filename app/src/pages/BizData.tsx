@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { PageTitle } from '@/components/ui/PageTitle'
 import { Lightbulb, AlertTriangle, TrendingUp } from 'lucide-react'
-import type { EnrichedBizDataNode } from '@/lib/supabase'
+import type { EnrichedBizDataNode, MetricCategory } from '@/lib/supabase'
 import {
   fetchBizReport,
   fetchMonthlyPlan,
@@ -12,7 +12,11 @@ import {
 import { ReportTypeToggle } from '@/components/BizData/ReportTypeToggle'
 import { PeriodTypeToggle } from '@/components/BizData/PeriodTypeToggle'
 import { MonthSelector } from '@/components/BizData/MonthSelector'
+import { ViewModeToggle } from '@/components/BizData/ViewModeToggle'
+import { MetricSelector } from '@/components/BizData/MetricSelector'
 import { ChartView } from '@/components/BizData/ChartView'
+import { TableView } from '@/components/BizData/TableView'
+import { ALL_METRICS } from '@/lib/constants'
 
 // --- Helpers ---
 
@@ -166,12 +170,18 @@ const INSIGHT_STYLE: Record<string, { icon: typeof AlertTriangle; bg: string; bo
 // --- Main Component ---
 
 export function BizData() {
-  const [loading, setLoading] = useState(true)
+  const [dataLoading, setDataLoading] = useState(false)
   const [nodes, setNodes] = useState<EnrichedBizDataNode[]>([])
   const [reportType, setReportType] = useState<'fone' | 'tuwei'>('fone')
   const [periodType, setPeriodType] = useState<'cumulative' | 'monthly'>('cumulative')
   const [availableMonths, setAvailableMonths] = useState<string[]>([])
   const [selectedMonth, setSelectedMonth] = useState<string>('')
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('chart')
+  const [selectedMetrics, setSelectedMetrics] = useState<MetricCategory[]>([
+    'revenue',
+    'pretax_profit',
+    'gross_margin',
+  ])
 
   // Load available months when reportType or periodType changes
   useEffect(() => {
@@ -190,7 +200,7 @@ export function BizData() {
     async function loadData() {
       if (!selectedMonth) return
 
-      setLoading(true)
+      setDataLoading(true)
       try {
         console.log('[BizData] Loading data for:', { reportType, periodType, selectedMonth })
 
@@ -215,7 +225,7 @@ export function BizData() {
       } catch (error) {
         console.error('[BizData] Failed to load data:', error)
       } finally {
-        setLoading(false)
+        setDataLoading(false)
       }
     }
 
@@ -226,48 +236,17 @@ export function BizData() {
   const totalNode = tree.total[0]
   const insights = useMemo(() => generateInsights(totalNode, tree.centers, reportType), [totalNode, tree.centers, reportType])
 
-  if (loading) {
-    return (
-      <>
-        <PageTitle breadcrumb="数据中心 / 经营数据" title="经营数据" />
-        <div className="flex items-center justify-center h-64 text-gray-400">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <div>加载中...</div>
-          </div>
-        </div>
-      </>
-    )
-  }
-
-  if (nodes.length === 0) {
-    return (
-      <>
-        <PageTitle breadcrumb="数据中心 / 经营数据" title="经营数据" />
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <AlertTriangle size={48} className="text-warning-500 mx-auto mb-4" />
-            <div className="text-gray-700 font-medium mb-2">暂无数据</div>
-            <div className="text-sm text-gray-500">
-              当前期间类型: {periodType === 'cumulative' ? '累计数据' : '月度数据'}
-            </div>
-            <div className="text-sm text-gray-500 mt-2">
-              请检查数据库或切换期间类型
-            </div>
-          </div>
-        </div>
-      </>
-    )
-  }
-
   return (
     <>
       <PageTitle breadcrumb="数据中心 / 经营数据" title="经营数据" subtitle="2025学年 · 单位：万元" />
 
-      {/* Filter Bar */}
-      <div className="flex items-center gap-4 mb-6 flex-wrap">
-        <ReportTypeToggle value={reportType} onChange={setReportType} />
-        <PeriodTypeToggle value={periodType} onChange={setPeriodType} />
+      {/* Filter Bar - Row 1: Toggles + Month Selector */}
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <ReportTypeToggle value={reportType} onChange={setReportType} />
+          <PeriodTypeToggle value={periodType} onChange={setPeriodType} />
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        </div>
         {availableMonths.length > 0 && (
           <MonthSelector
             value={selectedMonth}
@@ -277,13 +256,50 @@ export function BizData() {
         )}
       </div>
 
-      {/* Chart View */}
-      <div className="mb-6">
-        <ChartView nodes={nodes} reportType={reportType} />
+      {/* Filter Bar - Row 2: Metric Selector + Hierarchy Info */}
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <MetricSelector
+          selectedMetrics={selectedMetrics}
+          onChange={setSelectedMetrics}
+          availableMetrics={ALL_METRICS}
+          maxSelection={6}
+        />
+        <div className="text-sm text-gray-500">
+          共 {nodes.length} 个节点
+        </div>
+      </div>
+
+      {/* View Content with Loading State */}
+      <div className="mb-6 relative">
+        {dataLoading ? (
+          <div className="flex items-center justify-center h-64 bg-white rounded-lg border border-gray-200">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <div className="text-gray-500">加载中...</div>
+            </div>
+          </div>
+        ) : nodes.length === 0 ? (
+          <div className="flex items-center justify-center h-64 bg-white rounded-lg border border-gray-200">
+            <div className="text-center">
+              <AlertTriangle size={48} className="text-warning-500 mx-auto mb-4" />
+              <div className="text-gray-700 font-medium mb-2">暂无数据</div>
+              <div className="text-sm text-gray-500">
+                当前期间类型: {periodType === 'cumulative' ? '累计数据' : '月度数据'}
+              </div>
+              <div className="text-sm text-gray-500 mt-2">
+                请检查数据库或切换期间类型
+              </div>
+            </div>
+          </div>
+        ) : viewMode === 'table' ? (
+          <TableView nodes={nodes} reportType={reportType} selectedMetrics={selectedMetrics} />
+        ) : (
+          <ChartView nodes={nodes} reportType={reportType} selectedMetrics={selectedMetrics} />
+        )}
       </div>
 
       {/* Smart Insights */}
-      {insights.length > 0 && (
+      {!dataLoading && insights.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb size={18} className="text-accent" />

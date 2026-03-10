@@ -60,7 +60,6 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
     return currentLevelNodes.map(node => {
       const dataPoint: Record<string, string | number | null> = {
         name: node.node_name,
-        _nodeData: node, // Store node reference for drill-down
       }
 
       selectedMetrics.forEach(metric => {
@@ -74,10 +73,13 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
   }, [currentLevelNodes, selectedMetrics, budgetField])
 
   // Handle bar click for drill-down
-  const handleBarClick = (data: { _nodeData?: EnrichedBizDataNode }) => {
-    if (!data || !data._nodeData) return
+  const handleBarClick = (data: Record<string, unknown>) => {
+    if (!data || typeof data.name !== 'string') return
 
-    const clickedNode = data._nodeData
+    // Find the clicked node by name
+    const clickedNode = currentLevelNodes.find(n => n.node_name === data.name)
+    if (!clickedNode) return
+
     const children = getChildren(clickedNode, allNodesWithAggregation)
 
     // Only drill down if node has children

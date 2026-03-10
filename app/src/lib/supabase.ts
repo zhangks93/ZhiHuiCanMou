@@ -71,15 +71,8 @@ export interface EduBizReport {
   completion_rate: number | null
   diff_value: number | null
   yoy_value: number | null
-  // Organization hierarchy
-  center_region: string | null
-  business_segment: string | null
-  report_level1: string | null
-  report_level2: string | null
-  is_aggregated: boolean
-  aggregation_level: string | null
   created_at: string
-  // JOIN with edu_org_hierarchy
+  // JOIN with edu_org_hierarchy (manually enriched)
   org_hierarchy?: {
     level_1: string | null
     level_2: string | null
@@ -97,13 +90,6 @@ export interface EduBizMonthlyPlan {
   metric_category_cn: string
   month: string  // '202601'-'202606' or 'total'
   plan_value: number | null
-  // Organization hierarchy
-  center_region: string | null
-  business_segment: string | null
-  report_level1: string | null
-  report_level2: string | null
-  is_aggregated: boolean
-  aggregation_level: string | null
   created_at: string
 }
 
