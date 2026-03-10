@@ -1,6 +1,6 @@
 # Supabase Database Schema
 
-Last updated: 2026-03-06
+Last updated: 2026-03-09
 
 ## Tables Overview
 
@@ -243,6 +243,122 @@ Last updated: 2026-03-06
 
 ---
 
+### 8. edu_biz_report
+**Purpose**: 25学年经营数据报表（fone年初定稿版 / 突围版），涵盖 sheets 1.1/1.2/2.1/2.2/2.3
+**RLS Enabled**: No
+**Row Count**: 9,699
+**Comment**: 教育后勤2025经营数据（fone版/突围版）
+
+#### Columns
+- `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
+- `sheet_code` (text): Sheet编号：1.1/1.2/2.1/2.2/2.3
+- `report_type` (text): 报表类型 (fone, tuwei)
+- `period_type` (text): 期间类型 (cumulative, monthly)
+- `period` (text): 数据期间，如 <202603, 202602, 202601-202602
+- `period_yoy` (text, nullable): 同期期间，如 <202503, 202502
+- `node_name` (text): 业务单元/分析单元名称（共132个，如"生活体验广场"、"西南区域合计"等）
+- `sort_order` (integer): 原始行号排序（8-139）, default: 0
+- `metric_category` (text): 指标英文标识（revenue, catering_expense, material_cost, gross_profit, gross_margin, labor_cost, other_expense, external_revenue, external_expense, pretax_profit, pretax_margin, headcount, per_capita_revenue, labor_cost_rate, revenue_creation, profit_creation）
+- `metric_category_cn` (text): 指标中文名（营业收入、餐饮支出、物资销售成本、毛利额、毛利率、人力成本、其他支出、营业外收入、营业外支出、税前利润、税前利润率、职工人数、人均营收、人力成本率、一元创收、一元创利）
+- `actual_value` (numeric, nullable): 实际值
+- `budget_value` (numeric, nullable): 预算数（fone版为年初预算数，突围版为考核数）
+- `completion_rate` (numeric, nullable): 预算完成率
+- `diff_value` (numeric, nullable): 预实差异
+- `yoy_value` (numeric, nullable): 同期值
+- `created_at` (timestamptz, nullable): Creation timestamp, default: now()
+
+#### Indexes
+- `idx_edu_biz_report_node_name` on (node_name)
+
+#### Check Constraints
+- `report_type IN ('fone', 'tuwei')`
+- `period_type IN ('cumulative', 'monthly')`
+
+#### Data Source
+- Sheet 1.1: 25学年累计（fone年初定稿版）→ report_type=fone, period_type=cumulative
+- Sheet 1.2: 25学年2月底稿（fone年初定稿版）→ report_type=fone, period_type=monthly
+- Sheet 2.1: 25学1-2月底稿（突围版）→ report_type=tuwei, period_type=cumulative
+- Sheet 2.2: 25学年1月底稿（突围版）→ report_type=tuwei, period_type=monthly
+- Sheet 2.3: 25学年2月底稿（突围版）→ report_type=tuwei, period_type=monthly
+
+#### Import Script
+`scripts/import_biz_data.py` — reads from `docs/data/25学年经营数据.xlsx`
+
+Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy.
+
+---
+
+### 9. edu_biz_monthly_plan
+**Purpose**: 25学年1-6月突围计划分月版，涵盖 sheet 3
+**RLS Enabled**: No
+**Row Count**: 1,848
+**Comment**: 教育后勤25学年1-6月突围计划分月版
+
+#### Columns
+- `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
+- `node_name` (text): 业务单元/分析单元名称
+- `sort_order` (integer): 原始行号排序, default: 0
+- `metric_category` (text): 指标标识 (revenue, pretax_profit)
+- `metric_category_cn` (text): 指标中文名（营业收入、税前利润）
+- `month` (text): 月份（202601-202606）或 total（合计）
+- `plan_value` (numeric, nullable): 计划值
+- `created_at` (timestamptz, nullable): Creation timestamp, default: now()
+
+#### Indexes
+- `idx_edu_biz_monthly_plan_node_name` on (node_name)
+
+#### Check Constraints
+- `metric_category IN ('revenue', 'pretax_profit')`
+
+#### Data Source
+- Sheet 3: 1-6突围计划分月版（每个业务单元 × 2个指标 × 7列(6个月+合计)）
+
+#### Import Script
+`scripts/import_biz_data.py` — same script as edu_biz_report. Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy.
+
+---
+
+### 10. edu_org_hierarchy
+**Purpose**: 组织层级映射表 - 定义业务单元的组织层级结构
+**RLS Enabled**: No
+**Row Count**: 153
+**Comment**: 从教育后勤2025经营数据看版_组织标签映射表-勿动.xlsx导入
+
+#### Columns
+- `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
+- `node_name` (text, unique): 组织标签（节点名称），对应 edu_biz_report 和 edu_biz_monthly_plan 的 node_name
+- `level_1` (text, nullable): 中心/区域 - 后勤管理中心, 三大区域, 商业业务, 战略支持中心, 科创发展中心
+- `level_2` (text, nullable): 板块业务分类 - 教育园特色餐饮, 西南区域, 东部区域, etc.
+- `level_3` (text, nullable): 25年业务板块-分析汇报一级 - Primary reporting unit
+- `label` (text, nullable): 业务板块-分析汇报二级 - Secondary tag/category (中心餐饮业务, 管理部门, 其他, etc.)
+- `created_at` (timestamptz, nullable): Creation timestamp, default: now()
+
+#### Indexes
+- `idx_edu_org_hierarchy_node_name` on (node_name)
+
+#### Usage Example
+```sql
+-- 获取带层级信息的经营数据
+SELECT
+  r.node_name,
+  r.metric_category,
+  r.actual_value,
+  h.level_1,
+  h.level_2,
+  h.level_3,
+  h.label
+FROM edu_biz_report r
+LEFT JOIN edu_org_hierarchy h ON r.node_name = h.node_name
+WHERE r.sheet_code = '1.1' AND r.metric_category = 'revenue';
+```
+
+#### Import Script
+`scripts/import_biz_data.py` — reads from `docs/data/教育后勤2025经营数据看版_组织标签映射表-勿动.xlsx`
+
+Idempotent (clears and re-imports).
+
+---
+
 ## Database Relationships
 
 ```
@@ -251,6 +367,12 @@ feishu_members (891 rows)
 attendance_records (369 rows)
     ↓ (department_id)
 feishu_departments (242 rows)
+
+edu_org_hierarchy (153 rows)       ← 组织层级映射表
+    ↓ (node_name)
+edu_biz_report (9,699 rows)        ← 经营数据报表 (sheets 1.1-2.3)
+edu_biz_monthly_plan (1,848 rows)  ← 突围计划分月版 (sheet 3)
+  ↑ Import source: docs/data/25学年经营数据.xlsx
 ```
 
 ## Row-Level Security (RLS)
@@ -265,3 +387,6 @@ Tables without RLS:
 - `schedule_items`
 - `edu_logistics_biz_data`
 - `business_trips`
+- `edu_biz_report`
+- `edu_biz_monthly_plan`
+- `edu_org_hierarchy`

@@ -1,6 +1,6 @@
 # Supabase Migrations
 
-Last updated: 2026-03-06
+Last updated: 2026-03-09
 
 ## Migration History
 
@@ -18,12 +18,20 @@ Last updated: 2026-03-06
 | 20260305031623 | change_member_department_ids_to_text | Change member department_ids from array to text |
 | 20260305092745 | clean_and_migrate_attendance_to_feishu | Clean and migrate attendance data to Feishu structure |
 | 20260305100546 | redesign_attendance_records_with_departments | Redesign attendance records with proper department integration |
+| 20260309073508 | create_edu_biz_report_tables | Create edu_biz_report and edu_biz_monthly_plan tables for 25学年经营数据 |
+| 20260309175733 | add_org_hierarchy | Add organization hierarchy columns to edu_biz_report and edu_biz_monthly_plan |
+| 20260309180500 | drop_old_hierarchy_columns | Drop old hierarchy columns (parent_node_name, node_level, is_summary) from edu_biz tables |
+| 20260310034500 | simplify_biz_tables_and_add_org_hierarchy | Remove hierarchy columns from biz tables, create edu_org_hierarchy table |
 
-## Total Migrations: 12
+## Total Migrations: 16
 
 ## Latest Migration
-**Version**: 20260305100546
-**Name**: redesign_attendance_records_with_departments
-**Date**: 2026-03-05
+**Version**: 20260310034500
+**Name**: simplify_biz_tables_and_add_org_hierarchy
+**Date**: 2026-03-10
 
-This migration redesigned the attendance system to properly integrate with Feishu departments and members, establishing foreign key relationships for data integrity.
+This migration simplified the business data tables and created a separate hierarchy table:
+- Removed all hierarchy columns after `created_at` from `edu_biz_report` and `edu_biz_monthly_plan`
+- Created new `edu_org_hierarchy` table with columns: `node_name`, `level_1`, `level_2`, `level_3`, `label`
+- Added indexes on `node_name` for efficient JOIN operations
+- Hierarchy data is now maintained separately and joined via `node_name`
