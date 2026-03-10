@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,14 +9,14 @@ import {
   type SortingState,
   type ExpandedState,
 } from '@tanstack/react-table'
-import { ChevronDown, ChevronRight, ArrowUpDown } from 'lucide-react'
-import type { BizDataNode, MetricCategory } from '@/lib/supabase'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import type { EnrichedBizDataNode, MetricCategory } from '@/lib/supabase'
 import { getChildren } from '@/services/bizDataService'
 
 interface IntegratedComparisonTableProps {
-  nodes: BizDataNode[]
-  allNodes: BizDataNode[]
-  metric: MetricCategory
+  nodes: EnrichedBizDataNode[]
+  allNodes: EnrichedBizDataNode[]
+  reportType: 'fone' | 'tuwei' | 'comparison'
 }
 
 // Format helpers
@@ -37,168 +37,155 @@ function rateBg(rate: number | null | undefined): string {
   return 'bg-error-100 text-error-700'
 }
 
+// Metric groups for consolidated display
+const METRIC_GROUPS: Array<{
+  title: string
+  metrics: Array<{ key: MetricCategory; label: string; isRate: boolean }>
+}> = [
+  {
+    title: '核心指标',
+    metrics: [
+      { key: 'revenue', label: '营收', isRate: false },
+      { key: 'pretax_profit', label: '利润', isRate: false },
+      { key: 'gross_profit', label: '毛利', isRate: false },
+      { key: 'gross_margin', label: '毛利率', isRate: true },
+    ],
+  },
+  {
+    title: '成本指标',
+    metrics: [
+      { key: 'labor_cost', label: '人力成本', isRate: false },
+      { key: 'labor_cost_rate', label: '人力成本率', isRate: true },
+      { key: 'other_expense', label: '其他支出', isRate: false },
+    ],
+  },
+  {
+    title: '效率指标',
+    metrics: [
+      { key: 'headcount', label: '人数', isRate: false },
+      { key: 'per_capita_revenue', label: '人均营收', isRate: false },
+      { key: 'revenue_creation', label: '一元创收', isRate: false },
+      { key: 'profit_creation', label: '一元创利', isRate: false },
+    ],
+  },
+]
+
 export function IntegratedComparisonTable({
   nodes,
   allNodes,
-  metric,
+  reportType,
 }: IntegratedComparisonTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [expanded, setExpanded] = useState<ExpandedState>({})
 
-  const isRateMetric = ['gross_margin', 'pretax_margin', 'labor_cost_rate'].includes(metric)
-  const formatValue = isRateMetric ? fmtPct : fmt
+  // Determine which columns to show based on reportType
+  const showFone = reportType === 'fone' || reportType === 'comparison'
+  const showTuwei = reportType === 'tuwei' || reportType === 'comparison'
 
   // Define columns
-  const columns = useMemo<ColumnDef<BizDataNode>[]>(
-    () => [
-      {
-        id: 'node_name',
-        header: '业务单元',
-        accessorFn: (row) => row.node_name,
-        cell: ({ row, getValue }) => {
-          const hasChildren = getChildren(row.original, allNodes).length > 0
-          const isTotal = row.original.hierarchy.is_aggregated && row.original.hierarchy.aggregation_level === 'total'
+  const columns = useMemo<ColumnDef<EnrichedBizDataNode>[]>(
+    () => {
+      const cols: ColumnDef<EnrichedBizDataNode>[] = [
+        {
+          id: 'node_name',
+          header: '业务单元',
+          accessorFn: (row) => row.node_name,
+          cell: ({ row, getValue }) => {
+            const hasChildren = getChildren(row.original, allNodes).length > 0
+            const isTotal = row.original.hierarchy.is_aggregated && row.original.hierarchy.aggregation_level === 'total'
 
-          return (
-            <div
-              className="flex items-center gap-1.5"
-              style={{ paddingLeft: `${row.depth * 20}px` }}
-            >
-              {hasChildren ? (
-                <button
-                  onClick={row.getToggleExpandedHandler()}
-                  className="p-0.5 hover:bg-gray-100 rounded"
-                >
-                  {row.getIsExpanded() ? (
-                    <ChevronDown size={14} className="text-gray-400" />
-                  ) : (
-                    <ChevronRight size={14} className="text-gray-400" />
-                  )}
-                </button>
-              ) : (
-                <span className="w-5" />
-              )}
-              <span className={isTotal ? 'font-semibold text-primary-700' : 'text-gray-700'}>
-                {getValue() as string}
-              </span>
-            </div>
-          )
-        },
-        size: 250,
-      },
-      {
-        id: 'actual',
-        header: '实际值',
-        accessorFn: (row) => row.metrics[metric]?.actual,
-        cell: ({ getValue }) => (
-          <div className="text-right font-medium text-gray-900">
-            {formatValue(getValue() as number | null)}
-          </div>
-        ),
-        size: 120,
-      },
-      {
-        id: 'fone_budget',
-        header: () => (
-          <div className="text-right">
-            <div>年初预算</div>
-            <div className="text-xs font-normal text-gray-500">完成率 / 差异</div>
-          </div>
-        ),
-        accessorFn: (row) => row.metrics[metric]?.budget_fone,
-        cell: ({ row }) => {
-          const metricData = row.original.metrics[metric]
-          if (!metricData) return <div className="text-right text-gray-400">-</div>
-
-          return (
-            <div className="text-right">
-              <div className="text-sm text-gray-600 mb-1">
-                {formatValue(metricData.budget_fone)}
-              </div>
-              <div className="flex items-center justify-end gap-2">
-                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${rateBg(metricData.completion_fone)}`}>
-                  {fmtPct(metricData.completion_fone)}
-                </span>
-                {metricData.diff_fone != null && (
-                  <span className={`text-xs ${metricData.diff_fone >= 0 ? 'text-success-700' : 'text-error-700'}`}>
-                    {metricData.diff_fone >= 0 ? '+' : ''}{formatValue(metricData.diff_fone)}
-                  </span>
+            return (
+              <div
+                className="flex items-center gap-1.5"
+                style={{ paddingLeft: `${row.depth * 20}px` }}
+              >
+                {hasChildren ? (
+                  <button
+                    onClick={row.getToggleExpandedHandler()}
+                    className="p-0.5 hover:bg-gray-100 rounded transition-colors"
+                  >
+                    {row.getIsExpanded() ? (
+                      <ChevronDown size={16} className="text-gray-500" />
+                    ) : (
+                      <ChevronRight size={16} className="text-gray-500" />
+                    )}
+                  </button>
+                ) : (
+                  <span className="w-5" />
                 )}
-              </div>
-            </div>
-          )
-        },
-        size: 160,
-      },
-      {
-        id: 'tuwei_target',
-        header: () => (
-          <div className="text-right">
-            <div>突围考核</div>
-            <div className="text-xs font-normal text-gray-500">完成率 / 差异</div>
-          </div>
-        ),
-        accessorFn: (row) => row.metrics[metric]?.budget_tuwei,
-        cell: ({ row }) => {
-          const metricData = row.original.metrics[metric]
-          if (!metricData) return <div className="text-right text-gray-400">-</div>
-
-          return (
-            <div className="text-right">
-              <div className="text-sm text-gray-600 mb-1">
-                {formatValue(metricData.budget_tuwei)}
-              </div>
-              <div className="flex items-center justify-end gap-2">
-                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${rateBg(metricData.completion_tuwei)}`}>
-                  {fmtPct(metricData.completion_tuwei)}
+                <span className={isTotal ? 'font-semibold text-primary-700' : 'text-gray-800'}>
+                  {getValue() as string}
                 </span>
-                {metricData.diff_tuwei != null && (
-                  <span className={`text-xs ${metricData.diff_tuwei >= 0 ? 'text-success-700' : 'text-error-700'}`}>
-                    {metricData.diff_tuwei >= 0 ? '+' : ''}{formatValue(metricData.diff_tuwei)}
-                  </span>
-                )}
               </div>
-            </div>
-          )
+            )
+          },
+          size: 200,
         },
-        size: 160,
-      },
-      {
+        {
+          id: 'metric',
+          header: '指标',
+          accessorFn: () => '',
+          cell: () => null,
+          size: 100,
+        },
+        {
+          id: 'actual',
+          header: '实际值',
+          accessorFn: () => '',
+          cell: () => null,
+          size: 100,
+        },
+      ]
+
+      // Conditionally add fone column
+      if (showFone) {
+        cols.push({
+          id: 'fone_budget',
+          header: () => (
+            <div className="text-center">
+              <div className="font-semibold">年初预算</div>
+              <div className="text-xs font-normal text-gray-500 mt-0.5">预算 / 完成率 / 差异</div>
+            </div>
+          ),
+          accessorFn: () => '',
+          cell: () => null,
+          size: 240,
+        })
+      }
+
+      // Conditionally add tuwei column
+      if (showTuwei) {
+        cols.push({
+          id: 'tuwei_target',
+          header: () => (
+            <div className="text-center">
+              <div className="font-semibold">突围考核</div>
+              <div className="text-xs font-normal text-gray-500 mt-0.5">目标 / 完成率 / 差异</div>
+            </div>
+          ),
+          accessorFn: () => '',
+          cell: () => null,
+          size: 240,
+        })
+      }
+
+      // Always add YoY column
+      cols.push({
         id: 'yoy',
         header: () => (
-          <div className="text-right">
-            <div>同比</div>
-            <div className="text-xs font-normal text-gray-500">同期值 / 增长</div>
+          <div className="text-center">
+            <div className="font-semibold">同比</div>
+            <div className="text-xs font-normal text-gray-500 mt-0.5">同期值 / 增长</div>
           </div>
         ),
-        accessorFn: (row) => row.metrics[metric]?.yoy,
-        cell: ({ row }) => {
-          const metricData = row.original.metrics[metric]
-          if (!metricData || metricData.yoy == null) {
-            return <div className="text-right text-gray-400">-</div>
-          }
+        accessorFn: () => '',
+        cell: () => null,
+        size: 160,
+      })
 
-          const yoyDiff = metricData.actual != null && metricData.yoy != null
-            ? metricData.actual - metricData.yoy
-            : null
-
-          return (
-            <div className="text-right">
-              <div className="text-sm text-gray-600 mb-1">
-                {formatValue(metricData.yoy)}
-              </div>
-              {yoyDiff != null && (
-                <div className={`text-xs font-medium ${yoyDiff >= 0 ? 'text-success-700' : 'text-error-700'}`}>
-                  {yoyDiff >= 0 ? '+' : ''}{formatValue(yoyDiff)}
-                </div>
-              )}
-            </div>
-          )
-        },
-        size: 140,
-      },
-    ],
-    [metric, allNodes, formatValue, isRateMetric]
+      return cols
+    },
+    [allNodes, showFone, showTuwei]
   )
 
   // Build table with hierarchy support
@@ -221,63 +208,178 @@ export function IntegratedComparisonTable({
   })
 
   return (
-    <div className="bg-surface rounded-lg border border-gray-200 shadow-card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="py-3 px-4 font-medium text-gray-600"
-                    style={{ width: header.getSize() }}
-                  >
-                    {header.isPlaceholder ? null : (
-                      <div
-                        className={
-                          header.column.getCanSort()
-                            ? 'cursor-pointer select-none flex items-center gap-2'
-                            : ''
-                        }
-                        onClick={header.column.getToggleSortingHandler()}
+    <div className="space-y-6">
+      {METRIC_GROUPS.map((group) => (
+        <div key={group.title} className="bg-surface rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          {/* Group Header */}
+          <div className="bg-gradient-to-r from-primary-50 to-primary-100/50 px-4 py-3 border-b border-primary-200">
+            <h3 className="text-sm font-semibold text-primary-800">{group.title}</h3>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50/80 border-b border-gray-200 sticky top-0 z-10">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wide"
+                        style={{ width: header.getSize() }}
                       >
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                        {header.column.getCanSort() && (
-                          <ArrowUpDown size={14} className="text-gray-400" />
-                        )}
-                      </div>
-                    )}
-                  </th>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {table.getRowModel().rows.map((row) => {
-              const isTotal = row.original.hierarchy.is_aggregated && row.original.hierarchy.aggregation_level === 'total'
-              return (
-                <tr
-                  key={row.id}
-                  className={`hover:bg-gray-50/60 transition-colors ${
-                    isTotal ? 'bg-primary-50 font-semibold border-t-2 border-primary-200' : ''
-                  }`}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="py-2.5 px-4">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.map((row) => {
+                  const isTotal =
+                    row.original.hierarchy.is_aggregated &&
+                    row.original.hierarchy.aggregation_level === 'total'
+
+                  return (
+                    <React.Fragment key={row.id}>
+                      {group.metrics.map((metric, metricIdx) => {
+                        const metricData = row.original.metrics[metric.key]
+                        const formatValue = metric.isRate ? fmtPct : fmt
+                        const isFirstMetric = metricIdx === 0
+
+                        return (
+                          <tr
+                            key={`${row.id}-${metric.key}`}
+                            className={`border-b border-gray-100 hover:bg-gray-50/60 transition-colors ${
+                              isTotal ? 'bg-primary-50/30' : ''
+                            } ${isFirstMetric ? 'border-t-2 border-gray-200' : ''}`}
+                          >
+                            {/* Node Name (only show on first metric row) */}
+                            {isFirstMetric ? (
+                              <td
+                                className="py-2.5 px-4 align-top border-r border-gray-200"
+                                rowSpan={group.metrics.length}
+                              >
+                                {flexRender(
+                                  table.getHeaderGroups()[0].headers[0].column.columnDef.cell,
+                                  { row, getValue: () => row.original.node_name } as any
+                                )}
+                              </td>
+                            ) : null}
+
+                            {/* Metric Label */}
+                            <td className="py-2 px-4 text-gray-600 text-xs font-medium">
+                              {metric.label}
+                            </td>
+
+                            {/* Actual Value */}
+                            <td className="py-2 px-4 text-right">
+                              <span className="font-semibold text-gray-900">
+                                {formatValue(metricData?.actual)}
+                              </span>
+                            </td>
+
+                            {/* Fone Budget - conditionally rendered */}
+                            {showFone && (
+                              <td className="py-2 px-4">
+                                {metricData ? (
+                                  <div className="flex items-center justify-between gap-3 text-xs">
+                                    <span className="text-gray-600 min-w-[60px]">
+                                      {formatValue(metricData.budget_fone)}
+                                    </span>
+                                    <span
+                                      className={`inline-block px-2 py-0.5 rounded font-medium min-w-[50px] text-center ${rateBg(
+                                        metricData.completion_fone
+                                      )}`}
+                                    >
+                                      {fmtPct(metricData.completion_fone)}
+                                    </span>
+                                    {metricData.diff_fone != null && (
+                                      <span
+                                        className={`font-medium min-w-[60px] text-right ${
+                                          metricData.diff_fone >= 0 ? 'text-success-700' : 'text-error-700'
+                                        }`}
+                                      >
+                                        {metricData.diff_fone >= 0 ? '+' : ''}
+                                        {formatValue(metricData.diff_fone)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-center text-gray-400">-</div>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Tuwei Target - conditionally rendered */}
+                            {showTuwei && (
+                              <td className="py-2 px-4">
+                                {metricData ? (
+                                  <div className="flex items-center justify-between gap-3 text-xs">
+                                    <span className="text-gray-600 min-w-[60px]">
+                                      {formatValue(metricData.budget_tuwei)}
+                                    </span>
+                                    <span
+                                      className={`inline-block px-2 py-0.5 rounded font-medium min-w-[50px] text-center ${rateBg(
+                                        metricData.completion_tuwei
+                                      )}`}
+                                    >
+                                      {fmtPct(metricData.completion_tuwei)}
+                                    </span>
+                                    {metricData.diff_tuwei != null && (
+                                      <span
+                                        className={`font-medium min-w-[60px] text-right ${
+                                          metricData.diff_tuwei >= 0 ? 'text-success-700' : 'text-error-700'
+                                        }`}
+                                      >
+                                        {metricData.diff_tuwei >= 0 ? '+' : ''}
+                                        {formatValue(metricData.diff_tuwei)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-center text-gray-400">-</div>
+                                )}
+                              </td>
+                            )}
+
+                            {/* YoY */}
+                            <td className="py-2 px-4">
+                              {metricData && metricData.yoy != null ? (
+                                <div className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="text-gray-600 min-w-[60px]">
+                                    {formatValue(metricData.yoy)}
+                                  </span>
+                                  {metricData.actual != null && (
+                                    <span
+                                      className={`font-medium min-w-[60px] text-right ${
+                                        metricData.actual - metricData.yoy >= 0
+                                          ? 'text-success-700'
+                                          : 'text-error-700'
+                                      }`}
+                                    >
+                                      {metricData.actual - metricData.yoy >= 0 ? '+' : ''}
+                                      {formatValue(metricData.actual - metricData.yoy)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-center text-gray-400">-</div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </React.Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
-

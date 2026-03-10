@@ -33,7 +33,119 @@ export interface BizDataItem {
   updated_at?: string
 }
 
-// --- 教育后勤经营数据 (edu_logistics_biz_data) ---
+// --- 教育后勤经营数据 (NEW: edu_biz_report & edu_biz_monthly_plan) ---
+
+// 指标类别枚举
+export type MetricCategory =
+  | 'revenue'              // 营业收入
+  | 'catering_expense'     // 餐饮支出
+  | 'material_cost'        // 物资销售成本
+  | 'gross_profit'         // 毛利额
+  | 'gross_margin'         // 毛利率
+  | 'labor_cost'           // 人力成本
+  | 'other_expense'        // 其他支出
+  | 'external_revenue'     // 营业外收入
+  | 'external_expense'     // 营业外支出
+  | 'pretax_profit'        // 税前利润
+  | 'pretax_margin'        // 税前利润率
+  | 'headcount'            // 职工人数
+  | 'per_capita_revenue'   // 人均营收
+  | 'labor_cost_rate'      // 人力成本率
+  | 'revenue_creation'     // 一元创收
+  | 'profit_creation'      // 一元创利
+
+// edu_biz_report 表结构
+export interface EduBizReport {
+  id: string
+  sheet_code: '1.1' | '1.2' | '2.1' | '2.2' | '2.3'
+  report_type: 'fone' | 'tuwei'  // fone=年初预算, tuwei=突围考核
+  period_type: 'cumulative' | 'monthly'
+  period: string  // e.g., "<202603", "202602", "202601-202602"
+  period_yoy: string | null
+  node_name: string
+  sort_order: number
+  metric_category: MetricCategory
+  metric_category_cn: string
+  actual_value: number | null
+  budget_value: number | null
+  completion_rate: number | null
+  diff_value: number | null
+  yoy_value: number | null
+  // Organization hierarchy
+  center_region: string | null
+  business_segment: string | null
+  report_level1: string | null
+  report_level2: string | null
+  is_aggregated: boolean
+  aggregation_level: string | null
+  created_at: string
+  // JOIN with edu_org_hierarchy
+  org_hierarchy?: {
+    level_1: string | null
+    level_2: string | null
+    level_3: string | null
+    label: string | null
+  } | null
+}
+
+// edu_biz_monthly_plan 表结构
+export interface EduBizMonthlyPlan {
+  id: string
+  node_name: string
+  sort_order: number
+  metric_category: 'revenue' | 'pretax_profit'
+  metric_category_cn: string
+  month: string  // '202601'-'202606' or 'total'
+  plan_value: number | null
+  // Organization hierarchy
+  center_region: string | null
+  business_segment: string | null
+  report_level1: string | null
+  report_level2: string | null
+  is_aggregated: boolean
+  aggregation_level: string | null
+  created_at: string
+}
+
+// 聚合后的业务数据节点（用于UI展示）
+export interface BizDataNode {
+  node_name: string
+  sort_order: number
+  hierarchy: {
+    center_region: string | null
+    business_segment: string | null
+    report_level1: string | null
+    report_level2: string | null
+    is_aggregated: boolean
+    aggregation_level: string | null
+  }
+  metrics: {
+    [K in MetricCategory]?: {
+      actual: number | null
+      budget_fone: number | null      // 年初预算
+      budget_tuwei: number | null     // 突围考核数
+      completion_fone: number | null
+      completion_tuwei: number | null
+      diff_fone: number | null
+      diff_tuwei: number | null
+      yoy: number | null
+      monthly_plan?: Record<string, number>  // For revenue & pretax_profit
+    }
+  }
+}
+
+// 增强的业务数据节点（包含 edu_org_hierarchy 层级信息）
+export interface EnrichedBizDataNode extends BizDataNode {
+  orgHierarchy: {
+    level_1: string | null
+    level_2: string | null
+    level_3: string | null
+    label: string | null
+  }
+}
+
+// --- 教育后勤经营数据 (DEPRECATED: edu_logistics_biz_data) ---
+// @deprecated Use EduBizReport and EduBizMonthlyPlan instead
 // 层级由 center/biz_class/org_tag 列推导：
 //   level 0: center IS NULL（合计）
 //   level 1: center 有值, biz_class 为空（中心）

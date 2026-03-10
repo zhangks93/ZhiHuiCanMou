@@ -3,6 +3,7 @@ import type {
   EduBizReport,
   EduBizMonthlyPlan,
   BizDataNode,
+  EnrichedBizDataNode,
 } from '@/lib/supabase'
 
 // --- Query Options ---
@@ -36,7 +37,15 @@ export async function fetchBizReport(options: BizDataQueryOptions = {}) {
 
   let query = supabase
     .from('edu_biz_report')
-    .select('*')
+    .select(`
+      *,
+      org_hierarchy:edu_org_hierarchy(
+        level_1,
+        level_2,
+        level_3,
+        label
+      )
+    `)
     .eq('period_type', periodType)
     .order('sort_order')
 
@@ -159,14 +168,14 @@ export function aggregateByNode(
   foneReports: EduBizReport[],
   tuweiReports: EduBizReport[],
   monthlyPlans: EduBizMonthlyPlan[]
-): BizDataNode[] {
+): EnrichedBizDataNode[] {
   console.log('[aggregateByNode] Input:', {
     foneReports: foneReports.length,
     tuweiReports: tuweiReports.length,
     monthlyPlans: monthlyPlans.length
   })
 
-  const nodeMap = new Map<string, BizDataNode>()
+  const nodeMap = new Map<string, EnrichedBizDataNode>()
 
   // 处理 fone 数据
   for (const row of foneReports) {
@@ -247,7 +256,22 @@ export function aggregateByNode(
 /**
  * 创建空节点
  */
-function createEmptyNode(row: EduBizReport | EduBizMonthlyPlan): BizDataNode {
+function createEmptyNode(row: EduBizReport | EduBizMonthlyPlan): EnrichedBizDataNode {
+  // Extract orgHierarchy from EduBizReport if available
+  const orgHierarchy = 'org_hierarchy' in row && row.org_hierarchy
+    ? {
+        level_1: row.org_hierarchy.level_1,
+        level_2: row.org_hierarchy.level_2,
+        level_3: row.org_hierarchy.level_3,
+        label: row.org_hierarchy.label,
+      }
+    : {
+        level_1: null,
+        level_2: null,
+        level_3: null,
+        label: null,
+      }
+
   return {
     node_name: row.node_name,
     sort_order: row.sort_order,
@@ -259,6 +283,7 @@ function createEmptyNode(row: EduBizReport | EduBizMonthlyPlan): BizDataNode {
       is_aggregated: row.is_aggregated,
       aggregation_level: row.aggregation_level,
     },
+    orgHierarchy,
     metrics: {},
   }
 }
@@ -266,18 +291,18 @@ function createEmptyNode(row: EduBizReport | EduBizMonthlyPlan): BizDataNode {
 // --- Hierarchy Tree Building ---
 
 export interface HierarchyTree {
-  total: BizDataNode[]
-  centers: BizDataNode[]
-  segments: BizDataNode[]
-  level1: BizDataNode[]
-  level2: BizDataNode[]
-  leafNodes: BizDataNode[]
+  total: EnrichedBizDataNode[]
+  centers: EnrichedBizDataNode[]
+  segments: EnrichedBizDataNode[]
+  level1: EnrichedBizDataNode[]
+  level2: EnrichedBizDataNode[]
+  leafNodes: EnrichedBizDataNode[]
 }
 
 /**
  * 构建层级树
  */
-export function buildHierarchyTree(nodes: BizDataNode[]): HierarchyTree {
+export function buildHierarchyTree(nodes: EnrichedBizDataNode[]): HierarchyTree {
   console.log('[buildHierarchyTree] Input nodes:', nodes.length)
 
   const total = nodes.filter(n => n.hierarchy.is_aggregated && n.hierarchy.aggregation_level === 'total')
@@ -336,7 +361,7 @@ export function buildHierarchyTree(nodes: BizDataNode[]): HierarchyTree {
 /**
  * 获取子节点
  */
-export function getChildren(parentNode: BizDataNode, allNodes: BizDataNode[]): BizDataNode[] {
+export function getChildren(parentNode: EnrichedBizDataNode, allNodes: EnrichedBizDataNode[]): EnrichedBizDataNode[] {
   const { center_region, business_segment, report_level1, is_aggregated, aggregation_level } = parentNode.hierarchy
 
   // 如果是中心级聚合节点 (aggregation_level='center')，返回其下的区域级聚合节点

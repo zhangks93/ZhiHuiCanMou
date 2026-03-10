@@ -1,8 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { PageTitle } from '@/components/ui/PageTitle'
-import { StatCard } from '@/components/ui/StatCard'
 import { Lightbulb, AlertTriangle, TrendingUp } from 'lucide-react'
-import type { BizDataNode, MetricCategory } from '@/lib/supabase'
+import type { EnrichedBizDataNode } from '@/lib/supabase'
 import {
   fetchBizReport,
   fetchMonthlyPlan,
@@ -10,8 +9,11 @@ import {
   aggregateByNode,
   buildHierarchyTree,
 } from '@/services/bizDataService'
-import { MetricSelector } from '@/components/BizData/MetricSelector'
 import { IntegratedComparisonTable } from '@/components/BizData/IntegratedComparisonTable'
+import { ReportTypeToggle } from '@/components/BizData/ReportTypeToggle'
+import { PeriodSelector } from '@/components/BizData/PeriodSelector'
+import { ViewModeTabs } from '@/components/BizData/ViewModeTabs'
+import { ChartView } from '@/components/BizData/ChartView'
 
 // --- Helpers ---
 
@@ -33,7 +35,7 @@ interface Insight {
   detail: string
 }
 
-function generateInsights(totalNode: BizDataNode | undefined, centerNodes: BizDataNode[]): Insight[] {
+function generateInsights(totalNode: EnrichedBizDataNode | undefined, centerNodes: EnrichedBizDataNode[]): Insight[] {
   if (!totalNode) return []
   const insights: Insight[] = []
 
@@ -173,40 +175,53 @@ const INSIGHT_STYLE: Record<string, { icon: typeof AlertTriangle; bg: string; bo
 
 export function BizData() {
   const [loading, setLoading] = useState(true)
-  const [nodes, setNodes] = useState<BizDataNode[]>([])
+  const [nodes, setNodes] = useState<EnrichedBizDataNode[]>([])
   const [periodType, setPeriodType] = useState<'cumulative' | 'monthly'>('cumulative')
-  const [metric, setMetric] = useState<MetricCategory>('revenue')
+  const [reportType, setReportType] = useState<'fone' | 'tuwei' | 'comparison'>('comparison')
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table')
+  const [availablePeriods, setAvailablePeriods] = useState<Array<{ period_type: 'cumulative' | 'monthly'; period: string; label: string }>>([])
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('')
 
-  // Load data
+  // Load available periods on mount
+  useEffect(() => {
+    async function loadPeriods() {
+      const periods = await fetchAvailablePeriods()
+      setAvailablePeriods(periods)
+      if (periods.length > 0) {
+        const defaultPeriod = periods.find(p => p.period_type === 'cumulative') || periods[0]
+        setSelectedPeriod(defaultPeriod.period)
+        setPeriodType(defaultPeriod.period_type)
+      }
+    }
+    loadPeriods()
+  }, [])
+
+  // Load data when filters change
   useEffect(() => {
     async function loadData() {
+      if (!selectedPeriod) return
+
       setLoading(true)
       try {
-        console.log('[BizData] Loading data for periodType:', periodType)
+        console.log('[BizData] Loading data for:', { periodType, reportType, selectedPeriod })
 
-        // Fetch periods
-        const periods = await fetchAvailablePeriods()
-        console.log('[BizData] Available periods:', periods)
+        // Determine which report types to fetch
+        const reportTypes = reportType === 'comparison' ? ['fone', 'tuwei'] : [reportType]
 
-        // Fetch all reports for the selected period_type (don't filter by specific period)
-        // This handles the case where fone and tuwei have different period formats
-        const foneReports = await fetchBizReport({
-          periodType,
-          reportTypes: ['fone'],
-        })
+        const foneReports = reportTypes.includes('fone')
+          ? await fetchBizReport({ periodType, reportTypes: ['fone'] })
+          : []
+
+        const tuweiReports = reportTypes.includes('tuwei')
+          ? await fetchBizReport({ periodType, reportTypes: ['tuwei'] })
+          : []
+
         console.log('[BizData] Fone reports:', foneReports.length)
-
-        const tuweiReports = await fetchBizReport({
-          periodType,
-          reportTypes: ['tuwei'],
-        })
         console.log('[BizData] Tuwei reports:', tuweiReports.length)
 
-        // Fetch monthly plans
         const monthlyPlans = await fetchMonthlyPlan()
         console.log('[BizData] Monthly plans:', monthlyPlans.length)
 
-        // Aggregate
         const aggregated = aggregateByNode(foneReports, tuweiReports, monthlyPlans)
         console.log('[BizData] Aggregated nodes:', aggregated.length)
         setNodes(aggregated)
@@ -218,17 +233,11 @@ export function BizData() {
     }
 
     loadData()
-  }, [periodType])
+  }, [periodType, reportType, selectedPeriod])
 
   const tree = useMemo(() => buildHierarchyTree(nodes), [nodes])
   const totalNode = tree.total[0]
   const insights = useMemo(() => generateInsights(totalNode, tree.centers), [totalNode, tree.centers])
-
-  // Get metric data for KPI cards
-  const revenueMetric = totalNode?.metrics.revenue
-  const profitMetric = totalNode?.metrics.pretax_profit
-  const marginMetric = totalNode?.metrics.gross_margin
-  const headcountMetric = totalNode?.metrics.headcount
 
   if (loading) {
     return (
@@ -268,78 +277,40 @@ export function BizData() {
     <>
       <PageTitle breadcrumb="数据中心 / 经营数据" title="经营数据" subtitle="2025学年 · 单位：万元" />
 
-      {/* Period Type Selector */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setPeriodType('cumulative')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            periodType === 'cumulative'
-              ? 'bg-primary text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          累计数据
-        </button>
-        <button
-          onClick={() => setPeriodType('monthly')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            periodType === 'monthly'
-              ? 'bg-primary text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          月度数据
-        </button>
+      {/* Filter Bar */}
+      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+        <div className="flex items-center gap-4">
+          <ReportTypeToggle value={reportType} onChange={setReportType} />
+          {availablePeriods.length > 0 && (
+            <PeriodSelector
+              value={selectedPeriod}
+              options={availablePeriods}
+              onChange={(period, type) => {
+                setSelectedPeriod(period)
+                setPeriodType(type)
+              }}
+            />
+          )}
+        </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="实际营收"
-          value={fmt(revenueMetric?.actual)}
-          unit="万元"
-          trend={`预算达成 ${fmtPct(revenueMetric?.completion_fone)}`}
-          trendUp={(revenueMetric?.completion_fone ?? 0) >= 0.80}
-          color={(revenueMetric?.completion_fone ?? 0) >= 0.80 ? 'success' : 'warning'}
-        />
-        <StatCard
-          label="实际利润"
-          value={fmt(profitMetric?.actual)}
-          unit="万元"
-          trend={`预算达成 ${fmtPct(profitMetric?.completion_fone)}`}
-          trendUp={(profitMetric?.completion_fone ?? 0) >= 0.80}
-          color={(profitMetric?.completion_fone ?? 0) >= 0.80 ? 'success' : 'error'}
-        />
-        <StatCard
-          label="毛利率"
-          value={fmtPct(marginMetric?.actual)}
-          trend={`预算 ${fmtPct(marginMetric?.budget_fone)} | 同期 ${fmtPct(marginMetric?.yoy)}`}
-          trendUp={(marginMetric?.diff_fone ?? 0) >= 0}
-          color={(marginMetric?.diff_fone ?? 0) >= 0 ? 'success' : 'warning'}
-        />
-        <StatCard
-          label="在岗人数"
-          value={fmt(headcountMetric?.actual)}
-          unit="人"
-          trend={`预算 ${fmt(headcountMetric?.budget_fone)} | 差异 ${fmt(headcountMetric?.diff_fone)}`}
-          trendUp={(headcountMetric?.diff_fone ?? 0) <= 0}
-          color="default"
-        />
-      </div>
+      {/* View Mode Tabs */}
+      <ViewModeTabs value={viewMode} onChange={setViewMode} />
 
-      {/* Metric Selector */}
-      <div className="mb-4">
-        <MetricSelector value={metric} onChange={setMetric} />
-      </div>
-
-      {/* Integrated Comparison Table */}
-      <div className="mb-6">
-        <IntegratedComparisonTable
-          nodes={tree.centers}
-          allNodes={nodes}
-          metric={metric}
-        />
-      </div>
+      {/* Conditional View Rendering */}
+      {viewMode === 'table' ? (
+        <div className="mb-6">
+          <IntegratedComparisonTable
+            nodes={tree.centers}
+            allNodes={nodes}
+            reportType={reportType}
+          />
+        </div>
+      ) : (
+        <div className="mb-6">
+          <ChartView nodes={nodes} reportType={reportType} />
+        </div>
+      )}
 
       {/* Smart Insights */}
       {insights.length > 0 && (
