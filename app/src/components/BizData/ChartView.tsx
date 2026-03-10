@@ -74,10 +74,10 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
   }, [currentLevelNodes, selectedMetrics, budgetField])
 
   // Handle bar click for drill-down
-  const handleBarClick = (data: any) => {
+  const handleBarClick = (data: { _nodeData?: EnrichedBizDataNode }) => {
     if (!data || !data._nodeData) return
 
-    const clickedNode = data._nodeData as EnrichedBizDataNode
+    const clickedNode = data._nodeData
     const children = getChildren(clickedNode, allNodesWithAggregation)
 
     // Only drill down if node has children

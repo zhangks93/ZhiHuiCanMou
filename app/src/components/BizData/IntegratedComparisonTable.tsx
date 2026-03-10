@@ -8,6 +8,7 @@ import {
   type ColumnDef,
   type SortingState,
   type ExpandedState,
+  type CellContext,
 } from '@tanstack/react-table'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { EnrichedBizDataNode, MetricCategory } from '@/lib/supabase'
@@ -16,7 +17,7 @@ import { getChildren } from '@/services/bizDataService'
 interface IntegratedComparisonTableProps {
   nodes: EnrichedBizDataNode[]
   allNodes: EnrichedBizDataNode[]
-  reportType: 'fone' | 'tuwei' | 'comparison'
+  reportType: 'fone' | 'tuwei'
 }
 
 // Format helpers
@@ -78,9 +79,11 @@ export function IntegratedComparisonTable({
   const [sorting, setSorting] = useState<SortingState>([])
   const [expanded, setExpanded] = useState<ExpandedState>({})
 
-  // Determine which columns to show based on reportType
-  const showFone = reportType === 'fone' || reportType === 'comparison'
-  const showTuwei = reportType === 'tuwei' || reportType === 'comparison'
+  // Determine column labels based on reportType
+  const budgetLabel = reportType === 'fone' ? '年初预算' : '突围考核'
+  const budgetField = reportType === 'fone' ? 'budget_fone' : 'budget_tuwei'
+  const completionField = reportType === 'fone' ? 'completion_fone' : 'completion_tuwei'
+  const diffField = reportType === 'fone' ? 'diff_fone' : 'diff_tuwei'
 
   // Define columns
   const columns = useMemo<ColumnDef<EnrichedBizDataNode>[]>(
@@ -92,7 +95,7 @@ export function IntegratedComparisonTable({
           accessorFn: (row) => row.node_name,
           cell: ({ row, getValue }) => {
             const hasChildren = getChildren(row.original, allNodes).length > 0
-            const isTotal = row.original.hierarchy.is_aggregated && row.original.hierarchy.aggregation_level === 'total'
+            const isTotal = row.original.orgHierarchy.label === '总计'
 
             return (
               <div
@@ -135,57 +138,35 @@ export function IntegratedComparisonTable({
           cell: () => null,
           size: 100,
         },
-      ]
-
-      // Conditionally add fone column
-      if (showFone) {
-        cols.push({
-          id: 'fone_budget',
+        {
+          id: 'budget',
           header: () => (
             <div className="text-center">
-              <div className="font-semibold">年初预算</div>
+              <div className="font-semibold">{budgetLabel}</div>
               <div className="text-xs font-normal text-gray-500 mt-0.5">预算 / 完成率 / 差异</div>
             </div>
           ),
           accessorFn: () => '',
           cell: () => null,
           size: 240,
-        })
-      }
-
-      // Conditionally add tuwei column
-      if (showTuwei) {
-        cols.push({
-          id: 'tuwei_target',
+        },
+        {
+          id: 'yoy',
           header: () => (
             <div className="text-center">
-              <div className="font-semibold">突围考核</div>
-              <div className="text-xs font-normal text-gray-500 mt-0.5">目标 / 完成率 / 差异</div>
+              <div className="font-semibold">同比</div>
+              <div className="text-xs font-normal text-gray-500 mt-0.5">同期值 / 增长</div>
             </div>
           ),
           accessorFn: () => '',
           cell: () => null,
-          size: 240,
-        })
-      }
-
-      // Always add YoY column
-      cols.push({
-        id: 'yoy',
-        header: () => (
-          <div className="text-center">
-            <div className="font-semibold">同比</div>
-            <div className="text-xs font-normal text-gray-500 mt-0.5">同期值 / 增长</div>
-          </div>
-        ),
-        accessorFn: () => '',
-        cell: () => null,
-        size: 160,
-      })
+          size: 160,
+        },
+      ]
 
       return cols
     },
-    [allNodes, showFone, showTuwei]
+    [allNodes, budgetLabel]
   )
 
   // Build table with hierarchy support
@@ -238,9 +219,7 @@ export function IntegratedComparisonTable({
               </thead>
               <tbody>
                 {table.getRowModel().rows.map((row) => {
-                  const isTotal =
-                    row.original.hierarchy.is_aggregated &&
-                    row.original.hierarchy.aggregation_level === 'total'
+                  const isTotal = row.original.orgHierarchy.label === '总计'
 
                   return (
                     <React.Fragment key={row.id}>
@@ -264,7 +243,7 @@ export function IntegratedComparisonTable({
                               >
                                 {flexRender(
                                   table.getHeaderGroups()[0].headers[0].column.columnDef.cell,
-                                  { row, getValue: () => row.original.node_name } as any
+                                  { row, getValue: () => row.original.node_name } as CellContext<EnrichedBizDataNode, unknown>
                                 )}
                               </td>
                             ) : null}
@@ -281,69 +260,35 @@ export function IntegratedComparisonTable({
                               </span>
                             </td>
 
-                            {/* Fone Budget - conditionally rendered */}
-                            {showFone && (
-                              <td className="py-2 px-4">
-                                {metricData ? (
-                                  <div className="flex items-center justify-between gap-3 text-xs">
-                                    <span className="text-gray-600 min-w-[60px]">
-                                      {formatValue(metricData.budget_fone)}
-                                    </span>
+                            {/* Budget Column */}
+                            <td className="py-2 px-4">
+                              {metricData ? (
+                                <div className="flex items-center justify-between gap-3 text-xs">
+                                  <span className="text-gray-600 min-w-[60px]">
+                                    {formatValue(metricData[budgetField])}
+                                  </span>
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded font-medium min-w-[50px] text-center ${rateBg(
+                                      metricData[completionField]
+                                    )}`}
+                                  >
+                                    {fmtPct(metricData[completionField])}
+                                  </span>
+                                  {metricData[diffField] != null && (
                                     <span
-                                      className={`inline-block px-2 py-0.5 rounded font-medium min-w-[50px] text-center ${rateBg(
-                                        metricData.completion_fone
-                                      )}`}
+                                      className={`font-medium min-w-[60px] text-right ${
+                                        metricData[diffField] >= 0 ? 'text-success-700' : 'text-error-700'
+                                      }`}
                                     >
-                                      {fmtPct(metricData.completion_fone)}
+                                      {metricData[diffField] >= 0 ? '+' : ''}
+                                      {formatValue(metricData[diffField])}
                                     </span>
-                                    {metricData.diff_fone != null && (
-                                      <span
-                                        className={`font-medium min-w-[60px] text-right ${
-                                          metricData.diff_fone >= 0 ? 'text-success-700' : 'text-error-700'
-                                        }`}
-                                      >
-                                        {metricData.diff_fone >= 0 ? '+' : ''}
-                                        {formatValue(metricData.diff_fone)}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="text-center text-gray-400">-</div>
-                                )}
-                              </td>
-                            )}
-
-                            {/* Tuwei Target - conditionally rendered */}
-                            {showTuwei && (
-                              <td className="py-2 px-4">
-                                {metricData ? (
-                                  <div className="flex items-center justify-between gap-3 text-xs">
-                                    <span className="text-gray-600 min-w-[60px]">
-                                      {formatValue(metricData.budget_tuwei)}
-                                    </span>
-                                    <span
-                                      className={`inline-block px-2 py-0.5 rounded font-medium min-w-[50px] text-center ${rateBg(
-                                        metricData.completion_tuwei
-                                      )}`}
-                                    >
-                                      {fmtPct(metricData.completion_tuwei)}
-                                    </span>
-                                    {metricData.diff_tuwei != null && (
-                                      <span
-                                        className={`font-medium min-w-[60px] text-right ${
-                                          metricData.diff_tuwei >= 0 ? 'text-success-700' : 'text-error-700'
-                                        }`}
-                                      >
-                                        {metricData.diff_tuwei >= 0 ? '+' : ''}
-                                        {formatValue(metricData.diff_tuwei)}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="text-center text-gray-400">-</div>
-                                )}
-                              </td>
-                            )}
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-center text-gray-400">-</div>
+                              )}
+                            </td>
 
                             {/* YoY */}
                             <td className="py-2 px-4">
