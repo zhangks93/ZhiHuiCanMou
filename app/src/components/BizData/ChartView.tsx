@@ -73,7 +73,7 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
   }, [currentLevelNodes, selectedMetrics, budgetField])
 
   // Handle bar click for drill-down
-  const handleBarClick = (data: Record<string, unknown>) => {
+  const handleBarClick = (data: any) => {
     if (!data || typeof data.name !== 'string') return
 
     // Find the clicked node by name
