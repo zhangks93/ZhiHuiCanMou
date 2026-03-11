@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
 import type { MetricCategory } from '@/lib/supabase'
-import { METRIC_LABELS } from '@/lib/constants'
+import { METRIC_LABELS, METRIC_GROUPS } from '@/lib/constants'
 
 interface MetricSelectorProps {
   selectedMetrics: MetricCategory[]
@@ -54,43 +54,58 @@ export function MetricSelector({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg">
+        <div className="absolute z-50 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
           <div className="p-2 border-b border-gray-200">
             <p className="text-xs text-gray-500">
               最多选择 {maxSelection} 个指标
             </p>
           </div>
-          <div className="max-h-96 overflow-y-auto p-2">
-            {availableMetrics.map(metric => {
-              const isSelected = selectedMetrics.includes(metric)
-              const isDisabled = !isSelected && selectedMetrics.length >= maxSelection
+          <div className="max-h-[32rem] overflow-y-auto p-2">
+            {METRIC_GROUPS.map((group, groupIdx) => {
+              // Filter metrics that are available
+              const groupMetrics = group.metrics.filter(m => availableMetrics.includes(m))
+              if (groupMetrics.length === 0) return null
 
               return (
-                <button
-                  key={metric}
-                  onClick={() => !isDisabled && toggleMetric(metric)}
-                  disabled={isDisabled}
-                  className={`
-                    w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-left transition-colors
-                    ${isSelected
-                      ? 'bg-primary-50 text-primary-700'
-                      : isDisabled
-                      ? 'text-gray-400 cursor-not-allowed'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }
-                  `}
-                >
-                  <div className={`
-                    w-4 h-4 flex items-center justify-center rounded border
-                    ${isSelected
-                      ? 'bg-primary border-primary'
-                      : 'border-gray-300'
-                    }
-                  `}>
-                    {isSelected && <Check size={12} className="text-white" />}
+                <div key={groupIdx} className="mb-3 last:mb-0">
+                  <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    {group.label}
                   </div>
-                  <span>{METRIC_LABELS[metric]}</span>
-                </button>
+                  <div className="space-y-0.5">
+                    {groupMetrics.map(metric => {
+                      const isSelected = selectedMetrics.includes(metric)
+                      const isDisabled = !isSelected && selectedMetrics.length >= maxSelection
+
+                      return (
+                        <button
+                          key={metric}
+                          onClick={() => !isDisabled && toggleMetric(metric)}
+                          disabled={isDisabled}
+                          className={`
+                            w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-left transition-colors
+                            ${isSelected
+                              ? 'bg-primary-50 text-primary-700'
+                              : isDisabled
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-gray-700 hover:bg-gray-100'
+                            }
+                          `}
+                        >
+                          <div className={`
+                            w-4 h-4 flex items-center justify-center rounded border shrink-0
+                            ${isSelected
+                              ? 'bg-primary border-primary'
+                              : 'border-gray-300'
+                            }
+                          `}>
+                            {isSelected && <Check size={12} className="text-white" />}
+                          </div>
+                          <span>{METRIC_LABELS[metric]}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               )
             })}
           </div>

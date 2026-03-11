@@ -35,19 +35,34 @@ export interface BizDataItem {
 
 // --- 教育后勤经营数据 (NEW: edu_biz_report & edu_biz_monthly_plan) ---
 
-// 指标类别枚举
+// 指标类别枚举 (25个指标)
 export type MetricCategory =
+  // 核心收入利润指标
   | 'revenue'              // 营业收入
-  | 'catering_expense'     // 餐饮支出
-  | 'material_cost'        // 物资销售成本
   | 'gross_profit'         // 毛利额
   | 'gross_margin'         // 毛利率
-  | 'labor_cost'           // 人力成本
-  | 'other_expense'        // 其他支出
-  | 'external_revenue'     // 营业外收入
-  | 'external_expense'     // 营业外支出
   | 'pretax_profit'        // 税前利润
   | 'pretax_margin'        // 税前利润率
+  // 成本支出指标
+  | 'catering_expense'     // 餐饮支出
+  | 'material_cost'        // 物资销售成本
+  | 'other_expense'        // 其他支出
+  | 'external_expense'     // 营业外支出
+  // 人力成本明细
+  | 'labor_cost'           // 人力成本
+  | 'salary'               // 工资
+  | 'social_insurance'     // 社保
+  | 'housing_fund'         // 公积金
+  | 'labor_service_fee'    // 劳务费
+  | 'other_labor_cost'     // 其他人力成本
+  // 其他费用
+  | 'vehicle_expense'      // 车辆费用
+  | 'energy_expense'       // 能耗费
+  | 'travel_expense'       // 差旅费
+  | 'entertainment_expense' // 业务招待费
+  // 其他收入
+  | 'external_revenue'     // 营业外收入
+  // 效率指标
   | 'headcount'            // 职工人数
   | 'per_capita_revenue'   // 人均营收
   | 'labor_cost_rate'      // 人力成本率

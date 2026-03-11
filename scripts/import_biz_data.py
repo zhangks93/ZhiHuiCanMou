@@ -1,9 +1,18 @@
 """
-读取 25学年经营数据.xlsx 中的 1.1/1.2/2.1/2.2/2.3/3 sheet 页，
-解析第8-139行经营数据，按原始数据写入 Supabase 数据库。
+读取 25学年经营数据.xlsx 中的多个 sheet 页，解析经营数据并写入 Supabase 数据库。
+
+包含的 sheet 页：
+- 1.1/1.2: fone 版经营数据（累计/月度）
+- 2.1/2.2/2.3: 突围版经营数据（累计/月度）
+- 3: 突围计划分月版
+- 6.1/6.2: 突围版成本分析（累计/月度）
+- 7.1/7.2: fone 版成本分析（累计/月度）
 
 同时读取组织标签映射表，创建独立的 edu_org_hierarchy 表。
 数据表之间无外键约束，仅通过 node_name 字段关联。
+
+注意：人力成本指标在主报表和成本分析表中都存在，导入时会自动去重，
+优先保留成本分析表（6.x/7.x）中的数据。
 
 用法: python scripts/import_biz_data.py
 """
@@ -72,6 +81,26 @@ SHEET_CONFIG = {
     },
 }
 
+# 成本分析 Sheet 映射
+COST_SHEET_CONFIG = {
+    "6.1": {
+        "report_type": "tuwei",
+        "period_type": "cumulative",
+    },
+    "6.2": {
+        "report_type": "tuwei",
+        "period_type": "monthly",
+    },
+    "7.1": {
+        "report_type": "fone",
+        "period_type": "cumulative",
+    },
+    "7.2": {
+        "report_type": "fone",
+        "period_type": "monthly",
+    },
+}
+
 # 16 个指标大类，每类占 5 列（从 C2 开始）
 METRIC_CATEGORIES = [
     ("revenue",           "营业收入",    2),
@@ -99,6 +128,20 @@ SHEET3_METRICS = [
 ]
 
 SHEET3_MONTHS = ["202601", "202602", "202603", "202604", "202605", "202606", "total"]
+
+# 成本分析指标（6.1/6.2/7.1/7.2），每类占 5 列（实际值、考核数、预算完成率、预实差异、同期）
+COST_METRIC_CATEGORIES = [
+    ("labor_cost",        "人力成本",      2),
+    ("salary",            "工资",          7),
+    ("social_insurance",  "社保",          12),
+    ("housing_fund",      "公积金",        17),
+    ("labor_service_fee", "劳务费",        22),
+    ("other_labor_cost",  "其他人力成本",  27),
+    ("vehicle_expense",   "车辆费用",      32),
+    ("energy_expense",    "能耗费",        37),
+    ("travel_expense",    "差旅费",        42),
+    ("entertainment_expense", "业务招待费", 47),
+]
 
 DATA_ROW_START = 8
 DATA_ROW_END = 139
@@ -320,6 +363,80 @@ def parse_sheet3(wb, valid_nodes: set):
     return all_rows
 
 
+def parse_cost_sheets(wb, valid_nodes: set):
+    """解析成本分析 sheets (6.1, 6.2, 7.1, 7.2)，只导入映射表中存在的节点"""
+    all_rows = []
+    skipped_nodes = set()
+
+    for sheet_code, config in COST_SHEET_CONFIG.items():
+        # 找到匹配的 sheet
+        matched = [s for s in wb.sheetnames if s.startswith(sheet_code)]
+        if not matched:
+            print(f"  警告: 未找到 sheet {sheet_code}")
+            continue
+        sheet_name = matched[0]
+        ws = wb[sheet_name]
+        print(f"  处理 [{sheet_name}]")
+
+        # 读取期间信息 (Row 3)
+        period = str(ws.cell(row=3, column=2).value or "").strip()
+        period_yoy = str(ws.cell(row=3, column=3).value or "").strip()
+
+        sheet_rows = 0
+        for row_idx in range(DATA_ROW_START, DATA_ROW_END + 1):
+            node_name = ws.cell(row=row_idx, column=1).value
+            if node_name is None:
+                continue
+            node_name = str(node_name).strip()
+            if not node_name:
+                continue
+
+            # 只导入映射表中存在的节点
+            if node_name not in valid_nodes:
+                skipped_nodes.add(node_name)
+                continue
+
+            for metric_en, metric_cn, start_col in COST_METRIC_CATEGORIES:
+                actual = safe_num(ws.cell(row=row_idx, column=start_col).value)
+                budget = safe_num(ws.cell(row=row_idx, column=start_col + 1).value)
+                rate = safe_num(ws.cell(row=row_idx, column=start_col + 2).value)
+                diff = safe_num(ws.cell(row=row_idx, column=start_col + 3).value)
+                yoy = safe_num(ws.cell(row=row_idx, column=start_col + 4).value)
+
+                # 跳过全部为空的指标行
+                if all(v is None for v in [actual, budget, rate, diff, yoy]):
+                    continue
+
+                row_data = {
+                    "sheet_code": sheet_code,
+                    "report_type": config["report_type"],
+                    "period_type": config["period_type"],
+                    "period": period,
+                    "period_yoy": period_yoy if period_yoy else None,
+                    "node_name": node_name,
+                    "metric_category": metric_en,
+                    "metric_category_cn": metric_cn,
+                    "actual_value": actual,
+                    "budget_value": budget,
+                    "completion_rate": rate,
+                    "diff_value": diff,
+                    "yoy_value": yoy,
+                    "sort_order": row_idx,
+                }
+
+                all_rows.append(row_data)
+                sheet_rows += 1
+
+        print(f"    -> {sheet_rows} 条成本指标数据")
+
+    if skipped_nodes:
+        print(f"\n  跳过了 {len(skipped_nodes)} 个不在映射表中的节点:")
+        for node in sorted(skipped_nodes):
+            print(f"    - {node}")
+
+    return all_rows
+
+
 def main():
     print(f"读取 Excel: {EXCEL_PATH}")
     if not EXCEL_PATH.exists():
@@ -334,7 +451,7 @@ def main():
     valid_nodes = {row["node_name"] for row in org_hierarchy_rows}
     print(f"  映射表中有 {len(valid_nodes)} 个有效节点")
 
-    wb = openpyxl.load_workbook(str(EXCEL_PATH), data_only=True)
+    wb = openpyxl.load_workbook(str(EXCEL_PATH), data_only=True, keep_links=False)
     print(f"共 {len(wb.sheetnames)} 个 sheet\n")
 
     # 清空目标表
@@ -349,6 +466,53 @@ def main():
     report_rows = parse_main_sheets(wb, valid_nodes)
     print(f"\n共 {len(report_rows)} 条报表数据")
 
+    # 解析成本分析报表 (6.1, 6.2, 7.1, 7.2)
+    print("\n解析成本分析报表 (6.1-7.2)...")
+    cost_rows = parse_cost_sheets(wb, valid_nodes)
+    print(f"共 {len(cost_rows)} 条成本数据")
+
+    # 合并报表数据和成本数据，去重人力成本
+    print("\n合并数据并去重人力成本...")
+    all_report_rows = report_rows + cost_rows
+
+    # 去重逻辑：对于相同的 (report_type, period_type, node_name, metric_category)
+    # 如果 metric_category 是 labor_cost，优先保留成本分析表中的数据（来自 6.x/7.x）
+    # 因为成本分析表提供了更详细的人力成本分解
+    dedup_key_map = {}
+    for row in all_report_rows:
+        # 对于人力成本，使用不含 sheet_code 的 key 进行去重
+        if row["metric_category"] == "labor_cost":
+            key = (
+                row["report_type"],
+                row["period_type"],
+                row["node_name"],
+                row["metric_category"],
+            )
+
+            if key in dedup_key_map:
+                existing_sheet = dedup_key_map[key]["sheet_code"]
+                current_sheet = row["sheet_code"]
+                # 如果当前是成本分析表（6.x/7.x），替换之前的数据
+                if current_sheet.startswith(("6", "7")):
+                    dedup_key_map[key] = row
+                # 如果已存在的是成本分析表，保持不变（不添加当前行）
+            else:
+                dedup_key_map[key] = row
+        else:
+            # 非人力成本指标，使用完整 key（包含 sheet_code）
+            key = (
+                row["sheet_code"],
+                row["report_type"],
+                row["period_type"],
+                row["node_name"],
+                row["metric_category"],
+            )
+            dedup_key_map[key] = row
+
+    final_report_rows = list(dedup_key_map.values())
+    removed_count = len(all_report_rows) - len(final_report_rows)
+    print(f"  去重后: {len(final_report_rows)} 条报表数据 (移除 {removed_count} 条重复)")
+
     # 解析突围计划（只导入映射表中存在的节点）
     print("\n解析突围计划分月版 (3)...")
     plan_rows = parse_sheet3(wb, valid_nodes)
@@ -361,9 +525,9 @@ def main():
         n = upsert_batch("edu_org_hierarchy", org_hierarchy_rows)
         print(f"  edu_org_hierarchy: 写入 {n}/{len(org_hierarchy_rows)} 条")
 
-    if report_rows:
-        n = upsert_batch("edu_biz_report", report_rows)
-        print(f"  edu_biz_report: 写入 {n}/{len(report_rows)} 条")
+    if final_report_rows:
+        n = upsert_batch("edu_biz_report", final_report_rows)
+        print(f"  edu_biz_report: 写入 {n}/{len(final_report_rows)} 条")
 
     if plan_rows:
         n = upsert_batch("edu_biz_monthly_plan", plan_rows)
