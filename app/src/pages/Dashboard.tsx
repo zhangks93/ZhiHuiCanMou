@@ -241,15 +241,11 @@ export function Dashboard() {
     <>
       <div className="mb-5 animate-fade-in">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text-strong)] tracking-tight" style={{ fontFamily: "Playfair Display, Noto Serif SC, serif" }}>
-              运营驾驶舱
-            </h1>
+          <div className="text-sm text-[var(--color-text-muted)] font-medium">
+            首页 / 运营驾驶舱
           </div>
-          <div className="text-right">
-            <div className="text-xs text-[var(--color-text-muted)]">
-              {new Date().toLocaleString("zh-CN", { hour12: false, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-            </div>
+          <div className="text-xs text-[var(--color-text-muted)]">
+            {new Date().toLocaleString("zh-CN", { hour12: false, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
           </div>
         </div>
       </div>
