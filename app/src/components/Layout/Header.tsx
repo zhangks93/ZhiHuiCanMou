@@ -42,21 +42,30 @@ export function Header({ onMenuClick, userName, avatarUrl }: HeaderProps) {
 
   return (
     <header className="h-14 bg-primary border-b border-primary-dark/30 flex items-center px-4 lg:px-6 fixed top-0 left-0 right-0 z-50 shadow-card">
+      {/* 移动端：仅显示 logo，无操作元素 */}
+      <div className="flex items-center gap-2.5 lg:hidden">
+        <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white text-sm font-semibold shadow-inner-soft">
+          智
+        </div>
+        <span className="font-semibold text-white text-base font-serif">智汇参谋</span>
+      </div>
+
+      {/* 桌面端：保留原有布局 */}
       <button
-        className="lg:hidden p-2 -ml-2 text-primary-200 hover:bg-primary-light/50 rounded-lg transition-colors"
+        className="hidden lg:block p-2 -ml-2 text-primary-200 hover:bg-primary-light/50 rounded-lg transition-colors"
         onClick={onMenuClick}
         aria-label="打开菜单"
       >
         <Menu size={20} strokeWidth={1.5} />
       </button>
-      <div className="flex items-center gap-2.5 ml-2 lg:ml-0">
+      <div className="hidden lg:flex items-center gap-2.5 ml-2">
         <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white text-sm font-semibold shadow-inner-soft">
           智
         </div>
         <span className="font-semibold text-white text-base font-serif">智汇参谋</span>
       </div>
       <div className="flex-1" />
-      <div className="flex items-center gap-3 lg:gap-4">
+      <div className="hidden lg:flex items-center gap-3 lg:gap-4">
         <span className="text-primary-200/90 text-sm hidden sm:block">{date}</span>
         <button className="relative p-2 rounded-lg text-primary-200 hover:bg-primary-light/50 transition-colors">
           <Bell size={18} strokeWidth={1.5} />

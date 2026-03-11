@@ -165,3 +165,8 @@
 .bg-gray-100 {
   color: #f3f4f6;
 }
+
+/* 移动端安全区域支持 */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
