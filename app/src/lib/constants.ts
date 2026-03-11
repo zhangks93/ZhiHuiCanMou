@@ -8,28 +8,24 @@ export interface MetricGroup {
 
 export const METRIC_GROUPS: MetricGroup[] = [
   {
-    label: '核心收入利润',
+    label: '核心',
     metrics: ['revenue', 'gross_profit', 'gross_margin', 'pretax_profit', 'pretax_margin'],
   },
   {
-    label: '成本支出',
+    label: '成本',
     metrics: ['catering_expense', 'material_cost', 'other_expense', 'external_expense'],
   },
   {
-    label: '人力成本明细',
+    label: '人力',
     metrics: ['labor_cost', 'salary', 'social_insurance', 'housing_fund', 'labor_service_fee', 'other_labor_cost'],
   },
   {
-    label: '其他费用',
+    label: '费用',
     metrics: ['vehicle_expense', 'energy_expense', 'travel_expense', 'entertainment_expense'],
   },
   {
-    label: '其他收入',
-    metrics: ['external_revenue'],
-  },
-  {
-    label: '效率指标',
-    metrics: ['headcount', 'per_capita_revenue', 'labor_cost_rate', 'revenue_creation', 'profit_creation'],
+    label: '其他',
+    metrics: ['external_revenue','headcount', 'per_capita_revenue', 'labor_cost_rate', 'revenue_creation', 'profit_creation'],
   },
 ]
 

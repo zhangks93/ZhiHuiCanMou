@@ -56,13 +56,13 @@ function DraggableHeader({ id, children }: { id: string; children: React.ReactNo
     <div
       ref={setNodeRef}
       style={style}
-      className="px-4 py-3 relative group"
+      className="px-4 py-4 relative group"
     >
       <div className="flex items-start gap-2">
         <button
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity mt-1 flex-shrink-0"
+          className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
           title="拖动调整顺序"
         >
           <GripVertical size={16} className="text-gray-400 hover:text-gray-600" />
@@ -307,8 +307,11 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
               <table className="border-collapse">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-4 text-left text-sm font-semibold text-gray-900 w-80 border-b-2 border-gray-300">
-                      业务单元
+                    <th className="px-4 py-4 w-80 border-b-2 border-gray-300">
+                      <div className="flex flex-col gap-2 items-center">
+                        <span className="text-sm font-semibold text-gray-900">业务单元</span>
+                        <div className="text-xs font-medium text-transparent">占位</div>
+                      </div>
                     </th>
                   </tr>
                 </thead>

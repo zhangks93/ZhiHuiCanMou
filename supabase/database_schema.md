@@ -244,28 +244,35 @@ Last updated: 2026-03-09
 ---
 
 ### 8. edu_biz_report
-**Purpose**: 25学年经营数据报表（fone年初定稿版 / 突围版），涵盖 sheets 1.1/1.2/2.1/2.2/2.3
+**Purpose**: 25学年经营数据报表（fone年初定稿版 / 突围版），涵盖 sheets 1.1/1.2/2.1/2.2/2.3 + 成本分析 6.1/6.2/7.1/7.2
 **RLS Enabled**: No
-**Row Count**: 9,699
-**Comment**: 教育后勤2025经营数据（fone版/突围版）
+**Row Count**: 11,477
+**Comment**: 教育后勤2025经营数据（fone版/突围版）+ 成本分析
 
 #### Columns
 - `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
-- `sheet_code` (text): Sheet编号：1.1/1.2/2.1/2.2/2.3
+- `sheet_code` (text): Sheet编号：1.1/1.2/2.1/2.2/2.3/6.1/6.2/7.1/7.2
 - `report_type` (text): 报表类型 (fone, tuwei)
 - `period_type` (text): 期间类型 (cumulative, monthly)
 - `period` (text): 数据期间，如 <202603, 202602, 202601-202602
 - `period_yoy` (text, nullable): 同期期间，如 <202503, 202502
-- `node_name` (text): 业务单元/分析单元名称（共132个，如"生活体验广场"、"西南区域合计"等）
+- `node_name` (text): 业务单元/分析单元名称（共153个，如"生活体验广场"、"西南区域合计"等）
 - `sort_order` (integer): 原始行号排序（8-139）, default: 0
-- `metric_category` (text): 指标英文标识（revenue, catering_expense, material_cost, gross_profit, gross_margin, labor_cost, other_expense, external_revenue, external_expense, pretax_profit, pretax_margin, headcount, per_capita_revenue, labor_cost_rate, revenue_creation, profit_creation）
-- `metric_category_cn` (text): 指标中文名（营业收入、餐饮支出、物资销售成本、毛利额、毛利率、人力成本、其他支出、营业外收入、营业外支出、税前利润、税前利润率、职工人数、人均营收、人力成本率、一元创收、一元创利）
+- `metric_category` (text): 指标英文标识（25个指标）
+- `metric_category_cn` (text): 指标中文名
 - `actual_value` (numeric, nullable): 实际值
 - `budget_value` (numeric, nullable): 预算数（fone版为年初预算数，突围版为考核数）
 - `completion_rate` (numeric, nullable): 预算完成率
 - `diff_value` (numeric, nullable): 预实差异
 - `yoy_value` (numeric, nullable): 同期值
 - `created_at` (timestamptz, nullable): Creation timestamp, default: now()
+
+#### 25 Metric Categories (指标类别)
+主报表指标（16个）：
+- revenue (营业收入), catering_expense (餐饮支出), material_cost (物资销售成本), gross_profit (毛利额), gross_margin (毛利率), labor_cost (人力成本), other_expense (其他支出), external_revenue (营业外收入), external_expense (营业外支出), pretax_profit (税前利润), pretax_margin (税前利润率), headcount (职工人数), per_capita_revenue (人均营收), labor_cost_rate (人力成本率), revenue_creation (一元创收), profit_creation (一元创利)
+
+成本分析指标（10个）：
+- labor_cost (人力成本), salary (工资), social_insurance (社保), housing_fund (公积金), labor_service_fee (劳务费), other_labor_cost (其他人力成本), vehicle_expense (车辆费用), energy_expense (能耗费), travel_expense (差旅费), entertainment_expense (业务招待费)
 
 #### Indexes
 - `idx_edu_biz_report_node_name` on (node_name)
