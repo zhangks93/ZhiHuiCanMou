@@ -374,7 +374,6 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
   const level2Groups = new Map<string, EnrichedBizDataNode[]>()
 
   // 收集需要聚合到 level_2 的节点：
-  // - level_3 聚合节点（node_name === level_3）
   // - 直接属于 level_2 的叶子节点（有 level_2 但无 level_3）
   leafNodes.forEach(node => {
     const { level_1, level_2, level_3 } = node.orgHierarchy
@@ -388,20 +387,26 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
     }
   })
 
-  // 添加 level_3 聚合节点
-  allNodes
-    .filter(n => {
-      const { level_1, level_2, level_3 } = n.orgHierarchy
-      return level_1 && level_2 && level_3 && n.node_name === level_3
-    })
-    .forEach(node => {
-      const { level_1, level_2 } = node.orgHierarchy
-      const key = `${level_1}|${level_2}`
-      if (!level2Groups.has(key)) {
-        level2Groups.set(key, [])
+  // 添加 level_3 聚合节点（从刚创建的 level3Groups 中获取）
+  level3Groups.forEach((children, key) => {
+    const [level_1, level_2, level_3] = key.split('|')
+    const level2Key = `${level_1}|${level_2}`
+
+    // 找到对应的 level_3 聚合节点
+    const level3Node = allNodes.find(n =>
+      n.orgHierarchy.level_1 === level_1 &&
+      n.orgHierarchy.level_2 === level_2 &&
+      n.orgHierarchy.level_3 === level_3 &&
+      n.node_name === level_3
+    )
+
+    if (level3Node) {
+      if (!level2Groups.has(level2Key)) {
+        level2Groups.set(level2Key, [])
       }
-      level2Groups.get(key)!.push(node)
-    })
+      level2Groups.get(level2Key)!.push(level3Node)
+    }
+  })
 
   level2Groups.forEach((children, key) => {
     const [level_1, level_2] = key.split('|')
@@ -428,7 +433,6 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
   const level1Groups = new Map<string, EnrichedBizDataNode[]>()
 
   // 收集需要聚合到 level_1 的节点：
-  // - level_2 聚合节点（node_name === level_2）
   // - 直接属于 level_1 的叶子节点（只有 level_1）
   leafNodes.forEach(node => {
     const { level_1, level_2 } = node.orgHierarchy
@@ -441,19 +445,25 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
     }
   })
 
-  // 添加 level_2 聚合节点
-  allNodes
-    .filter(n => {
-      const { level_1, level_2, level_3 } = n.orgHierarchy
-      return level_1 && level_2 && !level_3 && n.node_name === level_2
-    })
-    .forEach(node => {
-      const { level_1 } = node.orgHierarchy
+  // 添加 level_2 聚合节点（从刚创建的 level2Groups 中获取）
+  level2Groups.forEach((children, key) => {
+    const [level_1, level_2] = key.split('|')
+
+    // 找到对应的 level_2 聚合节点
+    const level2Node = allNodes.find(n =>
+      n.orgHierarchy.level_1 === level_1 &&
+      n.orgHierarchy.level_2 === level_2 &&
+      n.orgHierarchy.level_3 === null &&
+      n.node_name === level_2
+    )
+
+    if (level2Node) {
       if (!level1Groups.has(level_1)) {
         level1Groups.set(level_1, [])
       }
-      level1Groups.get(level_1)!.push(node)
-    })
+      level1Groups.get(level_1)!.push(level2Node)
+    }
+  })
 
   level1Groups.forEach((children, level_1) => {
     const representativeNode = children[0]
