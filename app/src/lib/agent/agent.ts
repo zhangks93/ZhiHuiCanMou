@@ -6,7 +6,7 @@ import { AGENT_SYSTEM_PROMPT } from './prompt'
 import { callLLM } from './llm'
 import { trimHistory } from './memory'
 
-const MAX_ITERATIONS = 8
+const MAX_ITERATIONS = 20
 // How many user↔assistant turns to keep in the rolling context window
 const MAX_HISTORY_TURNS = 6
 // Max characters per tool result before truncation

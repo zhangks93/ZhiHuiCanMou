@@ -31,40 +31,58 @@ export async function fetchBizReport(options: BizDataQueryOptions = {}) {
 
   console.log('[fetchBizReport] Options:', { period, periodType, reportTypes })
 
-  // Fetch edu_biz_report data
-  let query = supabase
-    .from('edu_biz_report')
-    .select('*')
-    .eq('period_type', periodType)
-    .order('sort_order')
+  // Fetch edu_biz_report data with pagination to bypass 1000 row server limit
+  const PAGE_SIZE = 1000
+  let allReportData: any[] = []
+  let page = 0
+  let hasMore = true
 
-  // Don't filter by period if not specified - fetch all periods for this period_type
-  // This allows us to handle different period formats for fone vs tuwei
-  if (period) {
-    query = query.eq('period', period)
+  while (hasMore) {
+    let query = supabase
+      .from('edu_biz_report')
+      .select('*')
+      .eq('period_type', periodType)
+      .order('sort_order')
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+    // Don't filter by period if not specified - fetch all periods for this period_type
+    // This allows us to handle different period formats for fone vs tuwei
+    if (period) {
+      query = query.eq('period', period)
+    }
+
+    if (reportTypes.length > 0) {
+      query = query.in('report_type', reportTypes)
+    }
+
+    if (sheetCodes && sheetCodes.length > 0) {
+      query = query.in('sheet_code', sheetCodes)
+    }
+
+    const { data: pageData, error: reportError } = await query
+
+    if (reportError) {
+      console.error('[fetchBizReport] Error:', reportError)
+      throw reportError
+    }
+
+    if (pageData && pageData.length > 0) {
+      allReportData = allReportData.concat(pageData)
+      hasMore = pageData.length === PAGE_SIZE
+      page++
+    } else {
+      hasMore = false
+    }
   }
 
-  if (reportTypes.length > 0) {
-    query = query.in('report_type', reportTypes)
-  }
-
-  if (sheetCodes && sheetCodes.length > 0) {
-    query = query.in('sheet_code', sheetCodes)
-  }
-
-  const { data: reportData, error: reportError } = await query
-
-  if (reportError) {
-    console.error('[fetchBizReport] Error:', reportError)
-    throw reportError
-  }
-
-  console.log('[fetchBizReport] Fetched rows:', reportData?.length ?? 0)
+  console.log('[fetchBizReport] Fetched rows:', allReportData.length, 'in', page, 'pages')
+  const reportData = allReportData
 
   // Fetch edu_org_hierarchy data separately
   const { data: hierarchyData, error: hierarchyError } = await supabase
     .from('edu_org_hierarchy')
     .select('*')
+    .range(0, 999)  // Fetch up to 1000 rows (should be enough for hierarchy)
 
   if (hierarchyError) {
     console.error('[fetchBizReport] Hierarchy error:', hierarchyError)
@@ -91,17 +109,35 @@ export async function fetchBizReport(options: BizDataQueryOptions = {}) {
  * 获取月度突围计划
  */
 export async function fetchMonthlyPlan() {
-  const { data, error } = await supabase
-    .from('edu_biz_monthly_plan')
-    .select('*')
-    .order('sort_order')
+  // Fetch with pagination to bypass 1000 row server limit
+  const PAGE_SIZE = 1000
+  let allData: any[] = []
+  let page = 0
+  let hasMore = true
 
-  if (error) {
-    console.error('Failed to fetch monthly plan:', error)
-    throw error
+  while (hasMore) {
+    const { data: pageData, error } = await supabase
+      .from('edu_biz_monthly_plan')
+      .select('*')
+      .order('sort_order')
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+    if (error) {
+      console.error('Failed to fetch monthly plan:', error)
+      throw error
+    }
+
+    if (pageData && pageData.length > 0) {
+      allData = allData.concat(pageData)
+      hasMore = pageData.length === PAGE_SIZE
+      page++
+    } else {
+      hasMore = false
+    }
   }
 
-  return (data ?? []) as EduBizMonthlyPlan[]
+  console.log('[fetchMonthlyPlan] Fetched rows:', allData.length, 'in', page, 'pages')
+  return allData as EduBizMonthlyPlan[]
 }
 
 /**
@@ -119,6 +155,7 @@ export async function fetchAvailableMonths(
     .eq('period_type', periodType)
     .eq('report_type', reportType)
     .order('period', { ascending: false })
+    .limit(100)  // Periods are limited, 100 is more than enough
 
   if (error) {
     console.error('Failed to fetch months:', error)
@@ -388,16 +425,16 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
   })
 
   // 添加 level_3 聚合节点（从刚创建的 level3Groups 中获取）
-  level3Groups.forEach((children, key) => {
-    const [level_1, level_2, level_3] = key.split('|')
+  level3Groups.forEach((_children, key) => {
+    const [level_1, level_2, _level_3] = key.split('|')
     const level2Key = `${level_1}|${level_2}`
 
     // 找到对应的 level_3 聚合节点
     const level3Node = allNodes.find(n =>
       n.orgHierarchy.level_1 === level_1 &&
       n.orgHierarchy.level_2 === level_2 &&
-      n.orgHierarchy.level_3 === level_3 &&
-      n.node_name === level_3
+      n.orgHierarchy.level_3 === _level_3 &&
+      n.node_name === _level_3
     )
 
     if (level3Node) {
@@ -446,7 +483,7 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
   })
 
   // 添加 level_2 聚合节点（从刚创建的 level2Groups 中获取）
-  level2Groups.forEach((children, key) => {
+  level2Groups.forEach((_children, key) => {
     const [level_1, level_2] = key.split('|')
 
     // 找到对应的 level_2 聚合节点

@@ -21,23 +21,47 @@ async function fetchDataMeta(): Promise<DataMeta> {
     biddingCount: 0,
   }
 
-  // Get centers (level 1 = has center, no biz_class)
-  const { data: l1 } = await supabase
-    .from('edu_logistics_biz_data')
-    .select('node_name,revenue_completion_rate,profit_completion_rate')
-    .not('center', 'is', null)
-    .is('biz_class', null)
-    .limit(20)
+  // Get centers from edu_biz_report (level_1 nodes from org_hierarchy)
+  const { data: reportData } = await supabase
+    .from('edu_biz_report')
+    .select('node_name,metric_category,actual_value,budget_value,completion_rate')
+    .eq('period_type', 'cumulative')
+    .in('metric_category', ['revenue', 'pretax_profit'])
+    .limit(500)
 
-  if (l1?.length) {
-    meta.centers = l1.map(r => r.node_name)
-    meta.fiscalYear = '2026'
-    meta.lowRevenueNodes = l1
-      .filter(r => r.revenue_completion_rate != null && r.revenue_completion_rate < 0.85)
-      .map(r => r.node_name)
-    meta.highProfitNodes = l1
-      .filter(r => r.profit_completion_rate != null && r.profit_completion_rate >= 0.90)
-      .map(r => r.node_name)
+  if (reportData?.length) {
+    // Group by node_name and extract metrics
+    const nodeMetrics = new Map<string, { revenue_rate?: number; profit_rate?: number }>()
+
+    for (const row of reportData) {
+      const nodeName = row.node_name
+      if (!nodeMetrics.has(nodeName)) {
+        nodeMetrics.set(nodeName, {})
+      }
+      const metrics = nodeMetrics.get(nodeName)!
+
+      if (row.metric_category === 'revenue') {
+        metrics.revenue_rate = row.completion_rate
+      } else if (row.metric_category === 'pretax_profit') {
+        metrics.profit_rate = row.completion_rate
+      }
+    }
+
+    // Extract unique node names as centers
+    meta.centers = Array.from(nodeMetrics.keys()).slice(0, 20)
+    meta.fiscalYear = '2025' // 25学年
+
+    // Find low revenue nodes (completion rate < 85%)
+    meta.lowRevenueNodes = Array.from(nodeMetrics.entries())
+      .filter(([_, m]) => m.revenue_rate != null && m.revenue_rate < 0.85)
+      .map(([name, _]) => name)
+      .slice(0, 10)
+
+    // Find high profit nodes (completion rate >= 90%)
+    meta.highProfitNodes = Array.from(nodeMetrics.entries())
+      .filter(([_, m]) => m.profit_rate != null && m.profit_rate >= 0.90)
+      .map(([name, _]) => name)
+      .slice(0, 10)
   }
 
   // Get opportunity stats
@@ -74,15 +98,19 @@ export async function generateSuggestedQuestions(count = 8): Promise<string[]> {
 
   // General questions (always available)
   pool.push(
-    '本年度整体经营情况如何？有哪些风险点？',
+    '25学年整体经营情况如何？各层级（level_1/level_2/level_3）表现如何？',
     '各中心的利润率表现排名如何？给出优化建议',
     '人力成本率最高的部门是哪些？如何优化？',
     '毛利率同比变化最大的业务板块有哪些？',
     '哪些业务单位的预算执行偏差最大？',
-    '各区域的营收贡献占比是怎样的？',
+    '各区域的营收贡献占比是怎样的？层级聚合数据如何？',
     '在岗人数与预算人数差异最大的部门有哪些？',
-    '三大区域营收达成率仅62%，深入分析原因和改进路径',
-    '对比后勤管理中心和商业业务的盈利能力，哪个更优？',
+    '对比fone版（年初预算）和tuwei版（考核数）的达成率差异',
+    '分析成本结构：工资、社保、公积金、劳务费占比如何？',
+    '车辆费用、能耗费、差旅费、业务招待费哪个增长最快？',
+    '分析level_1层级（5个中心）的整体经营表现和排名',
+    '哪些level_2板块的营收达成率低于80%？如何改进？',
+    '对比各level_3业务单元的利润率，找出最优和最差的',
   )
 
   // Center-specific questions
@@ -90,9 +118,10 @@ export async function generateSuggestedQuestions(count = 8): Promise<string[]> {
     const c1 = pick(meta.centers)
     const c2 = pick(meta.centers.filter(c => c !== c1) || meta.centers)
     pool.push(
-      `${c1}的经营数据详细分析，包括营收、利润和成本情况`,
-      `对比${c1}和${c2}的经营表现，哪个更优？`,
-      `${c1}下属各业务单位的达成率排名`,
+      `${c1}的经营数据详细分析，包括营收、利润和成本情况（含下属各层级）`,
+      `对比${c1}和${c2}的经营表现，哪个更优？包括层级聚合对比`,
+      `${c1}下属各业务单位的达成率排名（level_2/level_3层级）`,
+      `分析${c1}的组织层级结构，哪些level_2板块拖累了整体表现？`,
     )
   }
 
@@ -134,7 +163,11 @@ export async function generateSuggestedQuestions(count = 8): Promise<string[]> {
 
   // Fiscal year specific
   if (meta.fiscalYear) {
-    pool.push(`${meta.fiscalYear}年度经营目标完成进度如何？能否达标？`)
+    pool.push(
+      `${meta.fiscalYear}学年经营目标完成进度如何？能否达标？`,
+      `${meta.fiscalYear}学年1-6月突围计划执行情况如何？`,
+      `对比${meta.fiscalYear}学年1月和2月的经营数据，有何变化趋势？`,
+    )
   }
 
   // Cross-domain questions
@@ -145,8 +178,13 @@ export async function generateSuggestedQuestions(count = 8): Promise<string[]> {
     '结合组织部门人数与经营结果，识别人效最高和最低的中心',
     '按部门规模对比各中心的人均营收、人均利润，给出优化建议',
     '哪些中心出现”人员增加但利润达成下降”？请定位风险点',
-    '891名员工创造26700万营收，人均产出30万，行业水平如何？',
-    '结合商机管道20200万和经营缺口，Q2能否达成全年目标？',
+    '891名员工创造的总营收是多少？人均产出如何？',
+    '结合商机管道和经营缺口，下半年能否达成全年目标？',
+    '153个业务节点的层级聚合数据分析，哪些层级异常？',
+    '对比level_1、level_2、level_3各层级的经营表现和贡献度',
+    '分析各level_1中心下属level_2板块的营收贡献占比',
+    '哪些level_3业务单元的实际表现与其聚合节点差异最大？',
+    '从level_1到叶子节点，逐层钻取分析营收达成率的变化',
   )
 
   // Attendance questions
@@ -172,10 +210,11 @@ export async function generateSuggestedQuestions(count = 8): Promise<string[]> {
   pool.push(
     '结合考勤和出差数据，分析团队工作强度和工作饱和度',
     '出差频繁的员工考勤情况如何？是否有异常？',
-    '结合经营数据、商机管道、出差投入，给出Q2重点工作建议',
+    '结合经营数据、商机管道、出差投入，给出下半年重点工作建议',
     '哪些中心的经营缺口可以通过现有商机弥补？匹配度如何？',
     '891名员工分布在242个部门，人均产出最高和最低的是哪些？',
-    '三大区域营收缺口大，当前商机能否支撑目标达成？',
+    '分析25学年1-2月累计数据与单月数据的差异和趋势',
+    '对比主报表16个指标和成本分析9个指标，找出关键驱动因素',
   )
 
   // Web search questions
@@ -185,6 +224,8 @@ export async function generateSuggestedQuestions(count = 8): Promise<string[]> {
     '搜索物业管理行业最新动态和竞争格局',
     '搜索高校后勤社会化改革最新进展，有哪些新机会？',
     '查找教育后勤行业人效标杆数据，对比我们的差距',
+    '搜索教育后勤行业成本控制最佳实践',
+    '查找2026年社保公积金政策变化，对人力成本的影响',
   )
 
   return shuffle(pool).slice(0, count)

@@ -1,6 +1,6 @@
 # Supabase Database Schema
 
-Last updated: 2026-03-09
+Last updated: 2026-03-12
 
 ## Tables Overview
 
@@ -247,7 +247,7 @@ Last updated: 2026-03-09
 **Purpose**: 25学年经营数据报表（fone年初定稿版 / 突围版），涵盖 sheets 1.1/1.2/2.1/2.2/2.3 + 成本分析 6.1/6.2/7.1/7.2
 **RLS Enabled**: No
 **Row Count**: 11,477
-**Comment**: 教育后勤2025经营数据（fone版/突围版）+ 成本分析
+**Comment**: 25学年经营数据报表（含节点层级关系）
 
 #### Columns
 - `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
@@ -256,7 +256,7 @@ Last updated: 2026-03-09
 - `period_type` (text): 期间类型 (cumulative, monthly)
 - `period` (text): 数据期间，如 <202603, 202602, 202601-202602
 - `period_yoy` (text, nullable): 同期期间，如 <202503, 202502
-- `node_name` (text): 业务单元/分析单元名称（共153个，如"生活体验广场"、"西南区域合计"等）
+- `node_name` (text): 组织节点名称（软关联 edu_org_hierarchy.node_name）
 - `sort_order` (integer): 原始行号排序（8-139）, default: 0
 - `metric_category` (text): 指标英文标识（25个指标）
 - `metric_category_cn` (text): 指标中文名
@@ -287,19 +287,21 @@ Last updated: 2026-03-09
 - Sheet 2.1: 25学1-2月底稿（突围版）→ report_type=tuwei, period_type=cumulative
 - Sheet 2.2: 25学年1月底稿（突围版）→ report_type=tuwei, period_type=monthly
 - Sheet 2.3: 25学年2月底稿（突围版）→ report_type=tuwei, period_type=monthly
+- Sheet 6.1-6.2: 成本分析（fone版）→ labor_cost, salary, social_insurance, housing_fund, labor_service_fee, other_labor_cost
+- Sheet 7.1-7.2: 成本分析（突围版）→ vehicle_expense, energy_expense, travel_expense, entertainment_expense
 
 #### Import Script
 `scripts/import_biz_data.py` — reads from `docs/data/25学年经营数据.xlsx`
 
-Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy.
+Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy (level_1, level_2, level_3, label).
 
 ---
 
 ### 9. edu_biz_monthly_plan
 **Purpose**: 25学年1-6月突围计划分月版，涵盖 sheet 3
 **RLS Enabled**: No
-**Row Count**: 1,848
-**Comment**: 教育后勤25学年1-6月突围计划分月版
+**Row Count**: 1,498
+**Comment**: 25学年1-6月突围计划分月版（含节点层级关系）
 
 #### Columns
 - `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
@@ -321,7 +323,7 @@ Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table
 - Sheet 3: 1-6突围计划分月版（每个业务单元 × 2个指标 × 7列(6个月+合计)）
 
 #### Import Script
-`scripts/import_biz_data.py` — same script as edu_biz_report. Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy.
+`scripts/import_biz_data.py` — same script as edu_biz_report. Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy (level_1, level_2, level_3, label).
 
 ---
 
@@ -375,10 +377,10 @@ attendance_records (369 rows)
     ↓ (department_id)
 feishu_departments (242 rows)
 
-edu_org_hierarchy (153 rows)       ← 组织层级映射表
-    ↓ (node_name)
-edu_biz_report (9,699 rows)        ← 经营数据报表 (sheets 1.1-2.3)
-edu_biz_monthly_plan (1,848 rows)  ← 突围计划分月版 (sheet 3)
+edu_org_hierarchy (153 rows)        ← 组织层级映射表
+    ↓ (node_name, soft relation)
+edu_biz_report (11,477 rows)        ← 经营数据报表 (sheets 1.1-2.3 + 6.1-7.2)
+edu_biz_monthly_plan (1,498 rows)   ← 突围计划分月版 (sheet 3)
   ↑ Import source: docs/data/25学年经营数据.xlsx
 ```
 
