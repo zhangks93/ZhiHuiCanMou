@@ -404,28 +404,24 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
     })
 
   level2Groups.forEach((children, key) => {
-    // 只有当存在多个子节点，或者子节点的 node_name 不等于 level_2 时，才创建聚合节点
     const [level_1, level_2] = key.split('|')
-    const needsAggregation = children.length > 1 || children.some(c => c.node_name !== level_2)
+    const representativeNode = children[0]
 
-    if (needsAggregation) {
-      const representativeNode = children[0]
-
-      const level2Node: EnrichedBizDataNode = {
-        node_name: level_2,
-        sort_order: Math.min(...children.map(c => c.sort_order)),
-        hierarchy: representativeNode.hierarchy,
-        orgHierarchy: {
-          level_1,
-          level_2,
-          level_3: null,
-          label: representativeNode.orgHierarchy.label,
-        },
-        metrics: aggregateMetrics(children),
-      }
-
-      allNodes.push(level2Node)
+    // 始终创建 level_2 聚合节点（如果有子节点）
+    const level2Node: EnrichedBizDataNode = {
+      node_name: level_2,
+      sort_order: Math.min(...children.map(c => c.sort_order)),
+      hierarchy: representativeNode.hierarchy,
+      orgHierarchy: {
+        level_1,
+        level_2,
+        level_3: null,
+        label: representativeNode.orgHierarchy.label,
+      },
+      metrics: aggregateMetrics(children),
     }
+
+    allNodes.push(level2Node)
   })
 
   // 4. 按 level_1 分组，创建 level_1 聚合节点
@@ -460,27 +456,23 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
     })
 
   level1Groups.forEach((children, level_1) => {
-    // 只有当存在多个子节点，或者子节点的 node_name 不等于 level_1 时，才创建聚合节点
-    const needsAggregation = children.length > 1 || children.some(c => c.node_name !== level_1)
+    const representativeNode = children[0]
 
-    if (needsAggregation) {
-      const representativeNode = children[0]
-
-      const level1Node: EnrichedBizDataNode = {
-        node_name: level_1,
-        sort_order: Math.min(...children.map(c => c.sort_order)),
-        hierarchy: representativeNode.hierarchy,
-        orgHierarchy: {
-          level_1,
-          level_2: null,
-          level_3: null,
-          label: representativeNode.orgHierarchy.label,
-        },
-        metrics: aggregateMetrics(children),
-      }
-
-      allNodes.push(level1Node)
+    // 始终创建 level_1 聚合节点（如果有子节点）
+    const level1Node: EnrichedBizDataNode = {
+      node_name: level_1,
+      sort_order: Math.min(...children.map(c => c.sort_order)),
+      hierarchy: representativeNode.hierarchy,
+      orgHierarchy: {
+        level_1,
+        level_2: null,
+        level_3: null,
+        label: representativeNode.orgHierarchy.label,
+      },
+      metrics: aggregateMetrics(children),
     }
+
+    allNodes.push(level1Node)
   })
 
   console.log('[buildTreeWithAggregation] Output nodes:', allNodes.length)
