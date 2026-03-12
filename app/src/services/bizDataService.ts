@@ -321,27 +321,27 @@ function aggregateMetrics(children: EnrichedBizDataNode[]): EnrichedBizDataNode[
 /**
  * 构建包含聚合数据的完整树形结构
  *
- * 四层结构：
- * - Level 1: level_1（如"后勤管理中心"）
- * - Level 2: level_1 + level_2（如"后勤管理中心 > 念心湖酒店"）
- * - Level 3: level_1 + level_2 + level_3（如"后勤管理中心 > 念心湖酒店 > 酒店本级"）
- * - Level 4: node_name（实际业务单元，如"酒店早餐厅"）
+ * 动态层级结构（根据清理后的 orgHierarchy 数据）：
+ * - 如果节点有 level_3，则为叶子节点（实际业务单元）
+ * - 如果节点有 level_2 但无 level_3，则为 level_2 聚合节点
+ * - 如果节点只有 level_1，则为 level_1 聚合节点
  *
- * 从叶子节点（node_name）开始，逐层向上聚合数据
+ * 从叶子节点开始，逐层向上聚合数据，跳过空层级
  */
 export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): EnrichedBizDataNode[] {
   console.log('[buildTreeWithAggregation] Input leaf nodes:', leafNodes.length)
 
   const allNodes: EnrichedBizDataNode[] = []
 
-  // 1. 添加所有叶子节点（node_name，第四层）
+  // 1. 添加所有原始节点（叶子节点）
   allNodes.push(...leafNodes)
 
-  // 2. 按 level_1 + level_2 + level_3 分组，创建 level_3 聚合节点
+  // 2. 按 level_1 + level_2 + level_3 分组，创建 level_3 聚合节点（如果存在 level_3）
   const level3Groups = new Map<string, EnrichedBizDataNode[]>()
   leafNodes.forEach(node => {
     const { level_1, level_2, level_3 } = node.orgHierarchy
-    if (level_1 && level_2 && level_3) {
+    // 只有当 level_3 存在且 node_name 不等于 level_3 时，才需要创建 level_3 聚合节点
+    if (level_1 && level_2 && level_3 && node.node_name !== level_3) {
       const key = `${level_1}|${level_2}|${level_3}`
       if (!level3Groups.has(key)) {
         level3Groups.set(key, [])
@@ -354,7 +354,6 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
     const [level_1, level_2, level_3] = key.split('|')
     const representativeNode = children[0]
 
-    // 创建 level_3 聚合节点
     const level3Node: EnrichedBizDataNode = {
       node_name: level_3,
       sort_order: Math.min(...children.map(c => c.sort_order)),
@@ -374,83 +373,114 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
   // 3. 按 level_1 + level_2 分组，创建 level_2 聚合节点
   const level2Groups = new Map<string, EnrichedBizDataNode[]>()
 
-  // 从 level_3 聚合节点中分组
+  // 收集需要聚合到 level_2 的节点：
+  // - level_3 聚合节点（node_name === level_3）
+  // - 直接属于 level_2 的叶子节点（有 level_2 但无 level_3）
+  leafNodes.forEach(node => {
+    const { level_1, level_2, level_3 } = node.orgHierarchy
+    if (level_1 && level_2 && !level_3) {
+      // 直接属于 level_2 的叶子节点
+      const key = `${level_1}|${level_2}`
+      if (!level2Groups.has(key)) {
+        level2Groups.set(key, [])
+      }
+      level2Groups.get(key)!.push(node)
+    }
+  })
+
+  // 添加 level_3 聚合节点
   allNodes
     .filter(n => {
       const { level_1, level_2, level_3 } = n.orgHierarchy
-      // level_3 聚合节点：有 level_3，但 node_name 等于 level_3
       return level_1 && level_2 && level_3 && n.node_name === level_3
     })
     .forEach(node => {
       const { level_1, level_2 } = node.orgHierarchy
-      if (level_1 && level_2) {
-        const key = `${level_1}|${level_2}`
-        if (!level2Groups.has(key)) {
-          level2Groups.set(key, [])
-        }
-        level2Groups.get(key)!.push(node)
+      const key = `${level_1}|${level_2}`
+      if (!level2Groups.has(key)) {
+        level2Groups.set(key, [])
       }
+      level2Groups.get(key)!.push(node)
     })
 
   level2Groups.forEach((children, key) => {
+    // 只有当存在多个子节点，或者子节点的 node_name 不等于 level_2 时，才创建聚合节点
     const [level_1, level_2] = key.split('|')
-    const representativeNode = children[0]
+    const needsAggregation = children.length > 1 || children.some(c => c.node_name !== level_2)
 
-    // 创建 level_2 聚合节点
-    const level2Node: EnrichedBizDataNode = {
-      node_name: level_2,
-      sort_order: Math.min(...children.map(c => c.sort_order)),
-      hierarchy: representativeNode.hierarchy,
-      orgHierarchy: {
-        level_1,
-        level_2,
-        level_3: null,
-        label: representativeNode.orgHierarchy.label,
-      },
-      metrics: aggregateMetrics(children),
+    if (needsAggregation) {
+      const representativeNode = children[0]
+
+      const level2Node: EnrichedBizDataNode = {
+        node_name: level_2,
+        sort_order: Math.min(...children.map(c => c.sort_order)),
+        hierarchy: representativeNode.hierarchy,
+        orgHierarchy: {
+          level_1,
+          level_2,
+          level_3: null,
+          label: representativeNode.orgHierarchy.label,
+        },
+        metrics: aggregateMetrics(children),
+      }
+
+      allNodes.push(level2Node)
     }
-
-    allNodes.push(level2Node)
   })
 
   // 4. 按 level_1 分组，创建 level_1 聚合节点
   const level1Groups = new Map<string, EnrichedBizDataNode[]>()
 
-  // 从 level_2 聚合节点中分组
+  // 收集需要聚合到 level_1 的节点：
+  // - level_2 聚合节点（node_name === level_2）
+  // - 直接属于 level_1 的叶子节点（只有 level_1）
+  leafNodes.forEach(node => {
+    const { level_1, level_2 } = node.orgHierarchy
+    if (level_1 && !level_2) {
+      // 直接属于 level_1 的叶子节点
+      if (!level1Groups.has(level_1)) {
+        level1Groups.set(level_1, [])
+      }
+      level1Groups.get(level_1)!.push(node)
+    }
+  })
+
+  // 添加 level_2 聚合节点
   allNodes
     .filter(n => {
       const { level_1, level_2, level_3 } = n.orgHierarchy
-      // level_2 聚合节点：有 level_2，没有 level_3，且 node_name 等于 level_2
       return level_1 && level_2 && !level_3 && n.node_name === level_2
     })
     .forEach(node => {
       const { level_1 } = node.orgHierarchy
-      if (level_1) {
-        if (!level1Groups.has(level_1)) {
-          level1Groups.set(level_1, [])
-        }
-        level1Groups.get(level_1)!.push(node)
+      if (!level1Groups.has(level_1)) {
+        level1Groups.set(level_1, [])
       }
+      level1Groups.get(level_1)!.push(node)
     })
 
   level1Groups.forEach((children, level_1) => {
-    const representativeNode = children[0]
+    // 只有当存在多个子节点，或者子节点的 node_name 不等于 level_1 时，才创建聚合节点
+    const needsAggregation = children.length > 1 || children.some(c => c.node_name !== level_1)
 
-    // 创建 level_1 聚合节点
-    const level1Node: EnrichedBizDataNode = {
-      node_name: level_1,
-      sort_order: Math.min(...children.map(c => c.sort_order)),
-      hierarchy: representativeNode.hierarchy,
-      orgHierarchy: {
-        level_1,
-        level_2: null,
-        level_3: null,
-        label: representativeNode.orgHierarchy.label,
-      },
-      metrics: aggregateMetrics(children),
+    if (needsAggregation) {
+      const representativeNode = children[0]
+
+      const level1Node: EnrichedBizDataNode = {
+        node_name: level_1,
+        sort_order: Math.min(...children.map(c => c.sort_order)),
+        hierarchy: representativeNode.hierarchy,
+        orgHierarchy: {
+          level_1,
+          level_2: null,
+          level_3: null,
+          label: representativeNode.orgHierarchy.label,
+        },
+        metrics: aggregateMetrics(children),
+      }
+
+      allNodes.push(level1Node)
     }
-
-    allNodes.push(level1Node)
   })
 
   console.log('[buildTreeWithAggregation] Output nodes:', allNodes.length)
@@ -467,10 +497,7 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
       const { level_1, level_2, level_3 } = n.orgHierarchy
       return level_1 && level_2 && level_3 && n.node_name === level_3
     }).length,
-    level4_leafNodes: allNodes.filter(n => {
-      const { level_1, level_2, level_3 } = n.orgHierarchy
-      return level_1 && level_2 && level_3 && n.node_name !== level_3
-    }).length,
+    leafNodes: leafNodes.length,
   })
 
   return allNodes
@@ -535,34 +562,40 @@ export function buildHierarchyTree(nodes: EnrichedBizDataNode[]): HierarchyTree 
  * 获取子节点
  * 使用 orgHierarchy 字段 (level_1, level_2, level_3) 和 node_name 来确定父子关系
  *
- * 四层结构：
- * - Level 1 (只有 level_1，node_name = level_1) -> Level 2 节点
- * - Level 2 (有 level_1, level_2，node_name = level_2) -> Level 3 节点
- * - Level 3 (有 level_1, level_2, level_3，node_name = level_3) -> Level 4 节点（实际业务单元）
- * - Level 4 (有 level_1, level_2, level_3，node_name ≠ level_3) -> 无子节点
+ * 动态层级结构（根据清理后的数据）：
+ * - Level 1 节点 (只有 level_1，node_name = level_1) -> 返回所有 level_2 节点或直接子节点
+ * - Level 2 节点 (有 level_1, level_2，node_name = level_2) -> 返回所有 level_3 节点或直接子节点
+ * - Level 3 节点 (有 level_1, level_2, level_3，node_name = level_3) -> 返回所有实际业务单元
+ * - 叶子节点 (node_name ≠ 层级名称) -> 无子节点
  */
 export function getChildren(parentNode: EnrichedBizDataNode, allNodes: EnrichedBizDataNode[]): EnrichedBizDataNode[] {
   const { level_1, level_2, level_3 } = parentNode.orgHierarchy
   const { node_name } = parentNode
 
-  // Level 1 节点：返回所有匹配 level_1 的 Level 2 节点
+  // Level 1 节点：返回所有匹配 level_1 的下级节点
   if (level_1 && !level_2 && !level_3 && node_name === level_1) {
-    return allNodes.filter(n =>
-      n.orgHierarchy.level_1 === level_1 &&
-      n.orgHierarchy.level_2 !== null &&
-      n.orgHierarchy.level_3 === null &&
-      n.node_name === n.orgHierarchy.level_2
-    ).sort((a, b) => a.sort_order - b.sort_order)
+    return allNodes.filter(n => {
+      // 返回 level_2 聚合节点或直接属于 level_1 的叶子节点
+      return n.orgHierarchy.level_1 === level_1 && (
+        // level_2 聚合节点
+        (n.orgHierarchy.level_2 !== null && n.orgHierarchy.level_3 === null && n.node_name === n.orgHierarchy.level_2) ||
+        // 直接属于 level_1 的叶子节点（只有 level_1，无 level_2）
+        (n.orgHierarchy.level_2 === null && n.node_name !== level_1)
+      )
+    }).sort((a, b) => a.sort_order - b.sort_order)
   }
 
-  // Level 2 节点：返回所有匹配 level_1 + level_2 的 Level 3 节点
+  // Level 2 节点：返回所有匹配 level_1 + level_2 的下级节点
   if (level_1 && level_2 && !level_3 && node_name === level_2) {
-    return allNodes.filter(n =>
-      n.orgHierarchy.level_1 === level_1 &&
-      n.orgHierarchy.level_2 === level_2 &&
-      n.orgHierarchy.level_3 !== null &&
-      n.node_name === n.orgHierarchy.level_3
-    ).sort((a, b) => a.sort_order - b.sort_order)
+    return allNodes.filter(n => {
+      return n.orgHierarchy.level_1 === level_1 &&
+        n.orgHierarchy.level_2 === level_2 && (
+          // level_3 聚合节点
+          (n.orgHierarchy.level_3 !== null && n.node_name === n.orgHierarchy.level_3) ||
+          // 直接属于 level_2 的叶子节点（无 level_3）
+          (n.orgHierarchy.level_3 === null && n.node_name !== level_2)
+        )
+    }).sort((a, b) => a.sort_order - b.sort_order)
   }
 
   // Level 3 节点：返回所有匹配 level_1 + level_2 + level_3 的实际业务单元
@@ -575,7 +608,7 @@ export function getChildren(parentNode: EnrichedBizDataNode, allNodes: EnrichedB
     ).sort((a, b) => a.sort_order - b.sort_order)
   }
 
-  // Level 4 节点（叶子节点）：无子节点
+  // 叶子节点：无子节点
   return []
 }
 
