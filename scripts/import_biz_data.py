@@ -185,6 +185,55 @@ def load_org_hierarchy(excel_path: Path) -> list[dict]:
     return rows
 
 
+def clean_org_hierarchy(rows: list[dict]) -> list[dict]:
+    """
+    清理组织层级数据：
+    1. 如果不同层级出现相同名称，将低层级的值设为空
+    2. 如果 level_1-3 的值与 node_name 相同，将对应的 level 值设为空
+    """
+    cleaned_count = 0
+
+    for row in rows:
+        node_name = row["node_name"]
+        level_1 = row["level_1"]
+        level_2 = row["level_2"]
+        level_3 = row["level_3"]
+
+        # 检查 level_1 与 node_name 是否相同
+        if level_1 and level_1 == node_name:
+            row["level_1"] = None
+            cleaned_count += 1
+
+        # 检查 level_2 与 node_name 是否相同
+        if level_2 and level_2 == node_name:
+            row["level_2"] = None
+            cleaned_count += 1
+
+        # 检查 level_3 与 node_name 是否相同
+        if level_3 and level_3 == node_name:
+            row["level_3"] = None
+            cleaned_count += 1
+
+        # 检查不同层级之间是否有重复
+        # 如果 level_2 和 level_3 相同，清空 level_3
+        if level_2 and level_3 and level_2 == level_3:
+            row["level_3"] = None
+            cleaned_count += 1
+
+        # 如果 level_1 和 level_2 相同，清空 level_2
+        if level_1 and level_2 and level_1 == level_2:
+            row["level_2"] = None
+            cleaned_count += 1
+
+        # 如果 level_1 和 level_3 相同，清空 level_3
+        if level_1 and level_3 and level_1 == level_3:
+            row["level_3"] = None
+            cleaned_count += 1
+
+    print(f"  清理了 {cleaned_count} 个重复层级值")
+    return rows
+
+
 def safe_num(v):
     """将 Excel 单元格值转为 float 或 None"""
     if v is None:
@@ -446,6 +495,10 @@ def main():
     # 加载组织层级数据
     print(f"\n加载组织层级映射: {ORG_HIERARCHY_PATH}")
     org_hierarchy_rows = load_org_hierarchy(ORG_HIERARCHY_PATH)
+
+    # 清理组织层级数据
+    print("\n清理组织层级数据...")
+    org_hierarchy_rows = clean_org_hierarchy(org_hierarchy_rows)
 
     # 构建有效节点集合
     valid_nodes = {row["node_name"] for row in org_hierarchy_rows}
