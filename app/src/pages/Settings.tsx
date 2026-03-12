@@ -44,6 +44,10 @@ export function Settings() {
       return
     }
     saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim(), tavilyApiKey: tavilyApiKey.trim() || undefined })
+
+    // Dispatch custom event to notify AiAnalysis page (same tab)
+    window.dispatchEvent(new Event('llm-config-updated'))
+
     setFeedback({ type: 'success', msg: '已保存' })
     setTimeout(() => setFeedback(null), 2000)
   }
