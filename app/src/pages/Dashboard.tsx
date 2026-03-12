@@ -2,12 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '@/config/constants'
 import { supabase } from '@/lib/supabase'
-import { loadSessionMessages, loadSessions } from '@/lib/agent/memory'
 import {
   AlertTriangle,
   Bot,
   Calendar,
-  MessageSquare,
 } from 'lucide-react'
 
 const PERIOD_LABEL: Record<string, string> = {
@@ -53,14 +51,6 @@ interface CenterWarning {
   status: 'ok' | 'warn' | 'error'
 }
 
-interface SessionSummary {
-  id: string
-  title: string
-  updatedAt: number
-  lastUserMsg: string
-  lastAssistantMsg: string
-}
-
 interface OpportunitySummary {
   latestSnapshotDate: string | null
   activeCount: number
@@ -79,19 +69,11 @@ function asRate(v: number | null | undefined): number {
   return Math.round(Number(v) * 10000) / 100
 }
 
-function formatDate(input: string | number | null | undefined): string {
-  if (!input) return '暂无'
-  const d = new Date(input)
-  if (Number.isNaN(d.getTime())) return '暂无'
-  return d.toLocaleDateString("zh-CN")
-}
-
 export function Dashboard() {
   const navigate = useNavigate()
   const [stats, setStats] = useState<OverallStats | null>(null)
   const [todaySchedules, setTodaySchedules] = useState<ScheduleRow[]>([])
   const [warnings, setWarnings] = useState<CenterWarning[]>([])
-  const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [opportunitySummary, setOpportunitySummary] = useState<OpportunitySummary>({
     latestSnapshotDate: null,
     activeCount: 0,
@@ -212,23 +194,6 @@ export function Dashboard() {
           })
         }
 
-        const sessionRows = loadSessions().slice(0, 5)
-        const sessionSummaries: SessionSummary[] = sessionRows
-          .map((s) => {
-            const msgs = loadSessionMessages(s.id)
-            const lastUser = [...msgs].reverse().find((m) => m.role === 'user')
-            const lastAssistant = [...msgs].reverse().find((m) => m.role === 'assistant' && m.content)
-            return {
-              id: s.id,
-              title: s.title,
-              updatedAt: s.updatedAt,
-              lastUserMsg: lastUser?.content || '',
-              lastAssistantMsg: lastAssistant?.content?.slice(0, 140) || '',
-            }
-          })
-          .filter((s) => s.lastUserMsg)
-
-        setSessions(sessionSummaries)
       } catch (error) {
         console.error('Failed to load dashboard:', error)
       }
@@ -387,53 +352,26 @@ export function Dashboard() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Bot size={16} className="text-accent" />
-            <h3 className="text-sm font-bold text-[var(--color-text-strong)]">AI 最近洞察</h3>
+            <h3 className="text-sm font-bold text-[var(--color-text-strong)]">智能分析</h3>
           </div>
           <button
             onClick={() => navigate(ROUTES.AI_ANALYSIS)}
             className="text-xs font-semibold text-accent hover:text-accent-hover transition-colors"
           >
-            查看全部
+            进入
           </button>
         </div>
 
-        {sessions.length === 0 ? (
-          <div className="text-center py-8">
-            <Bot size={24} className="mx-auto mb-2 text-gray-300" />
-            <p className="text-xs text-gray-400 mb-2">暂无分析记录</p>
-            <button
-              onClick={() => navigate(ROUTES.AI_ANALYSIS)}
-              className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover transition-colors"
-            >
-              开始分析
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {sessions.slice(0, 6).map((s) => (
-              <button
-                key={s.id}
-                onClick={() => navigate(ROUTES.AI_ANALYSIS)}
-                className="text-left p-3 rounded-lg border border-[var(--color-border)] hover:border-accent hover:shadow-sm transition-all duration-200"
-              >
-                <div className="flex items-start gap-2 mb-2">
-                  <MessageSquare size={14} className="text-accent shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[var(--color-text-strong)] text-xs truncate mb-0.5">
-                      {s.title}
-                    </div>
-                    <div className="text-[10px] text-[var(--color-text-muted)]">
-                      {formatDate(s.updatedAt)}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-xs text-[var(--color-text-muted)] leading-relaxed line-clamp-2">
-                  {s.lastAssistantMsg || s.lastUserMsg}
-                </p>
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="text-center py-8">
+          <Bot size={24} className="mx-auto mb-2 text-gray-300" />
+          <p className="text-xs text-gray-400 mb-3">智能分析功能正在重新设计</p>
+          <button
+            onClick={() => navigate(ROUTES.AI_ANALYSIS)}
+            className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover transition-colors"
+          >
+            查看进度
+          </button>
+        </div>
       </section>
     </>
   )
