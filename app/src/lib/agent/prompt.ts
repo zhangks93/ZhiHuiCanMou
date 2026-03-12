@@ -46,11 +46,42 @@ export const AGENT_SYSTEM_PROMPT = `你是「智汇参谋」的 AI 数据分析�
 - 7列数据：202601-202606（6个月）+ total（合计）
 
 **数据查询最佳实践：**
-1. **全景分析**：不传任何筛选条件，获取所有层级的完整数据（推荐用于整体分析）
-2. **指标聚焦**：传 metric_category 参数，获取特定指标的完整层级树（如 revenue, pretax_profit）
-3. **层级钻取**：先查询 level_1 聚合节点，再根据 org_hierarchy 筛选下级节点
-4. **版本对比**：分别查询 report_type=fone 和 report_type=tuwei，对比年初预算与考核目标
-5. **期间分析**：使用 period_type=cumulative 查累计数据，period_type=monthly 查单月数据
+
+**层级查询模式（重要）：**
+
+1. **全景分析模式**（推荐用于首次查询）
+   - 不传任何筛选条件，获取完整层级树
+   - 返回数据包含 level_1/level_2/level_3 聚合节点 + 叶子节点
+   - 示例：query_biz_data({ period_type: "cumulative", metric_category: "revenue" })
+   - 返回结构示例：
+     * summary: { total_nodes: 200, level_1_nodes: 5, level_2_nodes: 20, level_3_nodes: 50, leaf_nodes: 125 }
+     * data 数组包含各层级节点：
+       - level_1 聚合节点：{ node_name: "后勤管理中心", is_aggregated: true, aggregation_level: "level_1", metrics: {...} }
+       - level_2 聚合节点：{ node_name: "教育园特色餐饮", is_aggregated: true, aggregation_level: "level_2", metrics: {...} }
+       - 叶子节点：{ node_name: "具体业务单元", is_aggregated: false, aggregation_level: null, metrics: {...} }
+
+2. **层级钻取模式**（用于下钻分析）
+   - 先查询 level_1 聚合节点，识别问题中心
+   - 再通过 node_name 参数筛选该中心的下级节点
+   - 示例：
+     * 第一步：query_biz_data({ metric_category: "revenue" }) → 发现"后勤管理中心"营收偏低
+     * 第二步：query_biz_data({ metric_category: "revenue", node_name: "后勤管理中心" }) → 获取该中心所有下级节点
+
+3. **指标聚焦模式**（用于单一指标深度分析）
+   - 传 metric_category 参数，获取特定指标的完整层级树
+   - 减少数据量，提高查询效率
+   - 示例：query_biz_data({ metric_category: "pretax_profit", period_type: "cumulative" })
+
+4. **版本对比模式**（用于预算达成率分析）
+   - 不传 report_type，自动返回 fone 和 tuwei 合并数据
+   - 每个节点包含 budget_fone, budget_tuwei, completion_fone, completion_tuwei
+   - 可直接对比年初预算与考核目标的达成情况
+
+**数据处理技巧：**
+- 筛选特定层级：根据 aggregation_level 字段过滤（"level_1" / "level_2" / "level_3" / null）
+- 识别聚合节点：is_aggregated === true 表示该节点是聚合计算的结果
+- 追踪层级关系：通过 org_hierarchy 字段的 level_1, level_2, level_3 追踪父子关系
+- 指标访问：metrics[metric_category] 包含 actual, budget_fone, budget_tuwei, completion_fone, completion_tuwei, diff_fone, diff_tuwei, yoy
 
 ### 👥 组织数据（242部门，891员工）
 - 覆盖161个有成员的部门

@@ -2,11 +2,66 @@ import { supabase } from '@/lib/supabase'
 import { appFetch } from '@/lib/httpClient'
 import type { ToolDefinition, AgentMemory } from './types'
 import { saveMemory, searchMemories } from './memory'
+import {
+  fetchBizReport,
+  aggregateByNode,
+  buildTreeWithAggregation,
+  fetchMonthlyPlan,
+} from '@/services/bizDataService'
+import { toAgentFormat } from './dataTransform'
 
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: 'query_biz_data',
-    description: '查询教育后勤经营数据（edu_biz_report: 11,477条）。**核心特性：默认自动返回完整层级聚合数据**，一次查询获取 level_1/level_2/level_3 聚合节点 + 叶子节点，支持多层级分析。包含25个指标类别（营收、利润、成本、人效等），153个业务节点。每个节点包含 org_hierarchy（level_1中心/level_2板块/level_3单元/label标签）和聚合标识（is_aggregated, aggregation_level）。支持按报表类型（fone年初预算/tuwei考核目标）、期间类型（cumulative累计/monthly单月）、指标类别筛选。**使用建议：不传筛选条件获取全景数据，传 metric_category 聚焦特定指标，根据 aggregation_level 筛选特定层级**。',
+    description: `查询教育后勤经营数据（edu_biz_report: 11,477条）。
+
+**核心特性：默认自动返回完整层级聚合数据**
+- 一次查询获取 level_1（5个中心）/level_2（约20个板块）/level_3（约50个单元）聚合节点 + 叶子节点（153个）
+- 每个节点包含 org_hierarchy（level_1/level_2/level_3/label）和聚合标识（is_aggregated, aggregation_level）
+- 支持25个指标类别（营收、利润、成本、人效等）
+- 自动合并 fone（年初预算）和 tuwei（考核目标）两个版本
+
+**返回数据结构：**
+{
+  "summary": {
+    "total_nodes": 200,
+    "leaf_nodes": 125,
+    "level_1_nodes": 5,
+    "level_2_nodes": 20,
+    "level_3_nodes": 50
+  },
+  "data": [
+    {
+      "node_name": "后勤管理中心",
+      "is_aggregated": true,
+      "aggregation_level": "level_1",
+      "org_hierarchy": { "level_1": "后勤管理中心", "level_2": null, "level_3": null, "label": "中心餐饮业务" },
+      "metrics": {
+        "revenue": {
+          "actual": 50000,
+          "budget_fone": 48000,
+          "budget_tuwei": 52000,
+          "completion_fone": 1.04,
+          "completion_tuwei": 0.96,
+          "diff_fone": 2000,
+          "diff_tuwei": -2000,
+          "yoy": 45000
+        }
+      }
+    }
+  ]
+}
+
+**查询模式：**
+1. 全景分析：不传筛选条件，获取所有层级完整数据
+2. 指标聚焦：传 metric_category，获取特定指标的层级树
+3. 层级钻取：传 node_name，获取特定中心/板块的下级节点
+4. 版本对比：不传 report_type，自动返回 fone 和 tuwei 合并数据
+
+**使用建议：**
+- 首次查询：传 metric_category 聚焦关键指标（如 revenue, pretax_profit）
+- 下钻分析：根据 aggregation_level 筛选特定层级，再通过 node_name 钻取
+- 数据量控制：传 metric_category 参数可大幅减少返回数据量`,
     parameters: {
       type: 'object',
       properties: {
@@ -266,321 +321,74 @@ interface MemberRow {
 async function queryBizData(args: Args): Promise<string> {
   const includeHierarchy = args.include_hierarchy !== 'false' // Default to true
 
-  // Build base query with pagination to handle large datasets
-  const PAGE_SIZE = 1000
-  let allReportData: any[] = []
-  let page = 0
-  let hasMore = true
-
-  while (hasMore) {
-    let query = supabase
-      .from('edu_biz_report')
-      .select('*')
-      .order('sort_order')
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-
-    const reportType = coerceString(args.report_type)
-    if (reportType) query = query.eq('report_type', reportType)
-
-    const periodType = coerceString(args.period_type)
-    if (periodType) query = query.eq('period_type', periodType)
-
-    const sheetCode = coerceString(args.sheet_code)
-    if (sheetCode) query = query.eq('sheet_code', sheetCode)
-
-    const period = coerceString(args.period)
-    if (period) query = query.eq('period', period)
-
-    const nodeName = coerceString(args.node_name)
-    if (nodeName) query = query.ilike('node_name', `%${nodeName}%`)
-
-    const metricCategory = coerceString(args.metric_category)
-    if (metricCategory) query = query.eq('metric_category', metricCategory)
-
-    const { data: pageData, error: reportError } = await query
-
-    if (reportError) return JSON.stringify({ error: reportError.message })
-
-    if (pageData && pageData.length > 0) {
-      allReportData = allReportData.concat(pageData)
-      hasMore = pageData.length === PAGE_SIZE
-      page++
-    } else {
-      hasMore = false
-    }
-
-    // Apply user limit if specified
-    const userLimit = coerceNumber(args.limit, 0)
-    if (userLimit > 0 && allReportData.length >= userLimit) {
-      allReportData = allReportData.slice(0, userLimit)
-      hasMore = false
-    }
+  // Use shared service layer for data fetching
+  const reportType = args.report_type as 'fone' | 'tuwei' | undefined
+  const options = {
+    period: coerceString(args.period) || undefined,
+    periodType: (coerceString(args.period_type) || 'cumulative') as 'cumulative' | 'monthly',
+    reportTypes: reportType ? [reportType] : (['fone', 'tuwei'] as ('fone' | 'tuwei')[]),
+    sheetCodes: args.sheet_code ? [coerceString(args.sheet_code)] : undefined,
   }
 
-  const reportData = allReportData
+  const reportData = await fetchBizReport(options)
 
   if (!reportData?.length) return JSON.stringify({ message: '未查询到数据', data: [] })
 
+  // Apply filters (node_name, metric_category)
+  let filteredData = reportData
+  const nodeName = coerceString(args.node_name)
+  if (nodeName) {
+    filteredData = filteredData.filter(r => r.node_name.includes(nodeName))
+  }
+  const metricCategory = coerceString(args.metric_category)
+  if (metricCategory) {
+    filteredData = filteredData.filter(r => r.metric_category === metricCategory)
+  }
+
+  // Apply user limit if specified
+  const userLimit = coerceNumber(args.limit, 0)
+  if (userLimit > 0) {
+    filteredData = filteredData.slice(0, userLimit)
+  }
+
   // If hierarchy not requested, return raw data
   if (!includeHierarchy) {
-    return JSON.stringify({ total: reportData.length, data: reportData })
+    return JSON.stringify({ total: filteredData.length, data: filteredData })
   }
 
-  // Fetch hierarchy data
-  const { data: hierarchyData, error: hierarchyError } = await supabase
-    .from('edu_org_hierarchy')
-    .select('*')
-    .limit(1000)
+  // Aggregate by node (merge fone/tuwei)
+  const foneData = filteredData.filter(r => r.report_type === 'fone')
+  const tuweiData = filteredData.filter(r => r.report_type === 'tuwei')
 
-  if (hierarchyError) {
-    console.error('[queryBizData] Hierarchy error:', hierarchyError)
-    return JSON.stringify({
-      warning: '组织层级数据加载失败，仅返回原始数据',
-      total: reportData.length,
-      data: reportData
-    })
+  // Fetch monthly plan data (optional, for enrichment)
+  let monthlyPlan: any[] = []
+  try {
+    monthlyPlan = await fetchMonthlyPlan()
+  } catch (e) {
+    console.warn('[queryBizData] Failed to fetch monthly plan:', e)
   }
 
-  // Create hierarchy map
-  const hierarchyMap = new Map(
-    (hierarchyData ?? []).map(h => [h.node_name, h])
-  )
+  const nodes = aggregateByNode(foneData, tuweiData, monthlyPlan)
 
-  // Enrich report data with hierarchy info
-  const enrichedData = reportData.map(row => ({
-    ...row,
-    org_hierarchy: hierarchyMap.get(row.node_name) || null
-  }))
+  // Build hierarchy with aggregation using shared service
+  const allNodesWithHierarchy = buildTreeWithAggregation(nodes)
 
-  // Group by node_name and metric_category to aggregate fone/tuwei
-  const nodeMetricMap = new Map<string, any>()
-
-  for (const row of enrichedData) {
-    const key = `${row.node_name}|${row.metric_category}`
-    if (!nodeMetricMap.has(key)) {
-      nodeMetricMap.set(key, {
-        node_name: row.node_name,
-        metric_category: row.metric_category,
-        metric_category_cn: row.metric_category_cn,
-        sheet_code: row.sheet_code,
-        period_type: row.period_type,
-        period: row.period,
-        sort_order: row.sort_order,
-        org_hierarchy: row.org_hierarchy,
-        actual_value: null,
-        budget_fone: null,
-        budget_tuwei: null,
-        completion_fone: null,
-        completion_tuwei: null,
-        diff_fone: null,
-        diff_tuwei: null,
-        yoy_value: null,
-      })
-    }
-
-    const node = nodeMetricMap.get(key)!
-    if (row.report_type === 'fone') {
-      node.actual_value = row.actual_value
-      node.budget_fone = row.budget_value
-      node.completion_fone = row.completion_rate
-      node.diff_fone = row.diff_value
-      node.yoy_value = row.yoy_value
-    } else if (row.report_type === 'tuwei') {
-      if (node.actual_value === null) node.actual_value = row.actual_value
-      node.budget_tuwei = row.budget_value
-      node.completion_tuwei = row.completion_rate
-      node.diff_tuwei = row.diff_value
-      if (node.yoy_value === null) node.yoy_value = row.yoy_value
-    }
-  }
-
-  const leafNodes = Array.from(nodeMetricMap.values())
-
-  // Build hierarchy aggregation
-  const allNodes = buildHierarchyAggregation(leafNodes)
+  // Transform to Agent-friendly format
+  const agentNodes = toAgentFormat(allNodesWithHierarchy)
 
   return JSON.stringify({
     summary: {
-      total_nodes: allNodes.length,
-      leaf_nodes: leafNodes.length,
-      level_1_nodes: allNodes.filter(n => n.is_aggregated && n.aggregation_level === 'level_1').length,
-      level_2_nodes: allNodes.filter(n => n.is_aggregated && n.aggregation_level === 'level_2').length,
-      level_3_nodes: allNodes.filter(n => n.is_aggregated && n.aggregation_level === 'level_3').length,
+      total_nodes: agentNodes.length,
+      leaf_nodes: agentNodes.filter(n => !n.is_aggregated).length,
+      level_1_nodes: agentNodes.filter(n => n.aggregation_level === 'level_1').length,
+      level_2_nodes: agentNodes.filter(n => n.aggregation_level === 'level_2').length,
+      level_3_nodes: agentNodes.filter(n => n.aggregation_level === 'level_3').length,
     },
-    data: allNodes,
+    data: agentNodes,
   })
 }
 
-function buildHierarchyAggregation(leafNodes: any[]): any[] {
-  const allNodes = [...leafNodes.map(n => ({ ...n, is_aggregated: false, aggregation_level: null }))]
-
-  // Group by level_3
-  const level3Groups = new Map<string, any[]>()
-  leafNodes.forEach(node => {
-    const { level_1, level_2, level_3 } = node.org_hierarchy || {}
-    if (level_1 && level_2 && level_3 && node.node_name !== level_3) {
-      const key = `${level_1}|${level_2}|${level_3}|${node.metric_category}`
-      if (!level3Groups.has(key)) level3Groups.set(key, [])
-      level3Groups.get(key)!.push(node)
-    }
-  })
-
-  level3Groups.forEach((children, key) => {
-    const [level_1, level_2, level_3, metric_category] = key.split('|')
-    const representative = children[0]
-
-    allNodes.push({
-      node_name: level_3,
-      metric_category,
-      metric_category_cn: representative.metric_category_cn,
-      sheet_code: representative.sheet_code,
-      period_type: representative.period_type,
-      period: representative.period,
-      sort_order: Math.min(...children.map(c => c.sort_order)),
-      org_hierarchy: { level_1, level_2, level_3, label: representative.org_hierarchy?.label },
-      actual_value: children.reduce((sum, c) => sum + (c.actual_value ?? 0), 0),
-      budget_fone: children.reduce((sum, c) => sum + (c.budget_fone ?? 0), 0),
-      budget_tuwei: children.reduce((sum, c) => sum + (c.budget_tuwei ?? 0), 0),
-      completion_fone: null,
-      completion_tuwei: null,
-      diff_fone: null,
-      diff_tuwei: null,
-      yoy_value: children.reduce((sum, c) => sum + (c.yoy_value ?? 0), 0),
-      is_aggregated: true,
-      aggregation_level: 'level_3',
-    })
-  })
-
-  // Recalculate completion rates for level_3 nodes
-  allNodes.filter(n => n.is_aggregated && n.aggregation_level === 'level_3').forEach(node => {
-    if (node.budget_fone > 0) {
-      node.completion_fone = node.actual_value / node.budget_fone
-      node.diff_fone = node.actual_value - node.budget_fone
-    }
-    if (node.budget_tuwei > 0) {
-      node.completion_tuwei = node.actual_value / node.budget_tuwei
-      node.diff_tuwei = node.actual_value - node.budget_tuwei
-    }
-  })
-
-  // Group by level_2
-  const level2Groups = new Map<string, any[]>()
-
-  // Collect leaf nodes directly under level_2
-  leafNodes.forEach(node => {
-    const { level_1, level_2, level_3 } = node.org_hierarchy || {}
-    if (level_1 && level_2 && !level_3) {
-      const key = `${level_1}|${level_2}|${node.metric_category}`
-      if (!level2Groups.has(key)) level2Groups.set(key, [])
-      level2Groups.get(key)!.push(node)
-    }
-  })
-
-  // Add level_3 aggregated nodes
-  allNodes.filter(n => n.is_aggregated && n.aggregation_level === 'level_3').forEach(node => {
-    const { level_1, level_2 } = node.org_hierarchy || {}
-    const key = `${level_1}|${level_2}|${node.metric_category}`
-    if (!level2Groups.has(key)) level2Groups.set(key, [])
-    level2Groups.get(key)!.push(node)
-  })
-
-  level2Groups.forEach((children, key) => {
-    const [level_1, level_2, metric_category] = key.split('|')
-    const representative = children[0]
-
-    const aggregated = {
-      node_name: level_2,
-      metric_category,
-      metric_category_cn: representative.metric_category_cn,
-      sheet_code: representative.sheet_code,
-      period_type: representative.period_type,
-      period: representative.period,
-      sort_order: Math.min(...children.map(c => c.sort_order)),
-      org_hierarchy: { level_1, level_2, level_3: null, label: representative.org_hierarchy?.label },
-      actual_value: children.reduce((sum, c) => sum + (c.actual_value ?? 0), 0),
-      budget_fone: children.reduce((sum, c) => sum + (c.budget_fone ?? 0), 0),
-      budget_tuwei: children.reduce((sum, c) => sum + (c.budget_tuwei ?? 0), 0),
-      completion_fone: null as number | null,
-      completion_tuwei: null as number | null,
-      diff_fone: null as number | null,
-      diff_tuwei: null as number | null,
-      yoy_value: children.reduce((sum, c) => sum + (c.yoy_value ?? 0), 0),
-      is_aggregated: true,
-      aggregation_level: 'level_2',
-    }
-
-    if (aggregated.budget_fone > 0) {
-      aggregated.completion_fone = aggregated.actual_value / aggregated.budget_fone
-      aggregated.diff_fone = aggregated.actual_value - aggregated.budget_fone
-    }
-    if (aggregated.budget_tuwei > 0) {
-      aggregated.completion_tuwei = aggregated.actual_value / aggregated.budget_tuwei
-      aggregated.diff_tuwei = aggregated.actual_value - aggregated.budget_tuwei
-    }
-
-    allNodes.push(aggregated)
-  })
-
-  // Group by level_1
-  const level1Groups = new Map<string, any[]>()
-
-  // Collect leaf nodes directly under level_1
-  leafNodes.forEach(node => {
-    const { level_1, level_2 } = node.org_hierarchy || {}
-    if (level_1 && !level_2) {
-      const key = `${level_1}|${node.metric_category}`
-      if (!level1Groups.has(key)) level1Groups.set(key, [])
-      level1Groups.get(key)!.push(node)
-    }
-  })
-
-  // Add level_2 aggregated nodes
-  allNodes.filter(n => n.is_aggregated && n.aggregation_level === 'level_2').forEach(node => {
-    const { level_1 } = node.org_hierarchy || {}
-    const key = `${level_1}|${node.metric_category}`
-    if (!level1Groups.has(key)) level1Groups.set(key, [])
-    level1Groups.get(key)!.push(node)
-  })
-
-  level1Groups.forEach((children, key) => {
-    const [level_1, metric_category] = key.split('|')
-    const representative = children[0]
-
-    const aggregated = {
-      node_name: level_1,
-      metric_category,
-      metric_category_cn: representative.metric_category_cn,
-      sheet_code: representative.sheet_code,
-      period_type: representative.period_type,
-      period: representative.period,
-      sort_order: Math.min(...children.map(c => c.sort_order)),
-      org_hierarchy: { level_1, level_2: null, level_3: null, label: representative.org_hierarchy?.label },
-      actual_value: children.reduce((sum, c) => sum + (c.actual_value ?? 0), 0),
-      budget_fone: children.reduce((sum, c) => sum + (c.budget_fone ?? 0), 0),
-      budget_tuwei: children.reduce((sum, c) => sum + (c.budget_tuwei ?? 0), 0),
-      completion_fone: null as number | null,
-      completion_tuwei: null as number | null,
-      diff_fone: null as number | null,
-      diff_tuwei: null as number | null,
-      yoy_value: children.reduce((sum, c) => sum + (c.yoy_value ?? 0), 0),
-      is_aggregated: true,
-      aggregation_level: 'level_1',
-    }
-
-    if (aggregated.budget_fone > 0) {
-      aggregated.completion_fone = aggregated.actual_value / aggregated.budget_fone
-      aggregated.diff_fone = aggregated.actual_value - aggregated.budget_fone
-    }
-    if (aggregated.budget_tuwei > 0) {
-      aggregated.completion_tuwei = aggregated.actual_value / aggregated.budget_tuwei
-      aggregated.diff_tuwei = aggregated.actual_value - aggregated.budget_tuwei
-    }
-
-    allNodes.push(aggregated)
-  })
-
-  return allNodes.sort((a, b) => a.sort_order - b.sort_order)
-}
+// Removed: buildHierarchyAggregation function - now using shared service layer from bizDataService.ts
 
 function collectDescendantDeptIds(seedIds: string[], allDepartments: DepartmentRow[]): Set<string> {
   const byParent = new Map<string, string[]>()
