@@ -11,24 +11,30 @@ import type { EnrichedBizDataNode } from '@/lib/supabase'
 
 export class BusinessAnalysisSkill extends Skill {
   name = 'business_analysis'
-  description = '分析教育后勤经营数据，支持总览分析、对比分析、下钻分析。可以查询营收、利润、毛利率等关键指标。'
+  description = '分析教育后勤经营数据，支持总览分析、对比分析、下钻分析、趋势分析。可以查询营收、利润、毛利率等关键指标。'
 
   parameters: SkillParameter[] = [
     {
       name: 'query_type',
-      description: '查询类型: summary(总览分析), comparison(中心对比), drill_down(节点下钻)',
+      description: '查询类型: summary(总览分析), comparison(中心对比), drill_down(节点下钻), trend(趋势分析)',
       required: true,
       type: 'string',
     },
     {
       name: 'period',
-      description: '期间，如 "202603" 表示2026年3月累计数据',
+      description: '期间，如 "202603" 表示2026年3月累计数据，"202601-202603" 表示1月到3月的趋势分析',
       required: false,
       type: 'string',
     },
     {
       name: 'report_type',
       description: '报表类型: fone(年初预算) 或 tuwei(突围考核)，默认 fone',
+      required: false,
+      type: 'string',
+    },
+    {
+      name: 'metric_category',
+      description: '指标类别: revenue(营收), pretax_profit(利润), gross_margin(毛利率), labor_cost_rate(人工成本率)等',
       required: false,
       type: 'string',
     },
@@ -45,8 +51,14 @@ export class BusinessAnalysisSkill extends Skill {
     const period = params.period as string | undefined
     const reportType = (params.report_type as 'fone' | 'tuwei') || 'fone'
     const nodeName = params.node_name as string | undefined
+    const metricCategory = params.metric_category as string | undefined
 
     try {
+      // Handle trend analysis separately (requires multiple periods)
+      if (queryType === 'trend') {
+        return this.generateTrendAnalysis(period, reportType, metricCategory)
+      }
+
       // 1. 查询 Supabase 数据
       console.log('[BusinessAnalysisSkill] Fetching data:', { period, reportType })
 
@@ -76,7 +88,7 @@ export class BusinessAnalysisSkill extends Skill {
       // 3. 根据 query_type 生成分析结果
       switch (queryType) {
         case 'summary':
-          return this.generateSummary(aggregated, reportType)
+          return this.generateSummary(aggregated, reportType, metricCategory)
         case 'comparison':
           return this.generateComparison(aggregated, reportType)
         case 'drill_down':
@@ -101,7 +113,7 @@ export class BusinessAnalysisSkill extends Skill {
   /**
    * 总览分析 - 显示整体经营情况
    */
-  private generateSummary(nodes: EnrichedBizDataNode[], reportType: 'fone' | 'tuwei'): SkillResult {
+  private generateSummary(nodes: EnrichedBizDataNode[], reportType: 'fone' | 'tuwei', metricCategory?: string): SkillResult {
     const tree = buildHierarchyTree(nodes)
 
     // 获取一级节点（中心级）
@@ -137,6 +149,7 @@ export class BusinessAnalysisSkill extends Skill {
     // 构建分析数据
     const summary = {
       reportType: reportType === 'fone' ? '年初预算' : '突围考核',
+      focusMetric: metricCategory || 'all',
       overall: {
         revenue: {
           actual: totalRevenue,
@@ -317,5 +330,187 @@ export class BusinessAnalysisSkill extends Skill {
         },
       ],
     }
+  }
+
+  /**
+   * 趋势分析 - 分析多个期间的数据趋势
+   */
+  private async generateTrendAnalysis(
+    period: string | undefined,
+    reportType: 'fone' | 'tuwei',
+    metricCategory?: string
+  ): Promise<SkillResult> {
+    if (!period) {
+      return {
+        success: false,
+        message: '趋势分析需要指定期间范围，如 "202601-202603"',
+        data: null,
+      }
+    }
+
+    // Parse period range
+    const periodMatch = period.match(/^(\d{6})-(\d{6})$/)
+    if (!periodMatch) {
+      return {
+        success: false,
+        message: '期间格式错误，应为 "YYYYMM-YYYYMM"，如 "202601-202603"',
+        data: null,
+      }
+    }
+
+    const startPeriod = periodMatch[1]
+    const endPeriod = periodMatch[2]
+
+    // Generate list of periods
+    const periods = this.generatePeriodList(startPeriod, endPeriod)
+    if (periods.length === 0) {
+      return {
+        success: false,
+        message: '无效的期间范围',
+        data: null,
+      }
+    }
+
+    console.log('[BusinessAnalysisSkill] Trend analysis for periods:', periods)
+
+    // Fetch data for all periods
+    const trendData: Array<{
+      period: string
+      revenue: number
+      profit: number
+      margin: number
+      laborCostRate: number
+    }> = []
+
+    const completionField = reportType === 'fone' ? 'completion_fone' : 'completion_tuwei'
+    const budgetField = reportType === 'fone' ? 'budget_fone' : 'budget_tuwei'
+
+    for (const p of periods) {
+      try {
+        const reports = await fetchBizReport({
+          period: p,
+          periodType: 'cumulative',
+          reportTypes: [reportType],
+        })
+
+        if (reports && reports.length > 0) {
+          const monthlyPlans = await fetchMonthlyPlan()
+          const foneReports = reportType === 'fone' ? reports : []
+          const tuweiReports = reportType === 'tuwei' ? reports : []
+          const aggregated = aggregateByNode(foneReports, tuweiReports, monthlyPlans)
+          const tree = buildHierarchyTree(aggregated)
+
+          // Calculate totals for this period
+          let totalRevenue = 0
+          let totalProfit = 0
+          let totalMargin = 0
+          let totalLaborCostRate = 0
+          let count = 0
+
+          tree.level1.forEach(node => {
+            totalRevenue += node.metrics.revenue?.actual || 0
+            totalProfit += node.metrics.pretax_profit?.actual || 0
+            totalMargin += node.metrics.gross_margin?.actual || 0
+            totalLaborCostRate += node.metrics.labor_cost_rate?.actual || 0
+            count++
+          })
+
+          trendData.push({
+            period: p,
+            revenue: totalRevenue,
+            profit: totalProfit,
+            margin: count > 0 ? totalMargin / count : 0,
+            laborCostRate: count > 0 ? totalLaborCostRate / count : 0,
+          })
+        }
+      } catch (error) {
+        console.warn(`[BusinessAnalysisSkill] Failed to fetch data for period ${p}:`, error)
+      }
+    }
+
+    if (trendData.length === 0) {
+      return {
+        success: false,
+        message: '未找到趋势数据',
+        data: null,
+      }
+    }
+
+    // Calculate month-over-month growth
+    const trendWithGrowth = trendData.map((data, index) => {
+      if (index === 0) {
+        return { ...data, revenueGrowth: null, profitGrowth: null }
+      }
+
+      const prev = trendData[index - 1]
+      const revenueGrowth = prev.revenue > 0 ? ((data.revenue - prev.revenue) / prev.revenue) * 100 : null
+      const profitGrowth = prev.profit > 0 ? ((data.profit - prev.profit) / prev.profit) * 100 : null
+
+      return {
+        ...data,
+        revenueGrowth,
+        profitGrowth,
+      }
+    })
+
+    // Calculate overall trend
+    const firstPeriod = trendData[0]
+    const lastPeriod = trendData[trendData.length - 1]
+    const overallRevenueGrowth = firstPeriod.revenue > 0
+      ? ((lastPeriod.revenue - firstPeriod.revenue) / firstPeriod.revenue) * 100
+      : null
+    const overallProfitGrowth = firstPeriod.profit > 0
+      ? ((lastPeriod.profit - firstPeriod.profit) / firstPeriod.profit) * 100
+      : null
+
+    return {
+      success: true,
+      message: '趋势分析完成',
+      data: {
+        reportType: reportType === 'fone' ? '年初预算' : '突围考核',
+        periodRange: `${startPeriod}-${endPeriod}`,
+        focusMetric: metricCategory || 'all',
+        trend: trendWithGrowth,
+        summary: {
+          overallRevenueGrowth,
+          overallProfitGrowth,
+          averageRevenue: trendData.reduce((sum, d) => sum + d.revenue, 0) / trendData.length,
+          averageProfit: trendData.reduce((sum, d) => sum + d.profit, 0) / trendData.length,
+        },
+      },
+      visualizations: [
+        {
+          type: 'chart',
+          data: trendWithGrowth,
+        },
+      ],
+    }
+  }
+
+  /**
+   * Generate list of periods between start and end
+   */
+  private generatePeriodList(startPeriod: string, endPeriod: string): string[] {
+    const periods: string[] = []
+
+    const startYear = parseInt(startPeriod.substring(0, 4))
+    const startMonth = parseInt(startPeriod.substring(4, 6))
+    const endYear = parseInt(endPeriod.substring(0, 4))
+    const endMonth = parseInt(endPeriod.substring(4, 6))
+
+    let currentYear = startYear
+    let currentMonth = startMonth
+
+    while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
+      periods.push(`${currentYear}${String(currentMonth).padStart(2, '0')}`)
+
+      currentMonth++
+      if (currentMonth > 12) {
+        currentMonth = 1
+        currentYear++
+      }
+    }
+
+    return periods
   }
 }

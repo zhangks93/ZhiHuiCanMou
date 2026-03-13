@@ -61,7 +61,8 @@
       "Bash(\"C:/Users/HLJY/AppData/Local/Python/bin/python3.exe\":*)",
       "Bash(~/.claude/bin/codeagent-wrapper:*)",
       "Bash(grep:*)",
-      "Bash(npm list:*)"
+      "Bash(npm list:*)",
+      "WebFetch(domain:www.mintmcp.com)"
     ]
   },
   "enableAllProjectMcpServers": true,
