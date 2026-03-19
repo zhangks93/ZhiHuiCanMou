@@ -89,6 +89,7 @@ export interface EduBizReport {
   created_at: string
   // JOIN with edu_org_hierarchy (manually enriched)
   org_hierarchy?: {
+    level_0: string | null
     level_1: string | null
     level_2: string | null
     level_3: string | null
@@ -138,6 +139,7 @@ export interface BizDataNode {
 // 增强的业务数据节点（包含 edu_org_hierarchy 层级信息）
 export interface EnrichedBizDataNode extends BizDataNode {
   orgHierarchy: {
+    level_0: string | null
     level_1: string | null
     level_2: string | null
     level_3: string | null

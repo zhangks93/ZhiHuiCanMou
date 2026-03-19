@@ -174,6 +174,7 @@ def load_org_hierarchy(excel_path: Path) -> list[dict]:
 
         rows.append({
             "node_name": node_name,
+            "level_0": "智汇后勤集团",
             "level_1": level_1,
             "level_2": level_2,
             "level_3": level_3,

@@ -62,7 +62,10 @@
       "Bash(~/.claude/bin/codeagent-wrapper:*)",
       "Bash(grep:*)",
       "Bash(npm list:*)",
-      "WebFetch(domain:www.mintmcp.com)"
+      "WebFetch(domain:www.mintmcp.com)",
+      "Bash(claude clear:*)",
+      "WebFetch(domain:hailiang.feishu.cn)",
+      "Bash(node:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -269,12 +269,14 @@ function createEmptyNode(row: EduBizReport | EduBizMonthlyPlan): EnrichedBizData
   // Extract orgHierarchy from EduBizReport if available
   const orgHierarchy = 'org_hierarchy' in row && row.org_hierarchy
     ? {
+        level_0: row.org_hierarchy.level_0,
         level_1: row.org_hierarchy.level_1,
         level_2: row.org_hierarchy.level_2,
         level_3: row.org_hierarchy.level_3,
         label: row.org_hierarchy.label,
       }
     : {
+        level_0: null,
         level_1: null,
         level_2: null,
         level_3: null,
@@ -396,6 +398,7 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
       sort_order: Math.min(...children.map(c => c.sort_order)),
       hierarchy: representativeNode.hierarchy,
       orgHierarchy: {
+        level_0: representativeNode.orgHierarchy.level_0,
         level_1,
         level_2,
         level_3,
@@ -455,6 +458,7 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
       sort_order: Math.min(...children.map(c => c.sort_order)),
       hierarchy: representativeNode.hierarchy,
       orgHierarchy: {
+        level_0: representativeNode.orgHierarchy.level_0,
         level_1,
         level_2,
         level_3: null,
@@ -511,6 +515,7 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
       sort_order: Math.min(...children.map(c => c.sort_order)),
       hierarchy: representativeNode.hierarchy,
       orgHierarchy: {
+        level_0: representativeNode.orgHierarchy.level_0,
         level_1,
         level_2: null,
         level_3: null,
@@ -522,8 +527,40 @@ export function buildTreeWithAggregation(leafNodes: EnrichedBizDataNode[]): Enri
     allNodes.push(level1Node)
   })
 
+  // 5. 创建 level_0 聚合节点（智汇后勤集团）
+  // 收集所有 level_1 聚合节点
+  const level0Children = allNodes.filter(n => {
+    const { level_1, level_2, level_3 } = n.orgHierarchy
+    return level_1 && !level_2 && !level_3 && n.node_name === level_1
+  })
+
+  if (level0Children.length > 0) {
+    const representativeNode = level0Children[0]
+    const level_0 = representativeNode.orgHierarchy.level_0 ?? '智汇后勤集团'
+
+    const level0Node: EnrichedBizDataNode = {
+      node_name: level_0,
+      sort_order: 0,
+      hierarchy: representativeNode.hierarchy,
+      orgHierarchy: {
+        level_0,
+        level_1: null,
+        level_2: null,
+        level_3: null,
+        label: null,
+      },
+      metrics: aggregateMetrics(level0Children),
+    }
+
+    allNodes.push(level0Node)
+  }
+
   console.log('[buildTreeWithAggregation] Output nodes:', allNodes.length)
   console.log('[buildTreeWithAggregation] Breakdown:', {
+    level0: allNodes.filter(n => {
+      const { level_0, level_1 } = n.orgHierarchy
+      return level_0 && !level_1 && n.node_name === level_0
+    }).length,
     level1: allNodes.filter(n => {
       const { level_1, level_2, level_3 } = n.orgHierarchy
       return level_1 && !level_2 && !level_3 && n.node_name === level_1
@@ -608,8 +645,18 @@ export function buildHierarchyTree(nodes: EnrichedBizDataNode[]): HierarchyTree 
  * - 叶子节点 (node_name ≠ 层级名称) -> 无子节点
  */
 export function getChildren(parentNode: EnrichedBizDataNode, allNodes: EnrichedBizDataNode[]): EnrichedBizDataNode[] {
-  const { level_1, level_2, level_3 } = parentNode.orgHierarchy
+  const { level_0, level_1, level_2, level_3 } = parentNode.orgHierarchy
   const { node_name } = parentNode
+
+  // Level 0 节点：返回所有 level_1 聚合节点
+  if (level_0 && !level_1 && !level_2 && !level_3 && node_name === level_0) {
+    return allNodes.filter(n =>
+      n.orgHierarchy.level_1 !== null &&
+      n.orgHierarchy.level_2 === null &&
+      n.orgHierarchy.level_3 === null &&
+      n.node_name === n.orgHierarchy.level_1
+    ).sort((a, b) => a.sort_order - b.sort_order)
+  }
 
   // Level 1 节点：返回所有匹配 level_1 的下级节点
   if (level_1 && !level_2 && !level_3 && node_name === level_1) {

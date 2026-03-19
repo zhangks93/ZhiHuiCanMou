@@ -1,5 +1,5 @@
 export interface LLMConfig {
-  provider: 'openai' | 'claude'
+  provider: 'openai' | 'claude' | 'deepseek' | 'kimi' | 'openrouter'
   apiUrl: string
   apiKey: string
   model: string
@@ -23,11 +23,17 @@ const STORAGE_KEY = 'llm_config'
 export const DEFAULT_URLS: Record<LLMConfig['provider'], string> = {
   openai: 'https://api.openai.com/v1/chat/completions',
   claude: 'https://api.anthropic.com/v1/messages',
+  deepseek: 'https://api.deepseek.com/chat/completions',
+  kimi: 'https://api.moonshot.cn/v1/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
 }
 
 export const DEFAULT_MODELS: Record<LLMConfig['provider'], string> = {
   openai: 'gpt-4o-mini',
   claude: 'claude-sonnet-4-20250514',
+  deepseek: 'deepseek-chat',
+  kimi: 'moonshot-v1-8k',
+  openrouter: 'openai/gpt-4o-mini',
 }
 
 /** Read raw store from localStorage, migrating old flat format if needed */

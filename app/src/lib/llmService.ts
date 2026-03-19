@@ -67,6 +67,38 @@ async function callOpenAI(config: LLMConfig, dataSummary: string): Promise<Insig
   return validateInsights(parsed.insights)
 }
 
+async function callOpenRouter(config: LLMConfig, dataSummary: string): Promise<Insight[]> {
+  const res = await appFetch(config.apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.apiKey}`,
+      'HTTP-Referer': window.location.origin,
+      'X-Title': '智慧参谋',
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: dataSummary },
+      ],
+      max_tokens: 2000,
+    }),
+  })
+
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) throw new Error('API Key 无效，请检查设置')
+    throw new Error(`OpenRouter API 错误: ${res.status}`)
+  }
+
+  const json = await res.json()
+  const content = json.choices?.[0]?.message?.content
+  if (!content) throw new Error('OpenRouter 返回内容为空')
+
+  const parsed = JSON.parse(content)
+  return validateInsights(parsed.insights)
+}
+
 async function callClaude(config: LLMConfig, dataSummary: string): Promise<Insight[]> {
   const res = await appFetch(config.apiUrl, {
     method: 'POST',
@@ -117,5 +149,9 @@ export async function analyzeBizData(
   if (config.provider === 'claude') {
     return callClaude(config, dataSummary)
   }
+  if (config.provider === 'openrouter') {
+    return callOpenRouter(config, dataSummary)
+  }
+  // OpenAI, DeepSeek, Kimi all use OpenAI-compatible format
   return callOpenAI(config, dataSummary)
 }

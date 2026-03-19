@@ -26,8 +26,9 @@ import { CSS } from '@dnd-kit/utilities'
 import { ChevronRight, ChevronDown, GripVertical, Filter } from 'lucide-react'
 import type { EnrichedBizDataNode, MetricCategory } from '@/lib/supabase'
 import { METRIC_LABELS } from '@/lib/constants'
-import { fmt, fmtPct, getCompletionColor } from '@/lib/format'
+import { fmt, fmtPct } from '@/lib/format'
 import { getChildren, buildTreeWithAggregation } from '@/services/bizDataService'
+import { getNodeThresholds, getAlertLevel, getAlertColorClass, getAlertBgClass, getAlertBorderClass } from '@/lib/thresholdConfig'
 
 interface TableViewProps {
   nodes: EnrichedBizDataNode[]
@@ -82,8 +83,21 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
   // State for metric order
   const [metricOrder, setMetricOrder] = useState<MetricCategory[]>(selectedMetrics)
 
+  // State for threshold refresh trigger
+  const [thresholdVersion, setThresholdVersion] = useState(0)
+
+  // Listen for threshold updates
+  useMemo(() => {
+    const handleThresholdUpdate = () => {
+      setThresholdVersion(v => v + 1)
+    }
+    window.addEventListener('threshold-updated', handleThresholdUpdate)
+    return () => window.removeEventListener('threshold-updated', handleThresholdUpdate)
+  }, [])
+
   // State for aggregation level filter (based on edu_org_hierarchy levels)
   const [showLevels, setShowLevels] = useState({
+    level0: true,   // level_0 nodes (集团 root)
     level1: true,   // level_1 nodes (top level)
     level2: true,   // level_2 nodes (second level)
     level3: true,   // level_3 nodes (third level)
@@ -101,9 +115,12 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
   }, [nodes])
 
   // Determine node level based on orgHierarchy and node_name
-  const getNodeLevel = (node: EnrichedBizDataNode): 1 | 2 | 3 | 4 | null => {
-    const { level_1, level_2, level_3 } = node.orgHierarchy
+  const getNodeLevel = (node: EnrichedBizDataNode): 0 | 1 | 2 | 3 | 4 | null => {
+    const { level_0, level_1, level_2, level_3 } = node.orgHierarchy
     const { node_name } = node
+
+    // Level 0: only level_0, node_name = level_0 (集团根节点)
+    if (level_0 && !level_1 && !level_2 && !level_3 && node_name === level_0) return 0
 
     // Level 1: only level_1, node_name = level_1
     if (level_1 && !level_2 && !level_3 && node_name === level_1) return 1
@@ -122,7 +139,12 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
 
   // Filter nodes based on selected levels and get only top-level nodes for display
   const filteredRootNodes = useMemo(() => {
-    // Return only level_1 nodes as root nodes
+    // Return the level_0 node as the single root (if visible), else fall back to level_1 nodes
+    const level0Nodes = allNodesWithAggregation.filter(n => getNodeLevel(n) === 0)
+    if (level0Nodes.length > 0 && showLevels.level0) {
+      return level0Nodes
+    }
+    // Fallback: show level_1 nodes directly if level_0 is hidden or absent
     return allNodesWithAggregation.filter(n => {
       const level = getNodeLevel(n)
       return level === 1 && showLevels.level1
@@ -206,16 +228,24 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
         header: `${METRIC_LABELS[metric]} - 完成率`,
         cell: ({ getValue }: { getValue: () => unknown }) => {
           const value = getValue() as number | null
+          const thresholds = getNodeThresholds()
+          const alertLevel = getAlertLevel(value, thresholds)
+          const colorClass = getAlertColorClass(alertLevel)
+          const bgClass = getAlertBgClass(alertLevel)
+          const borderClass = getAlertBorderClass(alertLevel)
+
           return (
-            <span className={`font-semibold ${getCompletionColor(value)}`}>
-              {fmtPct(value)}
-            </span>
+            <div className={`inline-flex items-center px-2.5 py-1 rounded-md border ${bgClass} ${borderClass}`}>
+              <span className={`font-semibold text-sm ${colorClass}`}>
+                {fmtPct(value)}
+              </span>
+            </div>
           )
         },
         size: 100,
       },
     ]),
-  ], [metricOrder, budgetField, completionField, allNodesWithAggregation])
+  ], [metricOrder, budgetField, completionField, allNodesWithAggregation, thresholdVersion])
 
   const table = useReactTable({
     data: filteredRootNodes,
@@ -227,6 +257,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
       // Filter children based on level visibility
       return children.filter(child => {
         const level = getNodeLevel(child)
+        if (level === 1) return showLevels.level1
         if (level === 2) return showLevels.level2
         if (level === 3) return showLevels.level3
         if (level === 4) return showLevels.level4
@@ -255,6 +286,15 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
           <span className="text-sm font-medium text-gray-700">显示层级:</span>
         </div>
         <div className="flex flex-wrap gap-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showLevels.level0}
+              onChange={(e) => setShowLevels(prev => ({ ...prev, level0: e.target.checked }))}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700">集团（level_0）</span>
+          </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -319,8 +359,8 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
                   {table.getRowModel().rows.map(row => {
                     const firstCell = row.getVisibleCells()[0]
                     return (
-                      <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-sm w-80">
+                      <tr key={row.id} className="hover:bg-gray-50 transition-colors h-[52px]">
+                        <td className="px-4 text-sm w-80 h-[52px] align-middle">
                           {flexRender(firstCell.column.columnDef.cell, firstCell.getContext())}
                         </td>
                       </tr>
@@ -362,15 +402,15 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
                   {table.getRowModel().rows.map(row => {
                     const metricCells = row.getVisibleCells().slice(1)
                     return (
-                      <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={row.id} className="hover:bg-gray-50 transition-colors h-[52px]">
                         {metricOrder.map(metric => {
                           const actualCell = metricCells.find(c => c.column.id === `${metric}_actual`)
                           const budgetCell = metricCells.find(c => c.column.id === `${metric}_budget`)
                           const completionCell = metricCells.find(c => c.column.id === `${metric}_completion`)
 
                           return (
-                            <td key={metric} className="border-r border-gray-100 last:border-r-0">
-                              <div className="grid grid-cols-3 gap-2 px-4 py-3 text-sm min-w-[360px]">
+                            <td key={metric} className="border-r border-gray-100 last:border-r-0 h-[52px]">
+                              <div className="grid grid-cols-3 gap-2 px-4 text-sm min-w-[360px] h-full items-center">
                                 <div className="text-right">
                                   {actualCell && flexRender(actualCell.column.columnDef.cell, actualCell.getContext())}
                                 </div>
