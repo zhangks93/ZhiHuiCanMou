@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { PageTitle } from '@/components/ui/PageTitle'
 import { StatCard } from '@/components/ui/StatCard'
 import {
   Filter,
@@ -421,16 +420,8 @@ export function Opportunity() {
   })
 
   const isDefaultFilter = filterType === 'all' && filterRegion === 'all' && filterStatus === 'pipeline'
-  const snapshotDate = data[0]?.snapshot_date
-
   return (
     <>
-      <PageTitle
-        breadcrumb="业务管理 / 商机台账"
-        title="商机项目台账"
-        subtitle={snapshotDate ? `快照周次：${formatDate(snapshotDate)}` : undefined}
-      />
-
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="项目总数" value={stats.total} unit="个" />

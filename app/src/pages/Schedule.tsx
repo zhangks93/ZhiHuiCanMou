@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { PageTitle } from '@/components/ui/PageTitle'
 import { supabase } from '@/lib/supabase'
 import { Calendar, Plus, Trash2, FileText, X, Sun, Sunset, Moon } from 'lucide-react'
 
@@ -202,8 +201,6 @@ export function Schedule() {
 
   return (
     <>
-      <PageTitle breadcrumb="首页 / 日程提醒" title="日程提醒" />
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Calendar */}
         <div className="bg-surface rounded-xl border border-[var(--color-border)] p-5 shadow-card">

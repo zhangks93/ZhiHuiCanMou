@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { env } from '@/config/env'
 import { storeAuthState } from '@/lib/auth-storage'
 
@@ -26,45 +27,40 @@ export function Login() {
   const [showFallback, setShowFallback] = useState(false)
   const [deepLinkError, setDeepLinkError] = useState<string | null>(null)
 
-  const addDebugInfo = (msg: string) => {
-    console.log('[Canmou Login]', msg)
-    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`])
+  const addDebugInfo = (message: string) => {
+    console.log('[Canmou Login]', message)
+    setDebugInfo((previous) => [...previous, `${new Date().toLocaleTimeString()}: ${message}`])
   }
 
-  // Preload Tauri modules for faster login
   useEffect(() => {
     if (!isTauriApp()) return
 
     const preloadModules = async () => {
       try {
-        const mobile = isMobile()
-        if (mobile) {
-          // Preload opener plugin for mobile
+        if (isMobile()) {
           await import('@tauri-apps/plugin-opener')
-          addDebugInfo('已预加载 opener 插件')
+          addDebugInfo('Preloaded mobile opener plugin')
         } else {
-          // Preload WebviewWindow for desktop
           await import('@tauri-apps/api/webviewWindow')
-          addDebugInfo('已预加载 WebviewWindow')
+          addDebugInfo('Preloaded desktop webview window')
         }
       } catch (error) {
         console.error('[Canmou] Failed to preload Tauri modules:', error)
       }
     }
 
-    preloadModules()
+    void preloadModules()
   }, [])
 
-  // Listen for deep link errors on mobile
   useEffect(() => {
     if (!isTauriApp() || !isMobile()) return
 
     let unlisten: (() => void) | null = null
-    import('@tauri-apps/api/event')
+    void import('@tauri-apps/api/event')
       .then(({ listen }) =>
         listen<{ code: string; message: string }>('deep-link:error', (event) => {
           const { code, message } = event.payload
-          addDebugInfo(`Deep link 错误: ${code} - ${message}`)
+          addDebugInfo(`Deep link error: ${code} - ${message}`)
           setDeepLinkError(message)
           setShowFallback(true)
           setIsLoading(false)
@@ -87,530 +83,174 @@ export function Login() {
 
     try {
       const mobile = isMobile()
-      const isTauri = isTauriApp()
+      const tauri = isTauriApp()
+      addDebugInfo(`Environment: ${tauri ? 'Tauri' : 'Web'} / ${mobile ? 'mobile' : 'desktop'}`)
 
-      addDebugInfo(`环境检测: ${isTauri ? 'Tauri' : 'Web'}, ${mobile ? '移动端' : '桌面端'}`)
+      storeAuthState(state, mobile ? 'mobile' : 'desktop')
+      addDebugInfo(`Stored auth state: ${state.slice(0, 8)}...`)
 
-      // Store state for CSRF validation
-      const platform = mobile ? 'mobile' : 'desktop'
-      storeAuthState(state, platform)
-      addDebugInfo(`已存储 state 用于 CSRF 验证: ${state.substring(0, 8)}...`)
-
-      // 构建飞书授权URL，移动端需要在redirect_uri中添加platform参数
       const loginUrl = new URL(FEISHU_AUTH_URL)
       loginUrl.searchParams.set('app_id', appId)
-
-      // 移动端：在redirect_uri中添加platform=mobile参数
-      const finalRedirectUri = mobile ? `${redirectUri}?platform=mobile` : redirectUri
-      loginUrl.searchParams.set('redirect_uri', finalRedirectUri)
+      loginUrl.searchParams.set('redirect_uri', mobile ? `${redirectUri}?platform=mobile` : redirectUri)
       loginUrl.searchParams.set('scope', scope)
       loginUrl.searchParams.set('state', state)
-      const urlStr = loginUrl.toString()
 
-      addDebugInfo(`授权URL: ${urlStr.substring(0, 100)}...`)
+      const urlString = loginUrl.toString()
+      addDebugInfo(`Auth URL ready`)
 
-      // 桌面 Tauri：使用弹窗 WebView
-      // 移动端 Tauri：使用系统浏览器（避免 WebView 无法处理 deep link）
-      // Web：直接在当前窗口跳转
-      if (isTauri && !mobile) {
-        addDebugInfo('使用桌面弹窗模式')
+      if (tauri && !mobile) {
+        addDebugInfo('Opening desktop auth window')
         const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
         const oauthWindow = new WebviewWindow('oauth', {
-          url: urlStr,
-          title: '飞书登录',
+          url: urlString,
+          title: 'Feishu Sign In',
           width: 520,
-          height: 680,
+          height: 720,
         })
-        oauthWindow.once('tauri://error', (e) => {
-          addDebugInfo(`OAuth窗口错误: ${JSON.stringify(e)}`)
+
+        oauthWindow.once('tauri://error', (event) => {
+          addDebugInfo(`OAuth window error: ${JSON.stringify(event)}`)
           setIsLoading(false)
         })
         oauthWindow.once('tauri://destroyed', () => {
-          addDebugInfo('OAuth窗口已关闭')
+          addDebugInfo('OAuth window closed')
           setIsLoading(false)
         })
-      } else if (isTauri && mobile) {
-        // 移动端 Tauri：使用系统浏览器打开 OAuth，这样 deep link 回调才能正常工作
-        addDebugInfo('使用系统浏览器打开授权页面')
+      } else if (tauri && mobile) {
+        addDebugInfo('Opening system browser')
         const { openUrl } = await import('@tauri-apps/plugin-opener')
-        await openUrl(urlStr)
-        addDebugInfo('已打开系统浏览器，等待回调...')
-        // 移动端打开浏览器后，保持加载状态，等待 deep link 回调
+        await openUrl(urlString)
+        addDebugInfo('Waiting for deep link callback')
 
-        // 设置超时，如果30秒后还没有回调，提示用户
-        setTimeout(() => {
-          if (isLoading) {
-            addDebugInfo('等待超时，请检查是否完成授权')
-            setIsLoading(false)
-          }
+        window.setTimeout(() => {
+          setIsLoading((current) => {
+            if (current) addDebugInfo('Auth callback timeout, please retry if login did not complete')
+            return false
+          })
         }, 30000)
       } else {
-        // Web 环境：直接跳转
-        addDebugInfo('Web环境，直接跳转')
-        window.location.href = urlStr
+        addDebugInfo('Redirecting in current window')
+        window.location.href = urlString
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      addDebugInfo(`登录错误: ${errorMsg}`)
+      const message = error instanceof Error ? error.message : String(error)
+      addDebugInfo(`Login error: ${message}`)
       console.error('[Canmou] Login error:', error)
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="login-container">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
+    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-6">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.08),transparent_28%)]" />
 
-        .login-container {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-          position: relative;
-          overflow: hidden;
-        }
-
-        .login-container::before {
-          content: '';
-          position: absolute;
-          top: -50%;
-          right: -20%;
-          width: 80%;
-          height: 150%;
-          background: radial-gradient(circle, rgba(251, 191, 36, 0.08) 0%, transparent 70%);
-          animation: float 20s ease-in-out infinite;
-        }
-
-        .login-container::after {
-          content: '';
-          position: absolute;
-          bottom: -30%;
-          left: -10%;
-          width: 60%;
-          height: 100%;
-          background: radial-gradient(circle, rgba(59, 130, 246, 0.06) 0%, transparent 70%);
-          animation: float 25s ease-in-out infinite reverse;
-        }
-
-        @keyframes float {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(-30px, 30px) scale(1.1); }
-        }
-
-        .login-card {
-          position: relative;
-          width: 100%;
-          max-width: 440px;
-          background: rgba(255, 255, 255, 0.98);
-          backdrop-filter: blur(20px);
-          border-radius: 24px;
-          padding: 3rem 2.5rem;
-          box-shadow:
-            0 20px 60px rgba(0, 0, 0, 0.3),
-            0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-          animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-          z-index: 1;
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .login-logo {
-          width: 72px;
-          height: 72px;
-          margin: 0 auto 2rem;
-          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-          border-radius: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-family: 'Crimson Text', serif;
-          font-size: 32px;
-          font-weight: 700;
-          color: #0f172a;
-          box-shadow:
-            0 8px 24px rgba(251, 191, 36, 0.4),
-            0 0 0 1px rgba(255, 255, 255, 0.2) inset;
-          animation: logoAppear 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s backwards;
-        }
-
-        @keyframes logoAppear {
-          from {
-            opacity: 0;
-            transform: scale(0.8) rotate(-10deg);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) rotate(0deg);
-          }
-        }
-
-        .login-title {
-          font-family: 'Crimson Text', serif;
-          font-size: 28px;
-          font-weight: 700;
-          color: #0f172a;
-          text-align: center;
-          margin-bottom: 0.5rem;
-          letter-spacing: -0.02em;
-          animation: fadeIn 0.6s ease-out 0.3s backwards;
-        }
-
-        .login-subtitle {
-          font-family: 'Inter', sans-serif;
-          font-size: 15px;
-          font-weight: 400;
-          color: #64748b;
-          text-align: center;
-          margin-bottom: 2.5rem;
-          animation: fadeIn 0.6s ease-out 0.4s backwards;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .login-button {
-          width: 100%;
-          height: 56px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-          border: none;
-          border-radius: 16px;
-          font-family: 'Inter', sans-serif;
-          font-size: 16px;
-          font-weight: 600;
-          color: white;
-          cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-          box-shadow:
-            0 4px 16px rgba(15, 23, 42, 0.3),
-            0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-          animation: fadeIn 0.6s ease-out 0.5s backwards;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .login-button::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -100%;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-          transition: left 0.5s;
-        }
-
-        .login-button:hover::before {
-          left: 100%;
-        }
-
-        .login-button:hover {
-          transform: translateY(-2px);
-          box-shadow:
-            0 8px 24px rgba(15, 23, 42, 0.4),
-            0 0 0 1px rgba(255, 255, 255, 0.15) inset;
-        }
-
-        .login-button:active {
-          transform: translateY(0);
-        }
-
-        .login-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .login-button:disabled:hover {
-          transform: none;
-          box-shadow:
-            0 4px 16px rgba(15, 23, 42, 0.3),
-            0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-        }
-
-        .feishu-icon {
-          width: 32px;
-          height: 32px;
-          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-family: 'Crimson Text', serif;
-          font-size: 16px;
-          font-weight: 700;
-          color: #0f172a;
-          box-shadow: 0 2px 8px rgba(251, 191, 36, 0.3);
-        }
-
-        .loading-spinner {
-          width: 20px;
-          height: 20px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          border-top-color: white;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        .login-footer {
-          margin-top: 2rem;
-          font-family: 'Inter', sans-serif;
-          font-size: 12px;
-          line-height: 1.6;
-          color: #94a3b8;
-          text-align: center;
-          animation: fadeIn 0.6s ease-out 0.6s backwards;
-        }
-
-        .error-message {
-          margin-top: 1.5rem;
-          padding: 1rem;
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          border-radius: 12px;
-          font-family: 'Inter', sans-serif;
-          font-size: 14px;
-          color: #dc2626;
-          text-align: center;
-          animation: shake 0.4s ease-in-out;
-        }
-
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-8px); }
-          75% { transform: translateX(8px); }
-        }
-
-        .status-indicator {
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          background: #10b981;
-          border-radius: 50%;
-          margin-right: 8px;
-          animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(0.9); }
-        }
-
-        .debug-info {
-          margin-top: 1.5rem;
-          padding: 1rem;
-          background: rgba(15, 23, 42, 0.05);
-          border: 1px solid rgba(15, 23, 42, 0.1);
-          border-radius: 12px;
-          max-height: 200px;
-          overflow-y: auto;
-        }
-
-        .debug-title {
-          font-family: 'Inter', sans-serif;
-          font-size: 12px;
-          font-weight: 600;
-          color: #64748b;
-          margin-bottom: 0.5rem;
-        }
-
-        .debug-line {
-          font-family: 'Courier New', monospace;
-          font-size: 11px;
-          color: #475569;
-          line-height: 1.6;
-          padding: 2px 0;
-        }
-
-        .fallback-container {
-          margin-top: 1.5rem;
-          padding: 1.5rem;
-          background: rgba(251, 191, 36, 0.1);
-          border: 1px solid rgba(251, 191, 36, 0.3);
-          border-radius: 12px;
-          animation: slideDown 0.4s ease-out;
-        }
-
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .fallback-title {
-          font-family: 'Inter', sans-serif;
-          font-size: 14px;
-          font-weight: 600;
-          color: #92400e;
-          margin-bottom: 0.5rem;
-        }
-
-        .fallback-message {
-          font-family: 'Inter', sans-serif;
-          font-size: 13px;
-          color: #78350f;
-          margin-bottom: 1rem;
-          line-height: 1.5;
-        }
-
-        .fallback-suggestion {
-          font-family: 'Inter', sans-serif;
-          font-size: 12px;
-          color: #78350f;
-          margin-bottom: 1rem;
-          line-height: 1.6;
-        }
-
-        .fallback-suggestion ol {
-          margin: 0.5rem 0 0 1.25rem;
-          padding: 0;
-        }
-
-        .fallback-suggestion li {
-          margin: 0.25rem 0;
-        }
-
-        .fallback-button {
-          width: 100%;
-          padding: 0.75rem;
-          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-          border: none;
-          border-radius: 8px;
-          font-family: 'Inter', sans-serif;
-          font-size: 14px;
-          font-weight: 600;
-          color: #0f172a;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .fallback-button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
-        }
-
-        .fallback-button:active {
-          transform: translateY(0);
-        }
-
-        @media (max-width: 640px) {
-          .login-card {
-            padding: 2.5rem 1.5rem;
-            max-width: 100%;
-          }
-
-          .login-title {
-            font-size: 24px;
-          }
-
-          .login-logo {
-            width: 64px;
-            height: 64px;
-            font-size: 28px;
-          }
-        }
-      `}</style>
-
-      <div className="login-card">
-        <div className="login-logo">智</div>
-
-        <h1 className="login-title">智汇参谋</h1>
-        <p className="login-subtitle">
-          <span className="status-indicator"></span>
-          使用飞书账号安全登录
-        </p>
-
-        <button
-          type="button"
-          onClick={handleFeishuLogin}
-          disabled={!canLogin || isLoading}
-          className="login-button"
-        >
-          {isLoading ? (
-            <>
-              <div className="loading-spinner"></div>
-              <span>正在跳转...</span>
-            </>
-          ) : (
-            <>
-              <div className="feishu-icon">飞</div>
-              <span>使用飞书登录</span>
-            </>
-          )}
-        </button>
-
-        {!canLogin && (
-          <div className="error-message">
-            未配置飞书登录，请设置环境变量
+      <div className="relative mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl items-center gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="px-2 lg:px-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">
+            <ShieldCheck size={14} className="text-[var(--color-accent)]" />
+            Secure workspace
           </div>
-        )}
 
-        {showFallback && deepLinkError && (
-          <div className="fallback-container">
-            <div className="fallback-title">Deep Link 回调失败</div>
-            <div className="fallback-message">{deepLinkError}</div>
-            <div className="fallback-suggestion">
-              请尝试以下方法：
-              <ol>
-                <li>返回飞书授权页面，重新完成授权</li>
-                <li>确保应用已正确安装并注册 Deep Link</li>
-                <li>重启应用后重试</li>
-              </ol>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setShowFallback(false)
-                setDeepLinkError(null)
-                setDebugInfo([])
-              }}
-              className="fallback-button"
-            >
-              重新尝试
-            </button>
-          </div>
-        )}
+          <h1 className="mt-6 max-w-3xl text-5xl font-semibold leading-tight text-[var(--color-text-strong)] sm:text-6xl">
+            A lighter command center for operations and business intelligence.
+          </h1>
 
-        <p className="login-footer">
-          登录即表示你已阅读并同意本系统的相关条款
-        </p>
+          <p className="mt-5 max-w-2xl text-base leading-8 text-[var(--color-text-muted)] sm:text-lg">
+            Sign in with Feishu to access scheduling, business data, AI workflows, and the redesigned workspace shell.
+          </p>
 
-        {debugInfo.length > 0 && (
-          <div className="debug-info">
-            <div className="debug-title">调试信息</div>
-            {debugInfo.map((info, idx) => (
-              <div key={idx} className="debug-line">{info}</div>
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            {[
+              'Modular navigation with cleaner information hierarchy',
+              'Data-heavy pages tuned for faster scanning',
+              'AI workspace integrated into the same system layer',
+            ].map((item) => (
+              <div key={item} className="app-card rounded-2xl px-4 py-4 text-sm leading-6 text-[var(--color-text-muted)]">
+                {item}
+              </div>
             ))}
           </div>
-        )}
+        </section>
+
+        <section className="app-panel app-panel-strong relative overflow-hidden rounded-[32px] px-6 py-7 sm:px-8 sm:py-9">
+          <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.45)] to-transparent" />
+
+          <div className="mb-8 flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-slate-950 text-sm font-semibold tracking-[0.2em] text-white shadow-[0_16px_32px_rgba(15,23,42,0.18)]">
+              CM
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
+                Canmou
+              </div>
+              <div className="text-2xl font-semibold text-[var(--color-text-strong)]">Workspace sign in</div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleFeishuLogin}
+            disabled={!canLogin || isLoading}
+            className="group flex w-full items-center justify-between rounded-[22px] bg-slate-950 px-5 py-4 text-left text-white transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+          >
+            <div>
+              <div className="text-sm font-semibold">Continue with Feishu</div>
+              <div className="mt-1 text-sm text-slate-300">
+                {isLoading ? 'Redirecting to authorization...' : 'Use your existing organization identity'}
+              </div>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
+              <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </button>
+
+          {!canLogin && (
+            <div className="mt-4 rounded-2xl border border-[rgba(220,38,38,0.16)] bg-[rgba(220,38,38,0.06)] px-4 py-3 text-sm text-[var(--color-error)]">
+              Feishu login is not configured. Check the environment variables before continuing.
+            </div>
+          )}
+
+          {showFallback && deepLinkError && (
+            <div className="mt-4 rounded-2xl border border-[rgba(217,119,6,0.18)] bg-[rgba(217,119,6,0.08)] px-4 py-4 text-sm leading-7 text-[var(--color-text)]">
+              <div className="font-semibold text-[var(--color-text-strong)]">Deep link callback failed</div>
+              <div className="mt-1 text-[var(--color-text-muted)]">{deepLinkError}</div>
+              <ol className="mt-3 list-decimal space-y-1 pl-5 text-[var(--color-text-muted)]">
+                <li>Return to the Feishu authorization page and retry the flow.</li>
+                <li>Confirm the app is installed with the correct deep link registration.</li>
+                <li>Restart the app if the callback was interrupted.</li>
+              </ol>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFallback(false)
+                  setDeepLinkError(null)
+                  setDebugInfo([])
+                }}
+                className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white px-4 py-2 text-sm font-medium text-[var(--color-text-strong)] transition-colors hover:bg-[var(--color-surface-muted)]"
+              >
+                Reset status
+              </button>
+            </div>
+          )}
+
+          <div className="mt-6 rounded-2xl bg-[rgba(15,23,42,0.04)] px-4 py-4 text-sm leading-7 text-[var(--color-text-muted)]">
+            Signing in means your session is validated through your organization’s Feishu account and redirected back into this workspace.
+          </div>
+
+          {debugInfo.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white/80 p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+                Debug log
+              </div>
+              <div className="max-h-52 overflow-y-auto font-mono text-[11px] leading-6 text-[var(--color-text-muted)]">
+                {debugInfo.map((info) => (
+                  <div key={info}>{info}</div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   )
 }
-

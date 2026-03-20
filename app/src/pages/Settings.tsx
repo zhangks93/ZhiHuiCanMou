@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react'
-import { PageTitle } from '@/components/ui/PageTitle'
 import { Settings as SettingsIcon, Bot, Check, Trash2, Globe, Plus, AlertTriangle } from 'lucide-react'
 import { loadLLMConfig, saveLLMConfig, clearLLMConfig, loadProviderSettings, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig, type ProviderSettings } from '@/lib/llmConfig'
 import { MODULE_NAV_CONFIG } from '@/config/modules'
@@ -129,8 +128,6 @@ export function Settings() {
 
   return (
     <>
-      <PageTitle breadcrumb="/ 设置" title="设置" />
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { PageTitle } from '@/components/ui/PageTitle'
 import { Plane, Calendar } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
@@ -210,7 +209,6 @@ export function Trip() {
   if (loading) {
     return (
       <>
-        <PageTitle breadcrumb="业务管理 / 出差管理" title="出差管理" />
         <div className="bg-white rounded-lg border border-gray-200 p-10 text-center">
           <Plane size={40} className="mx-auto text-gray-300 animate-pulse" />
           <p className="text-gray-400 mt-4">加载中...</p>
@@ -221,8 +219,6 @@ export function Trip() {
 
   return (
     <>
-      <PageTitle breadcrumb="业务管理 / 出差管理" title="出差管理" />
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="当前在途人员" value={ongoingTrips.length} unit="人" />
         <StatCard label="本月出差人次" value={monthTrips.length} unit="次" />

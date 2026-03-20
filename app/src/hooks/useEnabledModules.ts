@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   MODULE_NAV_CONFIG,
   SECTION_LABELS,
@@ -22,14 +22,12 @@ export interface NavSection {
 export function useEnabledModules() {
   const [enabledModuleIds, setEnabledModuleIds] = useState<string[]>(() => getEnabledModules())
 
-  // Listen for storage changes (when modules are updated in Settings)
   useEffect(() => {
     const handleStorageChange = () => {
       setEnabledModuleIds(getEnabledModules())
     }
 
     window.addEventListener('storage', handleStorageChange)
-    // Also listen for custom event for same-tab updates
     window.addEventListener('modules-updated', handleStorageChange)
 
     return () => {
@@ -58,12 +56,14 @@ function buildNavSections(enabledModuleIds: string[]): NavSection[] {
   for (const id of enabledModuleIds) {
     const config = MODULE_NAV_CONFIG[id]
     if (!config) continue
+
     const item: NavItem = {
       to: config.routePath,
       icon: config.icon,
       label: config.label,
       moduleId: id,
     }
+
     if (config.section === 'workbench') workbench.push(item)
     else if (config.section === 'data-center') dataCenter.push(item)
     else if (config.section === 'business') business.push(item)

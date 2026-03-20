@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from 'react'
-import { PageTitle } from '@/components/ui/PageTitle'
 import { Lightbulb, AlertTriangle, TrendingUp } from 'lucide-react'
 import type { EnrichedBizDataNode, MetricCategory } from '@/lib/supabase'
 import {
@@ -238,8 +237,6 @@ export function BizData() {
 
   return (
     <>
-      <PageTitle breadcrumb="数据中心 / 经营数据" title="经营数据" subtitle="2025学年 · 单位：万元" />
-
       {/* Filter Bar - Row 1: Toggles + Month Selector */}
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">

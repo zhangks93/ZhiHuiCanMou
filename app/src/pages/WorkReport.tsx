@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
-import { PageTitle } from '@/components/ui/PageTitle'
 import {
   Plus,
   Link2,
@@ -225,12 +224,6 @@ export function WorkReport() {
 
   return (
     <>
-      <PageTitle
-        breadcrumb="工作台 / 项目协同"
-        title="项目协同看板"
-        subtitle="多项目任务管理，拖拽卡片同步进展，团队协作一目了然"
-      />
-
       <div className="flex items-center justify-between gap-4 mb-4">
         <p className="text-sm text-primary-400 flex items-center gap-2">
           <GitBranch size={16} />

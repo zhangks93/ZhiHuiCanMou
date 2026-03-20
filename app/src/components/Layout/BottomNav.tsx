@@ -1,248 +1,213 @@
-import { NavLink } from 'react-router-dom'
-import { useState, useRef, useEffect } from 'react'
-import { MoreHorizontal, Bell, LogOut, X } from 'lucide-react'
-import { useEnabledModules } from '@/hooks/useEnabledModules'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Bell, LogOut, X } from 'lucide-react'
+import { useEnabledModules, type NavItem } from '@/hooks/useEnabledModules'
 import { useAuth } from '@/hooks/useAuth'
-import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '@/config/constants'
 
 export function BottomNav() {
   const { navSections } = useEnabledModules()
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
-  const [showMore, setShowMore] = useState(false)
-  const moreRef = useRef<HTMLDivElement>(null)
-  const moreButtonRef = useRef<HTMLButtonElement>(null)
+  const [showProfilePanel, setShowProfilePanel] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const profileButtonRef = useRef<HTMLButtonElement>(null)
 
-  // 收集所有导航项
-  const allNavItems = navSections.flatMap(section => section.items)
+  const allNavItems = useMemo(() => navSections.flatMap((section) => section.items), [navSections])
+  const primaryNavItems = useMemo(() => {
+    const homeItem = allNavItems.find((item) => item.to === '/')
+    const aiItem = allNavItems.find((item) => item.to === '/ai')
+    const scheduleItem = allNavItems.find((item) => item.to === '/schedule')
+    const bizDataItem = allNavItems.find((item) => item.to === '/biz-data')
 
-  // 移动端专用：缩短导航项名称为两个字
-  const getMobileLabel = (label: string): string => {
-    const mobileLabels: Record<string, string> = {
-      '首页总览': '总览',
-      '日程提醒': '日程',
-      '常用数据': '数据',
-      '经营数据': '经营',
-      '商机管理': '商机',
-      '竞对档案': '竞对',
-      '出差管理': '出差',
-      '考勤管理': '考勤',
-      '系统链接': '链接',
-      '智能分析': '分析',
-      '项目协同': '协同',
-    }
-    return mobileLabels[label] || label.slice(0, 2)
-  }
-
-  // 自定义底部导航栏布局：
-  // 1. 智能分析（原首页位置）
-  // 2. 日程提醒
-  // 3. 总览（中间位置，代替常用数据）
-  // 4. 经营数据
-  const getBottomNavItems = () => {
-    const homeItem = allNavItems.find(item => item.to === '/')
-    const aiItem = allNavItems.find(item => item.to === '/ai')
-    const scheduleItem = allNavItems.find(item => item.to === '/schedule')
-    const bizDataItem = allNavItems.find(item => item.to === '/biz-data')
-
-    const bottomNavItems = []
-    if (aiItem) bottomNavItems.push(aiItem)
-    if (scheduleItem) bottomNavItems.push(scheduleItem)
-    if (homeItem) bottomNavItems.push(homeItem)
-    if (bizDataItem) bottomNavItems.push(bizDataItem)
-
-    return bottomNavItems
-  }
-
-  const primaryNavItems = getBottomNavItems()
-
-  // 更多菜单包含除了底部4个之外的所有导航项
-  const primaryNavPaths = new Set(primaryNavItems.map(item => item.to))
-  const moreNavItems = allNavItems.filter(item => !primaryNavPaths.has(item.to))
+    return [homeItem, scheduleItem, bizDataItem, aiItem].filter(
+      (item): item is NavItem => Boolean(item)
+    )
+  }, [allNavItems])
+  const primaryNavPaths = new Set(primaryNavItems.map((item) => item.to))
+  const moreNavItems = allNavItems.filter((item) => !primaryNavPaths.has(item.to))
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      // 如果点击的是更多按钮或菜单面板内部，不关闭
+    const handler = (event: MouseEvent) => {
       if (
-        moreRef.current?.contains(e.target as Node) ||
-        moreButtonRef.current?.contains(e.target as Node)
+        panelRef.current?.contains(event.target as Node) ||
+        profileButtonRef.current?.contains(event.target as Node)
       ) {
         return
       }
-      setShowMore(false)
+
+      setShowProfilePanel(false)
     }
-    if (showMore) {
-      // 使用 setTimeout 延迟添加监听器，避免立即触发
-      const timer = setTimeout(() => {
-        document.addEventListener('click', handler)
-      }, 0)
-      return () => {
-        clearTimeout(timer)
-        document.removeEventListener('click', handler)
-      }
+
+    if (!showProfilePanel) return
+
+    const timer = window.setTimeout(() => {
+      document.addEventListener('click', handler)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('click', handler)
     }
-  }, [showMore])
+  }, [showProfilePanel])
 
   const handleSignOut = async () => {
     await signOut()
-    setShowMore(false)
+    setShowProfilePanel(false)
     navigate(ROUTES.LOGIN)
   }
 
   return (
     <>
-      {/* 更多菜单遮罩 */}
-      {showMore && (
-        <div
-          className="fixed inset-0 bg-black/40 z-40 lg:hidden animate-fade-in"
-          onClick={() => setShowMore(false)}
+      {showProfilePanel && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-slate-950/24 lg:hidden"
+          onClick={() => setShowProfilePanel(false)}
+          aria-label="关闭个人菜单"
         />
       )}
 
-      {/* 更多菜单面板 */}
-      {showMore && (
+      {showProfilePanel && (
         <div
-          ref={moreRef}
-          className="fixed bottom-16 left-0 right-0 bg-surface border-t border-[var(--color-border)] z-50 lg:hidden animate-slide-up max-h-[70vh] overflow-y-auto"
+          ref={panelRef}
+          className="fixed inset-x-4 bottom-20 z-50 overflow-y-auto rounded-[28px] border border-[var(--color-border)] bg-white/95 p-3 shadow-[0_24px_64px_rgba(15,23,42,0.18)] backdrop-blur-xl lg:hidden animate-slide-up"
         >
-          {/* 用户信息区 */}
-          <div className="p-4 border-b border-[var(--color-border)] bg-primary/5">
-            <div className="flex items-center gap-3">
-              {user?.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={user.name ?? '用户头像'}
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-accent/30"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center text-white text-lg font-medium">
-                  {(user?.name ?? '用户').charAt(0)}
-                </div>
-              )}
-              <div className="flex-1">
-                <div className="text-base font-medium text-[var(--color-text)]">
-                  {user?.name ?? '未登录'}
-                </div>
-                <div className="text-sm text-[var(--color-text-muted)]">
-                  {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
-                </div>
+          <div className="mb-3 flex items-center gap-3 rounded-3xl bg-[rgba(15,23,42,0.04)] p-3">
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name ?? '用户头像'}
+                className="h-12 w-12 rounded-2xl object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-lg font-semibold text-white">
+                {(user?.name ?? 'U').charAt(0).toUpperCase()}
               </div>
-              <button
-                onClick={() => setShowMore(false)}
-                className="p-2 rounded-lg text-[var(--color-text-muted)] hover:bg-primary-50 transition-colors"
-                aria-label="关闭"
-              >
-                <X size={20} />
-              </button>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-base font-semibold text-[var(--color-text-strong)]">
+                {user?.name ?? '当前用户'}
+              </div>
+              <div className="text-sm text-[var(--color-text-muted)]">
+                {new Date().toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowProfilePanel(false)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-[var(--color-text-muted)] transition-colors hover:bg-[rgba(15,23,42,0.06)]"
+              aria-label="关闭"
+            >
+              <X size={18} />
+            </button>
           </div>
 
-          {/* 通知按钮 */}
-          <button className="w-full flex items-center gap-3 px-4 py-3 text-[var(--color-text)] hover:bg-primary-50 transition-colors border-b border-[var(--color-border)]">
+          <button
+            type="button"
+            className="mb-2 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[var(--color-text)] transition-colors hover:bg-[rgba(15,23,42,0.04)]"
+          >
             <div className="relative">
-              <Bell size={20} strokeWidth={1.5} />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-accent rounded-full ring-2 ring-surface" />
+              <Bell size={18} strokeWidth={1.8} />
+              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[var(--color-accent)]" />
             </div>
             <span className="text-sm">通知</span>
           </button>
 
-          {/* 更多导航项 */}
           {moreNavItems.length > 0 && (
-            <div className="py-2">
-              <div className="px-4 py-2 text-xs text-[var(--color-text-muted)] uppercase tracking-wider">
-                更多功能
+            <div className="space-y-1 border-t border-[var(--color-border)] pt-2">
+              <div className="px-3 py-2 text-[11px] font-semibold tracking-[0.16em] text-[var(--color-text-muted)]">
+                更多页面
               </div>
               {moreNavItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  onClick={() => setShowMore(false)}
+                  onClick={() => setShowProfilePanel(false)}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 transition-colors ${
+                    [
+                      'flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-colors',
                       isActive
-                        ? 'bg-accent/10 text-accent border-l-4 border-accent'
-                        : 'text-[var(--color-text)] hover:bg-primary-50'
-                    }`
+                        ? 'bg-[rgba(37,99,235,0.08)] text-[var(--color-text-strong)]'
+                        : 'text-[var(--color-text)] hover:bg-[rgba(15,23,42,0.04)]',
+                    ].join(' ')
                   }
                 >
-                  <item.icon size={20} strokeWidth={1.5} />
-                  <span className="text-sm flex-1">{item.label}</span>
-                  {item.badge && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent font-medium">
-                      {item.badge}
-                    </span>
-                  )}
+                  <item.icon size={18} strokeWidth={1.8} />
+                  <span className="flex-1">{item.label}</span>
                 </NavLink>
               ))}
             </div>
           )}
 
-          {/* 退出登录 */}
           <button
+            type="button"
             onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors border-t border-[var(--color-border)]"
+            className="mt-2 flex w-full items-center gap-3 rounded-2xl border-t border-[var(--color-border)] px-3 py-3 text-left text-red-600 transition-colors hover:bg-red-50"
           >
-            <LogOut size={20} strokeWidth={1.5} />
+            <LogOut size={18} strokeWidth={1.8} />
             <span className="text-sm">退出登录</span>
           </button>
         </div>
       )}
 
-      {/* 底部导航栏 */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-[var(--color-border)] z-30 lg:hidden safe-area-inset-bottom">
-        <div className="h-full flex items-center justify-around px-2">
+      <nav className="fixed inset-x-4 bottom-4 z-30 rounded-[26px] border border-[var(--color-border)] bg-white/92 px-2 py-2 shadow-[0_18px_48px_rgba(15,23,42,0.12)] backdrop-blur-xl lg:hidden safe-area-inset-bottom">
+        <div className="flex items-center justify-around gap-1">
           {primaryNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[64px] ${
+                [
+                  'flex min-w-[68px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 transition-all',
                   isActive
-                    ? 'text-accent'
-                    : 'text-[var(--color-text-muted)] active:scale-95'
-                }`
+                    ? 'bg-[rgba(37,99,235,0.08)] text-[var(--color-text-strong)]'
+                    : 'text-[var(--color-text-muted)]',
+                ].join(' ')
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className="relative">
-                    <item.icon
-                      size={22}
-                      strokeWidth={isActive ? 2 : 1.5}
-                      className="transition-all"
-                    />
-                    {item.badge && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-accent rounded-full ring-2 ring-surface" />
-                    )}
-                  </div>
-                  <span className={`text-[10px] font-medium ${isActive ? 'font-semibold' : ''}`}>
-                    {getMobileLabel(item.label)}
+                  <item.icon size={20} strokeWidth={isActive ? 2 : 1.7} />
+                  <span className="text-[10px] font-semibold tracking-[0.08em]">
+                    {item.label.length > 10 ? item.label.slice(0, 8) : item.label}
                   </span>
                 </>
               )}
             </NavLink>
           ))}
 
-          {/* 更多按钮 */}
           <button
-            ref={moreButtonRef}
-            onClick={() => setShowMore(v => !v)}
-            className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[64px] ${
-              showMore
-                ? 'text-accent'
-                : 'text-[var(--color-text-muted)] active:scale-95'
-            }`}
+            ref={profileButtonRef}
+            type="button"
+            onClick={() => setShowProfilePanel((value) => !value)}
+            className={[
+              'flex min-w-[68px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 transition-all',
+              showProfilePanel
+                ? 'bg-[rgba(37,99,235,0.08)] text-[var(--color-text-strong)]'
+                : 'text-[var(--color-text-muted)]',
+            ].join(' ')}
+            aria-label="我的"
           >
-            <MoreHorizontal
-              size={22}
-              strokeWidth={showMore ? 2 : 1.5}
-              className="transition-all"
-            />
-            <span className={`text-[10px] font-medium ${showMore ? 'font-semibold' : ''}`}>
-              更多
-            </span>
+            <div className="relative">
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name ?? '用户头像'}
+                  className="h-5 w-5 rounded-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">
+                  {(user?.name ?? 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
+            </div>
+            <span className="text-[10px] font-semibold tracking-[0.08em]">我的</span>
           </button>
         </div>
       </nav>

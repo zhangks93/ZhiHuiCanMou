@@ -1,44 +1,53 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Header } from './Header'
+import { Menu } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
-import { useAuth } from '@/hooks/useAuth'
 
 export function MainLayout() {
-  const { user: currentUser } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     document.body.style.overflow = sidebarOpen ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+    return () => {
+      document.body.style.overflow = ''
+    }
   }, [sidebarOpen])
 
   return (
-    <div className="h-screen overflow-hidden bg-background">
-      <Header
-        onMenuClick={() => setSidebarOpen(true)}
-        userName={currentUser?.name ?? null}
-        avatarUrl={currentUser?.avatarUrl ?? null}
-      />
+    <div className="app-shell-grid bg-background">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
       />
+
+      {!sidebarOpen && (
+        <button
+          type="button"
+          className="fixed left-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--color-border)] bg-white/92 text-[var(--color-text)] shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-surface-muted)] lg:hidden"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="打开导航"
+        >
+          <Menu size={18} strokeWidth={1.8} />
+        </button>
+      )}
+
       <main
-        className={`
-          h-screen overflow-y-auto transition-[padding] duration-200 ease-out
-          pt-[5.5rem] pl-4 pr-4
-          pb-20 lg:pb-8
-          lg:pr-8
-          ${sidebarCollapsed ? 'lg:pl-[96px]' : 'lg:pl-[244px]'}
-        `}
+        className={[
+          'relative z-10 min-h-screen px-4 pb-24 pt-20 transition-[padding] duration-200 ease-out lg:px-6 lg:pb-10 lg:pt-6',
+          sidebarCollapsed ? 'lg:pl-[122px]' : 'lg:pl-[274px]',
+        ].join(' ')}
       >
-        <Outlet />
+        <div className="mx-auto max-w-[1440px] pb-6">
+          <div className="app-panel app-panel-strong min-h-[calc(100vh-6rem)] overflow-visible px-4 py-4 sm:px-6 sm:py-6 lg:min-h-[calc(100vh-3rem)] lg:px-8">
+            <Outlet />
+          </div>
+        </div>
       </main>
+
       <BottomNav />
     </div>
   )

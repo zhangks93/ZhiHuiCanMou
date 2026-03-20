@@ -1,5 +1,5 @@
 /**
- * Module registry - maps module IDs to UI config (icon, section, label).
+ * Module registry - maps module IDs to UI config.
  * Actual enable/disable is driven by org_settings.enabled_module_ids.
  */
 
@@ -65,7 +65,7 @@ export const MODULE_NAV_CONFIG: Record<string, Omit<ModuleNavConfig, 'id'>> = {
     sortOrder: 21,
   },
   opportunity: {
-    label: '商机管理',
+    label: '商机台账',
     routePath: '/opportunity',
     section: 'business',
     icon: Target,
@@ -100,7 +100,7 @@ export const MODULE_NAV_CONFIG: Record<string, Omit<ModuleNavConfig, 'id'>> = {
     sortOrder: 40,
   },
   ai: {
-    label: '智能分析',
+    label: 'AI 分析',
     routePath: '/ai',
     section: 'tools',
     icon: Sparkles,
@@ -111,7 +111,7 @@ export const MODULE_NAV_CONFIG: Record<string, Omit<ModuleNavConfig, 'id'>> = {
 /** Home and Settings are always shown, not from module registry */
 export const FIXED_NAV = {
   home: {
-    label: '首页总览',
+    label: '首页',
     routePath: '/',
     section: 'workbench',
     icon: Home,
@@ -127,7 +127,6 @@ export const FIXED_NAV = {
 }
 
 export const DEFAULT_ENABLED_MODULE_IDS = [
-  // 'work-report', // 暂时隐藏项目协同
   'schedule',
   'org-data',
   'biz-data',

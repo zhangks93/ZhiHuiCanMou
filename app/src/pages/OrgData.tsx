@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { PageTitle } from '@/components/ui/PageTitle'
 import { supabase, type FeishuDepartment, type FeishuMember } from '@/lib/supabase'
 import { Users, Building2, ChevronRight, ChevronDown, Layers3 } from 'lucide-react'
 
@@ -211,7 +210,6 @@ export function OrgData() {
   if (loading) {
     return (
       <>
-        <PageTitle breadcrumb="数据中心 / 常用数据" title="常用数据" />
         <div className="flex h-64 items-center justify-center text-gray-400">加载中...</div>
       </>
     )
@@ -220,7 +218,6 @@ export function OrgData() {
   if (departments.length === 0) {
     return (
       <>
-        <PageTitle breadcrumb="数据中心 / 常用数据" title="常用数据" />
         <div className="rounded-lg border border-gray-200 bg-surface p-10 text-center">
           <Users size={40} className="mx-auto text-gray-300" />
           <p className="mt-4 text-gray-400">暂无通讯录数据</p>
@@ -232,8 +229,6 @@ export function OrgData() {
 
   return (
     <div className="space-y-6">
-      <PageTitle breadcrumb="数据中心 / 常用数据" title="常用数据" subtitle="数据来源：飞书通讯录" />
-
       <section className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-5">
         <div className="flex items-center gap-2 text-sky-700">
           <Layers3 size={16} />

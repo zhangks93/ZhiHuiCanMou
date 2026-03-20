@@ -1,110 +1,130 @@
-import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Bell, Menu, LogOut } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { Bell, ChevronRight, Menu, Search } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import { ROUTES } from '@/config/constants'
 
 type HeaderProps = {
   onMenuClick?: () => void
-  userName?: string | null
-  avatarUrl?: string | null
 }
 
-export function Header({ onMenuClick, userName, avatarUrl }: HeaderProps) {
-  const navigate = useNavigate()
-  const { signOut } = useAuth()
+const PAGE_META: Record<string, { title: string; subtitle: string }> = {
+  '/': { title: '首页', subtitle: '运营驾驶舱' },
+  '/work-report': { title: '项目协同', subtitle: '看板与任务推进' },
+  '/schedule': { title: '日程提醒', subtitle: '今日安排与提醒' },
+  '/org-data': { title: '常用数据', subtitle: '组织与基础信息' },
+  '/biz-data': { title: '经营数据', subtitle: '经营结果与趋势分析' },
+  '/opportunity': { title: '商机台账', subtitle: '项目机会与进展跟踪' },
+  '/competitor': { title: '竞对档案', subtitle: '竞争对手信息整理' },
+  '/trip': { title: '出差管理', subtitle: '行程与人员记录' },
+  '/attendance': { title: '考勤管理', subtitle: '出勤统计与明细' },
+  '/links': { title: '系统链接', subtitle: '常用入口与资源导航' },
+  '/ai': { title: 'AI 分析', subtitle: '智能问答与分析报告' },
+  '/settings': { title: '设置', subtitle: '系统配置与模块管理' },
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
+  const location = useLocation()
+  const { user } = useAuth()
   const [date] = useState(() =>
     new Date().toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
+      month: 'numeric',
       day: 'numeric',
       weekday: 'short',
     })
   )
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
-      }
-    }
-    document.addEventListener('click', handler)
-    return () => document.removeEventListener('click', handler)
-  }, [])
-
-  const handleSignOut = async () => {
-    await signOut()
-    setDropdownOpen(false)
-    navigate(ROUTES.LOGIN)
-  }
+  const pageMeta = PAGE_META[location.pathname] ?? PAGE_META['/']
+  const userInitial = useMemo(
+    () => (user?.name ?? 'U').trim().charAt(0).toUpperCase(),
+    [user?.name]
+  )
 
   return (
-    <header className="h-14 bg-primary border-b border-primary-dark/30 flex items-center px-4 lg:px-6 fixed top-0 left-0 right-0 z-50 shadow-card">
-      {/* 移动端：仅显示 logo，无操作元素 */}
-      <div className="flex items-center gap-2.5 lg:hidden">
-        <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white text-sm font-semibold shadow-inner-soft">
-          智
-        </div>
-        <span className="font-semibold text-white text-base font-serif">智汇参谋</span>
-      </div>
-
-      {/* 桌面端：保留原有布局 */}
-      <button
-        className="hidden lg:block p-2 -ml-2 text-primary-200 hover:bg-primary-light/50 rounded-lg transition-colors"
-        onClick={onMenuClick}
-        aria-label="打开菜单"
-      >
-        <Menu size={20} strokeWidth={1.5} />
-      </button>
-      <div className="hidden lg:flex items-center gap-2.5 ml-2">
-        <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white text-sm font-semibold shadow-inner-soft">
-          智
-        </div>
-        <span className="font-semibold text-white text-base font-serif">智汇参谋</span>
-      </div>
-      <div className="flex-1" />
-      <div className="hidden lg:flex items-center gap-3 lg:gap-4">
-        <span className="text-primary-200/90 text-sm hidden sm:block">{date}</span>
-        <button className="relative p-2 rounded-lg text-primary-200 hover:bg-primary-light/50 transition-colors">
-          <Bell size={18} strokeWidth={1.5} />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-accent rounded-full ring-2 ring-primary" />
-        </button>
-        <div className="relative" ref={dropdownRef}>
+    <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 lg:px-6">
+      <div className="mx-auto max-w-[1440px]">
+        <div className="app-panel app-panel-strong flex h-[72px] items-center gap-3 px-3 sm:px-4">
           <button
             type="button"
-            onClick={() => setDropdownOpen((v) => !v)}
-            className="flex items-center gap-2 cursor-pointer rounded-lg p-1 -mr-1 hover:bg-primary-light/50 transition-colors"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--color-border)] bg-white text-[var(--color-text)] transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-surface-muted)] lg:hidden"
+            onClick={onMenuClick}
+            aria-label="打开导航"
           >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={userName ?? '用户头像'}
-                className="w-8 h-8 rounded-lg object-cover ring-1 ring-primary-200/30"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white text-sm font-medium">
-                {(userName ?? '用户').charAt(0)}
-              </div>
-            )}
-            <span className="text-white text-sm hidden md:inline">
-              {userName ?? '未登录'}
-            </span>
+            <Menu size={18} strokeWidth={1.8} />
           </button>
-          {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-2 py-1 w-40 bg-surface rounded-lg shadow-card-hover border border-[var(--color-border)] z-50 animate-fade-in">
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text)] hover:bg-primary-50 rounded mx-1 transition-colors"
-              >
-                <LogOut size={16} />
-                退出登录
-              </button>
+
+          <div className="hidden items-center gap-3 lg:flex">
+            <button
+              type="button"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--color-border)] bg-white text-[var(--color-text)] transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-surface-muted)]"
+              onClick={onMenuClick}
+              aria-label="切换导航"
+            >
+              <Menu size={18} strokeWidth={1.8} />
+            </button>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
+              CM
             </div>
-          )}
+          </div>
+
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-[var(--color-text-muted)]">
+                <span className="truncate">参谋工作台</span>
+                <ChevronRight size={12} strokeWidth={1.8} className="shrink-0" />
+                <span className="truncate">{pageMeta.title}</span>
+              </div>
+              <div className="truncate text-sm font-semibold text-[var(--color-text-strong)] sm:text-base">
+                {pageMeta.subtitle}
+              </div>
+            </div>
+
+            <div className="hidden min-w-0 max-w-[320px] flex-1 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-white px-3 py-2.5 text-sm text-[var(--color-text-muted)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] xl:flex">
+              <Search size={16} strokeWidth={1.8} />
+              <span className="truncate">搜索页面、报表或指标</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden rounded-2xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-xs font-medium text-[var(--color-text-muted)] sm:inline-flex">
+              {date}
+            </div>
+
+            <button
+              type="button"
+              className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--color-border)] bg-white text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-strong)]"
+              aria-label="通知中心"
+            >
+              <Bell size={18} strokeWidth={1.8} />
+              <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[var(--color-accent)]" />
+            </button>
+
+            <Link
+              to="/settings"
+              className="flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-white pl-2 pr-3 text-[var(--color-text)] transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-surface-muted)]"
+              aria-label="打开个人设置"
+            >
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name ?? '用户头像'}
+                  className="h-7 w-7 rounded-xl object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-950 text-[11px] font-semibold text-white">
+                  {userInitial}
+                </div>
+              )}
+
+              <div className="hidden min-w-0 text-left md:block">
+                <div className="max-w-[108px] truncate text-xs font-semibold text-[var(--color-text-strong)]">
+                  {user?.name ?? '当前用户'}
+                </div>
+                <div className="text-[11px] text-[var(--color-text-muted)]">个人设置</div>
+              </div>
+            </Link>
+          </div>
         </div>
       </div>
     </header>

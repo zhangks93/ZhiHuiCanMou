@@ -242,11 +242,12 @@ export function Attendance() {
     return (
       <>
         <div className="mb-6 animate-slide-up">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="text-sm text-[var(--color-text-muted)] font-medium">
-              业务管理 / 考勤管理
-            </div>
-          </div>
+          <h1 className="text-2xl font-semibold text-[var(--color-text-strong)] sm:text-[2rem]">
+            考勤管理
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+            部门考勤汇总与成员出勤明细
+          </p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-10 text-center">
           <Clock size={40} className="mx-auto text-gray-300 animate-spin" />
@@ -266,8 +267,13 @@ export function Attendance() {
     <>
       <div className="mb-6 animate-slide-up">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="text-sm text-[var(--color-text-muted)] font-medium">
-            业务管理 / 考勤管理
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold text-[var(--color-text-strong)] sm:text-[2rem]">
+              考勤管理
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+              部门考勤汇总与成员出勤明细
+            </p>
           </div>
           {availableMonths.length > 0 && (
             <select

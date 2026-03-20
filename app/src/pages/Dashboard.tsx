@@ -205,11 +205,16 @@ export function Dashboard() {
   return (
     <>
       <div className="mb-5 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-[var(--color-text-muted)] font-medium">
-            首页 / 运营驾驶舱
+        <div className="flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-semibold text-[var(--color-text-strong)] sm:text-[2rem]">
+              运营驾驶舱
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+              聚合经营、日程与风险重点
+            </p>
           </div>
-          <div className="text-xs text-[var(--color-text-muted)]">
+          <div className="shrink-0 text-xs text-[var(--color-text-muted)]">
             {new Date().toLocaleString("zh-CN", { hour12: false, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
           </div>
         </div>
