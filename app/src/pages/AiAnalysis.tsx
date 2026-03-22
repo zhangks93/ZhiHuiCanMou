@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
 import {
-  MessageSquarePlus,
+  Plus,
+  MessageSquare,
   Trash2,
   Send,
   Square,
   PanelLeftClose,
-  PanelLeft,
+  PanelLeftOpen,
   Settings,
   Sparkles,
 } from 'lucide-react'
@@ -29,7 +30,7 @@ import { ChatMessageItem } from '@/components/Chat/ChatMessageItem'
 
 function generateTitle(text: string): string {
   const clean = text.replace(/\s+/g, ' ').trim()
-  return clean.length > 24 ? `${clean.slice(0, 24)}…` : clean
+  return clean.length > 24 ? `${clean.slice(0, 24)}...` : clean
 }
 
 function formatConversationTime(timestamp: number): string {
@@ -53,13 +54,13 @@ function EmptyState({ onPrompt }: { onPrompt: (prompt: string) => void }) {
     <div className="flex min-h-full flex-col items-center justify-center px-4 py-12">
       <div className="chat-empty-state">
         <div className="chat-empty-icon">
-          <Sparkles size={28} strokeWidth={1.6} />
+          <Sparkles size={20} strokeWidth={1.7} />
         </div>
-        <div className="space-y-3 text-center">
+        <div className="space-y-2 text-center">
           <div>
-            <h2 className="text-2xl font-semibold text-[var(--color-text-strong)]">智能分析助手</h2>
-            <p className="mx-auto mt-2 max-w-2xl text-sm leading-7 text-[var(--color-text-muted)]">
-              适合查看经营异常、生成分析报告、对比部门表现，以及把长篇 Markdown 结果整理成更适合阅读的结论。
+            <h2 className="text-lg font-semibold text-[var(--color-text-strong)]">智能分析助手</h2>
+            <p className="mx-auto mt-1.5 max-w-xl text-xs leading-6 text-[var(--color-text-muted)]">
+              查看经营异常、生成分析报告、对比部门表现
             </p>
           </div>
           <div className="chat-prompt-grid">
@@ -84,11 +85,11 @@ function ConfigPrompt() {
   return (
     <div className="flex flex-1 items-center justify-center px-4">
       <div className="chat-config-card">
-        <Settings size={34} className="text-[var(--color-text-muted)]" />
-        <div className="space-y-2 text-center">
-          <h2 className="text-xl font-semibold text-[var(--color-text-strong)]">请先配置 AI 模型</h2>
-          <p className="text-sm leading-7 text-[var(--color-text-muted)]">
-            前往设置页填写 API Key 和模型名称后，再开始经营数据问答与报告分析。
+        <Settings size={28} className="text-[var(--color-text-muted)]" />
+        <div className="space-y-1.5 text-center">
+          <h2 className="text-base font-semibold text-[var(--color-text-strong)]">请先配置 AI 模型</h2>
+          <p className="text-xs leading-6 text-[var(--color-text-muted)]">
+            前往设置页填写 API Key 和模型名称
           </p>
         </div>
         <a href="/settings" className="btn btn-primary btn-sm">
@@ -107,6 +108,7 @@ export function AiAnalysis() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingMsg, setStreamingMsg] = useState<ChatMessage | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [historyCollapsed, setHistoryCollapsed] = useState(false)
   const [configOk, setConfigOk] = useState(false)
 
   const agentRef = useRef<ChatAgent | null>(null)
@@ -357,7 +359,7 @@ export function AiAnalysis() {
   }, [])
 
   const displayMessages = streamingMsg ? [...messages, streamingMsg] : messages
-  const activeConversation = conversations.find((conversation) => conversation.id === activeId)
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024
 
   if (!configOk) {
     return (
@@ -369,46 +371,83 @@ export function AiAnalysis() {
 
   return (
     <div className="chat-page-shell">
-      <aside className={`chat-sidebar ${sidebarOpen ? 'chat-sidebar-open' : ''}`}>
+      <aside
+        className={[
+          'chat-sidebar',
+          sidebarOpen ? 'chat-sidebar-open' : '',
+          historyCollapsed ? 'chat-sidebar-collapsed' : '',
+        ].join(' ')}
+      >
         <div className="chat-sidebar-header">
-          <button type="button" className="btn btn-primary btn-sm justify-start gap-2" onClick={handleNewConversation}>
-            <MessageSquarePlus size={16} />
-            新对话
-          </button>
           <button
             type="button"
-            className="btn btn-ghost btn-sm btn-square"
-            onClick={() => setSidebarOpen(false)}
-            title="收起侧边栏"
+            className="chat-new-btn"
+            onClick={handleNewConversation}
+            title="新对话"
           >
-            <PanelLeftClose size={16} />
+            <Plus size={16} strokeWidth={2} />
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs btn-square"
+            onClick={() => {
+              if (window.innerWidth >= 1024) {
+                setHistoryCollapsed((value) => !value)
+                return
+              }
+
+              setSidebarOpen(false)
+            }}
+            title={historyCollapsed ? '展开历史栏' : '收起历史栏'}
+          >
+            {isDesktop ? (
+              historyCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />
+            ) : (
+              <PanelLeftClose size={14} />
+            )}
           </button>
         </div>
+
         <div className="chat-sidebar-body">
           {conversations.length === 0 ? (
-            <div className="chat-sidebar-empty">还没有历史对话</div>
+            <div className="chat-sidebar-empty">{historyCollapsed ? '暂无' : '还没有历史对话'}</div>
           ) : (
             conversations.map((conversation) => (
               <div
                 key={conversation.id}
-                className={`chat-conversation-item ${conversation.id === activeId ? 'chat-conversation-item-active' : ''}`}
+                className={[
+                  'chat-conversation-item',
+                  conversation.id === activeId ? 'chat-conversation-item-active' : '',
+                  historyCollapsed ? 'chat-conversation-item-collapsed' : '',
+                ].join(' ')}
                 onClick={() => handleSelectConversation(conversation.id)}
+                title={historyCollapsed ? conversation.title : undefined}
               >
-                <span className="chat-conversation-title">{conversation.title}</span>
-                <span className="chat-conversation-time">{formatConversationTime(conversation.updatedAt)}</span>
-                <span className="chat-conversation-action">
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-xs btn-square hover:text-error"
-                    title="删除对话"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      handleDeleteConversation(conversation.id)
-                    }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                <span className="chat-conversation-icon">
+                  <MessageSquare size={14} strokeWidth={1.7} />
                 </span>
+                {!historyCollapsed && (
+                  <div className="chat-conversation-info">
+                    <span className="chat-conversation-title">{conversation.title}</span>
+                    <span className="chat-conversation-time">{formatConversationTime(conversation.updatedAt)}</span>
+                  </div>
+                )}
+                {!historyCollapsed && (
+                  <span className="chat-conversation-action">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs btn-square hover:text-error"
+                      title="删除对话"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        handleDeleteConversation(conversation.id)
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </span>
+                )}
               </div>
             ))
           )}
@@ -417,28 +456,7 @@ export function AiAnalysis() {
 
       {sidebarOpen && <button type="button" className="chat-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
 
-      <main className="chat-main">
-        <header className="chat-topbar">
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm btn-square"
-              onClick={() => setSidebarOpen((value) => !value)}
-              title="切换侧边栏"
-            >
-              {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
-            </button>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-[var(--color-text-strong)]">
-                {activeConversation?.title || '智能分析'}
-              </div>
-              <div className="truncate text-xs text-[var(--color-text-muted)]">
-                适合长篇经营分析、Markdown 报告和多轮追问
-              </div>
-            </div>
-          </div>
-        </header>
-
+      <div className="chat-main-panel">
         <div
           ref={messagesContainerRef}
           className="chat-messages"
@@ -461,7 +479,7 @@ export function AiAnalysis() {
             <textarea
               ref={textareaRef}
               className="chat-composer-input"
-              placeholder="输入问题，Enter 发送，Shift + Enter 换行"
+              placeholder="输入问题，Enter 发送"
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
@@ -469,34 +487,30 @@ export function AiAnalysis() {
               disabled={isStreaming}
             />
             <div className="chat-composer-footer">
-              <span className="text-xs text-[var(--color-text-muted)]">
-                {isStreaming ? '正在生成中，可点击停止' : '支持长篇 Markdown 结果和报告式回答'}
-              </span>
               {isStreaming ? (
                 <button
                   type="button"
-                  className="btn btn-error btn-sm btn-square"
+                  className="btn btn-error btn-xs btn-square"
                   onClick={handleAbort}
                   title="停止生成"
                 >
-                  <Square size={16} />
+                  <Square size={13} />
                 </button>
               ) : (
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm gap-2"
+                  className="btn btn-primary btn-xs btn-square"
                   onClick={() => void handleSend()}
                   disabled={!input.trim()}
                   title="发送"
                 >
-                  <Send size={16} />
-                  发送
+                  <Send size={13} />
                 </button>
               )}
             </div>
           </div>
         </footer>
-      </main>
+      </div>
     </div>
   )
 }

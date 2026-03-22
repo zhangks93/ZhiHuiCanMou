@@ -29,7 +29,7 @@ const columnHelper = createColumnHelper<BusinessTrip>()
 
 function StatCard({ label, value, unit }: { label: string; value: string | number; unit?: string }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="bg-white/86 backdrop-blur-xl rounded-[18px] border border-[var(--color-border)] p-4 shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
       <div className="text-2xl font-semibold text-gray-800">
         {value}
         {unit && <span className="text-sm text-gray-500 ml-1">{unit}</span>}
@@ -209,7 +209,7 @@ export function Trip() {
   if (loading) {
     return (
       <>
-        <div className="bg-white rounded-lg border border-gray-200 p-10 text-center">
+        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-10 text-center shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
           <Plane size={40} className="mx-auto text-gray-300 animate-pulse" />
           <p className="text-gray-400 mt-4">加载中...</p>
         </div>
@@ -228,7 +228,7 @@ export function Trip() {
 
       <div className="grid grid-cols-1 gap-6">
         {ongoingTrips.length > 0 && (
-          <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
             <div className="flex items-center gap-2 mb-4">
               <Plane size={18} className="text-gray-600" />
               <h3 className="font-medium text-gray-900">当前在途人员</h3>
@@ -263,7 +263,7 @@ export function Trip() {
           </div>
         )}
 
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Calendar size={18} className="text-gray-600" />

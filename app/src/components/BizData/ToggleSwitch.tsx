@@ -12,26 +12,26 @@ export function ToggleSwitch<T extends string>({
   size = 'md',
 }: ToggleSwitchProps<T>) {
   const sizeClasses = {
-    sm: 'h-8 text-xs',
-    md: 'h-9 text-sm',
+    sm: 'h-7 text-[11px]',
+    md: 'h-8 text-xs',
   }
 
   return (
-    <div className={`inline-flex items-center bg-gray-100 rounded-lg p-0.5 ${sizeClasses[size]}`}>
+    <div className={`inline-flex items-center rounded-full bg-[rgba(15,23,42,0.06)] p-0.5 ${sizeClasses[size]}`}>
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
           className={`
-            flex items-center justify-center gap-1.5 px-3 rounded-md font-medium transition-all
+            flex items-center justify-center gap-1 px-2.5 rounded-full font-medium transition-all duration-200 h-full
             ${value === opt.value
-              ? 'bg-white text-primary shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-[var(--color-accent)] text-white shadow-[0_2px_8px_rgba(37,99,235,0.3)]'
+              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-strong)]'
             }
           `}
         >
           {opt.icon}
-          <span className="hidden sm:inline">{opt.label}</span>
+          <span>{opt.label}</span>
         </button>
       ))}
     </div>

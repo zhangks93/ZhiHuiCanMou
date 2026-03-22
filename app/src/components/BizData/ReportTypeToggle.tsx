@@ -12,8 +12,8 @@ export function ReportTypeToggle({ value, onChange }: ReportTypeToggleProps) {
       value={value}
       onChange={onChange}
       options={[
-        { value: 'fone', label: '学年预算', icon: <Target size={14} /> },
-        { value: 'tuwei', label: '突围考核', icon: <TrendingUp size={14} /> },
+        { value: 'fone', label: '预算', icon: <Target size={13} /> },
+        { value: 'tuwei', label: '突围', icon: <TrendingUp size={13} /> },
       ]}
     />
   )

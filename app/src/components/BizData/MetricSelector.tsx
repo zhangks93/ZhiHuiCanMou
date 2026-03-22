@@ -42,36 +42,35 @@ export function MetricSelector({
   }
 
   return (
-    <div className="relative inline-block" ref={dropdownRef}>
+    <div className="relative inline-block" ref={dropdownRef} style={{ zIndex: isOpen ? 9999 : 'auto' }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium bg-[rgba(15,23,42,0.06)] text-[var(--color-text)] hover:bg-[rgba(15,23,42,0.1)] transition-colors"
       >
         <span>
-          指标选择 ({selectedMetrics.length}/{maxSelection})
+          指标 {selectedMetrics.length}/{maxSelection}
         </span>
-        <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`transition-transform text-[var(--color-text-muted)] ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
-          <div className="p-2 border-b border-gray-200">
-            <p className="text-xs text-gray-500">
+        <div className="absolute left-0 mt-2 w-64 rounded-xl border border-[var(--color-border)] bg-white/96 shadow-[0_20px_50px_rgba(15,23,42,0.15)] backdrop-blur-xl" style={{ zIndex: 9999 }}>
+          <div className="px-3 py-2 border-b border-[var(--color-border)]">
+            <p className="text-[11px] text-[var(--color-text-muted)]">
               最多选择 {maxSelection} 个指标
             </p>
           </div>
-          <div className="max-h-[32rem] overflow-y-auto p-2">
+          <div className="max-h-[28rem] overflow-y-auto p-1.5">
             {METRIC_GROUPS.map((group, groupIdx) => {
-              // Filter metrics that are available
               const groupMetrics = group.metrics.filter(m => availableMetrics.includes(m))
               if (groupMetrics.length === 0) return null
 
               return (
-                <div key={groupIdx} className="mb-3 last:mb-0">
-                  <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <div key={groupIdx} className="mb-2 last:mb-0">
+                  <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
                     {group.label}
                   </div>
-                  <div className="space-y-0.5">
+                  <div className="space-y-px">
                     {groupMetrics.map(metric => {
                       const isSelected = selectedMetrics.includes(metric)
                       const isDisabled = !isSelected && selectedMetrics.length >= maxSelection
@@ -82,23 +81,23 @@ export function MetricSelector({
                           onClick={() => !isDisabled && toggleMetric(metric)}
                           disabled={isDisabled}
                           className={`
-                            w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-left transition-colors
+                            w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-left transition-all duration-150
                             ${isSelected
-                              ? 'bg-primary-50 text-primary-700'
+                              ? 'bg-[rgba(37,99,235,0.08)] text-[var(--color-text-strong)]'
                               : isDisabled
-                              ? 'text-gray-400 cursor-not-allowed'
-                              : 'text-gray-700 hover:bg-gray-100'
+                              ? 'text-[var(--color-text-muted)] cursor-not-allowed opacity-40'
+                              : 'text-[var(--color-text)] hover:bg-[rgba(15,23,42,0.04)]'
                             }
                           `}
                         >
                           <div className={`
-                            w-4 h-4 flex items-center justify-center rounded border shrink-0
+                            w-3.5 h-3.5 flex items-center justify-center rounded shrink-0 transition-colors
                             ${isSelected
-                              ? 'bg-primary border-primary'
-                              : 'border-gray-300'
+                              ? 'bg-[var(--color-accent)]'
+                              : 'border border-[var(--color-border-strong)]'
                             }
                           `}>
-                            {isSelected && <Check size={12} className="text-white" />}
+                            {isSelected && <Check size={10} className="text-white" />}
                           </div>
                           <span>{METRIC_LABELS[metric]}</span>
                         </button>

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { MODULE_NAV_CONFIG, DEFAULT_ENABLED_MODULE_IDS } from '@/config/modules'
+import { PageTitle } from '@/components/ui/PageTitle'
 
 interface WorkItemLink {
   url: string
@@ -223,9 +224,16 @@ export function WorkReport() {
   if (projects.length === 0) projects.push(...MODULE_OPTIONS)
 
   return (
-    <>
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <p className="text-sm text-primary-400 flex items-center gap-2">
+    <div className="app-page">
+      <PageTitle
+        title="项目协同"
+        subtitle="任务收集、状态拖拽和项目分组统一进入新的科技感工作流界面，让操作层级、控件和信息密度都与导航系统保持一致。"
+        badge="Workflow"
+        icon={GitBranch}
+      />
+
+      <div className="app-toolbar">
+        <p className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
           <GitBranch size={16} />
           按项目分组、按状态流转，协同推进任务
         </p>
@@ -241,7 +249,7 @@ export function WorkReport() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="bg-surface rounded-xl border border-primary-200 p-5 mb-6 shadow-card"
+        className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 mb-6 shadow-[0_24px_64px_rgba(15,23,42,0.10)]"
         >
           <h3 className="font-medium text-primary mb-4 flex items-center gap-2">
             <GitBranch size={18} />
@@ -358,7 +366,7 @@ export function WorkReport() {
         </form>
       )}
 
-      <div className="bg-surface rounded-xl border border-primary-200 shadow-card overflow-hidden">
+      <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] shadow-[0_24px_64px_rgba(15,23,42,0.10)] overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-primary-400">加载中...</div>
         ) : (
@@ -489,6 +497,6 @@ export function WorkReport() {
           暂无任务，点击「新建任务」开始项目协同
         </div>
       )}
-    </>
+    </div>
   )
 }

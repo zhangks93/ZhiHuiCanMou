@@ -163,7 +163,7 @@ const INSIGHT_STYLE: Record<string, { icon: typeof AlertTriangle; bg: string; bo
   danger: { icon: AlertTriangle, bg: 'bg-error-100/60', border: 'border-error-200', iconColor: 'text-error-700' },
   warning: { icon: AlertTriangle, bg: 'bg-warning-100/60', border: 'border-warning-200', iconColor: 'text-warning-700' },
   success: { icon: TrendingUp, bg: 'bg-success-100/60', border: 'border-success-200', iconColor: 'text-success-700' },
-  info: { icon: Lightbulb, bg: 'bg-accent-50', border: 'border-accent-200', iconColor: 'text-accent-600' },
+  info: { icon: Lightbulb, bg: 'bg-accent-50', border: 'border-accent-200', iconColor: 'text-accent-700' },
 }
 
 // --- Main Component ---
@@ -236,13 +236,21 @@ export function BizData() {
   const insights = useMemo(() => generateInsights(totalNode, tree.centers, reportType), [totalNode, tree.centers, reportType])
 
   return (
-    <>
-      {/* Filter Bar - Row 1: Toggles + Month Selector */}
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-3 flex-wrap">
+    <div className="app-page">
+      {/* Filter Toolbar */}
+      <div className="biz-toolbar">
+        <div className="flex items-center gap-2 flex-wrap flex-1">
           <ReportTypeToggle value={reportType} onChange={setReportType} />
+          <div className="w-px h-6 bg-[var(--color-border)]" />
           <PeriodTypeToggle value={periodType} onChange={setPeriodType} />
+          <div className="w-px h-6 bg-[var(--color-border)]" />
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          <MetricSelector
+            selectedMetrics={selectedMetrics}
+            onChange={setSelectedMetrics}
+            availableMetrics={ALL_METRICS}
+            maxSelection={6}
+          />
         </div>
         {availableMonths.length > 0 && (
           <MonthSelector
@@ -253,38 +261,24 @@ export function BizData() {
         )}
       </div>
 
-      {/* Filter Bar - Row 2: Metric Selector + Hierarchy Info */}
-      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
-        <MetricSelector
-          selectedMetrics={selectedMetrics}
-          onChange={setSelectedMetrics}
-          availableMetrics={ALL_METRICS}
-          maxSelection={6}
-        />
-        <div className="text-sm text-gray-500">
-          共 {nodes.length} 个节点
-        </div>
-      </div>
-
       {/* View Content with Loading State */}
-      <div className="mb-6 relative">
+      <div className="relative">
         {dataLoading ? (
-          <div className="flex items-center justify-center h-64 bg-white rounded-lg border border-gray-200">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <div className="text-gray-500">加载中...</div>
+          <div className="biz-content-area">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-[var(--color-border)] border-t-[var(--color-accent)] mx-auto mb-3"></div>
+                <div className="text-xs text-[var(--color-text-muted)]">加载中...</div>
+              </div>
             </div>
           </div>
         ) : nodes.length === 0 ? (
-          <div className="flex items-center justify-center h-64 bg-white rounded-lg border border-gray-200">
-            <div className="text-center">
-              <AlertTriangle size={48} className="text-warning-500 mx-auto mb-4" />
-              <div className="text-gray-700 font-medium mb-2">暂无数据</div>
-              <div className="text-sm text-gray-500">
-                当前期间类型: {periodType === 'cumulative' ? '累计数据' : '月度数据'}
-              </div>
-              <div className="text-sm text-gray-500 mt-2">
-                请检查数据库或切换期间类型
+          <div className="biz-content-area">
+            <div className="app-empty-state">
+              <AlertTriangle size={32} className="text-warning-700 opacity-60" />
+              <div className="text-[var(--color-text-strong)] font-medium text-sm">暂无数据</div>
+              <div className="text-xs text-[var(--color-text-muted)]">
+                {periodType === 'cumulative' ? '累计数据' : '月度数据'} · 请检查数据库或切换期间类型
               </div>
             </div>
           </div>
@@ -297,22 +291,24 @@ export function BizData() {
 
       {/* Smart Insights */}
       {!dataLoading && insights.length > 0 && (
-        <div className="mb-6">
+        <div className="biz-content-area p-4 sm:p-5">
           <div className="flex items-center gap-2 mb-3">
-            <Lightbulb size={18} className="text-accent" />
-            <span className="text-sm font-medium text-gray-700">智能洞察</span>
+            <Lightbulb size={15} className="text-[var(--color-accent)]" />
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">智能洞察</span>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-2 md:grid-cols-2">
             {insights.map((insight, i) => {
               const style = INSIGHT_STYLE[insight.type]
               const Icon = style.icon
               return (
-                <div key={i} className={`rounded-lg border p-4 ${style.bg} ${style.border}`}>
-                  <div className="flex items-start gap-3">
-                    <Icon size={18} className={`${style.iconColor} mt-0.5 shrink-0`} />
+                <div key={i} className={`rounded-xl border p-3 ${style.bg} ${style.border}`}>
+                  <div className="flex items-start gap-2.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/60 shrink-0">
+                      <Icon size={14} className={style.iconColor} />
+                    </div>
                     <div>
-                      <div className={`font-medium text-sm ${style.iconColor}`}>{insight.title}</div>
-                      <div className="text-sm text-gray-600 mt-1 leading-relaxed">{insight.detail}</div>
+                      <div className={`font-medium text-xs ${style.iconColor}`}>{insight.title}</div>
+                      <div className="text-xs text-[var(--color-text-muted)] mt-0.5 leading-relaxed">{insight.detail}</div>
                     </div>
                   </div>
                 </div>
@@ -321,6 +317,6 @@ export function BizData() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

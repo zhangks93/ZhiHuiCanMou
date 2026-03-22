@@ -19,9 +19,6 @@ export function ChatMessageItem({
         {isUser ? <User size={16} /> : <Bot size={16} />}
       </div>
       <div className={`chat-message-shell ${isUser ? 'chat-message-shell-user' : 'chat-message-shell-assistant'}`}>
-        <div className="chat-message-meta">
-          <span>{isUser ? '你' : '智能分析'}</span>
-        </div>
         <div className={`chat-message-card ${isUser ? 'chat-message-card-user' : 'chat-message-card-assistant'}`}>
           {!isUser && (
             <ChatProcessPanel thinking={message.thinking} toolCalls={message.toolCalls} />

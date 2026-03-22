@@ -11,7 +11,7 @@ const links = [
 
 export function Links() {
   return (
-    <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+    <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
       <div className="flex items-center gap-2 mb-6">
         <Link2 size={18} strokeWidth={1.5} className="text-gray-600" />
         <h3 className="font-medium text-gray-900">常用系统入口（点击跳转）</h3>
@@ -23,7 +23,7 @@ export function Links() {
             <a
               key={link.name}
               href="#"
-              className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-5 transition-all hover:border-gray-300 hover:bg-gray-100"
+              className="flex flex-col items-center gap-3 rounded-[18px] border border-[var(--color-border)] bg-white/60 backdrop-blur-sm p-5 transition-all hover:border-[rgba(37,99,235,0.3)] hover:bg-white/80 hover:shadow-[0_10px_24px_rgba(37,99,235,0.10)]"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded bg-primary-50 text-primary">
                 <Icon size={24} strokeWidth={1.5} />

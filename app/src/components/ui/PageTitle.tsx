@@ -1,9 +1,18 @@
+import type { ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
 
 interface PageTitleProps {
   breadcrumb?: string
   title?: string
   subtitle?: string
+  badge?: string
+  icon?: LucideIcon
+  meta?: Array<{
+    label: string
+    value: string
+  }>
+  actions?: ReactNode
 }
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
@@ -24,10 +33,17 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
 
 function looksBroken(value?: string) {
   if (!value) return true
-  return /[锟介弮閸熸＃]/.test(value)
+  return /[\ufffd]/.test(value)
 }
 
-export function PageTitle({ title, subtitle }: PageTitleProps) {
+export function PageTitle({
+  title,
+  subtitle,
+  badge,
+  icon: Icon,
+  meta,
+  actions,
+}: PageTitleProps) {
   const location = useLocation()
   const routeMeta = PAGE_META[location.pathname]
 
@@ -35,17 +51,44 @@ export function PageTitle({ title, subtitle }: PageTitleProps) {
   const description = !looksBroken(subtitle) ? subtitle : routeMeta?.subtitle
 
   return (
-    <div className="relative mb-6 animate-slide-up">
-      <div className="min-w-0">
-        <h1 className="truncate text-2xl font-semibold text-[var(--color-text-strong)] sm:text-[2rem]">
-          {heading}
-        </h1>
-        {description && (
-          <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-            {description}
-          </p>
-        )}
+    <section className="app-hero animate-slide-up">
+      <div className="app-hero__content">
+        <div className="flex flex-wrap items-center gap-3">
+          {Icon ? (
+            <div className="app-hero__icon">
+              <Icon size={20} strokeWidth={1.8} />
+            </div>
+          ) : null}
+
+          {badge ? <span className="app-pill app-pill-accent">{badge}</span> : null}
+        </div>
+
+        <div className="space-y-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-[2rem] font-semibold leading-tight text-[var(--color-text-strong)] sm:text-[2.5rem]">
+              {heading}
+            </h1>
+            {description ? (
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--color-text-muted)] sm:text-[15px]">
+                {description}
+              </p>
+            ) : null}
+          </div>
+
+          {meta && meta.length > 0 ? (
+            <div className="flex flex-wrap gap-3">
+              {meta.map((item) => (
+                <div key={`${item.label}-${item.value}`} className="app-hero__meta">
+                  <span className="app-hero__meta-label">{item.label}</span>
+                  <span className="app-hero__meta-value">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
+
+      {actions ? <div className="app-hero__actions">{actions}</div> : null}
+    </section>
   )
 }

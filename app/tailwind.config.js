@@ -1,57 +1,9 @@
 /** @type {import('tailwindcss').Config} */
-/** 智汇参谋 · 精编智感 - Editorial Intelligence Theme */
-const colors = {
-  primary: {
-    DEFAULT: '#1a2744',
-    light: '#2d3f5c',
-    dark: '#0f1828',
-    50: '#f0f2f5',
-    100: '#dde1e8',
-    200: '#bcc4d4',
-    300: '#9aa5bd',
-    400: '#7887a6',
-    500: '#1a2744',
-    600: '#16203a',
-    700: '#0f1828',
-    800: '#0c1220',
-    900: '#080d18',
-  },
-  accent: {
-    DEFAULT: '#0d9488',
-    hover: '#0f766e',
-    50: '#f0fdfa',
-    100: '#ccfbf1',
-    200: '#99f6e4',
-    300: '#5eead4',
-    400: '#2dd4bf',
-    500: '#0d9488',
-    600: '#0f766e',
-    700: '#115e59',
-  },
-  background: '#f9f8f6',
-  surface: '#ffffff',
-  success: {
-    DEFAULT: '#059669',
-    100: '#d1fae5',
-    200: '#a7f3d0',
-    500: '#059669',
-    700: '#047857',
-  },
-  warning: {
-    DEFAULT: '#d97706',
-    100: '#fef3c7',
-    200: '#fde68a',
-    500: '#d97706',
-    700: '#b45309',
-  },
-  error: {
-    DEFAULT: '#dc2626',
-    100: '#fee2e2',
-    200: '#fecaca',
-    500: '#dc2626',
-    700: '#b91c1c',
-  },
-}
+/**
+ * 智汇参谋 · 精编智感 - Editorial Intelligence Theme
+ * 所有设计令牌统一来自 src/theme.ts，此处仅做 Tailwind 桥接
+ */
+import theme from './src/theme.ts'
 
 export default {
   content: [
@@ -61,22 +13,58 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
-        serif: ['Noto Serif SC', 'Noto Sans SC', 'serif'],
+        sans: theme.fonts.sans,
+        serif: theme.fonts.serif,
       },
       colors: {
-        primary: colors.primary,
-        accent: colors.accent,
-        background: colors.background,
-        surface: colors.surface,
-        success: colors.success,
-        warning: colors.warning,
-        error: colors.error,
+        primary: theme.colors.primary,
+        accent: theme.colors.accent,
+        background: theme.colors.background,
+        surface: theme.colors.surface,
+        success: theme.colors.success,
+        warning: theme.colors.warning,
+        error: theme.colors.error,
+      },
+      fontSize: {
+        '2xs': theme.fontSize['2xs'],
+        'xs': theme.fontSize.xs,
+        'sm': theme.fontSize.sm,
+        'base': theme.fontSize.base,
+        'md': theme.fontSize.md,
+        'lg': theme.fontSize.lg,
+        'xl': theme.fontSize.xl,
+        '2xl': theme.fontSize['2xl'],
+        '3xl': theme.fontSize['3xl'],
+        '4xl': theme.fontSize['4xl'],
+        '5xl': theme.fontSize['5xl'],
+      },
+      borderRadius: {
+        'card': theme.radius.card,
+        'sidebar': theme.radius.sidebar,
+        'section': theme.radius.section,
+        'panel': theme.radius.panel,
+        'modal': theme.radius.modal,
+        'hero': theme.radius.hero,
+        'pill': theme.radius.pill,
+        'btn': theme.radius.btn,
+        'input': theme.radius.input,
       },
       boxShadow: {
-        'card': '0 2px 8px rgb(26 39 68 / 0.06)',
-        'card-hover': '0 8px 24px rgb(26 39 68 / 0.08)',
-        'inner-soft': 'inset 0 1px 1px rgb(255 255 255 / 0.5)',
+        'xs': theme.shadow.xs,
+        'card': theme.shadow.card,
+        'soft': theme.shadow.soft,
+        'card-hover': theme.shadow.cardHover,
+        'panel-hover': theme.shadow.panelHover,
+        'tooltip': theme.shadow.tooltip,
+        'modal': theme.shadow.modal,
+        'sidebar': theme.shadow.sidebar,
+        'inner-soft': theme.shadow.innerSoft,
+        'inner-white': theme.shadow.innerWhite,
+        'inner-white-strong': theme.shadow.innerWhiteStrong,
+        'btn-primary': theme.shadow.btnPrimary,
+        'btn-error': theme.shadow.btnError,
+        'focus-ring': theme.shadow.focusRing,
+        'chat-active': theme.shadow.chatActive,
       },
       animation: {
         'fade-in': 'fadeIn 0.4s ease-out forwards',
@@ -98,25 +86,7 @@ export default {
   daisyui: {
     themes: [
       {
-        canmou: {
-          "primary": colors.primary.DEFAULT,
-          "primary-content": "#ffffff",
-          "secondary": colors.primary.dark,
-          "accent": colors.accent.DEFAULT,
-          "neutral": "#1a202c",
-          "neutral-content": "#f9fafb",
-          "base-100": colors.surface,
-          "base-200": colors.background,
-          "base-300": "#e8e6e3",
-          "base-content": "#2d3748",
-          "info": colors.accent.DEFAULT,
-          "success": colors.success.DEFAULT,
-          "success-content": "#ffffff",
-          "warning": colors.warning.DEFAULT,
-          "warning-content": "#1a202c",
-          "error": colors.error.DEFAULT,
-          "error-content": "#ffffff",
-        },
+        canmou: theme.daisyTheme,
       },
     ],
     darkTheme: false,

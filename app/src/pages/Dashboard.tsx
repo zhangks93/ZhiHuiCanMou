@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, Bot, Calendar, Sparkles } from 'lucide-react'
 import { ROUTES } from '@/config/constants'
+import { PageTitle } from '@/components/ui/PageTitle'
+import { StatCard } from '@/components/ui/StatCard'
 import { supabase } from '@/lib/supabase'
-import {
-  AlertTriangle,
-  Bot,
-  Calendar,
-} from 'lucide-react'
 
 const PERIOD_LABEL: Record<string, string> = {
   morning: '上午',
@@ -17,7 +15,7 @@ const PERIOD_LABEL: Record<string, string> = {
 const TYPE_TAG: Record<string, { label: string; cls: string }> = {
   meeting: { label: '会议', cls: 'bg-error-100 text-error-700' },
   business: { label: '商务', cls: 'bg-accent-100 text-accent-700' },
-  routine: { label: '例行', cls: 'bg-gray-100 text-gray-600' },
+  routine: { label: '例行', cls: 'bg-primary-100 text-[var(--color-text)]' },
   urgent: { label: '紧急', cls: 'bg-error-100 text-error-700' },
 }
 
@@ -65,7 +63,6 @@ function fmtToday(): string {
 
 function asRate(v: number | null | undefined): number {
   if (v == null || Number.isNaN(v)) return 0
-  // 数据库中存储的是小数形式（如 0.6249 = 62.49%），直接乘以100转换为百分比
   return Math.round(Number(v) * 10000) / 100
 }
 
@@ -86,13 +83,7 @@ export function Dashboard() {
 
     async function loadDashboard() {
       try {
-        const [
-          bizRes,
-          scheduleRes,
-          warningRes,
-          opportunityRes,
-          membersRes,
-        ] = await Promise.all([
+        const [bizRes, scheduleRes, warningRes, opportunityRes, membersRes] = await Promise.all([
           supabase
             .from('edu_logistics_biz_data')
             .select('revenue_completion_rate,profit_completion_rate,yoy_revenue,created_at')
@@ -115,9 +106,7 @@ export function Dashboard() {
             .select('snapshot_date,status,estimated_amount,win_probability,updated_at')
             .order('snapshot_date', { ascending: false })
             .limit(500),
-          supabase
-            .from('feishu_members')
-            .select('user_id'),
+          supabase.from('feishu_members').select('user_id'),
         ])
 
         if (!bizRes.error && bizRes.data?.[0]) {
@@ -130,7 +119,6 @@ export function Dashboard() {
             createdAt: row.created_at ?? null,
           })
         } else if (!membersRes.error) {
-          // 如果没有经营数据，至少设置人数
           setStats({
             headcount: membersRes.data?.length ?? 0,
             revenueRate: 0,
@@ -168,23 +156,22 @@ export function Dashboard() {
             win_probability: number | null
             updated_at: string | null
           }>
+
           const latestSnapshotDate = rows[0]?.snapshot_date ?? null
           const latestRows = latestSnapshotDate ? rows.filter((r) => r.snapshot_date === latestSnapshotDate) : []
 
-          const activeCount = latestRows.filter((r) =>
-            r.status === 'tracking',
-          ).length
-
+          const activeCount = latestRows.filter((r) => r.status === 'tracking').length
           const weightedAmount = latestRows.reduce((sum, r) => {
             const amount = Number(r.estimated_amount) || 0
             const probability = Number(r.win_probability) || 0
             return sum + amount * probability
           }, 0)
 
-          const lastUpdated = latestRows
-            .map((r) => r.updated_at)
-            .filter(Boolean)
-            .sort((a, b) => (new Date(b as string).getTime() - new Date(a as string).getTime()))[0] ?? null
+          const lastUpdated =
+            latestRows
+              .map((r) => r.updated_at)
+              .filter(Boolean)
+              .sort((a, b) => new Date(b as string).getTime() - new Date(a as string).getTime())[0] ?? null
 
           setOpportunitySummary({
             latestSnapshotDate,
@@ -193,154 +180,169 @@ export function Dashboard() {
             lastUpdated: lastUpdated ?? latestSnapshotDate,
           })
         }
-
       } catch (error) {
         console.error('Failed to load dashboard:', error)
       }
     }
 
-    loadDashboard()
+    void loadDashboard()
   }, [])
 
   return (
-    <>
-      <div className="mb-5 animate-fade-in">
-        <div className="flex items-end justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold text-[var(--color-text-strong)] sm:text-[2rem]">
-              运营驾驶舱
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-              聚合经营、日程与风险重点
-            </p>
-          </div>
-          <div className="shrink-0 text-xs text-[var(--color-text-muted)]">
-            {new Date().toLocaleString("zh-CN", { hour12: false, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-          </div>
-        </div>
-      </div>
+    <div className="app-page">
+      <PageTitle
+        title="运营驾驶舱"
+        subtitle="围绕经营、组织、日程与智能分析重新组织首页布局，所有高频入口统一为导航栏同源的冷蓝磨砂语言。"
+        badge="Overview"
+        icon={Sparkles}
+        meta={[
+          { label: '人员规模', value: stats ? `${stats.headcount} 人` : '-' },
+          { label: '今日日程', value: `${todaySchedules.length} 项` },
+          { label: '在途商机', value: `${opportunitySummary.activeCount}` },
+        ]}
+        actions={
+          <>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate(ROUTES.BIZ_DATA)}>
+              查看经营面板
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate(ROUTES.AI_ANALYSIS)}>
+              打开 AI 分析
+            </button>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="营收达成"
+          value={stats ? `${stats.revenueRate.toFixed(1)}%` : '-'}
+          trend={stats?.createdAt ? `更新于 ${stats.createdAt.slice(0, 10)}` : '等待最新数据'}
+          trendUp
           onClick={() => navigate(ROUTES.BIZ_DATA)}
-          className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#0d9488] to-[#0f766e] p-4 text-white cursor-pointer transition-all duration-200 hover:shadow-lg"
-          style={{ animation: 'slide-up 0.4s ease-out' }}
-        >
-          <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
-          <div className="relative">
-            <div className="text-[10px] font-semibold tracking-wider uppercase opacity-75 mb-1">营收</div>
-            <div className="text-3xl font-bold mb-0.5" style={{ fontFamily: "Playfair Display, serif" }}>
-              {stats ? `${stats.revenueRate.toFixed(1)}%` : '-'}
-            </div>
-            <div className="text-xs opacity-80">营收达成率</div>
-          </div>
-        </div>
-
-        <div
+        />
+        <StatCard
+          label="利润达成"
+          value={stats ? `${stats.profitRate.toFixed(1)}%` : '-'}
+          trend={stats ? `同比 ${stats.yoyRevenue.toFixed(2)}` : '等待最新数据'}
+          color="warning"
           onClick={() => navigate(ROUTES.BIZ_DATA)}
-          className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#1a2744] to-[#0f1828] p-4 text-white cursor-pointer transition-all duration-200 hover:shadow-lg"
-          style={{ animation: 'slide-up 0.4s ease-out 0.05s backwards' }}
-        >
-          <div className="absolute top-0 right-0 w-20 h-20 bg-accent/20 rounded-full blur-2xl" />
-          <div className="relative">
-            <div className="text-[10px] font-semibold tracking-wider uppercase opacity-75 mb-1">利润</div>
-            <div className="text-3xl font-bold mb-0.5" style={{ fontFamily: "Playfair Display, serif" }}>
-              {stats ? `${stats.profitRate.toFixed(1)}%` : '-'}
-            </div>
-            <div className="text-xs opacity-80">利润达成率</div>
-          </div>
-        </div>
-
-        <div
+        />
+        <StatCard
+          label="组织在岗"
+          value={stats ? stats.headcount.toLocaleString('zh-CN') : '-'}
+          unit="人"
+          color="success"
           onClick={() => navigate(ROUTES.ORG_DATA)}
-          className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-white p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-accent"
-          style={{ animation: 'slide-up 0.4s ease-out 0.1s backwards' }}
-        >
-          <div className="text-[10px] font-semibold tracking-wider uppercase text-[var(--color-text-muted)] mb-1">人数</div>
-          <div className="text-3xl font-bold text-[var(--color-text-strong)] mb-0.5" style={{ fontFamily: "Playfair Display, serif" }}>
-            {stats ? stats.headcount.toLocaleString("zh-CN") : "-"}
-          </div>
-          <div className="text-xs text-[var(--color-text-muted)]">在岗人数</div>
-        </div>
-
-        <div
+        />
+        <StatCard
+          label="活跃商机"
+          value={opportunitySummary.activeCount}
+          unit="项"
+          trend={
+            opportunitySummary.lastUpdated
+              ? `快照 ${opportunitySummary.lastUpdated.slice(0, 10)}`
+              : '暂无快照'
+          }
           onClick={() => navigate(ROUTES.OPPORTUNITY)}
-          className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-white p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-accent"
-          style={{ animation: 'slide-up 0.4s ease-out 0.15s backwards' }}
-        >
-          <div className="text-[10px] font-semibold tracking-wider uppercase text-[var(--color-text-muted)] mb-1">商机</div>
-          <div className="text-3xl font-bold text-[var(--color-text-strong)] mb-0.5" style={{ fontFamily: "Playfair Display, serif" }}>
-            {opportunitySummary.activeCount}
-          </div>
-          <div className="text-xs text-[var(--color-text-muted)]">在途商机</div>
-        </div>
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <section
-          className="bg-white rounded-xl border border-[var(--color-border)] p-4 shadow-card"
-          style={{ animation: 'slide-up 0.4s ease-out 0.25s backwards' }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Calendar size={16} className="text-accent" />
-              <h3 className="text-sm font-bold text-[var(--color-text-strong)]">今日重点</h3>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.25fr_0.95fr]">
+        <section className="app-section-card p-5 sm:p-6">
+          <div className="app-section-header mb-4">
+            <div>
+              <div className="app-section-kicker">Daily Focus</div>
+              <div className="app-section-title mt-2">
+                <Calendar size={18} className="text-accent" />
+                <h3 className="text-lg font-semibold">今日重点安排</h3>
+              </div>
             </div>
-            <span className="text-xs text-[var(--color-text-muted)]">{todaySchedules.length} 条</span>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate(ROUTES.SCHEDULE)}>
+              查看全部
+            </button>
           </div>
 
           {todaySchedules.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-6">今日暂无日程安排</p>
+            <div className="app-empty-state">
+              <Calendar size={28} className="text-[var(--color-text-muted)]/60" />
+              <p className="text-sm">今日暂无日程安排</p>
+            </div>
           ) : (
-            <div className="space-y-2">
-              {todaySchedules.slice(0, 4).map((r) => {
-                const tag = TYPE_TAG[r.type || ''] || TYPE_TAG.routine
-                const isUrgent = r.type === 'urgent' || r.type === 'meeting'
+            <div className="space-y-3">
+              {todaySchedules.slice(0, 4).map((row) => {
+                const tag = TYPE_TAG[row.type || ''] || TYPE_TAG.routine
+                const isUrgent = row.type === 'urgent' || row.type === 'meeting'
+
                 return (
-                  <div
-                    key={r.id}
+                  <button
+                    key={row.id}
+                    type="button"
                     onClick={() => navigate(ROUTES.SCHEDULE)}
-                    className={`flex gap-2 p-2 rounded-lg cursor-pointer transition-all duration-200 border ${isUrgent ? 'border-error/20 bg-error-50/30' : 'border-accent/20 bg-accent-50/30'} hover:shadow-sm`}
+                    className={[
+                      'flex w-full items-start gap-3 rounded-[22px] border p-4 text-left transition-all duration-200',
+                      isUrgent
+                        ? 'border-error-200 bg-error-50 hover:shadow-[0_18px_44px_rgba(220,38,38,0.08)]'
+                        : 'border-accent-200 bg-accent-50 hover:shadow-[0_18px_44px_rgba(37,99,235,0.08)]',
+                    ].join(' ')}
                   >
-                    <div className="text-[var(--color-text-muted)] font-medium text-xs whitespace-nowrap">
-                      {PERIOD_LABEL[r.period] || r.period}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-[var(--color-text-strong)] text-xs truncate">{r.title}</div>
-                      <div className="text-xs text-[var(--color-text-muted)] truncate">
-                        {[r.location, r.description].filter(Boolean).join(' · ') || '-'}
+                    <div className="min-w-[60px] rounded-2xl bg-white/70 px-3 py-2 text-center">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+                        时段
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-[var(--color-text-strong)]">
+                        {PERIOD_LABEL[row.period] || row.period}
                       </div>
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${tag.cls} self-start`}>{tag.label}</span>
-                  </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="truncate text-sm font-semibold text-[var(--color-text-strong)]">
+                          {row.title}
+                        </div>
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${tag.cls}`}>
+                          {tag.label}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+                        {[row.location, row.description].filter(Boolean).join(' · ') || '暂无附加说明'}
+                      </div>
+                    </div>
+                  </button>
                 )
               })}
             </div>
           )}
         </section>
 
-        <section
-          className="bg-white rounded-xl border border-[var(--color-border)] p-4 shadow-card"
-          style={{ animation: 'slide-up 0.4s ease-out 0.3s backwards' }}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle size={16} className="text-warning" />
-            <h4 className="text-sm font-bold text-[var(--color-text-strong)]">中心营收预警</h4>
+        <section className="app-section-card p-5 sm:p-6">
+          <div className="app-section-header mb-4">
+            <div>
+              <div className="app-section-kicker">Risk Radar</div>
+              <div className="app-section-title mt-2">
+                <AlertTriangle size={18} className="text-warning" />
+                <h3 className="text-lg font-semibold">营收预警</h3>
+              </div>
+            </div>
+            <span className="app-pill app-pill-warning">{warnings.length} 项关注</span>
           </div>
+
           {warnings.length === 0 ? (
-            <p className="text-xs text-gray-400 py-4 text-center">暂无预警数据</p>
+            <div className="app-empty-state">
+              <AlertTriangle size={28} className="text-[var(--color-text-muted)]/60" />
+              <p className="text-sm">暂无预警数据</p>
+            </div>
           ) : (
-            <div className="space-y-2">
-              {warnings.slice(0, 4).map((w) => (
-                <div key={w.name} className="bg-gray-50 rounded-lg p-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-medium text-[var(--color-text-strong)]">{w.name}</span>
-                    <span className="text-sm font-bold text-[var(--color-text-strong)]">{w.value}%</span>
+            <div className="space-y-3">
+              {warnings.slice(0, 4).map((warning) => (
+                <div key={warning.name} className="rounded-[22px] border border-[var(--color-border)] bg-white/72 p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-[var(--color-text-strong)]">{warning.name}</span>
+                    <span className="text-sm font-semibold text-[var(--color-text-strong)]">{warning.value}%</span>
                   </div>
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-2 overflow-hidden rounded-full bg-[rgba(15,23,42,0.08)]">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${barColorMap[w.status]}`}
-                      style={{ width: `${Math.min(w.value, 100)}%` }}
+                      className={`h-full rounded-full transition-all duration-500 ${barColorMap[warning.status]}`}
+                      style={{ width: `${Math.min(warning.value, 100)}%` }}
                     />
                   </div>
                 </div>
@@ -350,34 +352,37 @@ export function Dashboard() {
         </section>
       </div>
 
-      <section
-        className="bg-white rounded-xl border border-[var(--color-border)] p-4"
-        style={{ animation: 'slide-up 0.4s ease-out 0.35s backwards' }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Bot size={16} className="text-accent" />
-            <h3 className="text-sm font-bold text-[var(--color-text-strong)]">智能分析</h3>
+      <section className="app-section-card app-section-card-muted p-5 sm:p-6">
+        <div className="app-section-header mb-4">
+          <div>
+            <div className="app-section-kicker">Intelligence</div>
+            <div className="app-section-title mt-2">
+              <Bot size={18} className="text-accent" />
+              <h3 className="text-lg font-semibold">智能分析入口</h3>
+            </div>
           </div>
-          <button
-            onClick={() => navigate(ROUTES.AI_ANALYSIS)}
-            className="text-xs font-semibold text-accent hover:text-accent-hover transition-colors"
-          >
-            进入
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate(ROUTES.AI_ANALYSIS)}>
+            进入分析会话
           </button>
         </div>
 
-        <div className="text-center py-8">
-          <Bot size={24} className="mx-auto mb-2 text-gray-300" />
-          <p className="text-xs text-gray-400 mb-3">智能分析功能正在重新设计</p>
-          <button
-            onClick={() => navigate(ROUTES.AI_ANALYSIS)}
-            className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover transition-colors"
-          >
-            查看进度
-          </button>
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-[24px] border border-[var(--color-border)] bg-white/78 p-5">
+            <p className="text-sm leading-7 text-[var(--color-text-muted)]">
+              基于经营数据、商机台账、组织结构与月度计划，首页把关键入口收束为同一套分析路径。你可以直接进入 AI 模块，生成异常分析、部门对比或管理层摘要。
+            </p>
+          </div>
+          <div className="rounded-[24px] border border-accent-200 bg-accent-50 p-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-700">Recommended</div>
+            <div className="mt-2 text-base font-semibold text-[var(--color-text-strong)]">
+              优先处理营收预警与日程冲突
+            </div>
+            <div className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+              先查看预警中心，再把高优先任务同步给 AI 输出行动建议。
+            </div>
+          </div>
         </div>
       </section>
-    </>
+    </div>
   )
 }

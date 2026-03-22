@@ -9,10 +9,10 @@ interface StatCardProps {
 }
 
 const accentMap = {
-  default: 'bg-[rgba(37,99,235,0.10)] text-[var(--color-accent)]',
-  success: 'bg-[rgba(15,159,110,0.12)] text-[var(--color-success)]',
-  warning: 'bg-[rgba(217,119,6,0.12)] text-[var(--color-warning)]',
-  error: 'bg-[rgba(220,38,38,0.10)] text-[var(--color-error)]',
+  default: 'bg-[rgba(37,99,235,0.08)] text-[var(--color-accent-hover)]',
+  success: 'bg-[rgba(15,159,110,0.10)] text-[#08724d]',
+  warning: 'bg-[rgba(217,119,6,0.10)] text-[#a55406]',
+  error: 'bg-[rgba(220,38,38,0.08)] text-[#b42318]',
 }
 
 export function StatCard({
@@ -28,31 +28,36 @@ export function StatCard({
     <div
       onClick={onClick}
       className={[
-        'app-card relative overflow-hidden p-5',
-        onClick ? 'cursor-pointer hover:-translate-y-0.5' : '',
+        'relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white/90 px-4 py-3 transition-all duration-200',
+        onClick ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-[var(--shadow-soft)]' : '',
       ].join(' ')}
     >
-      <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.35)] to-transparent" />
+      {/* Top accent line */}
+      <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.25)] to-transparent" />
 
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="text-sm font-medium text-[var(--color-text-muted)]">{label}</div>
-        <div className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${accentMap[color]}`}>
-          Live
+      <div className="relative flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+            {label}
+          </div>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-xl font-semibold text-[var(--color-text-strong)]">
+              {value}
+            </span>
+            {unit ? <span className="text-xs text-[var(--color-text-muted)]">{unit}</span> : null}
+          </div>
         </div>
-      </div>
 
-      <div className="flex items-end gap-2">
-        <span className="text-3xl font-semibold text-[var(--color-text-strong)] sm:text-[2rem]">
-          {value}
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] ${accentMap[color]}`}>
+          Live
         </span>
-        {unit && <span className="pb-1 text-sm text-[var(--color-text-muted)]">{unit}</span>}
       </div>
 
-      {trend && (
-        <div className={`mt-3 text-xs font-medium ${trendUp ? 'text-success-700' : 'text-error-700'}`}>
+      {trend ? (
+        <div className={`mt-1.5 text-[11px] font-medium ${trendUp ? 'text-[#08724d]' : 'text-[#b42318]'}`}>
           {trend}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

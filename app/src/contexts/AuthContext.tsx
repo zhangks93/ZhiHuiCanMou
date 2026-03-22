@@ -185,42 +185,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{ user, loading, signOut }}>
       {children}
       {authInProgress && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          animation: 'fadeIn 0.3s ease-out'
-        }}>
-          <div style={{
-            textAlign: 'center',
-            color: 'white',
-            fontFamily: 'Inter, sans-serif'
-          }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              border: '4px solid rgba(251, 191, 36, 0.3)',
-              borderTopColor: '#fbbf24',
-              borderRadius: '50%',
-              margin: '0 auto 1rem',
-              animation: 'spin 0.8s linear infinite'
-            }}></div>
-            <p style={{ fontSize: '16px', fontWeight: 500 }}>正在登录...</p>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(15,23,42,0.12)] backdrop-blur-lg animate-fade-in">
+          <div className="flex flex-col items-center gap-5 rounded-[28px] border border-[var(--color-border)] bg-white/60 px-12 py-10 shadow-[0_24px_64px_rgba(15,23,42,0.10)] backdrop-blur-xl animate-scale-in">
+            {/* Logo */}
+            <div className="relative">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-slate-950 text-[10px] font-semibold tracking-[0.2em] text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)]">
+                CM
+              </div>
+              <div className="absolute -inset-2 rounded-[22px] border border-[rgba(37,99,235,0.12)]" style={{ animation: 'orbit 10s linear infinite' }} />
+            </div>
+
+            {/* Spinner */}
+            <div className="relative">
+              <div className="h-6 w-6 animate-spin rounded-full border-[2.5px] border-[rgba(148,163,184,0.14)] border-t-[var(--color-accent)]" />
+            </div>
+
+            <p className="text-sm font-medium text-[var(--color-text-strong)]">正在登录...</p>
           </div>
-          <style>{`
-            @keyframes fadeIn {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-            @keyframes spin {
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
         </div>
       )}
     </AuthContext.Provider>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { env } from '@/config/env'
 import { storeAuthState } from '@/lib/auth-storage'
 
@@ -141,84 +141,79 @@ export function Login() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-6">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.08),transparent_28%)]" />
+    <div className="relative flex min-h-screen items-center justify-center px-5 py-10">
+      {/* Background */}
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-background" />
 
-      <div className="relative mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl items-center gap-8 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="px-2 lg:px-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">
-            <ShieldCheck size={14} className="text-[var(--color-accent)]" />
-            Secure workspace
-          </div>
+      {/* Ambient glow orbs */}
+      <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
+        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.12),transparent_65%)] animate-pulse-glow" />
+        <div className="absolute -bottom-16 -left-16 h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.09),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
+      </div>
 
-          <h1 className="mt-6 max-w-3xl text-5xl font-semibold leading-tight text-[var(--color-text-strong)] sm:text-6xl">
-            A lighter command center for operations and business intelligence.
-          </h1>
-
-          <p className="mt-5 max-w-2xl text-base leading-8 text-[var(--color-text-muted)] sm:text-lg">
-            Sign in with Feishu to access scheduling, business data, AI workflows, and the redesigned workspace shell.
-          </p>
-
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            {[
-              'Modular navigation with cleaner information hierarchy',
-              'Data-heavy pages tuned for faster scanning',
-              'AI workspace integrated into the same system layer',
-            ].map((item) => (
-              <div key={item} className="app-card rounded-2xl px-4 py-4 text-sm leading-6 text-[var(--color-text-muted)]">
-                {item}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="app-panel app-panel-strong relative overflow-hidden rounded-[32px] px-6 py-7 sm:px-8 sm:py-9">
-          <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.45)] to-transparent" />
-
-          <div className="mb-8 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-slate-950 text-sm font-semibold tracking-[0.2em] text-white shadow-[0_16px_32px_rgba(15,23,42,0.18)]">
+      <div className="w-full max-w-[380px] animate-slide-up">
+        {/* Logo + Title */}
+        <div className="mb-8 flex flex-col items-center">
+          {/* Logo mark with orbit ring */}
+          <div className="relative">
+            <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-950 text-[15px] font-semibold tracking-[0.2em] text-white shadow-[0_20px_48px_rgba(15,23,42,0.22)]">
               CM
             </div>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
-                Canmou
-              </div>
-              <div className="text-2xl font-semibold text-[var(--color-text-strong)]">Workspace sign in</div>
-            </div>
+            {/* Orbit ring */}
+            <div className="absolute -inset-3 rounded-[30px] border border-[rgba(37,99,235,0.12)]" style={{ animation: 'orbit 20s linear infinite' }} />
           </div>
+
+          <h1 className="mt-6 text-center text-[22px] font-semibold leading-tight text-[var(--color-text-strong)]">
+            智汇参谋
+          </h1>
+          <p className="mt-1.5 text-center text-[13px] leading-6 text-[var(--color-text-muted)]">
+            教育后勤智慧决策平台
+          </p>
+        </div>
+
+        {/* Sign-in card — glass morphism */}
+        <div className="relative overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/60 px-6 py-7 shadow-[0_24px_64px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+          {/* Top accent line */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.28)] to-transparent" />
+
+          {/* Shimmer overlay when loading */}
+          {isLoading && (
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.04)] to-transparent" style={{ animation: 'shimmer 2s ease-in-out infinite' }} />
+            </div>
+          )}
 
           <button
             type="button"
             onClick={handleFeishuLogin}
             disabled={!canLogin || isLoading}
-            className="group flex w-full items-center justify-between rounded-[22px] bg-slate-950 px-5 py-4 text-left text-white transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            className="group relative flex w-full items-center justify-between rounded-[20px] border border-[rgba(37,99,235,0.12)] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-4 text-left text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(15,23,42,0.25)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
             <div>
-              <div className="text-sm font-semibold">Continue with Feishu</div>
-              <div className="mt-1 text-sm text-slate-300">
-                {isLoading ? 'Redirecting to authorization...' : 'Use your existing organization identity'}
+              <div className="text-sm font-semibold">飞书账号登录</div>
+              <div className="mt-0.5 text-[13px] text-slate-400">
+                {isLoading ? '正在跳转至授权页面...' : '使用组织身份进行认证'}
               </div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
-              <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-white/[0.08] backdrop-blur-sm transition-all duration-200 group-hover:bg-white/[0.12]">
+              {isLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+              ) : (
+                <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+              )}
             </div>
           </button>
 
           {!canLogin && (
-            <div className="mt-4 rounded-2xl border border-[rgba(220,38,38,0.16)] bg-[rgba(220,38,38,0.06)] px-4 py-3 text-sm text-[var(--color-error)]">
-              Feishu login is not configured. Check the environment variables before continuing.
+            <div className="mt-4 rounded-2xl border border-[rgba(220,38,38,0.12)] bg-[rgba(220,38,38,0.04)] px-4 py-3 text-sm leading-6 text-[var(--color-error)]">
+              飞书登录未配置，请检查环境变量。
             </div>
           )}
 
           {showFallback && deepLinkError && (
-            <div className="mt-4 rounded-2xl border border-[rgba(217,119,6,0.18)] bg-[rgba(217,119,6,0.08)] px-4 py-4 text-sm leading-7 text-[var(--color-text)]">
-              <div className="font-semibold text-[var(--color-text-strong)]">Deep link callback failed</div>
+            <div className="mt-4 rounded-2xl border border-[rgba(217,119,6,0.14)] bg-[rgba(217,119,6,0.04)] px-4 py-4 text-sm leading-7">
+              <div className="font-semibold text-[var(--color-text-strong)]">回调失败</div>
               <div className="mt-1 text-[var(--color-text-muted)]">{deepLinkError}</div>
-              <ol className="mt-3 list-decimal space-y-1 pl-5 text-[var(--color-text-muted)]">
-                <li>Return to the Feishu authorization page and retry the flow.</li>
-                <li>Confirm the app is installed with the correct deep link registration.</li>
-                <li>Restart the app if the callback was interrupted.</li>
-              </ol>
               <button
                 type="button"
                 onClick={() => {
@@ -226,30 +221,36 @@ export function Login() {
                   setDeepLinkError(null)
                   setDebugInfo([])
                 }}
-                className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white px-4 py-2 text-sm font-medium text-[var(--color-text-strong)] transition-colors hover:bg-[var(--color-surface-muted)]"
+                className="btn btn-sm mt-3"
               >
-                Reset status
+                重置状态
               </button>
             </div>
           )}
 
-          <div className="mt-6 rounded-2xl bg-[rgba(15,23,42,0.04)] px-4 py-4 text-sm leading-7 text-[var(--color-text-muted)]">
-            Signing in means your session is validated through your organization’s Feishu account and redirected back into this workspace.
-          </div>
+          <p className="mt-5 text-center text-[12px] leading-5 text-[var(--color-text-muted)]/60">
+            登录即表示您将通过组织飞书账号完成身份验证
+          </p>
+        </div>
 
-          {debugInfo.length > 0 && (
-            <div className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white/80 p-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                Debug log
-              </div>
-              <div className="max-h-52 overflow-y-auto font-mono text-[11px] leading-6 text-[var(--color-text-muted)]">
-                {debugInfo.map((info) => (
-                  <div key={info}>{info}</div>
-                ))}
-              </div>
+        {/* Version tag */}
+        <div className="mt-5 text-center text-[11px] tracking-[0.12em] text-[var(--color-text-muted)]/40">
+          CANMOU v1.0
+        </div>
+
+        {/* Debug log */}
+        {debugInfo.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white/40 p-4 backdrop-blur-lg">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+              Debug
             </div>
-          )}
-        </section>
+            <div className="max-h-40 overflow-y-auto font-mono text-[11px] leading-5 text-[var(--color-text-muted)]">
+              {debugInfo.map((info) => (
+                <div key={info}>{info}</div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -129,7 +129,7 @@ export function Settings() {
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <AlertTriangle size={18} strokeWidth={1.5} className="text-gray-600" />
@@ -247,7 +247,7 @@ export function Settings() {
           </div>
         </div>
 
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <SettingsIcon size={18} strokeWidth={1.5} className="text-gray-600" />
@@ -298,7 +298,7 @@ export function Settings() {
         </div>
 
         {/* AI Analysis Config */}
-        <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card lg:col-span-2">
+        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)] lg:col-span-2">
           <div className="flex items-center gap-2 mb-4">
             <Bot size={18} strokeWidth={1.5} className="text-gray-600" />
             <h3 className="font-medium text-gray-800">AI 分析配置</h3>

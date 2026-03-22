@@ -42,7 +42,7 @@ function StatCard({ icon: Icon, label, value, color = 'blue' }: {
   color?: string
 }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="bg-white/86 backdrop-blur-xl rounded-[18px] border border-[var(--color-border)] p-4 shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
       <div className={`p-2 rounded-lg bg-${color}-50 text-${color}-600 w-fit`}>
         <Icon size={20} />
       </div>
@@ -241,15 +241,7 @@ export function Attendance() {
   if (loading && summaries.length === 0) {
     return (
       <>
-        <div className="mb-6 animate-slide-up">
-          <h1 className="text-2xl font-semibold text-[var(--color-text-strong)] sm:text-[2rem]">
-            考勤管理
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-            部门考勤汇总与成员出勤明细
-          </p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-10 text-center">
+        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-10 text-center shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
           <Clock size={40} className="mx-auto text-gray-300 animate-spin" />
           <p className="text-gray-400 mt-4">加载中...</p>
         </div>
@@ -265,28 +257,18 @@ export function Attendance() {
 
   return (
     <>
-      <div className="mb-6 animate-slide-up">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold text-[var(--color-text-strong)] sm:text-[2rem]">
-              考勤管理
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-              部门考勤汇总与成员出勤明细
-            </p>
-          </div>
-          {availableMonths.length > 0 && (
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {availableMonths.map(m => (
-                <option key={m} value={m}>{formatMonth(m)}</option>
-              ))}
-            </select>
-          )}
-        </div>
+      <div className="mb-4 flex justify-end">
+        {availableMonths.length > 0 && (
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            className="px-3 py-1.5 text-sm border border-[var(--color-border)] rounded-xl bg-white/86 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          >
+            {availableMonths.map(m => (
+              <option key={m} value={m}>{formatMonth(m)}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -316,7 +298,7 @@ export function Attendance() {
         />
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-5">
+      <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
         <div className="flex items-center gap-2 mb-4">
           <Clock size={18} className="text-gray-600" />
           <h3 className="font-medium text-gray-800">部门考勤汇总</h3>

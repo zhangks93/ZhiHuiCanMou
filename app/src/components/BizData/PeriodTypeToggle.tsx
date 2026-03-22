@@ -12,8 +12,8 @@ export function PeriodTypeToggle({ value, onChange }: PeriodTypeToggleProps) {
       value={value}
       onChange={onChange}
       options={[
-        { value: 'cumulative', label: '累计', icon: <Calendar size={14} /> },
-        { value: 'monthly', label: '当月', icon: <CalendarDays size={14} /> },
+        { value: 'cumulative', label: '累计', icon: <Calendar size={13} /> },
+        { value: 'monthly', label: '当月', icon: <CalendarDays size={13} /> },
       ]}
     />
   )

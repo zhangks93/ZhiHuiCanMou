@@ -11,7 +11,7 @@ import {
   Clock,
   AlertTriangle,
   XCircle,
-  Loader2,
+  X,
 } from 'lucide-react'
 import { supabase, type OpportunityLedger } from '@/lib/supabase'
 import {
@@ -45,18 +45,18 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; icon: typeof Circle }> = {
-  tracking: { bg: 'bg-blue-50', text: 'text-blue-700', icon: Circle },
-  bidding: { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock },
-  contracted: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle2 },
-  operating: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle2 },
-  suspended: { bg: 'bg-orange-50', text: 'text-orange-700', icon: AlertTriangle },
-  lost: { bg: 'bg-red-50', text: 'text-red-700', icon: XCircle },
+  tracking: { bg: 'bg-[rgba(37,99,235,0.08)]', text: 'text-[var(--color-accent-hover)]', icon: Circle },
+  bidding: { bg: 'bg-[rgba(217,119,6,0.10)]', text: 'text-[#a55406]', icon: Clock },
+  contracted: { bg: 'bg-[rgba(15,159,110,0.10)]', text: 'text-[#08724d]', icon: CheckCircle2 },
+  operating: { bg: 'bg-[rgba(15,159,110,0.12)]', text: 'text-[#08724d]', icon: CheckCircle2 },
+  suspended: { bg: 'bg-[rgba(217,119,6,0.10)]', text: 'text-[#a55406]', icon: AlertTriangle },
+  lost: { bg: 'bg-[rgba(220,38,38,0.08)]', text: 'text-[#b42318]', icon: XCircle },
 }
 
 const TYPE_STYLE: Record<string, string> = {
-  operation: 'bg-primary/10 text-primary',
-  expansion: 'bg-accent/10 text-accent',
-  tracking: 'bg-gray-100 text-gray-600',
+  operation: 'bg-[rgba(37,99,235,0.08)] text-[var(--color-accent-hover)]',
+  expansion: 'bg-[rgba(15,159,110,0.10)] text-[#08724d]',
+  tracking: 'bg-[rgba(15,23,42,0.05)] text-[var(--color-text-muted)]',
 }
 
 const STATUS_ORDER = ['operating', 'contracted', 'bidding', 'tracking', 'suspended', 'lost']
@@ -77,35 +77,60 @@ function ApprovalDot({ approved, label }: { approved: boolean; label?: string })
   const title = label ? `${label}：${approved ? '已通过' : '未通过'}` : (approved ? '已通过' : '未通过')
   return (
     <span
-      className={`inline-block w-2.5 h-2.5 rounded-full ${approved ? 'bg-green-500' : 'bg-gray-300'}`}
+      className={`inline-block w-2 h-2 rounded-full ${approved ? 'bg-[#0f9f6e]' : 'bg-[rgba(148,163,184,0.35)]'}`}
       title={title}
     />
   )
 }
 
 function ProbBar({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-gray-400">-</span>
+  if (value == null) return <span className="text-[var(--color-text-muted)]">-</span>
   const pct = Math.round(value * 100)
   const color =
-    pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400'
+    pct >= 80 ? 'bg-[#0f9f6e]' : pct >= 50 ? 'bg-[#d97706]' : 'bg-[#dc2626]'
   return (
     <div className="inline-flex items-center gap-2 min-w-[80px]">
-      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+      <div className="flex-1 h-1 bg-[rgba(15,23,42,0.06)] rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-gray-600 w-8 text-right">{pct}%</span>
+      <span className="text-[11px] text-[var(--color-text-muted)] w-8 text-right tabular-nums">{pct}%</span>
     </div>
   )
 }
 
 function ProbText({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-gray-400">-</span>
+  if (value == null) return <span className="text-[var(--color-text-muted)]">-</span>
   const pct = Math.round(value * 100)
-  const color = pct >= 80 ? 'text-green-600' : pct >= 50 ? 'text-amber-600' : 'text-red-500'
-  return <span className={`text-sm font-medium ${color}`}>{pct}%</span>
+  const color = pct >= 80 ? 'text-[#08724d]' : pct >= 50 ? 'text-[#a55406]' : 'text-[#b42318]'
+  return <span className={`text-xs font-semibold ${color}`}>{pct}%</span>
 }
 
-// --- TanStack 列定义 (合并审批列: 10→8) ---
+// --- 自定义选择器 ---
+
+interface AppSelectProps {
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+}
+
+function AppSelect({ value, onChange, options }: AppSelectProps) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none cursor-pointer rounded-xl border border-[var(--color-border)] bg-white/80 backdrop-blur-sm pl-3 pr-7 py-1.5 text-xs font-medium text-[var(--color-text-strong)] shadow-[var(--shadow-xs)] outline-none transition-all duration-160 hover:border-[rgba(37,99,235,0.18)] hover:bg-white/96 focus:border-[rgba(37,99,235,0.4)] focus:shadow-[0_0_0_3px_rgba(37,99,235,0.08)]"
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+    </div>
+  )
+}
+
+// --- TanStack 列定义 ---
 
 const columnHelper = createColumnHelper<OpportunityLedger>()
 
@@ -114,7 +139,7 @@ const columns = [
     header: '项目类型',
     enableSorting: false,
     cell: (info) => (
-      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${TYPE_STYLE[info.getValue()] ?? ''}`}>
+      <span className={`inline-block px-2 py-0.5 rounded-lg text-[11px] font-semibold ${TYPE_STYLE[info.getValue()] ?? ''}`}>
         {ITEM_TYPE_LABEL[info.getValue()] ?? info.getValue()}
       </span>
     ),
@@ -122,18 +147,18 @@ const columns = [
   columnHelper.accessor('region', {
     header: '区域',
     enableSorting: false,
-    cell: (info) => <span className="text-gray-600 whitespace-nowrap">{info.getValue() ?? '-'}</span>,
+    cell: (info) => <span className="text-xs text-[var(--color-text-muted)] whitespace-nowrap">{info.getValue() ?? '-'}</span>,
   }),
   columnHelper.accessor('project_name', {
     header: '项目名称',
     enableSorting: false,
     cell: ({ row }) => (
       <div>
-        <div className="font-medium text-gray-900 max-w-[220px] truncate" title={row.original.project_name}>
+        <div className="font-medium text-xs text-[var(--color-text-strong)] max-w-[220px] truncate" title={row.original.project_name}>
           {row.original.project_name}
         </div>
         {row.getIsExpanded() && row.original.remark && (
-          <div className="mt-2 text-xs text-gray-500 leading-relaxed whitespace-pre-line bg-gray-50 rounded p-2">
+          <div className="mt-2 text-[11px] text-[var(--color-text-muted)] leading-relaxed whitespace-pre-line bg-[rgba(15,23,42,0.03)] rounded-lg p-2">
             {row.original.remark}
           </div>
         )}
@@ -144,7 +169,7 @@ const columns = [
     header: '预估金额',
     enableSorting: true,
     cell: (info) => (
-      <span className="font-medium text-gray-900 whitespace-nowrap tabular-nums">{formatAmount(info.getValue())}</span>
+      <span className="font-semibold text-xs text-[var(--color-text-strong)] whitespace-nowrap tabular-nums">{formatAmount(info.getValue())}</span>
     ),
     sortingFn: (a, b) => (a.original.estimated_amount ?? 0) - (b.original.estimated_amount ?? 0),
   }),
@@ -163,7 +188,7 @@ const columns = [
   columnHelper.accessor('bid_date', {
     header: '投标日期',
     enableSorting: true,
-    cell: (info) => <span className="text-gray-600 whitespace-nowrap">{formatDate(info.getValue())}</span>,
+    cell: (info) => <span className="text-xs text-[var(--color-text-muted)] whitespace-nowrap">{formatDate(info.getValue())}</span>,
     sortingFn: (a, b) => (a.original.bid_date ?? '').localeCompare(b.original.bid_date ?? ''),
   }),
   columnHelper.accessor('status', {
@@ -174,8 +199,8 @@ const columns = [
       const style = STATUS_STYLE[val] ?? STATUS_STYLE.tracking
       const Icon = style.icon
       return (
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
-          <Icon size={12} />
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold ${style.bg} ${style.text}`}>
+          <Icon size={11} />
           {STATUS_LABEL[val] ?? val}
         </span>
       )
@@ -206,27 +231,27 @@ function getAlignClass(colId: string) {
 function DesktopTable({ table }: { table: Table<OpportunityLedger> }) {
   return (
     <div className="hidden lg:block overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full border-collapse">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} className="bg-gray-50 border-b border-gray-200">
+            <tr key={headerGroup.id} className="bg-[rgba(15,23,42,0.03)]">
               {headerGroup.headers.map((header) => {
                 const align = getAlignClass(header.column.id)
                 const canSort = header.column.getCanSort()
                 return (
                   <th
                     key={header.id}
-                    className={`${align} py-2.5 px-3 text-xs text-gray-500 uppercase tracking-wide font-medium whitespace-nowrap ${canSort ? 'cursor-pointer select-none hover:text-gray-900' : ''} ${header.column.id === 'project_name' ? 'min-w-[200px]' : ''}`}
+                    className={`${align} py-2.5 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)] whitespace-nowrap border-b border-[var(--color-border)] ${canSort ? 'cursor-pointer select-none hover:text-[var(--color-text-strong)]' : ''} ${header.column.id === 'project_name' ? 'min-w-[200px]' : ''}`}
                     onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                   >
                     <span className={canSort ? 'inline-flex items-center gap-1' : ''}>
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {canSort && (
                         header.column.getIsSorted() === 'asc'
-                          ? <ChevronUp size={14} />
+                          ? <ChevronUp size={12} />
                           : header.column.getIsSorted() === 'desc'
-                            ? <ChevronDown size={14} />
-                            : <ChevronDown size={14} className="opacity-30" />
+                            ? <ChevronDown size={12} />
+                            : <ChevronDown size={12} className="opacity-25" />
                       )}
                     </span>
                   </th>
@@ -235,11 +260,11 @@ function DesktopTable({ table }: { table: Table<OpportunityLedger> }) {
             </tr>
           ))}
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody>
           {table.getRowModel().rows.map((row) => (
             <tr
               key={row.id}
-              className="hover:bg-gray-50/60 transition-colors cursor-pointer"
+              className="hover:bg-[rgba(37,99,235,0.03)] transition-colors duration-160 cursor-pointer border-b border-[rgba(148,163,184,0.10)]"
               onClick={() => row.toggleExpanded()}
             >
               {row.getVisibleCells().map((cell) => {
@@ -264,7 +289,7 @@ function MobileCards({ table }: { table: Table<OpportunityLedger> }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   return (
-    <div className="lg:hidden divide-y divide-gray-100">
+    <div className="lg:hidden">
       {table.getRowModel().rows.map((row) => {
         const d = row.original
         const isOpen = expandedId === row.id
@@ -275,23 +300,23 @@ function MobileCards({ table }: { table: Table<OpportunityLedger> }) {
         return (
           <div
             key={row.id}
-            className="px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors"
+            className="px-4 py-3 cursor-pointer active:bg-[rgba(37,99,235,0.03)] transition-colors border-b border-[rgba(148,163,184,0.08)]"
             onClick={() => setExpandedId(isOpen ? null : row.id)}
           >
             {/* 第一行：项目名 + 状态 */}
             <div className="flex items-start justify-between gap-2">
-              <h3 className="font-medium text-gray-900 text-sm leading-snug line-clamp-2 flex-1">
+              <h3 className="font-medium text-[var(--color-text-strong)] text-xs leading-snug line-clamp-2 flex-1">
                 {d.project_name}
               </h3>
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${style.bg} ${style.text}`}>
-                <Icon size={12} />
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold shrink-0 ${style.bg} ${style.text}`}>
+                <Icon size={11} />
                 {STATUS_LABEL[statusVal] ?? statusVal}
               </span>
             </div>
 
             {/* 第二行：金额 + 概率 */}
             <div className="flex items-center gap-4 mt-1.5">
-              <span className="text-sm font-medium text-gray-900 tabular-nums">
+              <span className="text-xs font-semibold text-[var(--color-text-strong)] tabular-nums">
                 {formatAmount(d.estimated_amount)}
               </span>
               <ProbText value={d.win_probability} />
@@ -299,23 +324,23 @@ function MobileCards({ table }: { table: Table<OpportunityLedger> }) {
 
             {/* 第三行：类型 + 区域标签 */}
             <div className="flex items-center gap-2 mt-1.5">
-              <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${TYPE_STYLE[d.item_type] ?? ''}`}>
+              <span className={`inline-block px-2 py-0.5 rounded-lg text-[11px] font-semibold ${TYPE_STYLE[d.item_type] ?? ''}`}>
                 {ITEM_TYPE_LABEL[d.item_type] ?? d.item_type}
               </span>
               {d.region && (
-                <span className="text-xs text-gray-500">{d.region}</span>
+                <span className="text-[11px] text-[var(--color-text-muted)]">{d.region}</span>
               )}
             </div>
 
             {/* 展开详情 */}
             {isOpen && (
-              <div className="mt-3 pt-3 border-t border-gray-100 space-y-2 text-sm">
+              <div className="mt-3 pt-3 border-t border-[rgba(148,163,184,0.12)] space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-500">投标日期</span>
-                  <span className="text-gray-700">{formatDate(d.bid_date)}</span>
+                  <span className="text-[var(--color-text-muted)]">投标日期</span>
+                  <span className="text-[var(--color-text-strong)]">{formatDate(d.bid_date)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-500">审批状态</span>
+                  <span className="text-[var(--color-text-muted)]">审批状态</span>
                   <div className="inline-flex items-center gap-2">
                     <ApprovalDot approved={d.logistics_approved} label="后勤投决" />
                     <ApprovalDot approved={d.group_approved} label="集团投决" />
@@ -323,7 +348,7 @@ function MobileCards({ table }: { table: Table<OpportunityLedger> }) {
                   </div>
                 </div>
                 {d.remark && (
-                  <div className="text-xs text-gray-500 leading-relaxed whitespace-pre-line bg-gray-50 rounded p-2">
+                  <div className="text-[11px] text-[var(--color-text-muted)] leading-relaxed whitespace-pre-line bg-[rgba(15,23,42,0.03)] rounded-lg p-2">
                     {d.remark}
                   </div>
                 )}
@@ -420,10 +445,32 @@ export function Opportunity() {
   })
 
   const isDefaultFilter = filterType === 'all' && filterRegion === 'all' && filterStatus === 'pipeline'
+
+  const typeOptions = [
+    { value: 'all', label: '全部类型' },
+    ...Object.entries(ITEM_TYPE_LABEL).map(([k, v]) => ({ value: k, label: v })),
+  ]
+
+  const regionOptions = [
+    { value: 'all', label: '全部区域' },
+    ...regions.map((r) => ({ value: r, label: r })),
+  ]
+
+  const statusOptions = [
+    { value: 'pipeline', label: '跟进中(默认)' },
+    { value: 'all', label: '全部' },
+    { value: 'tracking', label: '跟踪中' },
+    { value: 'bidding', label: '投标中' },
+    { value: 'contracted', label: '已签约' },
+    { value: 'operating', label: '运营中' },
+    { value: 'suspended', label: '暂停' },
+    { value: 'lost', label: '已丢失' },
+  ]
+
   return (
-    <>
+    <div className="app-page">
       {/* 统计卡片 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="项目总数" value={stats.total} unit="个" />
         <StatCard label="预估总额" value={formatAmount(stats.totalAmount)} color="default" />
         <StatCard label="加权金额" value={formatAmount(stats.weightedAmount)} color="warning" />
@@ -431,59 +478,39 @@ export function Opportunity() {
       </div>
 
       {/* 筛选栏 */}
-      <div className="bg-surface rounded-lg border border-gray-200 p-4 mb-4 shadow-card">
-        <div className="flex flex-wrap items-center gap-3">
-          <Filter size={16} className="text-gray-500" />
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <Filter size={14} className="text-[var(--color-text-muted)]" />
 
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="select select-sm select-bordered">
-            <option value="all">全部类型</option>
-            {Object.entries(ITEM_TYPE_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
+        <AppSelect value={filterType} onChange={setFilterType} options={typeOptions} />
+        <AppSelect value={filterRegion} onChange={setFilterRegion} options={regionOptions} />
+        <AppSelect value={filterStatus} onChange={setFilterStatus} options={statusOptions} />
 
-          <select value={filterRegion} onChange={(e) => setFilterRegion(e.target.value)} className="select select-sm select-bordered">
-            <option value="all">全部区域</option>
-            {regions.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
+        {!isDefaultFilter && (
+          <button
+            className="inline-flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-white/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--color-text-muted)] transition-all duration-160 hover:border-[rgba(37,99,235,0.18)] hover:text-[var(--color-text-strong)]"
+            onClick={() => { setFilterType('all'); setFilterRegion('all'); setFilterStatus('pipeline') }}
+          >
+            <X size={11} />
+            清除筛选
+          </button>
+        )}
 
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="select select-sm select-bordered">
-            <option value="pipeline">跟进中(默认)</option>
-            <option value="all">全部</option>
-            <option value="tracking">跟踪中</option>
-            <option value="bidding">投标中</option>
-            <option value="contracted">已签约</option>
-            <option value="operating">运营中</option>
-            <option value="suspended">暂停</option>
-            <option value="lost">已丢失</option>
-          </select>
-
-          {!isDefaultFilter && (
-            <button
-              className="btn btn-ghost btn-sm text-gray-500"
-              onClick={() => { setFilterType('all'); setFilterRegion('all'); setFilterStatus('pipeline') }}
-            >
-              清除筛选
-            </button>
-          )}
-
-          <span className="ml-auto text-sm text-gray-500">
-            共 {filtered.length} 条
-          </span>
-        </div>
+        <span className="ml-auto text-[11px] font-medium text-[var(--color-text-muted)] tabular-nums">
+          共 {filtered.length} 条
+        </span>
       </div>
 
       {/* 数据表格 */}
-      <div className="bg-surface rounded-lg border border-gray-200 shadow-card overflow-hidden">
+      <div className="rounded-xl border border-[var(--color-border)] bg-white/90 backdrop-blur-sm overflow-hidden shadow-[var(--shadow-xs)]">
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400">
-            <Loader2 size={24} className="animate-spin mr-2" />
-            加载中…
+          <div className="flex items-center justify-center py-16 text-[var(--color-text-muted)]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-7 w-7 border-2 border-[var(--color-border)] border-t-[var(--color-accent)] mx-auto mb-2.5" />
+              <div className="text-[11px]">加载中…</div>
+            </div>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-20 text-center text-gray-400">暂无数据</div>
+          <div className="app-empty-state">暂无数据</div>
         ) : (
           <>
             <DesktopTable table={table} />
@@ -494,28 +521,28 @@ export function Opportunity() {
 
       {/* 分页 */}
       {!loading && table.getPageCount() > 1 && (
-        <div className="flex items-center justify-center gap-4 mt-4 text-sm text-gray-600">
+        <div className="flex items-center justify-center gap-3 text-xs">
           <button
-            className="btn btn-ghost btn-sm"
+            className="inline-flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-white/80 px-3 py-1.5 text-[var(--color-text-muted)] transition-all duration-160 hover:border-[rgba(37,99,235,0.18)] hover:text-[var(--color-text-strong)] disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={14} />
             <span className="hidden lg:inline">上一页</span>
           </button>
-          <span>
+          <span className="text-[11px] font-medium text-[var(--color-text-muted)] tabular-nums">
             第 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()} 页
           </span>
           <button
-            className="btn btn-ghost btn-sm"
+            className="inline-flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-white/80 px-3 py-1.5 text-[var(--color-text-muted)] transition-all duration-160 hover:border-[rgba(37,99,235,0.18)] hover:text-[var(--color-text-strong)] disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
             <span className="hidden lg:inline">下一页</span>
-            <ChevronRight size={16} />
+            <ChevronRight size={14} />
           </button>
         </div>
       )}
-    </>
+    </div>
   )
 }

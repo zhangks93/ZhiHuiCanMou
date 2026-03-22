@@ -229,7 +229,7 @@ export function OrgData() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-5">
+      <section className="rounded-[22px] border border-sky-100/80 bg-gradient-to-br from-sky-50/80 via-white/60 to-cyan-50/80 backdrop-blur-xl p-5 shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
         <div className="flex items-center gap-2 text-sky-700">
           <Layers3 size={16} />
           <p className="text-sm font-medium">组织总览</p>
@@ -259,8 +259,8 @@ export function OrgData() {
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-surface shadow-card xl:col-span-2">
-          <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/60 px-4 py-3">
+        <section className="overflow-hidden rounded-[22px] border border-[var(--color-border)] bg-white/86 backdrop-blur-xl shadow-[0_24px_64px_rgba(15,23,42,0.10)] xl:col-span-2">
+          <div className="flex items-center justify-between border-b border-[var(--color-border)] bg-white/40 px-4 py-3">
             <div className="flex items-center gap-2">
               <Building2 size={16} className="text-gray-600" />
               <h3 className="font-medium text-gray-800">组织架构树</h3>
@@ -310,7 +310,7 @@ export function OrgData() {
         </section>
 
         <div className="space-y-6">
-          <section className="rounded-2xl border border-gray-200 bg-surface p-5 shadow-card">
+          <section className="rounded-[22px] border border-[var(--color-border)] bg-white/86 backdrop-blur-xl p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
             <div className="flex items-center gap-2">
               <Building2 size={16} className="text-gray-600" />
               <h3 className="font-medium text-gray-800">部门详情</h3>
@@ -354,7 +354,7 @@ export function OrgData() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-gray-200 bg-surface p-5 shadow-card">
+          <section className="rounded-[22px] border border-[var(--color-border)] bg-white/86 backdrop-blur-xl p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
             <div className="mb-4 flex items-center gap-2">
               <Users size={16} className="text-gray-600" />
               <h3 className="font-medium text-gray-800">部门规模排行</h3>

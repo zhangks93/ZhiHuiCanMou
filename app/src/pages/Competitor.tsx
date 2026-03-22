@@ -29,7 +29,7 @@ const rankStyles = ['bg-warning-100 text-warning-700', 'bg-gray-200 text-gray-70
 export function Competitor() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+      <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
         <div className="mb-4 flex items-center gap-2">
           <Trophy size={18} strokeWidth={1.5} className="text-gray-600" />
           <h3 className="font-medium text-gray-900">竞争对手排名（基础教育赛道）</h3>
@@ -54,7 +54,7 @@ export function Competitor() {
         </div>
       </div>
 
-      <div className="bg-surface rounded-lg border border-gray-200 p-5 shadow-card">
+      <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
         <div className="mb-4 flex items-center gap-2">
           <Trophy size={18} strokeWidth={1.5} className="text-gray-600" />
           <h3 className="font-medium text-gray-900">XX大型餐饮集团 · 档案详情</h3>

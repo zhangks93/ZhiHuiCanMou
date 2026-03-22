@@ -12,8 +12,8 @@ export function ViewModeToggle({ value, onChange }: ViewModeToggleProps) {
       value={value}
       onChange={onChange}
       options={[
-        { value: 'table', label: '表格', icon: <Table2 size={14} /> },
-        { value: 'chart', label: '图表', icon: <BarChart3 size={14} /> },
+        { value: 'chart', label: '图表', icon: <BarChart3 size={13} /> },
+        { value: 'table', label: '表格', icon: <Table2 size={13} /> },
       ]}
     />
   )

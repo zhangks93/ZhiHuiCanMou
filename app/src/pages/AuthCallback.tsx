@@ -41,6 +41,29 @@ function parseUrlParams(url: string): Record<string, string> {
 
 type AuthStatus = 'parsing' | 'authenticating' | 'retrying' | 'success' | 'error'
 
+const STATUS_CONFIG: Record<AuthStatus, { title: string; message: string | ((n: number) => string) }> = {
+  parsing: {
+    title: '正在验证',
+    message: '正在解析认证信息...',
+  },
+  authenticating: {
+    title: '登录中',
+    message: '正在完成身份认证...',
+  },
+  retrying: {
+    title: '重试中',
+    message: (n: number) => `正在重试连接 (第 ${n} 次)...`,
+  },
+  success: {
+    title: '登录成功',
+    message: '正在跳转到应用...',
+  },
+  error: {
+    title: '登录失败',
+    message: '认证过程出现问题',
+  },
+}
+
 export function AuthCallback() {
   const [status, setStatus] = useState<AuthStatus>('parsing')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -124,12 +147,12 @@ export function AuthCallback() {
       }
 
       const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
-      const isMobile =
+      const isMobileDevice =
         typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
-      addDebugInfo(`环境: ${isTauri ? 'Tauri' : 'Web'}, ${isMobile ? '移动端' : '桌面端'}`)
+      addDebugInfo(`环境: ${isTauri ? 'Tauri' : 'Web'}, ${isMobileDevice ? '移动端' : '桌面端'}`)
 
-      if (isTauri && !isMobile) {
+      if (isTauri && !isMobileDevice) {
         // 桌面 Tauri：通过事件通知主窗口并关闭弹窗
         try {
           addDebugInfo('桌面模式: 发送事件到主窗口')
@@ -238,360 +261,132 @@ export function AuthCallback() {
     }
   }, [])
 
+  const cfg = STATUS_CONFIG[status]
+  const isInProgress = status === 'parsing' || status === 'authenticating' || status === 'retrying'
+  const message = typeof cfg.message === 'function' ? cfg.message(retryAttempt) : cfg.message
+
   return (
-    <div className="auth-callback-container">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+    <div className="relative flex min-h-screen items-center justify-center px-5 py-10">
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-background" />
 
-        .auth-callback-container {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-          position: relative;
-          overflow: hidden;
-        }
+      {/* Ambient glow orbs */}
+      <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
+        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.12),transparent_65%)] animate-pulse-glow" />
+        <div className="absolute -bottom-16 -left-16 h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.09),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
+      </div>
 
-        .auth-callback-container::before {
-          content: '';
-          position: absolute;
-          top: -50%;
-          right: -20%;
-          width: 80%;
-          height: 150%;
-          background: radial-gradient(circle, rgba(251, 191, 36, 0.08) 0%, transparent 70%);
-          animation: float 20s ease-in-out infinite;
-        }
-
-        @keyframes float {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(-30px, 30px) scale(1.1); }
-        }
-
-        .auth-callback-card {
-          position: relative;
-          width: 100%;
-          max-width: 400px;
-          background: rgba(255, 255, 255, 0.98);
-          backdrop-filter: blur(20px);
-          border-radius: 24px;
-          padding: 3rem 2rem;
-          box-shadow:
-            0 20px 60px rgba(0, 0, 0, 0.3),
-            0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-          animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-          z-index: 1;
-          text-align: center;
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .status-icon {
-          width: 80px;
-          height: 80px;
-          margin: 0 auto 1.5rem;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 40px;
-          animation: iconAppear 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @keyframes iconAppear {
-          from {
-            opacity: 0;
-            transform: scale(0.5);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        .status-icon.parsing,
-        .status-icon.authenticating {
-          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-          box-shadow: 0 8px 24px rgba(251, 191, 36, 0.4);
-        }
-
-        .status-icon.success {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
-        }
-
-        .status-icon.error {
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-          box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
-        }
-
-        .spinner {
-          width: 40px;
-          height: 40px;
-          border: 4px solid rgba(15, 23, 42, 0.2);
-          border-top-color: #0f172a;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        .status-title {
-          font-family: 'Crimson Text', serif;
-          font-size: 24px;
-          font-weight: 700;
-          color: #0f172a;
-          margin-bottom: 0.5rem;
-          animation: fadeIn 0.6s ease-out 0.2s backwards;
-        }
-
-        .status-message {
-          font-family: 'Inter', sans-serif;
-          font-size: 15px;
-          font-weight: 400;
-          color: #64748b;
-          margin-bottom: 2rem;
-          animation: fadeIn 0.6s ease-out 0.3s backwards;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .progress-bar-container {
-          width: 100%;
-          height: 6px;
-          background: rgba(15, 23, 42, 0.1);
-          border-radius: 3px;
-          overflow: hidden;
-          animation: fadeIn 0.6s ease-out 0.4s backwards;
-        }
-
-        .progress-bar {
-          height: 100%;
-          background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
-          border-radius: 3px;
-          transition: width 0.3s ease-out;
-          box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
-        }
-
-        .progress-bar.success {
-          background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-          box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-        }
-
-        .error-details {
-          margin-top: 1rem;
-          padding: 1rem;
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          border-radius: 12px;
-          font-family: 'Inter', sans-serif;
-          font-size: 13px;
-          color: #dc2626;
-          animation: shake 0.4s ease-in-out;
-        }
-
-        .error-suggestion {
-          margin-bottom: 0.75rem;
-          line-height: 1.5;
-        }
-
-        .retry-button {
-          width: 100%;
-          padding: 0.75rem;
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-          border: none;
-          border-radius: 8px;
-          font-family: 'Inter', sans-serif;
-          font-size: 14px;
-          font-weight: 600;
-          color: white;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .retry-button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
-        }
-
-        .retry-button:active {
-          transform: translateY(0);
-        }
-
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-8px); }
-          75% { transform: translateX(8px); }
-        }
-
-        .checkmark {
-          width: 40px;
-          height: 40px;
-          stroke: #0f172a;
-          stroke-width: 3;
-          stroke-linecap: round;
-          fill: none;
-          animation: checkmark 0.6s ease-out;
-        }
-
-        @keyframes checkmark {
-          0% { stroke-dashoffset: 100; }
-          100% { stroke-dashoffset: 0; }
-        }
-
-        .checkmark path {
-          stroke-dasharray: 100;
-          stroke-dashoffset: 100;
-          animation: checkmark 0.6s ease-out forwards;
-        }
-
-        .debug-info {
-          margin-top: 1rem;
-          padding: 1rem;
-          background: rgba(15, 23, 42, 0.05);
-          border: 1px solid rgba(15, 23, 42, 0.1);
-          border-radius: 12px;
-          max-height: 200px;
-          overflow-y: auto;
-          text-align: left;
-        }
-
-        .debug-title {
-          font-family: 'Inter', sans-serif;
-          font-size: 12px;
-          font-weight: 600;
-          color: #64748b;
-          margin-bottom: 0.5rem;
-        }
-
-        .debug-line {
-          font-family: 'Courier New', monospace;
-          font-size: 11px;
-          color: #475569;
-          line-height: 1.6;
-          padding: 2px 0;
-        }
-
-        @media (max-width: 640px) {
-          .auth-callback-card {
-            padding: 2.5rem 1.5rem;
-          }
-
-          .status-title {
-            font-size: 20px;
-          }
-
-          .status-icon {
-            width: 64px;
-            height: 64px;
-            font-size: 32px;
-          }
-        }
-      `}</style>
-
-      <div className="auth-callback-card">
-        {status === 'parsing' && (
-          <>
-            <div className="status-icon parsing">
-              <div className="spinner"></div>
+      <div className="w-full max-w-[360px] animate-slide-up">
+        {/* Logo */}
+        <div className="mb-8 flex justify-center">
+          <div className="relative">
+            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-slate-950 text-xs font-semibold tracking-[0.2em] text-white shadow-[0_16px_36px_rgba(15,23,42,0.20)]">
+              CM
             </div>
-            <h2 className="status-title">正在验证</h2>
-            <p className="status-message">正在解析认证信息...</p>
-            <div className="progress-bar-container">
-              <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-            </div>
-          </>
-        )}
+            {/* Status-colored ring */}
+            {isInProgress && (
+              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(37,99,235,0.14)]" style={{ animation: 'orbit 12s linear infinite' }} />
+            )}
+            {status === 'success' && (
+              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(15,159,110,0.20)]" />
+            )}
+            {status === 'error' && (
+              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(220,38,38,0.14)]" />
+            )}
+          </div>
+        </div>
 
-        {status === 'authenticating' && (
-          <>
-            <div className="status-icon authenticating">
-              <div className="spinner"></div>
-            </div>
-            <h2 className="status-title">登录中</h2>
-            <p className="status-message">正在完成身份认证...</p>
-            <div className="progress-bar-container">
-              <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-            </div>
-          </>
-        )}
+        {/* Card */}
+        <div className="relative overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/60 px-6 py-8 text-center shadow-[0_24px_64px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+          {/* Top accent line */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.28)] to-transparent" />
 
-        {status === 'retrying' && (
-          <>
-            <div className="status-icon authenticating">
-              <div className="spinner"></div>
-            </div>
-            <h2 className="status-title">重试中</h2>
-            <p className="status-message">正在重试连接 (第 {retryAttempt} 次)...</p>
-            <div className="progress-bar-container">
-              <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-            </div>
-          </>
-        )}
+          {/* Status indicator */}
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center">
+            {isInProgress && (
+              <div className="relative">
+                <div className="h-10 w-10 animate-spin rounded-full border-[2.5px] border-[rgba(148,163,184,0.16)] border-t-[var(--color-accent)]" />
+                <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-[2.5px] border-transparent border-b-[rgba(37,99,235,0.2)]" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+              </div>
+            )}
+            {status === 'success' && (
+              <div className="flex h-14 w-14 animate-scale-in items-center justify-center rounded-full bg-[rgba(15,159,110,0.08)] backdrop-blur-sm">
+                <svg className="h-7 w-7 text-[var(--color-success)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+            {status === 'error' && (
+              <div className="flex h-14 w-14 animate-scale-in items-center justify-center rounded-full bg-[rgba(220,38,38,0.06)] backdrop-blur-sm">
+                <svg className="h-7 w-7 text-[var(--color-error)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </div>
+            )}
+          </div>
 
-        {status === 'success' && (
-          <>
-            <div className="status-icon success">
-              <svg className="checkmark" viewBox="0 0 52 52">
-                <path d="M14 27l8 8 16-16" />
-              </svg>
-            </div>
-            <h2 className="status-title">登录成功</h2>
-            <p className="status-message">正在跳转到应用...</p>
-            <div className="progress-bar-container">
-              <div className="progress-bar success" style={{ width: '100%' }}></div>
-            </div>
-          </>
-        )}
+          <h2 className="text-lg font-semibold text-[var(--color-text-strong)]">
+            {authError?.title || cfg.title}
+          </h2>
+          <p className="mt-1.5 text-sm text-[var(--color-text-muted)]">
+            {authError?.message || message}
+          </p>
 
-        {status === 'error' && (
-          <>
-            <div className="status-icon error">
-              <span>✕</span>
+          {/* Progress bar */}
+          {isInProgress && (
+            <div className="mx-auto mt-6 h-[3px] w-full max-w-[200px] overflow-hidden rounded-full bg-[rgba(15,23,42,0.04)]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[rgba(37,99,235,0.6)] transition-[width] duration-300 ease-out"
+                style={{ width: `${progress}%` }}
+              />
             </div>
-            <h2 className="status-title">{authError?.title || '登录失败'}</h2>
-            <p className="status-message">{authError?.message || '认证过程出现问题'}</p>
-            {authError && (
-              <div className="error-details">
-                <div className="error-suggestion">{authError.suggestion}</div>
-                {authError.retryable && (
-                  <button
-                    className="retry-button"
-                    onClick={() => window.location.reload()}
-                  >
+          )}
+
+          {status === 'success' && (
+            <div className="mx-auto mt-6 h-[3px] w-full max-w-[200px] overflow-hidden rounded-full bg-[rgba(15,159,110,0.08)]">
+              <div className="h-full w-full rounded-full bg-[var(--color-success)]" />
+            </div>
+          )}
+
+          {/* Error details */}
+          {status === 'error' && (
+            <div className="mt-5 text-left">
+              {authError && (
+                <div className="rounded-2xl border border-[rgba(220,38,38,0.10)] bg-[rgba(220,38,38,0.03)] px-4 py-3 text-sm leading-6 text-[var(--color-text-muted)]">
+                  {authError.suggestion}
+                </div>
+              )}
+              {!authError && errorMsg && (
+                <div className="rounded-2xl border border-[rgba(220,38,38,0.10)] bg-[rgba(220,38,38,0.03)] px-4 py-3 text-sm leading-6 text-[var(--color-error)]">
+                  {errorMsg}
+                </div>
+              )}
+              <div className="mt-3 flex justify-center">
+                {authError?.retryable ? (
+                  <button className="btn btn-sm" onClick={() => window.location.reload()}>
                     重试登录
+                  </button>
+                ) : (
+                  <button className="btn btn-sm" onClick={() => { window.location.hash = '/login' }}>
+                    返回登录
                   </button>
                 )}
               </div>
-            )}
-            {!authError && errorMsg && (
-              <div className="error-details">{errorMsg}</div>
-            )}
-            {debugInfo.length > 0 && (
-              <div className="debug-info">
-                <div className="debug-title">调试信息</div>
-                {debugInfo.map((info, idx) => (
-                  <div key={idx} className="debug-line">{info}</div>
-                ))}
-              </div>
-            )}
-          </>
+            </div>
+          )}
+        </div>
+
+        {/* Debug info */}
+        {debugInfo.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white/40 p-4 backdrop-blur-lg">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+              Debug
+            </div>
+            <div className="max-h-40 overflow-y-auto font-mono text-[11px] leading-5 text-[var(--color-text-muted)]">
+              {debugInfo.map((info, idx) => (
+                <div key={idx}>{info}</div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>
