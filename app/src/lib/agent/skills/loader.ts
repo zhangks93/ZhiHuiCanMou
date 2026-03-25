@@ -20,7 +20,7 @@ export interface SkillConfig {
 
 /**
  * Build an AgentDefinition from a skill config, prompt text, and optional assets.
- * Assets are registered in the global asset registry for read_template access.
+ * Assets are registered in the global asset registry for read_file access.
  */
 export function loadSkill(
   config: SkillConfig,

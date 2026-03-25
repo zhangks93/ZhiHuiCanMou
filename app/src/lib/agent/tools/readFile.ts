@@ -8,7 +8,7 @@ export const readFileTool: RegisteredTool = {
   definition: {
     type: 'function',
     function: {
-      name: 'read_template',
+      name: 'read_file',
       description:
         '读取 Skill 内置的模板/资源文件。文件路径格式：/assets/<skill-id>/<filename> 或 /templates/<filename>（兼容旧路径）。' +
         '目前可用文件：/assets/financial-analysis/biz-analysis-report.md（经营分析报告模板）。',

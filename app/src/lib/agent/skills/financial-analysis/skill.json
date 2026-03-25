@@ -12,7 +12,7 @@
     "query_with_hierarchy",
     "query_monthly_plan",
     "query_biz_data",
-    "read_template"
+    "read_file"
   ],
   "quickPrompts": [
     "请基于当前可用数据，找出本月经营异常并按优先级排序。",

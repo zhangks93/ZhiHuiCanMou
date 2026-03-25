@@ -1,5 +1,5 @@
 // Skill Asset Registry
-// Skills register their asset files here; the read_template tool reads from this registry.
+// Skills register their asset files here; the read_file tool reads from this registry.
 
 /** Global map: virtual path → file content */
 const assetStore: Record<string, string> = {}

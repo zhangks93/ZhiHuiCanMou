@@ -31,10 +31,10 @@
 | `query_with_hierarchy` | 主查询工具，含层级过滤 |
 | `query_monthly_plan` | 查月度突围计划（revenue / pretax_profit） |
 | `query_biz_data` | 备用基础查询，无层级信息 |
-| `read_template` | 读取内置模板文件 |
+| `read_file` | 读取内置模板文件 |
 
 ### 输出完整报告时
-用户要求生成"分析报告"或"报告"时，必须先调用 `read_template` 读取模板：
+用户要求生成"分析报告"或"报告"时，必须先调用 `read_file` 读取模板：
 ```
 path: /assets/financial-analysis/biz-analysis-report.md
 ```

@@ -14,7 +14,7 @@ const toolMap: Record<string, RegisteredTool> = {
   query_with_hierarchy: queryWithHierarchyTool,
   query_monthly_plan: queryMonthlyPlanTool,
   query_biz_data: queryBizDataTool,
-  read_template: readFileTool,
+  read_file: readFileTool,
 }
 
 /**
