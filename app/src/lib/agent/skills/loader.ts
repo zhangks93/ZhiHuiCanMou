@@ -1,7 +1,8 @@
-// Skill Loader — converts skill.json + prompt.md into AgentDefinition
+// Skill Loader — converts skill.json + prompt.md + assets into AgentDefinition
 
 import type { AgentDefinition, AgentIcon } from '../types'
 import { resolveTools } from '../tools'
+import { registerAssets } from './assetRegistry'
 
 /** Shape of a skill.json file */
 export interface SkillConfig {
@@ -18,11 +19,19 @@ export interface SkillConfig {
 }
 
 /**
- * Build an AgentDefinition from a skill config and its prompt text.
- * This is the bridge between the declarative skill format and the
- * runtime agent system.
+ * Build an AgentDefinition from a skill config, prompt text, and optional assets.
+ * Assets are registered in the global asset registry for read_template access.
  */
-export function loadSkill(config: SkillConfig, systemPrompt: string): AgentDefinition {
+export function loadSkill(
+  config: SkillConfig,
+  systemPrompt: string,
+  assets?: Record<string, string>
+): AgentDefinition {
+  // Register assets if provided
+  if (assets && Object.keys(assets).length > 0) {
+    registerAssets(config.id, assets)
+  }
+
   return {
     id: config.id,
     name: config.name,

@@ -1,22 +1,24 @@
-// 读取应用内模板文件 Tool
-// 只允许读取 public/templates/ 目录下的文件，防止路径穿越
+// 读取 Skill 内置资源文件 Tool
+// 从 asset registry 读取，资源在构建时随 skill 一起打包
 
 import type { RegisteredTool } from '../types'
-
-const ALLOWED_PREFIX = '/templates/'
+import { readAsset, listAssets } from '../skills/assetRegistry'
 
 export const readFileTool: RegisteredTool = {
   definition: {
     type: 'function',
     function: {
       name: 'read_template',
-      description: '读取应用内置的模板文件。当需要按照标准格式输出经营分析报告时，调用此工具读取报告模板，然后按模板结构填写数据。目前可用文件：/templates/biz-analysis-report.md（经营分析报告模板）。',
+      description:
+        '读取 Skill 内置的模板/资源文件。文件路径格式：/assets/<skill-id>/<filename> 或 /templates/<filename>（兼容旧路径）。' +
+        '目前可用文件：/assets/financial-analysis/biz-analysis-report.md（经营分析报告模板）。',
       parameters: {
         type: 'object',
         properties: {
           path: {
             type: 'string',
-            description: '文件路径，必须以 /templates/ 开头。例如：/templates/biz-analysis-report.md',
+            description:
+              '文件路径。例如：/assets/financial-analysis/biz-analysis-report.md 或 /templates/biz-analysis-report.md',
           },
         },
         required: ['path'],
@@ -27,8 +29,8 @@ export const readFileTool: RegisteredTool = {
   execute: async (args: Record<string, unknown>): Promise<string> => {
     const path = args.path as string
 
-    if (!path || !path.startsWith(ALLOWED_PREFIX)) {
-      throw new Error(`路径不合法：只允许读取 ${ALLOWED_PREFIX} 目录下的文件`)
+    if (!path) {
+      throw new Error('缺少 path 参数')
     }
 
     // 防止路径穿越
@@ -36,12 +38,12 @@ export const readFileTool: RegisteredTool = {
       throw new Error('路径不合法：不允许使用 ".."')
     }
 
-    const response = await fetch(path)
-    if (!response.ok) {
-      throw new Error(`文件未找到：${path} (${response.status})`)
+    const content = readAsset(path)
+    if (content === undefined) {
+      const available = listAssets().join('\n  ')
+      throw new Error(`文件未找到：${path}\n可用文件：\n  ${available}`)
     }
 
-    const content = await response.text()
     return content
   },
 }

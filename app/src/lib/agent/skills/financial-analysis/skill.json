@@ -1,11 +1,11 @@
 {
   "id": "financial-analysis",
-  "name": "财务分析助手",
+  "name": "经营分析",
   "description": "专注于25学年经营数据分析",
   "tagline": "查看经营异常、生成分析报告、对比部门表现",
   "icon": {
     "type": "emoji",
-    "value": "🤖"
+    "value": "🕵️‍♀️"
   },
   "tools": [
     "resolve_org_nodes",

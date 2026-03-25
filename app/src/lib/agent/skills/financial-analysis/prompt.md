@@ -36,7 +36,7 @@
 ### 输出完整报告时
 用户要求生成"分析报告"或"报告"时，必须先调用 `read_template` 读取模板：
 ```
-path: /templates/biz-analysis-report.md
+path: /assets/financial-analysis/biz-analysis-report.md
 ```
 然后按模板结构结合查询到的数据，经过专业的财务经营数据分析后输出完整的 Markdown 报告。
 分析时注意以下信息：1.三大区域+商业业务是增长极，后勤管理中心是基本盘；2.如果没有相关信息和数据，请将模板中该部分章节空置，可以待报告输出后用户自行填写。
