@@ -1,23 +1,44 @@
 import type { Conversation } from './types'
 
-const STORAGE_KEY = 'agent_conversations'
+const LEGACY_STORAGE_KEY = 'agent_conversations'
 const MAX_CONVERSATIONS = 50
 
-export function loadConversations(): Conversation[] {
+/**
+ * Get storage key for a specific agent
+ */
+export function getStorageKey(agentId: string): string {
+  return `agent_conversations_${agentId}`
+}
+
+/**
+ * Load conversations for a specific agent
+ */
+export function loadConversations(agentId: string): Conversation[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    return JSON.parse(raw) as Conversation[]
+    const raw = localStorage.getItem(getStorageKey(agentId))
+    if (raw) return JSON.parse(raw) as Conversation[]
+
+    // Migration: Check for legacy conversations
+    if (agentId === 'financial-analysis') {
+      return migrateLegacyConversations()
+    }
+    return []
   } catch {
     return []
   }
 }
 
-export function saveConversations(conversations: Conversation[]): void {
+/**
+ * Save conversations for a specific agent
+ */
+export function saveConversations(conversations: Conversation[], agentId: string): void {
   const trimmed = conversations.slice(0, MAX_CONVERSATIONS)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
+  localStorage.setItem(getStorageKey(agentId), JSON.stringify(trimmed))
 }
 
+/**
+ * Create a new empty conversation
+ */
 export function createConversation(): Conversation {
   return {
     id: crypto.randomUUID(),
@@ -28,6 +49,52 @@ export function createConversation(): Conversation {
   }
 }
 
+/**
+ * Delete a conversation by ID
+ */
 export function deleteConversation(conversations: Conversation[], id: string): Conversation[] {
   return conversations.filter((conversation) => conversation.id !== id)
+}
+
+/**
+ * Migrate legacy conversations to the new per-agent storage
+ */
+function migrateLegacyConversations(): Conversation[] {
+  try {
+    const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (!legacyRaw) return []
+
+    const legacyConversations: Conversation[] = JSON.parse(legacyRaw)
+    if (!Array.isArray(legacyConversations) || legacyConversations.length === 0) {
+      // Clear legacy and return empty
+      localStorage.removeItem(LEGACY_STORAGE_KEY)
+      return []
+    }
+
+    // Migrate to financial-analysis agent storage
+    localStorage.setItem(getStorageKey('financial-analysis'), legacyRaw)
+    // Clear legacy storage
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+
+    console.log(`[Agent] Migrated ${legacyConversations.length} legacy conversations to financial-analysis`)
+    return legacyConversations
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Legacy load function - redirects to financial-analysis agent
+ * @deprecated Use loadConversations(agentId) instead
+ */
+export function loadConversationsLegacy(): Conversation[] {
+  return loadConversations('financial-analysis')
+}
+
+/**
+ * Legacy save function - redirects to financial-analysis agent
+ * @deprecated Use saveConversations(conversations, agentId) instead
+ */
+export function saveConversationsLegacy(conversations: Conversation[]): void {
+  saveConversations(conversations, 'financial-analysis')
 }

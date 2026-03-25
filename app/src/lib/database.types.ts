@@ -208,58 +208,61 @@ export type Database = {
       }
       opportunity_ledger: {
         Row: {
-          bid_date: string | null
-          created_at: string | null
-          estimated_amount: number | null
-          group_approved: boolean | null
           id: string
-          item_type: string
-          logistics_approved: boolean | null
-          manager_ready: boolean | null
-          org_id: string | null
-          project_name: string
-          region: string | null
-          remark: string | null
+          snapshot_id: string
           snapshot_date: string
-          status: string | null
-          updated_at: string | null
-          win_probability: number | null
+          sheet_name: string
+          row_number: number
+          schema_version: string
+          project_group: string | null
+          project_name: string
+          stage_code: string
+          stage_label: string
+          progress_note: string | null
+          target_date: string | null
+          target_date_raw: string | null
+          first_year_revenue: number | null
+          first_year_revenue_raw: string | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          bid_date?: string | null
-          created_at?: string | null
-          estimated_amount?: number | null
-          group_approved?: boolean | null
           id?: string
-          item_type: string
-          logistics_approved?: boolean | null
-          manager_ready?: boolean | null
-          org_id?: string | null
-          project_name: string
-          region?: string | null
-          remark?: string | null
+          snapshot_id: string
           snapshot_date: string
-          status?: string | null
-          updated_at?: string | null
-          win_probability?: number | null
+          sheet_name: string
+          row_number: number
+          schema_version: string
+          project_group?: string | null
+          project_name: string
+          stage_code: string
+          stage_label: string
+          progress_note?: string | null
+          target_date?: string | null
+          target_date_raw?: string | null
+          first_year_revenue?: number | null
+          first_year_revenue_raw?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          bid_date?: string | null
-          created_at?: string | null
-          estimated_amount?: number | null
-          group_approved?: boolean | null
           id?: string
-          item_type?: string
-          logistics_approved?: boolean | null
-          manager_ready?: boolean | null
-          org_id?: string | null
-          project_name?: string
-          region?: string | null
-          remark?: string | null
+          snapshot_id?: string
           snapshot_date?: string
-          status?: string | null
-          updated_at?: string | null
-          win_probability?: number | null
+          sheet_name?: string
+          row_number?: number
+          schema_version?: string
+          project_group?: string | null
+          project_name?: string
+          stage_code?: string
+          stage_label?: string
+          progress_note?: string | null
+          target_date?: string | null
+          target_date_raw?: string | null
+          first_year_revenue?: number | null
+          first_year_revenue_raw?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

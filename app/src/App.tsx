@@ -15,7 +15,7 @@ import {
   Trip,
   Attendance,
   Links,
-  AiAnalysis,
+  AgentChat,
   Settings,
   Login,
   AuthCallback,
@@ -55,7 +55,7 @@ function App() {
             <Route path="trip" element={<Trip />} />
             <Route path="attendance" element={<Attendance />} />
             <Route path="links" element={<Links />} />
-            <Route path="ai" element={<AiAnalysis />} />
+            <Route path="ai" element={<AgentChat />} />
             <Route path="settings" element={<Settings />} />
             <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
           </Route>

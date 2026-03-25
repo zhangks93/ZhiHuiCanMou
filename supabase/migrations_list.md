@@ -1,6 +1,6 @@
 # Supabase Migrations
 
-Last updated: 2026-03-09
+Last updated: 2026-03-24
 
 ## Migration History
 
@@ -22,16 +22,18 @@ Last updated: 2026-03-09
 | 20260309175733 | add_org_hierarchy | Add organization hierarchy columns to edu_biz_report and edu_biz_monthly_plan |
 | 20260309180500 | drop_old_hierarchy_columns | Drop old hierarchy columns (parent_node_name, node_level, is_summary) from edu_biz tables |
 | 20260310034500 | simplify_biz_tables_and_add_org_hierarchy | Remove hierarchy columns from biz tables, create edu_org_hierarchy table |
+| 20260324103000 | expand_opportunity_ledger_for_funnel_v2 | Add funnel v2 fields for project grouping, stage tracking, progress, and first-year revenue |
+| 20260324153000 | redesign_opportunity_ledger_for_visible_sheets | Archive legacy table, create snapshot/detail tables, and align schema to visible workbook sheets |
 
-## Total Migrations: 16
+## Total Migrations: 18
 
 ## Latest Migration
-**Version**: 20260310034500
-**Name**: simplify_biz_tables_and_add_org_hierarchy
-**Date**: 2026-03-10
+**Version**: 20260324153000
+**Name**: redesign_opportunity_ledger_for_visible_sheets
+**Date**: 2026-03-24
 
-This migration simplified the business data tables and created a separate hierarchy table:
-- Removed all hierarchy columns after `created_at` from `edu_biz_report` and `edu_biz_monthly_plan`
-- Created new `edu_org_hierarchy` table with columns: `node_name`, `level_1`, `level_2`, `level_3`, `label`
-- Added indexes on `node_name` for efficient JOIN operations
-- Hierarchy data is now maintained separately and joined via `node_name`
+This migration redesigns the opportunity-ledger schema around the workbook's visible sheets:
+- Renamed the old `opportunity_ledger` table to `opportunity_ledger_legacy_backup`
+- Added `opportunity_ledger_snapshots` for sheet-level import metadata
+- Recreated `opportunity_ledger` as a normalized detail table for visible-sheet rows
+- Added raw-value columns for date and revenue fields to preserve import fidelity

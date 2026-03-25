@@ -4,6 +4,7 @@ import type { User, Session } from '@supabase/supabase-js'
 import { AuthContext } from './AuthContextDefinition'
 import type { AuthUser } from './AuthContextDefinition'
 import { storeSessionToken, getSessionToken, clearSessionToken } from '@/lib/auth-storage'
+import { AppLoading } from '@/components/ui/AppLoading'
 
 // Refresh token 5 minutes before expiry
 const REFRESH_THRESHOLD_MS = 5 * 60 * 1000
@@ -185,24 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{ user, loading, signOut }}>
       {children}
       {authInProgress && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(15,23,42,0.12)] backdrop-blur-lg animate-fade-in">
-          <div className="flex flex-col items-center gap-5 rounded-[28px] border border-[var(--color-border)] bg-white/60 px-12 py-10 shadow-[0_24px_64px_rgba(15,23,42,0.10)] backdrop-blur-xl animate-scale-in">
-            {/* Logo */}
-            <div className="relative">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-slate-950 text-[10px] font-semibold tracking-[0.2em] text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)]">
-                CM
-              </div>
-              <div className="absolute -inset-2 rounded-[22px] border border-[rgba(37,99,235,0.12)]" style={{ animation: 'orbit 10s linear infinite' }} />
-            </div>
-
-            {/* Spinner */}
-            <div className="relative">
-              <div className="h-6 w-6 animate-spin rounded-full border-[2.5px] border-[rgba(148,163,184,0.14)] border-t-[var(--color-accent)]" />
-            </div>
-
-            <p className="text-sm font-medium text-[var(--color-text-strong)]">正在登录...</p>
-          </div>
-        </div>
+        <AppLoading variant="overlay" label="正在登录..." />
       )}
     </AuthContext.Provider>
   )

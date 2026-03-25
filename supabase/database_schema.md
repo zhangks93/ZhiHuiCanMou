@@ -1,6 +1,6 @@
 # Supabase Database Schema
 
-Last updated: 2026-03-12
+Last updated: 2026-03-24
 
 ## Tables Overview
 
@@ -25,14 +25,28 @@ Last updated: 2026-03-12
 ---
 
 ### 2. opportunity_ledger
-**Purpose**: Track business opportunities and project pipeline
+**Purpose**: Store row-level opportunity entries parsed from visible workbook sheets
 **RLS Enabled**: Yes
-**Row Count**: 630
+**Row Count**: dynamic
 
 #### Columns
+- `snapshot_id` (uuid, FK): References `opportunity_ledger_snapshots.id`
+- `sheet_name` (text): Source sheet name, such as `0320`
+- `row_number` (integer): Original Excel row number in the source sheet
+- `schema_version` (text): Current parser version, fixed to `visible_v1`
+- `target_date_raw` (text, nullable): Raw expected completion cell value
+- `first_year_revenue_raw` (text, nullable): Raw first-year revenue cell value
+- `Note`: The column list below is being transitioned from the legacy design; the migration `20260324153000_redesign_opportunity_ledger_for_visible_sheets` is the source of truth.
 - `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
 - `org_id` (uuid, nullable): Organization ID
 - `snapshot_date` (date): Date of the snapshot
+- `schema_version` (text): Record schema version (`legacy`, `funnel_v2`), default: `legacy`
+- `project_group` (text, nullable): Project grouping from the latest workbook, such as 自拓项目
+- `stage_code` (text, nullable): Funnel stage code (`lead`, `opportunity`, `internal_approval`, `customer_approval`, `contracted`, `legacy`)
+- `stage_label` (text, nullable): Original or display label of the funnel stage
+- `progress_note` (text, nullable): Current progress / next-step note
+- `target_date` (date, nullable): Expected completion / landing date
+- `first_year_revenue` (numeric, nullable): Expected first-year revenue
 - `item_type` (text): Type (operation, expansion, tracking)
 - `region` (text, nullable): Geographic region
 - `project_name` (text): Name of the project
@@ -44,12 +58,37 @@ Last updated: 2026-03-12
 - `remark` (text, nullable): Additional remarks
 - `win_probability` (numeric, nullable): Probability of winning
 - `manager_ready` (boolean, nullable): Manager readiness, default: false
+- `legacy_item_type` (text, nullable): Explicit legacy item type mirror
+- `legacy_estimated_amount` (numeric, nullable): Explicit legacy estimated amount mirror
+- `legacy_logistics_approved` (boolean, nullable): Explicit legacy logistics approval mirror
+- `legacy_group_approved` (boolean, nullable): Explicit legacy group approval mirror
+- `legacy_bid_date` (date, nullable): Explicit legacy bid date mirror
+- `legacy_win_probability` (numeric, nullable): Explicit legacy probability mirror
+- `legacy_manager_ready` (boolean, nullable): Explicit legacy manager readiness mirror
 - `created_at` (timestamptz, nullable): Creation timestamp, default: now()
 - `updated_at` (timestamptz, nullable): Last update timestamp, default: now()
 
 ---
 
-### 3. edu_logistics_biz_data
+### 3. opportunity_ledger_snapshots
+**Purpose**: Store one import snapshot per visible opportunity-ledger sheet
+**RLS Enabled**: Yes
+**Row Count**: dynamic
+
+#### Columns
+- `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
+- `sheet_name` (text): Visible sheet name in workbook
+- `sheet_index` (integer): Visible-sheet order in workbook
+- `snapshot_date` (date): Snapshot date parsed from sheet name
+- `source_file_name` (text): Imported workbook file name
+- `source_file_path` (text, nullable): Imported workbook path
+- `row_count` (integer): Imported detail row count
+- `imported_at` (timestamptz): Import timestamp, default: now()
+- `created_at` (timestamptz): Creation timestamp, default: now()
+
+---
+
+### 4. edu_logistics_biz_data
 **Purpose**: Education logistics 2025 business data (cumulative)
 **RLS Enabled**: No
 **Row Count**: 116

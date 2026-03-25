@@ -108,7 +108,7 @@ export function BottomNav() {
 
           <button
             type="button"
-            className="mb-2 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[var(--color-text)] transition-colors hover:bg-[rgba(15,23,42,0.04)]"
+            className="mb-2 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[15px] text-[var(--color-text)] transition-colors hover:bg-[rgba(15,23,42,0.04)] [font-family:var(--font-family-body)]"
           >
             <div className="relative">
               <Bell size={18} strokeWidth={1.8} />
@@ -119,7 +119,7 @@ export function BottomNav() {
 
           {moreNavItems.length > 0 && (
             <div className="space-y-1 border-t border-[var(--color-border)] pt-2">
-              <div className="px-3 py-2 text-[11px] font-semibold tracking-[0.16em] text-[var(--color-text-muted)]">
+              <div className="px-3 py-2 text-xs font-semibold tracking-[0.14em] text-[var(--color-text-muted)] [font-family:var(--font-family-body)]">
                 更多页面
               </div>
               {moreNavItems.map((item) => (
@@ -129,7 +129,7 @@ export function BottomNav() {
                   onClick={() => setShowProfilePanel(false)}
                   className={({ isActive }) =>
                     [
-                      'flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-colors',
+                      'flex items-center gap-3 rounded-2xl px-3 py-3 text-[15px] transition-colors [font-family:var(--font-family-body)]',
                       isActive
                         ? 'bg-[rgba(37,99,235,0.08)] text-[var(--color-text-strong)]'
                         : 'text-[var(--color-text)] hover:bg-[rgba(15,23,42,0.04)]',
@@ -146,7 +146,7 @@ export function BottomNav() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="mt-2 flex w-full items-center gap-3 rounded-2xl border-t border-[var(--color-border)] px-3 py-3 text-left text-red-600 transition-colors hover:bg-red-50"
+            className="mt-2 flex w-full items-center gap-3 rounded-2xl border-t border-[var(--color-border)] px-3 py-3 text-left text-[15px] text-red-600 transition-colors hover:bg-red-50 [font-family:var(--font-family-body)]"
           >
             <LogOut size={18} strokeWidth={1.8} />
             <span className="text-sm">退出登录</span>
@@ -172,7 +172,7 @@ export function BottomNav() {
               {({ isActive }) => (
                 <>
                   <item.icon size={20} strokeWidth={isActive ? 2 : 1.7} />
-                  <span className="text-[10px] font-semibold tracking-[0.08em]">
+                  <span className="text-xs font-semibold tracking-[0.06em] [font-family:var(--font-family-body)]">
                     {item.label.length > 10 ? item.label.slice(0, 8) : item.label}
                   </span>
                 </>

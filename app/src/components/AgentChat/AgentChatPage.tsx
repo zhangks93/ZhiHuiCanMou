@@ -1,86 +1,88 @@
+// AgentChatPage - Unified agent chat page
+// Combines agent selector, conversation list, and chat interface
+
 import { useState, useEffect, useRef, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
 import {
-  Plus,
-  MessageSquare,
-  Trash2,
   Send,
   Square,
-  PanelLeftClose,
-  PanelLeftOpen,
   Settings,
   Sparkles,
 } from 'lucide-react'
 
-import {
-  ChatAgent,
-  queryBizDataTool,
-  queryWithHierarchyTool,
-  queryMonthlyPlanTool,
-  resolveOrgNodesTool,
-  readFileTool,
-  loadConversations,
-  saveConversations,
-  createConversation,
-  deleteConversation,
-} from '@/lib/agent'
-import type { ChatMessage, Conversation } from '@/lib/agent'
+import type { AgentDefinition, ChatMessage, Conversation } from '@/lib/agent/types'
+import { loadConversations, saveConversations, createConversation, deleteConversation } from '@/lib/agent/conversationStore'
 import { loadLLMConfig } from '@/lib/llmConfig'
-import SYSTEM_PROMPT from '@/lib/agent/systemPrompt.md?raw'
+import { AgentSelector } from './AgentSelector'
+import { ChatHeader } from './ChatHeader'
+import { ConversationList } from './ConversationList'
+import { MobileAgentToggle, AgentBottomSheet } from './MobileAgentSheet'
 import { ChatMessageItem } from '@/components/Chat/ChatMessageItem'
+
+interface AgentChatPageProps {
+  /** Available agents */
+  agents: AgentDefinition[]
+  /** Initial agent ID */
+  defaultAgentId?: string
+  /** Callback when agent changes */
+  onAgentChange?: (agentId: string) => void
+}
 
 function generateTitle(text: string): string {
   const clean = text.replace(/\s+/g, ' ').trim()
   return clean.length > 24 ? `${clean.slice(0, 24)}...` : clean
 }
 
-function formatConversationTime(timestamp: number): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(timestamp)
-}
-
-const QUICK_PROMPTS = [
-  '请基于当前可用数据，找出本月经营异常并按优先级排序。',
-  '按部门对比收入、毛利和利润变化，并给出原因假设。',
-  '生成一份适合管理层阅读的经营分析报告，突出风险和机会。',
-  '从回款、合同和利润三个角度，给出下周最值得跟进的事项。',
-]
-
-function EmptyState({ onPrompt }: { onPrompt: (prompt: string) => void }) {
+/**
+ * Empty state with quick prompts for an agent
+ */
+function AgentEmptyState({
+  agent,
+  onPrompt,
+}: {
+  agent: AgentDefinition
+  onPrompt: (prompt: string) => void
+}) {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-4 py-12">
       <div className="chat-empty-state">
-        <div className="chat-empty-icon">
+        <div
+          className="chat-empty-icon"
+          style={{
+            background: `linear-gradient(135deg, ${agent.color}, ${agent.color}dd)`,
+          }}
+        >
           <Sparkles size={20} strokeWidth={1.7} />
         </div>
         <div className="space-y-2 text-center">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--color-text-strong)]">智能分析助手</h2>
+            <h2 className="text-lg font-semibold text-[var(--color-text-strong)]">{agent.name}</h2>
             <p className="mx-auto mt-1.5 max-w-xl text-xs leading-6 text-[var(--color-text-muted)]">
-              查看经营异常、生成分析报告、对比部门表现
+              {agent.description}
             </p>
           </div>
-          <div className="chat-prompt-grid">
-            {QUICK_PROMPTS.map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                className="chat-prompt-card"
-                onClick={() => onPrompt(prompt)}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
+          {agent.quickPrompts && agent.quickPrompts.length > 0 && (
+            <div className="chat-prompt-grid">
+              {agent.quickPrompts.map((prompt, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className="chat-prompt-card"
+                  onClick={() => onPrompt(prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
+/**
+ * Configuration required prompt
+ */
 function ConfigPrompt() {
   return (
     <div className="flex flex-1 items-center justify-center px-4">
@@ -100,101 +102,132 @@ function ConfigPrompt() {
   )
 }
 
-export function AiAnalysis() {
+export function AgentChatPage({
+  agents,
+  defaultAgentId,
+  onAgentChange,
+}: AgentChatPageProps) {
+  const [activeAgentId, setActiveAgentId] = useState<string>(
+    defaultAgentId || agents[0]?.id || 'financial-analysis'
+  )
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingMsg, setStreamingMsg] = useState<ChatMessage | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [historyCollapsed, setHistoryCollapsed] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [agentSheetOpen, setAgentSheetOpen] = useState(false)
   const [configOk, setConfigOk] = useState(false)
 
-  const agentRef = useRef<ChatAgent | null>(null)
+  // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const shouldAutoScrollRef = useRef(true)
+  const agentRef = useRef<InstanceType<typeof import('@/lib/agent').ChatAgent> | null>(null)
+  const agentSystemPrompt = useRef<string>('')
 
+  // Get active agent
+  const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0]
+
+  // Load agent system prompt
+  useEffect(() => {
+    if (activeAgent) {
+      agentSystemPrompt.current = activeAgent.systemPrompt
+    }
+  }, [activeAgent])
+
+  // Initialize agent and load conversations
   useEffect(() => {
     const config = loadLLMConfig()
     if (config) {
       setConfigOk(true)
-      const agent = new ChatAgent(config)
-      agent.registerTool(resolveOrgNodesTool)
-      agent.registerTool(queryWithHierarchyTool)
-      agent.registerTool(queryMonthlyPlanTool)
-      agent.registerTool(queryBizDataTool)
-      agent.registerTool(readFileTool)
-      agentRef.current = agent
     }
 
-    const saved = loadConversations('financial-analysis')
+    // Load conversations for current agent
+    const saved = loadConversations(activeAgentId)
     setConversations(saved)
     if (saved.length > 0) {
-      setActiveId(saved[0].id)
+      setActiveConversationId(saved[0].id)
       setMessages(saved[0].messages)
     }
 
     if (window.innerWidth >= 1024) {
       setSidebarOpen(true)
     }
-  }, [])
+  }, [activeAgentId])
 
+  // Listen for config updates
   useEffect(() => {
     const handler = () => {
       const config = loadLLMConfig()
-      if (!config) return
-
-      setConfigOk(true)
-      if (agentRef.current) {
-        agentRef.current.updateConfig(config)
-        return
+      if (config) {
+        setConfigOk(true)
       }
-
-      const agent = new ChatAgent(config)
-      agent.registerTool(resolveOrgNodesTool)
-      agent.registerTool(queryWithHierarchyTool)
-      agent.registerTool(queryMonthlyPlanTool)
-      agent.registerTool(queryBizDataTool)
-      agent.registerTool(readFileTool)
-      agentRef.current = agent
     }
-
     window.addEventListener('llm-config-updated', handler)
     return () => window.removeEventListener('llm-config-updated', handler)
   }, [])
 
-  const persist = useCallback((nextConversations: Conversation[]) => {
-    setConversations(nextConversations)
-    saveConversations(nextConversations, 'financial-analysis')
-  }, [])
-
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
-  }, [])
-
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (shouldAutoScrollRef.current) {
-      scrollToBottom(messages.length > 0 ? 'smooth' : 'auto')
+      const behavior = messages.length > 0 ? 'smooth' : 'auto'
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
     }
-  }, [messages, streamingMsg, scrollToBottom])
+  }, [messages, streamingMsg])
 
+  // Handle scroll for auto-scroll
   const handleMessagesScroll = useCallback(() => {
     const container = messagesContainerRef.current
     if (!container) return
-
-    const distanceFromBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
     shouldAutoScrollRef.current = distanceFromBottom < 120
   }, [])
 
+  // Persist conversations
+  const persist = useCallback((nextConversations: Conversation[]) => {
+    setConversations(nextConversations)
+    saveConversations(nextConversations, activeAgentId)
+  }, [activeAgentId])
+
+  // Handle agent selection
+  const handleSelectAgent = useCallback((agentId: string) => {
+    // Save current conversations first
+    if (activeConversationId) {
+      const updated = conversations.map(c => {
+        if (c.id === activeConversationId) {
+          return { ...c, messages, updatedAt: Date.now() }
+        }
+        return c
+      })
+      saveConversations(updated, activeAgentId)
+    }
+
+    setActiveAgentId(agentId)
+    setActiveConversationId(null)
+    setMessages([])
+    onAgentChange?.(agentId)
+
+    // Load conversations for new agent
+    const saved = loadConversations(agentId)
+    setConversations(saved)
+    if (saved.length > 0) {
+      setActiveConversationId(saved[0].id)
+      setMessages(saved[0].messages)
+    } else {
+      setActiveConversationId(null)
+      setMessages([])
+    }
+  }, [activeAgentId, activeConversationId, conversations, messages, onAgentChange])
+
+  // New conversation
   const handleNewConversation = useCallback(() => {
     const conversation = createConversation()
     const nextConversations = [conversation, ...conversations]
     persist(nextConversations)
-    setActiveId(conversation.id)
+    setActiveConversationId(conversation.id)
     setMessages([])
     shouldAutoScrollRef.current = true
     if (window.innerWidth < 1024) {
@@ -203,48 +236,65 @@ export function AiAnalysis() {
     textareaRef.current?.focus()
   }, [conversations, persist])
 
+  // Select conversation
   const handleSelectConversation = useCallback((id: string) => {
     if (isStreaming) return
-    const conversation = conversations.find((item) => item.id === id)
+
+    // Save current conversation first
+    if (activeConversationId && messages.length > 0) {
+      const updated = conversations.map(c => {
+        if (c.id === activeConversationId) {
+          return { ...c, messages, updatedAt: Date.now() }
+        }
+        return c
+      })
+      persist(updated)
+    }
+
+    const conversation = conversations.find(item => item.id === id)
     if (!conversation) return
 
-    setActiveId(id)
+    setActiveConversationId(id)
     setMessages(conversation.messages)
     shouldAutoScrollRef.current = true
     if (window.innerWidth < 1024) {
       setSidebarOpen(false)
     }
-  }, [conversations, isStreaming])
+  }, [conversations, activeConversationId, messages, isStreaming, persist])
 
+  // Delete conversation
   const handleDeleteConversation = useCallback((id: string) => {
     if (isStreaming) return
-
     const nextConversations = deleteConversation(conversations, id)
     persist(nextConversations)
-
-    if (activeId === id) {
+    if (activeConversationId === id) {
       if (nextConversations.length > 0) {
-        setActiveId(nextConversations[0].id)
+        setActiveConversationId(nextConversations[0].id)
         setMessages(nextConversations[0].messages)
       } else {
-        setActiveId(null)
+        setActiveConversationId(null)
         setMessages([])
       }
     }
-  }, [activeId, conversations, isStreaming, persist])
+  }, [conversations, activeConversationId, isStreaming, persist])
 
+  // Send message
   const handleSend = useCallback(async () => {
     const text = input.trim()
-    if (!text || isStreaming || !agentRef.current) return
+    if (!text || isStreaming || !activeAgent) return
 
-    let conversationId = activeId
+    // Dynamic import to avoid circular dependency
+    const { ChatAgent } = await import('@/lib/agent')
+    const { queryBizDataTool, queryWithHierarchyTool, queryMonthlyPlanTool, resolveOrgNodesTool, readFileTool } = await import('@/lib/agent')
+
+    let conversationId = activeConversationId
     let nextConversations = conversations
     if (!conversationId) {
       const conversation = createConversation()
       nextConversations = [conversation, ...conversations]
       conversationId = conversation.id
       persist(nextConversations)
-      setActiveId(conversationId)
+      setActiveConversationId(conversationId)
     }
 
     const userMessage: ChatMessage = {
@@ -263,6 +313,20 @@ export function AiAnalysis() {
       textareaRef.current.style.height = 'auto'
     }
 
+    // Initialize agent if needed
+    if (!agentRef.current) {
+      const config = loadLLMConfig()
+      if (config) {
+        const agent = new ChatAgent(config)
+        agent.registerTool(resolveOrgNodesTool)
+        agent.registerTool(queryWithHierarchyTool)
+        agent.registerTool(queryMonthlyPlanTool)
+        agent.registerTool(queryBizDataTool)
+        agent.registerTool(readFileTool)
+        agentRef.current = agent
+      }
+    }
+
     setIsStreaming(true)
     const assistantMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -276,7 +340,9 @@ export function AiAnalysis() {
     setStreamingMsg({ ...assistantMessage })
 
     try {
-      const stream = agentRef.current.chat(nextMessages, SYSTEM_PROMPT)
+      if (!agentRef.current) throw new Error('AI agent not initialized')
+
+      const stream = agentRef.current.chat(nextMessages, agentSystemPrompt.current)
       for await (const chunk of stream) {
         switch (chunk.type) {
           case 'text':
@@ -289,8 +355,8 @@ export function AiAnalysis() {
             assistantMessage.toolCalls = [...(assistantMessage.toolCalls || []), chunk.toolCall]
             break
           case 'tool_result':
-            assistantMessage.toolCalls = (assistantMessage.toolCalls || []).map((toolCall) =>
-              toolCall.id === chunk.toolCall.id ? chunk.toolCall : toolCall,
+            assistantMessage.toolCalls = (assistantMessage.toolCalls || []).map(tc =>
+              tc.id === chunk.toolCall.id ? chunk.toolCall : tc
             )
             break
         }
@@ -314,24 +380,20 @@ export function AiAnalysis() {
     const finalMessages = [...nextMessages, assistantMessage]
     setMessages(finalMessages)
 
-    const updatedConversations = nextConversations.map((conversation) => {
+    const updatedConversations = nextConversations.map(conversation => {
       if (conversation.id !== conversationId) return conversation
-
       const title = conversation.title === '新对话' ? generateTitle(text) : conversation.title
-      return {
-        ...conversation,
-        title,
-        messages: finalMessages,
-        updatedAt: Date.now(),
-      }
+      return { ...conversation, title, messages: finalMessages, updatedAt: Date.now() }
     })
     persist(updatedConversations)
-  }, [activeId, conversations, input, isStreaming, messages, persist])
+  }, [activeAgent, activeConversationId, conversations, input, isStreaming, messages, persist])
 
+  // Abort streaming
   const handleAbort = useCallback(() => {
     agentRef.current?.abort()
   }, [])
 
+  // Keyboard handler
   const handleKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
@@ -339,6 +401,7 @@ export function AiAnalysis() {
     }
   }, [handleSend])
 
+  // Input change
   const handleInputChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
     setInput(event.target.value)
     const element = event.target
@@ -346,6 +409,7 @@ export function AiAnalysis() {
     element.style.height = `${Math.min(element.scrollHeight, 220)}px`
   }, [])
 
+  // Quick prompt
   const handlePrompt = useCallback((prompt: string) => {
     setInput(prompt)
     shouldAutoScrollRef.current = true
@@ -359,7 +423,6 @@ export function AiAnalysis() {
   }, [])
 
   const displayMessages = streamingMsg ? [...messages, streamingMsg] : messages
-  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024
 
   if (!configOk) {
     return (
@@ -369,104 +432,68 @@ export function AiAnalysis() {
     )
   }
 
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024
+
   return (
-    <div className="chat-page-shell">
+    <div className="agent-chat-page">
+      {/* Left Sidebar - Agent Selector */}
       <aside
         className={[
-          'chat-sidebar',
-          sidebarOpen ? 'chat-sidebar-open' : '',
-          historyCollapsed ? 'chat-sidebar-collapsed' : '',
+          'agent-chat-sidebar',
+          sidebarOpen ? 'agent-chat-sidebar-open' : '',
         ].join(' ')}
       >
-        <div className="chat-sidebar-header">
-          <button
-            type="button"
-            className="chat-new-btn"
-            onClick={handleNewConversation}
-            title="新对话"
-          >
-            <Plus size={16} strokeWidth={2} />
-          </button>
+        <AgentSelector
+          agents={agents}
+          activeAgentId={activeAgentId}
+          onSelectAgent={handleSelectAgent}
+          className="agent-selector-standalone"
+        />
 
-          <button
-            type="button"
-            className="btn btn-ghost btn-xs btn-square"
-            onClick={() => {
-              if (window.innerWidth >= 1024) {
-                setHistoryCollapsed((value) => !value)
-                return
-              }
+        {/* Separator */}
+        <div className="agent-sidebar-divider" />
 
-              setSidebarOpen(false)
-            }}
-            title={historyCollapsed ? '展开历史栏' : '收起历史栏'}
-          >
-            {isDesktop ? (
-              historyCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />
-            ) : (
-              <PanelLeftClose size={14} />
-            )}
-          </button>
-        </div>
-
-        <div className="chat-sidebar-body">
-          {conversations.length === 0 ? (
-            <div className="chat-sidebar-empty">{historyCollapsed ? '暂无' : '还没有历史对话'}</div>
-          ) : (
-            conversations.map((conversation) => (
-              <div
-                key={conversation.id}
-                className={[
-                  'chat-conversation-item',
-                  conversation.id === activeId ? 'chat-conversation-item-active' : '',
-                  historyCollapsed ? 'chat-conversation-item-collapsed' : '',
-                ].join(' ')}
-                onClick={() => handleSelectConversation(conversation.id)}
-                title={historyCollapsed ? conversation.title : undefined}
-              >
-                <span className="chat-conversation-icon">
-                  <MessageSquare size={14} strokeWidth={1.7} />
-                </span>
-                {!historyCollapsed && (
-                  <div className="chat-conversation-info">
-                    <span className="chat-conversation-title">{conversation.title}</span>
-                    <span className="chat-conversation-time">{formatConversationTime(conversation.updatedAt)}</span>
-                  </div>
-                )}
-                {!historyCollapsed && (
-                  <span className="chat-conversation-action">
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-xs btn-square hover:text-error"
-                      title="删除对话"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        handleDeleteConversation(conversation.id)
-                      }}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </span>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+        {/* Conversation List */}
+        <ConversationList
+          conversations={conversations}
+          activeId={activeConversationId}
+          onSelect={handleSelectConversation}
+          onNew={handleNewConversation}
+          onDelete={handleDeleteConversation}
+          className="agent-conversation-list"
+        />
       </aside>
 
+      {/* Backdrop for mobile */}
       {sidebarOpen && <button type="button" className="chat-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
 
-      <div className="chat-main-panel">
+      {/* Main Chat Area */}
+      <div className="agent-chat-main">
+        {/* Header */}
+        {activeAgent && (
+          <ChatHeader
+            agent={activeAgent}
+            onBack={!isDesktop ? () => setSidebarOpen(true) : undefined}
+            mobileToggle={
+              <MobileAgentToggle
+                agent={activeAgent}
+                onClick={() => setAgentSheetOpen(true)}
+              />
+            }
+          />
+        )}
+
+        {/* Messages */}
         <div
           ref={messagesContainerRef}
           className="chat-messages"
           onScroll={handleMessagesScroll}
         >
           <div className="chat-messages-inner">
-            {displayMessages.length === 0 ? (
-              <EmptyState onPrompt={handlePrompt} />
+            {displayMessages.length === 0 && activeAgent ? (
+              <AgentEmptyState agent={activeAgent} onPrompt={handlePrompt} />
             ) : (
-              displayMessages.map((message) => (
+              displayMessages.map(message => (
                 <ChatMessageItem key={message.id} message={message} isStreaming={message.streaming} />
               ))
             )}
@@ -474,6 +501,7 @@ export function AiAnalysis() {
           </div>
         </div>
 
+        {/* Composer */}
         <footer className="chat-composer-wrap">
           <div className="chat-composer">
             <textarea
@@ -511,6 +539,15 @@ export function AiAnalysis() {
           </div>
         </footer>
       </div>
+
+      {/* Mobile Agent Selection Bottom Sheet */}
+      <AgentBottomSheet
+        isOpen={agentSheetOpen}
+        agents={agents}
+        activeAgentId={activeAgentId}
+        onClose={() => setAgentSheetOpen(false)}
+        onSelect={handleSelectAgent}
+      />
     </div>
   )
 }

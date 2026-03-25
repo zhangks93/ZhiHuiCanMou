@@ -61,7 +61,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
             )}
             {!collapsed && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[var(--color-text-strong)]">
+                <p className="truncate text-base font-semibold text-[var(--color-text-strong)] [font-family:var(--font-family-body)]">
                   {user?.name ?? '当前用户'}
                 </p>
                 <p className="truncate text-xs text-[var(--color-text-muted)]">个人工作台</p>
@@ -75,7 +75,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
             {navSections.map((section) => (
               <div key={section.title} className="mb-6">
                 {!collapsed && (
-                  <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
+                  <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)] [font-family:var(--font-family-body)]">
                     {section.title}
                   </div>
                 )}
@@ -89,7 +89,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                       title={collapsed ? item.label : undefined}
                       className={({ isActive }) =>
                         [
-                          'group flex min-h-[48px] items-center rounded-2xl border border-transparent text-sm transition-all duration-200',
+                          'group flex min-h-[52px] items-center rounded-2xl border border-transparent text-[15px] transition-all duration-200 [font-family:var(--font-family-body)]',
                           collapsed ? 'justify-center px-0' : 'gap-3 px-3.5',
                           isActive
                             ? 'border-[rgba(37,99,235,0.14)] bg-[rgba(37,99,235,0.08)] text-[var(--color-text-strong)] shadow-[0_10px_24px_rgba(37,99,235,0.10)]'
@@ -102,7 +102,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                         <>
                           <span className="flex-1 truncate">{item.label}</span>
                           {item.badge && (
-                            <span className="rounded-full bg-[rgba(15,23,42,0.06)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+                            <span className="rounded-full bg-[rgba(15,23,42,0.06)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)] [font-family:var(--font-family-body)]">
                               {item.badge}
                             </span>
                           )}
@@ -121,7 +121,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                 type="button"
                 onClick={handleSignOut}
                 className={[
-                  'flex w-full items-center rounded-2xl border border-transparent px-3 py-3 text-sm text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-border)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)]',
+                  'flex w-full items-center rounded-2xl border border-transparent px-3 py-3 text-[15px] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-border)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)] [font-family:var(--font-family-body)]',
                   collapsed ? 'justify-center' : 'gap-2.5',
                 ].join(' ')}
                 aria-label="退出登录"
@@ -135,7 +135,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
               type="button"
               onClick={onToggleCollapse}
               className={[
-                'flex w-full items-center rounded-2xl border border-transparent px-3 py-3 text-sm text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-border)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)]',
+                  'flex w-full items-center rounded-2xl border border-transparent px-3 py-3 text-[15px] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-border)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)] [font-family:var(--font-family-body)]',
                 collapsed ? 'justify-center' : 'gap-2.5',
               ].join(' ')}
               title={collapsed ? '展开导航' : '收起导航'}

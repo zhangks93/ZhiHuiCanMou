@@ -1,18 +1,33 @@
 """
-将 2025学年商机项目台账.xlsx 数据导入 Supabase opportunity_ledger 表
+Import visible sheets from the workbook into Supabase.
 
-依赖安装: pip install pandas openpyxl httpx
-用法: python scripts/import_opportunity_ledger.py
+Target tables:
+1. opportunity_ledger_snapshots
+2. opportunity_ledger
+
+Dependencies:
+  pip install pandas openpyxl httpx
+
+Usage:
+  python scripts/import_opportunity_ledger.py
+  python scripts/import_opportunity_ledger.py --dry-run
 """
 
+from __future__ import annotations
+
+import argparse
+import math
 import os
 import re
-import math
-import pandas as pd
-from datetime import datetime
-import httpx
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
 
-# ── 配置 ────────────────────────────────────────────────
+import httpx
+import pandas as pd
+from openpyxl import load_workbook
+
 SUPABASE_URL = os.environ.get(
     "SUPABASE_URL", "https://kwwoyzaeczecddilwajs.supabase.co"
 )
@@ -20,247 +35,339 @@ SUPABASE_KEY = os.environ.get(
     "SUPABASE_KEY",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d295emFlY3plY2RkaWx3YWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjU4NjQsImV4cCI6MjA4NjUwMTg2NH0.N37UdA8gi1PL4F5TEIi4NPOuoWljnNCzGfXMKtFSHYY",
 )
-XLSX_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "docs", "data", "2025学年商机项目台账.xlsx"
+DEFAULT_XLSX_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "docs"
+    / "data"
+    / "\u0032\u0030\u0032\u0035\u5b66\u5e74\u5546\u673a\u9879\u76ee\u53f0\u8d26 (2).xlsx"
 )
 
-# ── 映射 ────────────────────────────────────────────────
-ITEM_TYPE_MAP = {
-    "项目运营": "operation",
-    "项目拓展": "expansion",
-    "项目跟踪": "tracking",
-    "跟踪项目": "tracking",
+YEAR_BOUNDARY_MONTH = 3
+SCHEMA_VERSION = "visible_v1"
+
+COL_PROJECT_GROUP = "\u9879\u76ee\u5206\u7ec4"
+COL_PROJECT_NAME = "\u9879\u76ee\u540d\u79f0"
+COL_STAGE_LABEL = "\u63a8\u8fdb\u9636\u6bb5"
+COL_PROGRESS_NOTE = "\u63a8\u8fdb\u8fdb\u5ea6"
+COL_TARGET_DATE = "\u9884\u8ba1\u5b8c\u6210\u65f6\u95f4"
+COL_FIRST_YEAR_REVENUE = "\u9884\u671f\u9996\u5e74\u8425\u6536\u989d"
+
+STAGE_CODE_MAP = {
+    "\u7ebf\u7d22": "lead",
+    "\u5546\u673a": "opportunity",
+    "\u5185\u90e8\u6295\u51b3": "internal_approval",
+    "\u5ba2\u6237\u6295\u51b3": "customer_approval",
+    "\u7b7e\u7ea6": "contracted",
 }
 
-# 2025学年: 03-12月 → 2025年, 01-02月 → 2026年
-YEAR_BOUNDARY_MONTH = 3
+
+@dataclass(slots=True)
+class SnapshotPayload:
+    sheet_name: str
+    sheet_index: int
+    snapshot_date: str
+    source_file_name: str
+    source_file_path: str
+    row_count: int
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Import opportunity ledger workbook into Supabase.")
+    parser.add_argument("--xlsx", default=str(DEFAULT_XLSX_PATH), help="Path to the workbook.")
+    parser.add_argument("--dry-run", action="store_true", help="Parse only. Do not write to Supabase.")
+    parser.add_argument(
+        "--keep-existing",
+        action="store_true",
+        help="Keep existing snapshots instead of deleting all snapshots before import.",
+    )
+    return parser.parse_args()
+
+
+def require_env() -> None:
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set.")
+
+
+def is_nan(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, float) and math.isnan(value):
+        return True
+    return False
+
+
+def clean_text(value: Any) -> str | None:
+    if is_nan(value):
+        return None
+    text = str(value).replace("\r", "").strip()
+    if text in ("", "-", "/", "nan", "None"):
+        return None
+    return text
 
 
 def parse_snapshot_date(sheet_name: str) -> str:
+    if not re.fullmatch(r"\d{4}", sheet_name):
+        raise ValueError(f"Cannot parse snapshot date from sheet name: {sheet_name}")
+
     month = int(sheet_name[:2])
     day = int(sheet_name[2:])
     year = 2025 if month >= YEAR_BOUNDARY_MONTH else 2026
     return f"{year}-{month:02d}-{day:02d}"
 
 
-def is_nan(val) -> bool:
-    if val is None:
-        return True
-    if isinstance(val, float) and math.isnan(val):
-        return True
-    return False
-
-
-def parse_amount(raw) -> float | None:
-    if is_nan(raw):
-        return None
-    s = str(raw).strip()
-    if s in ("-", "", "nan", "/"):
-        return None
-    numbers = re.findall(r"[\d.]+", s)
-    if numbers:
-        return float(numbers[0])
-    return None
-
-
-def parse_bid_date(raw) -> str | None:
-    if is_nan(raw):
-        return None
-    if isinstance(raw, datetime):
-        return raw.strftime("%Y-%m-%d")
-    s = str(raw).strip()
-    if s in ("-", "", "nan", "待定", "/"):
-        return None
-    return None
-
-
-def parse_bool(raw) -> bool:
-    if is_nan(raw):
-        return False
-    try:
-        return bool(int(raw))
-    except (ValueError, TypeError):
-        return False
-
-
-def parse_win_probability(raw) -> float | None:
-    if is_nan(raw):
-        return None
-    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
-        return float(raw)
-    s = str(raw).strip()
-    if s in ("-", "", "nan", "/"):
-        return None
-    # 从文本中提取百分比数字，取平均值
-    percentages = re.findall(r"(\d+(?:\.\d+)?)\s*%", s)
-    if percentages:
-        avg = sum(float(p) for p in percentages) / len(percentages) / 100.0
-        return round(avg, 2)
-    # 尝试直接转数字
-    numbers = re.findall(r"[\d.]+", s)
-    if numbers:
-        return float(numbers[0])
-    return None
-
-
-def derive_status(item_type: str, win_prob: float | None) -> str:
-    if item_type == "operation":
-        return "operating"
-    if win_prob is not None and win_prob >= 1.0:
-        return "contracted"
-    return "tracking"
-
-
-def safe_get(row, key, default=None):
-    """安全获取 row 中的值，列不存在时返回 default"""
-    try:
-        val = row[key]
-        return val
-    except (KeyError, IndexError):
-        return default
+def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    renamed: dict[str, str] = {}
+    unnamed_index = 0
+    for col in df.columns:
+        name = str(col).strip()
+        if name.startswith("Unnamed:") or name == "":
+            unnamed_index += 1
+            renamed[col] = COL_PROJECT_GROUP if unnamed_index == 1 else f"unnamed_{unnamed_index}"
+        else:
+            renamed[col] = name
+    return df.rename(columns=renamed)
 
 
 def find_header_row(xls: pd.ExcelFile, sheet_name: str) -> int:
-    """找到包含 '项目名称' 的表头行号"""
-    df_raw = pd.read_excel(xls, sheet_name=sheet_name, header=None)
-    for i in range(min(10, len(df_raw))):
-        row_vals = [str(v).strip() for v in df_raw.iloc[i] if not is_nan(v)]
-        if "项目名称" in row_vals:
-            return i
+    raw = pd.read_excel(xls, sheet_name=sheet_name, header=None)
+    for index in range(min(10, len(raw))):
+        row_values = {str(v).strip() for v in raw.iloc[index] if not is_nan(v)}
+        if {COL_PROJECT_NAME, COL_STAGE_LABEL}.issubset(row_values):
+            return index
     return 0
 
 
-def read_sheet(xls: pd.ExcelFile, sheet_name: str) -> list[dict]:
-    """读取一个 sheet 并转换为 opportunity_ledger 记录列表（兼容多种列结构）"""
+def parse_excel_date(value: Any) -> str | None:
+    if is_nan(value):
+        return None
+    if isinstance(value, pd.Timestamp):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        serial = float(value)
+        if serial <= 0:
+            return None
+        excel_epoch = datetime(1899, 12, 30)
+        return (excel_epoch + timedelta(days=serial)).strftime("%Y-%m-%d")
 
-    # 先找到真正的表头行
+    text = clean_text(value)
+    if text is None:
+        return None
+
+    dt = pd.to_datetime(text, errors="coerce")
+    if pd.notna(dt):
+        return dt.strftime("%Y-%m-%d")
+    return None
+
+
+def parse_amount(value: Any) -> float | None:
+    text = clean_text(value)
+    if text is None:
+        return None
+
+    match = re.search(r"(\d+(?:\.\d+)?)", text.replace(",", ""))
+    if not match:
+        return None
+    return float(match.group(1))
+
+
+def get_visible_sheet_names(xlsx_path: Path) -> list[str]:
+    workbook = load_workbook(xlsx_path, read_only=True, data_only=True)
+    try:
+        return [ws.title for ws in workbook.worksheets if ws.sheet_state == "visible"]
+    finally:
+        workbook.close()
+
+
+def build_snapshot_payload(
+    xlsx_path: Path,
+    sheet_name: str,
+    sheet_index: int,
+    row_count: int,
+) -> SnapshotPayload:
+    return SnapshotPayload(
+        sheet_name=sheet_name,
+        sheet_index=sheet_index,
+        snapshot_date=parse_snapshot_date(sheet_name),
+        source_file_name=xlsx_path.name,
+        source_file_path=str(xlsx_path),
+        row_count=row_count,
+    )
+
+
+def read_visible_sheet(
+    xls: pd.ExcelFile,
+    xlsx_path: Path,
+    sheet_name: str,
+    sheet_index: int,
+) -> tuple[SnapshotPayload, list[dict[str, Any]]]:
     header_row = find_header_row(xls, sheet_name)
     df = pd.read_excel(xls, sheet_name=sheet_name, header=header_row)
+    df = normalize_columns(df)
 
-    # 清理列名中的空白
-    df.columns = [str(c).strip() for c in df.columns]
-    col_names = set(df.columns)
+    required_columns = {
+        COL_PROJECT_GROUP,
+        COL_PROJECT_NAME,
+        COL_STAGE_LABEL,
+        COL_PROGRESS_NOTE,
+        COL_TARGET_DATE,
+        COL_FIRST_YEAR_REVENUE,
+    }
+    missing = required_columns.difference(df.columns)
+    if missing:
+        raise ValueError(f"Sheet [{sheet_name}] is missing columns: {sorted(missing)}")
 
-    # 确定各字段对应的列名
-    has_region = "区域" in col_names
-    has_logistics = "后勤投决" in col_names
-    has_group = "集团投决" in col_names
-    has_bid_date = "投标时间" in col_names
-    has_manager = "项目负责人就位情况" in col_names
+    df[COL_PROJECT_GROUP] = df[COL_PROJECT_GROUP].ffill()
 
-    # 前向填充事项类型
-    if "事项类型" in col_names:
-        df["事项类型"] = df["事项类型"].ffill()
-    if has_region:
-        df["区域"] = df["区域"].ffill()
-
+    records: list[dict[str, Any]] = []
     snapshot_date = parse_snapshot_date(sheet_name)
-    records = []
-
-    for _, row in df.iterrows():
-        project_name = safe_get(row, "项目名称")
-        if is_nan(project_name):
+    for index, row in df.iterrows():
+        project_name = clean_text(row.get(COL_PROJECT_NAME))
+        stage_label = clean_text(row.get(COL_STAGE_LABEL))
+        if not project_name or not stage_label:
             continue
 
-        project_name = str(project_name).strip().replace("\n", "")
-        if not project_name or project_name in ("/", "-"):
-            continue
+        row_number = header_row + index + 2
+        target_raw = clean_text(row.get(COL_TARGET_DATE))
+        revenue_raw = clean_text(row.get(COL_FIRST_YEAR_REVENUE))
 
-        # 跳过 "重点商机" 等汇总行
-        item_type_raw = str(safe_get(row, "事项类型", "")).strip()
-        if item_type_raw in ("重点商机",):
-            continue
-        if project_name == "重点商机":
-            continue
+        records.append(
+            {
+                "snapshot_date": snapshot_date,
+                "sheet_name": sheet_name,
+                "row_number": int(row_number),
+                "project_group": clean_text(row.get(COL_PROJECT_GROUP)),
+                "project_name": project_name.replace("\n", ""),
+                "stage_code": STAGE_CODE_MAP.get(stage_label, "unknown"),
+                "stage_label": stage_label,
+                "progress_note": clean_text(row.get(COL_PROGRESS_NOTE)),
+                "target_date": parse_excel_date(row.get(COL_TARGET_DATE)),
+                "target_date_raw": target_raw,
+                "first_year_revenue": parse_amount(row.get(COL_FIRST_YEAR_REVENUE)),
+                "first_year_revenue_raw": revenue_raw,
+                "schema_version": SCHEMA_VERSION,
+            }
+        )
 
-        item_type = ITEM_TYPE_MAP.get(item_type_raw, "tracking")
-
-        win_probability = parse_win_probability(safe_get(row, "获取概率"))
-
-        region = safe_get(row, "区域") if has_region else None
-        if is_nan(region):
-            region = None
-        else:
-            region = str(region).strip() if region else None
-
-        remark = safe_get(row, "下一步计划")
-        if is_nan(remark):
-            remark = None
-        else:
-            remark = str(remark).strip() if remark else None
-
-        record = {
-            "snapshot_date": snapshot_date,
-            "item_type": item_type,
-            "region": region,
-            "project_name": project_name,
-            "estimated_amount": parse_amount(safe_get(row, "项目体量")),
-            "logistics_approved": parse_bool(safe_get(row, "后勤投决")) if has_logistics else False,
-            "group_approved": parse_bool(safe_get(row, "集团投决")) if has_group else False,
-            "bid_date": parse_bid_date(safe_get(row, "投标时间")) if has_bid_date else None,
-            "status": derive_status(item_type, win_probability),
-            "remark": remark,
-            "win_probability": win_probability,
-            "manager_ready": parse_bool(safe_get(row, "项目负责人就位情况")) if has_manager else False,
-        }
-        records.append(record)
-
-    return records
+    snapshot = build_snapshot_payload(
+        xlsx_path=xlsx_path,
+        sheet_name=sheet_name,
+        sheet_index=sheet_index,
+        row_count=len(records),
+    )
+    return snapshot, records
 
 
-def main():
-    xlsx_path = os.path.normpath(XLSX_PATH)
-    print(f"读取文件: {xlsx_path}")
+def post_json(
+    client: httpx.Client,
+    url: str,
+    headers: dict[str, str],
+    payload: Any,
+) -> list[dict[str, Any]]:
+    response = client.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    data = response.json()
+    return data if isinstance(data, list) else [data]
 
-    xls = pd.ExcelFile(xlsx_path)
-    print(f"共 {len(xls.sheet_names)} 个 sheet: {xls.sheet_names}")
 
-    all_records = []
-    for sheet_name in xls.sheet_names:
-        records = read_sheet(xls, sheet_name)
-        all_records.extend(records)
-        print(f"  Sheet [{sheet_name}] → {len(records)} 条记录")
+def delete_all_snapshots(client: httpx.Client, headers: dict[str, str]) -> None:
+    response = client.delete(
+        f"{SUPABASE_URL}/rest/v1/opportunity_ledger_snapshots?id=not.is.null",
+        headers=headers,
+    )
+    response.raise_for_status()
 
-    xls.close()
-    print(f"\n总计 {len(all_records)} 条记录待导入")
 
-    if not all_records:
-        print("无数据，退出")
-        return
+def import_to_supabase(
+    snapshots_with_rows: list[tuple[SnapshotPayload, list[dict[str, Any]]]],
+    keep_existing: bool,
+) -> None:
+    require_env()
 
-    # 通过 REST API 操作 Supabase
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
-    base_url = f"{SUPABASE_URL}/rest/v1/opportunity_ledger"
+
+    snapshot_url = f"{SUPABASE_URL}/rest/v1/opportunity_ledger_snapshots"
+    ledger_url = f"{SUPABASE_URL}/rest/v1/opportunity_ledger"
 
     with httpx.Client(timeout=30) as client:
-        # 先清空表中所有数据
-        print("\n[1/2] 清空 opportunity_ledger 表...")
-        try:
-            resp = client.delete(f"{base_url}?id=gte.0", headers=headers)
-            if resp.status_code in (200, 204):
-                print("  > 已清空旧数据")
-            else:
-                print(f"  > 清空失败 (状态码 {resp.status_code})，继续导入...")
-        except Exception as e:
-            print(f"  > 清空失败，继续导入...")
+        if not keep_existing:
+            print("[1/3] Deleting existing snapshots...")
+            delete_all_snapshots(client, headers)
+            print("  Cleared opportunity_ledger_snapshots and cascaded detail rows.")
+        else:
+            print("[1/3] Keeping existing snapshots.")
 
-        # 分批插入 (每批50条)
-        BATCH_SIZE = 50
-        inserted = 0
-        print(f"\n[2/2] 开始导入 {len(all_records)} 条记录...")
-        for i in range(0, len(all_records), BATCH_SIZE):
-            batch = all_records[i : i + BATCH_SIZE]
-            resp = client.post(base_url, headers=headers, json=batch)
-            resp.raise_for_status()
-            inserted += len(resp.json())
-            print(f"  > 进度: {inserted}/{len(all_records)} 条")
+        print("[2/3] Writing snapshots and detail rows...")
+        inserted_rows = 0
+        for snapshot, rows in snapshots_with_rows:
+            snapshot_payload = {
+                "sheet_name": snapshot.sheet_name,
+                "sheet_index": snapshot.sheet_index,
+                "snapshot_date": snapshot.snapshot_date,
+                "source_file_name": snapshot.source_file_name,
+                "source_file_path": snapshot.source_file_path,
+                "row_count": snapshot.row_count,
+            }
+            created_snapshot = post_json(client, snapshot_url, headers, snapshot_payload)[0]
+            snapshot_id = created_snapshot["id"]
 
-    print(f"\n导入完成! 共插入 {inserted} 条记录到 opportunity_ledger 表")
+            ledger_rows = [{**row, "snapshot_id": snapshot_id} for row in rows]
+            batch_size = 100
+            for offset in range(0, len(ledger_rows), batch_size):
+                batch = ledger_rows[offset : offset + batch_size]
+                result = post_json(client, ledger_url, headers, batch)
+                inserted_rows += len(result)
+
+            print(
+                f"  Imported sheet [{snapshot.sheet_name}] "
+                f"for snapshot {snapshot.snapshot_date}: {len(rows)} rows"
+            )
+
+        print(f"[3/3] Done. Inserted {inserted_rows} detail rows.")
+
+
+def main() -> None:
+    args = parse_args()
+    xlsx_path = Path(args.xlsx).resolve()
+    if not xlsx_path.exists():
+        raise FileNotFoundError(f"Workbook not found: {xlsx_path}")
+
+    print(f"Workbook: {xlsx_path}")
+    visible_sheets = get_visible_sheet_names(xlsx_path)
+    print(f"Visible sheets: {visible_sheets}")
+
+    xls = pd.ExcelFile(xlsx_path)
+    try:
+        snapshots_with_rows: list[tuple[SnapshotPayload, list[dict[str, Any]]]] = []
+        total_rows = 0
+        for sheet_index, sheet_name in enumerate(visible_sheets, start=1):
+            snapshot, rows = read_visible_sheet(xls, xlsx_path, sheet_name, sheet_index)
+            snapshots_with_rows.append((snapshot, rows))
+            total_rows += len(rows)
+            print(
+                f"  Sheet [{sheet_name}] -> {len(rows)} rows, "
+                f"snapshot date {snapshot.snapshot_date}"
+            )
+    finally:
+        xls.close()
+
+    if not snapshots_with_rows:
+        print("No visible sheets to import.")
+        return
+
+    print(f"Prepared {len(snapshots_with_rows)} snapshots and {total_rows} rows.")
+
+    if args.dry_run:
+        print("Dry run complete. No data written.")
+        return
+
+    import_to_supabase(snapshots_with_rows, keep_existing=args.keep_existing)
 
 
 if __name__ == "__main__":

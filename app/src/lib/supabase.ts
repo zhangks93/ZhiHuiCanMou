@@ -324,22 +324,23 @@ export interface WorkItem {
   updated_at: string
 }
 
-// --- Opportunity Ledger (商机项目台账) ---
+// --- Opportunity Ledger (商机项目台账, visible_v1 schema) ---
 export interface OpportunityLedger {
   id: string
-  org_id: string | null
+  snapshot_id: string
   snapshot_date: string
-  item_type: 'operation' | 'expansion' | 'tracking'
-  region: string | null
+  sheet_name: string
+  row_number: number
+  schema_version: string
+  project_group: string | null
   project_name: string
-  estimated_amount: number | null
-  logistics_approved: boolean
-  group_approved: boolean
-  bid_date: string | null
-  status: 'tracking' | 'bidding' | 'contracted' | 'operating' | 'suspended' | 'lost' | null
-  remark: string | null
-  win_probability: number | null
-  manager_ready: boolean
+  stage_code: string
+  stage_label: string
+  progress_note: string | null
+  target_date: string | null
+  target_date_raw: string | null
+  first_year_revenue: number | null
+  first_year_revenue_raw: string | null
   created_at: string
   updated_at: string
 }

@@ -65,3 +65,41 @@ export interface Conversation {
   createdAt: number
   updatedAt: number
 }
+
+/** Agent icon type - can be emoji or icon component */
+export interface AgentIcon {
+  type: 'emoji' | 'lucide'
+  value: string
+}
+
+/** Agent definition configuration */
+export interface AgentDefinition {
+  /** Unique identifier for the agent */
+  id: string
+  /** Display name */
+  name: string
+  /** Brief description shown in agent selector */
+  description: string
+  /** Extended description shown in empty states */
+  tagline?: string
+  /** Icon configuration */
+  icon: AgentIcon
+  /** System prompt for this agent */
+  systemPrompt: string
+  /** List of tool definitions available to this agent */
+  tools: RegisteredTool[]
+  /** Quick prompt suggestions shown in empty state */
+  quickPrompts: string[]
+  /** Accent color for the agent (CSS variable or hex) */
+  color: string
+  /** Whether the agent is enabled */
+  enabled?: boolean
+}
+
+/** Registry of all available agents */
+export interface AgentRegistry {
+  /** Map of agent ID to agent definition */
+  agents: Record<string, AgentDefinition>
+  /** Default agent ID when no agent is selected */
+  defaultAgentId: string
+}

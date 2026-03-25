@@ -69,12 +69,12 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-[var(--color-text-muted)]">
+              <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-[var(--color-text-muted)] [font-family:var(--font-family-body)]">
                 <span className="truncate">参谋工作台</span>
                 <ChevronRight size={12} strokeWidth={1.8} className="shrink-0" />
                 <span className="truncate">{pageMeta.title}</span>
               </div>
-              <div className="truncate text-sm font-semibold text-[var(--color-text-strong)] sm:text-base">
+              <div className="truncate text-base font-semibold text-[var(--color-text-strong)] sm:text-[1.0625rem] [font-family:var(--font-family-body)]">
                 {pageMeta.subtitle}
               </div>
             </div>
@@ -86,7 +86,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden rounded-2xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-xs font-medium text-[var(--color-text-muted)] sm:inline-flex">
+            <div className="hidden rounded-2xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] [font-family:var(--font-family-body)] sm:inline-flex">
               {date}
             </div>
 
@@ -118,7 +118,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               )}
 
               <div className="hidden min-w-0 text-left md:block">
-                <div className="max-w-[108px] truncate text-xs font-semibold text-[var(--color-text-strong)]">
+                <div className="max-w-[108px] truncate text-sm font-semibold text-[var(--color-text-strong)] [font-family:var(--font-family-body)]">
                   {user?.name ?? '当前用户'}
                 </div>
                 <div className="text-[11px] text-[var(--color-text-muted)]">个人设置</div>

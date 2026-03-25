@@ -52,7 +52,7 @@ interface CenterWarning {
 interface OpportunitySummary {
   latestSnapshotDate: string | null
   activeCount: number
-  weightedAmount: number
+  revenueAmount: number
   lastUpdated: string | null
 }
 
@@ -74,7 +74,7 @@ export function Dashboard() {
   const [opportunitySummary, setOpportunitySummary] = useState<OpportunitySummary>({
     latestSnapshotDate: null,
     activeCount: 0,
-    weightedAmount: 0,
+    revenueAmount: 0,
     lastUpdated: null,
   })
 
@@ -103,7 +103,7 @@ export function Dashboard() {
             .not('revenue_completion_rate', 'is', null),
           supabase
             .from('opportunity_ledger')
-            .select('snapshot_date,status,estimated_amount,win_probability,updated_at')
+            .select('snapshot_date,schema_version,stage_code,first_year_revenue,updated_at')
             .order('snapshot_date', { ascending: false })
             .limit(500),
           supabase.from('feishu_members').select('user_id'),
@@ -151,20 +151,20 @@ export function Dashboard() {
         if (!opportunityRes.error && opportunityRes.data) {
           const rows = opportunityRes.data as Array<{
             snapshot_date: string | null
-            status: string | null
-            estimated_amount: number | null
-            win_probability: number | null
+            schema_version: string | null
+            stage_code: string | null
+            first_year_revenue: number | null
             updated_at: string | null
           }>
 
           const latestSnapshotDate = rows[0]?.snapshot_date ?? null
           const latestRows = latestSnapshotDate ? rows.filter((r) => r.snapshot_date === latestSnapshotDate) : []
 
-          const activeCount = latestRows.filter((r) => r.status === 'tracking').length
-          const weightedAmount = latestRows.reduce((sum, r) => {
-            const amount = Number(r.estimated_amount) || 0
-            const probability = Number(r.win_probability) || 0
-            return sum + amount * probability
+          const activeCount = latestRows.filter((r) =>
+            ['lead', 'opportunity', 'internal_approval', 'customer_approval'].includes(r.stage_code ?? ''),
+          ).length
+          const revenueAmount = latestRows.reduce((sum, r) => {
+            return sum + (Number(r.first_year_revenue) || 0)
           }, 0)
 
           const lastUpdated =
@@ -176,7 +176,7 @@ export function Dashboard() {
           setOpportunitySummary({
             latestSnapshotDate,
             activeCount,
-            weightedAmount,
+            revenueAmount,
             lastUpdated: lastUpdated ?? latestSnapshotDate,
           })
         }
