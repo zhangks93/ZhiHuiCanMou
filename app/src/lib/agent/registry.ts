@@ -1,20 +1,16 @@
 // Agent Registry - Central registry for all available agents
+// Agents are loaded from the skills system (skills/ folder)
 
 import type { AgentDefinition, AgentRegistry } from './types'
-import { financialAnalysisAgent } from './agents'
+import { allSkills } from './skills'
 
 /**
  * Registry of all available agents.
- * Add new agents here to make them available in the system.
+ * Skills are auto-registered from skills/index.ts.
  */
 export const agentRegistry: AgentRegistry = {
-  agents: {
-    [financialAnalysisAgent.id]: financialAnalysisAgent,
-    // Future agents will be added here:
-    // [hrAgent.id]: hrAgent,
-    // [operationsAgent.id]: operationsAgent,
-  },
-  defaultAgentId: financialAnalysisAgent.id,
+  agents: Object.fromEntries(allSkills.map((skill) => [skill.id, skill])),
+  defaultAgentId: allSkills[0]?.id ?? '',
 }
 
 /**

@@ -12,8 +12,12 @@ export {
   getAgentCount,
 } from './registry'
 
-// Agent definitions
-export { financialAnalysisAgent } from './agents/financialAnalysis'
+// Skills (loaded agent definitions)
+export { financialAnalysisAgent, allSkills } from './skills'
+
+// Skill loader
+export { loadSkill } from './skills/loader'
+export type { SkillConfig } from './skills/loader'
 
 // Tools
 export { queryBizDataTool } from './tools/queryBizData'
@@ -21,6 +25,7 @@ export { queryWithHierarchyTool } from './tools/queryWithHierarchy'
 export { queryMonthlyPlanTool } from './tools/queryMonthlyPlan'
 export { resolveOrgNodesTool } from './tools/resolveOrgNodes'
 export { readFileTool } from './tools/readFile'
+export { resolveTools, getAvailableToolNames } from './tools/toolRegistry'
 
 // Conversation store
 export {

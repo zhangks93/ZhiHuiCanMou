@@ -1,0 +1,25 @@
+{
+  "id": "financial-analysis",
+  "name": "财务分析助手",
+  "description": "专注于25学年经营数据分析",
+  "tagline": "查看经营异常、生成分析报告、对比部门表现",
+  "icon": {
+    "type": "emoji",
+    "value": "🤖"
+  },
+  "tools": [
+    "resolve_org_nodes",
+    "query_with_hierarchy",
+    "query_monthly_plan",
+    "query_biz_data",
+    "read_template"
+  ],
+  "quickPrompts": [
+    "请基于当前可用数据，找出本月经营异常并按优先级排序。",
+    "按部门对比收入、毛利和利润变化，并给出原因假设。",
+    "生成一份适合管理层阅读的经营分析报告，突出风险和机会。",
+    "从回款、合同和利润三个角度，给出下周最值得跟进的事项。"
+  ],
+  "color": "#5f7fbc",
+  "enabled": true
+}

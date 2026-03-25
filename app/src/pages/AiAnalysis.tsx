@@ -25,7 +25,7 @@ import {
 } from '@/lib/agent'
 import type { ChatMessage, Conversation } from '@/lib/agent'
 import { loadLLMConfig } from '@/lib/llmConfig'
-import SYSTEM_PROMPT from '@/lib/agent/systemPrompt.md?raw'
+import SYSTEM_PROMPT from '@/lib/agent/skills/financial-analysis/prompt.md?raw'
 import { ChatMessageItem } from '@/components/Chat/ChatMessageItem'
 
 function generateTitle(text: string): string {
