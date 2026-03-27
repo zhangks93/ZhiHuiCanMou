@@ -8,13 +8,13 @@ export const queryWithHierarchyTool: RegisteredTool = {
     type: 'function',
     function: {
       name: 'query_with_hierarchy',
-      description: '查询教育后勤经营数据，并附带组织层级信息（level_0/level_1/level_2/level_3）。可按组织层级聚合查询（如某中心下所有节点），支持按 level_0、level_1、level_2 过滤。比 query_biz_data 更强大，推荐优先使用。',
+      description: '查询教育后勤经营数据，并附带组织层级信息（level_0/level_1/level_2/level_3）。优先用于经营分析主查询，可按 node_name 或 level_0/level_1/level_2 过滤。period 仅支持传入系统提供的合法 period 精确值。',
       parameters: {
         type: 'object',
         properties: {
           node_name: {
             type: 'string',
-            description: '组织节点名称，模糊匹配。如"餐饮"会匹配所有含"餐饮"的节点。留空则查询所有节点。',
+            description: '组织节点名称，模糊匹配。如“餐饮”会匹配所有含“餐饮”的节点。留空则查询所有节点。',
           },
           metric_category: {
             type: 'string',
@@ -40,23 +40,23 @@ export const queryWithHierarchyTool: RegisteredTool = {
           },
           level_0: {
             type: 'string',
-            description: '按集团级过滤，如"智汇后勤集团"。通常留空，集团级代表全集团汇总。',
+            description: '按集团级过滤，如“智汇后勤集团”。通常留空。',
           },
           level_1: {
             type: 'string',
-            description: '按一级组织过滤，如"餐饮中心"、"物业中心"等。',
+            description: '按一级组织过滤，如“餐饮中心”“物业中心”等。',
           },
           level_2: {
             type: 'string',
-            description: '按二级组织过滤，如"广州餐饮"、"深圳物业"等。',
+            description: '按二级组织过滤，如“广州餐饮”“深圳物业”等。',
           },
           period: {
             type: 'string',
-            description: '月度范围筛选。monthly期间填具体月份如 "202601"（1月）、"202602"（2月）；cumulative期间填如 "<202603"（截至2月累计）或 "202601-202602-"。留空则返回最新期间数据。',
+            description: '期间值。只能使用系统运行时上下文提供的合法 period 精确值。',
           },
           limit: {
             type: 'number',
-            description: '返回记录数上限，默认200，最大500',
+            description: '返回记录数上限，默认 200，最大 500',
           },
         },
         required: [],
@@ -75,13 +75,12 @@ export const queryWithHierarchyTool: RegisteredTool = {
     const periodFilter = args.period as string | undefined
     const limit = Math.min(Number(args.limit) || 200, 500)
 
-    // Step 1: If level filters specified, pre-fetch matching node names first
-    // This avoids the pagination-before-filter bug (old approach applied limit before level filter)
     let preFilteredNodes: string[] | undefined
     if (level0Filter || level1Filter || level2Filter) {
       let hierQuery = supabase
         .from('edu_org_hierarchy')
         .select('node_name')
+
       if (level0Filter) hierQuery = hierQuery.ilike('level_0', `%${level0Filter}%`)
       if (level1Filter) hierQuery = hierQuery.ilike('level_1', `%${level1Filter}%`)
       if (level2Filter) hierQuery = hierQuery.ilike('level_2', `%${level2Filter}%`)
@@ -94,20 +93,18 @@ export const queryWithHierarchyTool: RegisteredTool = {
           filters: { level_0: level0Filter, level_1: level1Filter, level_2: level2Filter },
         })
       }
-      preFilteredNodes = hierNodes.map(h => h.node_name)
+      preFilteredNodes = hierNodes.map(node => node.node_name)
     }
 
-    // Step 2: Query edu_biz_report
     let query = supabase
       .from('edu_biz_report')
-      .select('node_name, metric_category, metric_category_cn, actual_value, budget_value, completion_rate, diff_value, yoy_value, period, sort_order')
+      .select('node_name, metric_category, metric_category_cn, actual_value, budget_value, completion_rate, diff_value, yoy_value, period, report_type, period_type, sort_order')
       .eq('report_type', reportType)
       .eq('period_type', periodType)
       .order('sort_order', { ascending: true })
       .limit(limit)
 
     if (preFilteredNodes) {
-      // Use pre-filtered node names from hierarchy (avoids limit-before-filter issue)
       query = query.in('node_name', preFilteredNodes)
     } else if (nodeName) {
       query = query.ilike('node_name', `%${nodeName}%`)
@@ -128,12 +125,20 @@ export const queryWithHierarchyTool: RegisteredTool = {
     if (!bizData || bizData.length === 0) {
       return JSON.stringify({
         message: '未找到匹配的经营数据',
-        filters: { node_name: nodeName, metric_category: metricCategory, report_type: reportType, period_type: periodType },
+        query_echo: {
+          node_name: nodeName || null,
+          metric_category: metricCategory || null,
+          report_type: reportType,
+          period_type: periodType,
+          period: periodFilter || null,
+          level_0: level0Filter || null,
+          level_1: level1Filter || null,
+          level_2: level2Filter || null,
+        },
       })
     }
 
-    // Step 3: Fetch hierarchy for all returned node names
-    const nodeNames = [...new Set(bizData.map(r => r.node_name))]
+    const nodeNames = [...new Set(bizData.map(row => row.node_name))]
     const { data: hierData, error: hierError } = await supabase
       .from('edu_org_hierarchy')
       .select('node_name, level_0, level_1, level_2, level_3, label')
@@ -143,51 +148,61 @@ export const queryWithHierarchyTool: RegisteredTool = {
       throw new Error(`组织层级查询失败: ${hierError.message}`)
     }
 
-    // Step 4: Build hierarchy map and merge
-    const hierMap = new Map<string, { level_0: string; level_1: string; level_2: string; level_3: string; label: string }>()
-    for (const h of hierData || []) {
-      hierMap.set(h.node_name, {
-        level_0: h.level_0,
-        level_1: h.level_1,
-        level_2: h.level_2,
-        level_3: h.level_3,
-        label: h.label,
+    const hierMap = new Map<string, {
+      level_0: string | null
+      level_1: string | null
+      level_2: string | null
+      level_3: string | null
+      label: string | null
+    }>()
+
+    for (const row of hierData || []) {
+      hierMap.set(row.node_name, {
+        level_0: row.level_0,
+        level_1: row.level_1,
+        level_2: row.level_2,
+        level_3: row.level_3,
+        label: row.label,
       })
     }
 
-    const merged = bizData.map(row => ({
-      ...row,
-      ...(hierMap.get(row.node_name) || { level_0: null, level_1: null, level_2: null, level_3: null, label: null }),
-    }))
-
-    const summary = {
-      total_records: merged.length,
-      filters: {
-        node_name: nodeName || '全部',
-        metric_category: metricCategory || '全部',
+    return JSON.stringify({
+      summary: {
+        returned_count: bizData.length,
+        limit,
+        truncated: bizData.length >= limit,
         report_type: reportType,
         period_type: periodType,
-        level_0: level0Filter || '全部',
-        level_1: level1Filter || '全部',
-        level_2: level2Filter || '全部',
+        period: periodFilter || '全部',
       },
-      data: merged.map(row => ({
-        节点: row.node_name,
-        集团: row.level_0,
-        一级组织: row.level_1,
-        二级组织: row.level_2,
-        三级组织: row.level_3,
-        标签: row.label,
-        指标: row.metric_category_cn,
-        实际值: row.actual_value,
-        预算值: row.budget_value,
-        完成率: row.completion_rate != null ? `${(row.completion_rate * 100).toFixed(1)}%` : null,
-        差异: row.diff_value,
-        同比: row.yoy_value != null ? `${(row.yoy_value * 100).toFixed(1)}%` : null,
-        期间: row.period,
-      })),
-    }
-
-    return JSON.stringify(summary, null, 2)
+      scope: {
+        node_name: nodeName || null,
+        level_0: level0Filter || null,
+        level_1: level1Filter || null,
+        level_2: level2Filter || null,
+      },
+      rows: bizData.map(row => {
+        const hierarchy = hierMap.get(row.node_name)
+        return {
+          node_name: row.node_name,
+          level_0: hierarchy?.level_0 || null,
+          level_1: hierarchy?.level_1 || null,
+          level_2: hierarchy?.level_2 || null,
+          level_3: hierarchy?.level_3 || null,
+          label: hierarchy?.label || null,
+          metric: row.metric_category,
+          metric_label: row.metric_category_cn,
+          actual: row.actual_value,
+          budget: row.budget_value,
+          completion_rate: row.completion_rate,
+          diff: row.diff_value,
+          yoy: row.yoy_value,
+          period: row.period,
+        }
+      }),
+      guidance: bizData.length >= limit
+        ? '结果可能已截断，请缩小组织、指标或期间范围后重试。'
+        : '如需横向对比，请基于 rows 中的 level_1 或 level_2 继续汇总分析。',
+    }, null, 2)
   },
 }

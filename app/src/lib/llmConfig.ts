@@ -67,7 +67,7 @@ function loadStore(): LLMConfigStore | null {
   }
 }
 
-/** Load active provider's config (used by AiAnalysis / BizData) */
+/** Load active provider's config (used by AgentChat / BizData) */
 export function loadLLMConfig(): LLMConfig | null {
   const store = loadStore()
   if (!store) return null

@@ -9,12 +9,22 @@ import type { SkillConfig } from './loader'
 import financialAnalysisConfig from './financial-analysis/skill.json'
 import financialAnalysisPrompt from './financial-analysis/prompt.md?raw'
 import bizAnalysisReport from './financial-analysis/assets/biz-analysis-report.md?raw'
+import reportGenerationReference from './financial-analysis/references/report-generation.md?raw'
+import analysisMethodReference from './financial-analysis/references/analysis-method.md?raw'
+import chartGuidanceReference from './financial-analysis/references/chart-guidance.md?raw'
+import workflowReference from './financial-analysis/references/workflow.md?raw'
+import metricsReference from './financial-analysis/references/metrics.md?raw'
 
 export const financialAnalysisAgent = loadSkill(
   financialAnalysisConfig as SkillConfig,
   financialAnalysisPrompt,
   {
     'biz-analysis-report.md': bizAnalysisReport,
+    'references/report-generation.md': reportGenerationReference,
+    'references/analysis-method.md': analysisMethodReference,
+    'references/chart-guidance.md': chartGuidanceReference,
+    'references/workflow.md': workflowReference,
+    'references/metrics.md': metricsReference,
   }
 )
 

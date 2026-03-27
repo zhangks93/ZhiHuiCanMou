@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import type { AgentDefinition } from '../../lib/agent/types'
 import { AgentCard } from './AgentCard'
+import { AgentIcon } from './AgentIcon'
 
 interface AgentSelectorProps {
   agents: AgentDefinition[]
@@ -40,8 +41,8 @@ export function AgentSelector({
         onClick={() => setIsExpanded(true)}
         aria-label="展开助手列表"
       >
-        <span className="text-xl">
-          {enabledAgents.find(a => a.id === activeAgentId)?.icon.value || '🤖'}
+        <span className="agent-selector-toggle-icon">
+          <AgentIcon icon={enabledAgents.find(a => a.id === activeAgentId)?.icon} size={18} />
         </span>
         <span className="agent-selector-toggle-hint">▼</span>
       </button>

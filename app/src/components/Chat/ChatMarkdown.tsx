@@ -1,9 +1,142 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, ExternalLink } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+
+const ECHARTS_CDN_URL = 'https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js'
+const EXTERNAL_SCRIPT_TAG_PATTERN = /<script\b[^>]*\bsrc\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)[^>]*>[\s\S]*?<\/script>/gi
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function getHtmlPreviewHeight(code: string) {
+  const heightMatches = [...code.matchAll(/height\s*:\s*(\d{2,4})px/gi)]
+  if (!heightMatches.length) return 480
+
+  const maxHeight = Math.max(...heightMatches.map(match => Number(match[1])))
+  return clamp(maxHeight + 24, 320, 720)
+}
+
+function injectPreviewHead(code: string, previewHead: string) {
+  if (/<head[\s>]/i.test(code)) {
+    return code.replace(/<head(\s[^>]*)?>/i, match => `${match}\n${previewHead}`)
+  }
+
+  if (/<html[\s>]/i.test(code)) {
+    return code.replace(/<html(\s[^>]*)?>/i, match => `${match}\n<head>\n${previewHead}\n</head>`)
+  }
+
+  return code
+}
+
+function buildHtmlPreviewDocument(code: string) {
+  const normalizedCode = code.replace(EXTERNAL_SCRIPT_TAG_PATTERN, '')
+  const previewHead = [
+    '<meta charset="UTF-8" />',
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' https://cdn.jsdelivr.net; style-src \'unsafe-inline\'; img-src data:; font-src data:; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\';" />',
+    '<style>html, body { margin: 0; padding: 0; background: #ffffff; }</style>',
+    '<script>(function () { const blockedKeys = [\'__TAURI__\', \'__TAURI_INTERNALS__\']; for (const key of blockedKeys) { try { delete window[key]; } catch {} try { Object.defineProperty(window, key, { value: undefined, configurable: false, writable: false }); } catch {} } })()</script>',
+    `<script src="${ECHARTS_CDN_URL}"></script>`,
+  ].join('\n')
+
+  if (/<html[\s>]/i.test(normalizedCode)) {
+    return injectPreviewHead(normalizedCode, previewHead)
+  }
+
+  return [
+    '<!doctype html>',
+    '<html lang="zh-CN">',
+    '<head>',
+    previewHead,
+    '</head>',
+    '<body>',
+    normalizedCode,
+    '</body>',
+    '</html>',
+  ].join('\n')
+}
+
+function serializePreviewPayload(previewDocument: string) {
+  return JSON.stringify(previewDocument)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
+}
+
+function buildHtmlPreviewWindowDocument(previewDocument: string) {
+  const serializedPreviewDocument = serializePreviewPayload(previewDocument)
+
+  return [
+    '<!doctype html>',
+    '<html lang="zh-CN">',
+    '<head>',
+    '<meta charset="UTF-8" />',
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+    '<meta name="referrer" content="no-referrer" />',
+    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; font-src data:; connect-src \'none\'; frame-src blob:; object-src \'none\'; base-uri \'none\'; form-action \'none\';" />',
+    '<title>图表预览</title>',
+    '<style>html, body { margin: 0; min-height: 100%; background: #f8fafc; font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: #0f172a; } body { min-height: 100vh; } .preview-shell { display: flex; min-height: 100vh; flex-direction: column; } .preview-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid rgba(15, 23, 42, 0.08); background: rgba(255, 255, 255, 0.92); } .preview-title { font-size: 0.95rem; font-weight: 600; } .preview-meta { color: #64748b; font-size: 0.78rem; } .preview-frame { flex: 1; width: 100%; min-height: calc(100vh - 65px); border: 0; background: #ffffff; }</style>',
+    '</head>',
+    '<body>',
+    '<div class="preview-shell">',
+    '<div class="preview-header"><div class="preview-title">图表预览</div><div class="preview-meta">隔离运行</div></div>',
+    '<iframe id="preview-frame" class="preview-frame" title="图表预览" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>',
+    '</div>',
+    `<script id="preview-payload" type="application/json">${serializedPreviewDocument}</script>`,
+    '<script>(function () { const frame = document.getElementById("preview-frame"); const payload = document.getElementById("preview-payload"); if (!(frame instanceof HTMLIFrameElement) || !payload) return; const previewDocumentText = JSON.parse(payload.textContent || "\"\""); const previewBlob = new Blob([previewDocumentText], { type: "text/html;charset=utf-8" }); const previewUrl = URL.createObjectURL(previewBlob); frame.addEventListener("load", function handleLoad() { window.setTimeout(function revokePreviewUrl() { URL.revokeObjectURL(previewUrl); }, 60000); }, { once: true }); frame.src = previewUrl; })()</script>',
+    '</body>',
+    '</html>',
+  ].join('\n')
+}
+
+function openHtmlPreviewWindow(previewDocument: string) {
+  const previewWindowDocument = buildHtmlPreviewWindowDocument(previewDocument)
+  const previewBlob = new Blob([previewWindowDocument], { type: 'text/html;charset=utf-8' })
+  const previewUrl = URL.createObjectURL(previewBlob)
+  const openedWindow = window.open(previewUrl, '_blank', 'noopener,noreferrer')
+
+  window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60_000)
+  return Boolean(openedWindow)
+}
+
+function HtmlPreviewBlock({ code }: { code: string }) {
+  const previewDocument = buildHtmlPreviewDocument(code)
+
+  return (
+    <div className="chat-html-preview not-prose">
+      <div className="chat-html-preview-header">
+        <span>图表预览</span>
+        <div className="chat-html-preview-actions">
+          <span className="chat-html-preview-meta">隔离运行</span>
+          <button
+            type="button"
+            className="chat-html-preview-open"
+            onClick={() => openHtmlPreviewWindow(previewDocument)}
+            title="在新窗口打开"
+          >
+            <ExternalLink size={14} />
+            <span>在新窗口打开</span>
+          </button>
+        </div>
+      </div>
+      <iframe
+        className="chat-html-preview-frame"
+        title="AI 图表预览"
+        sandbox="allow-scripts"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        srcDoc={previewDocument}
+        style={{ height: `${getHtmlPreviewHeight(code)}px` }}
+      />
+    </div>
+  )
+}
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)
@@ -31,26 +164,37 @@ function CopyButton({ value }: { value: string }) {
   )
 }
 
-export function ChatMarkdown({ content }: { content: string }) {
+export function ChatMarkdown({
+  content,
+  enableHtmlPreview = false,
+}: {
+  content: string
+  enableHtmlPreview?: boolean
+}) {
   return (
     <div className="chat-markdown">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           code({ className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || '')
+            const language = /language-(\w+)/.exec(className || '')?.[1]?.toLowerCase()
             const code = String(children).replace(/\n$/, '')
+            const shouldRenderHtmlPreview = enableHtmlPreview && (language === 'html' || language === 'htm')
 
-            if (match) {
+            if (shouldRenderHtmlPreview) {
+              return <HtmlPreviewBlock code={code} />
+            }
+
+            if (language) {
               return (
                 <div className="chat-code-block not-prose">
                   <div className="chat-code-header">
-                    <span>{match[1]}</span>
+                    <span>{language}</span>
                     <CopyButton value={code} />
                   </div>
                   <SyntaxHighlighter
                     style={oneDark}
-                    language={match[1]}
+                    language={language}
                     PreTag="div"
                     customStyle={{
                       margin: 0,

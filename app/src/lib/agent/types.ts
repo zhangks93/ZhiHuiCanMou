@@ -29,6 +29,60 @@ export interface ToolCallRecord {
   error?: string
 }
 
+export interface FinancialAnalysisRuntimeMetric {
+  key: string
+  label?: string
+}
+
+export interface FinancialAnalysisRuntimeDataContext {
+  latestMonthlyPeriod?: string
+  latestCumulativePeriod?: string
+  monthlyPeriods: string[]
+  cumulativePeriods: string[]
+  monthlyPlanMonths: string[]
+  reportTypes: string[]
+  metrics: FinancialAnalysisRuntimeMetric[]
+  fetchedAt: number
+}
+
+export interface FinancialAnalysisSessionContext {
+  scope?: {
+    mode?: 'node_name' | 'level_1' | 'level_2' | 'all'
+    nodeNames?: string[]
+    level_0?: string
+    level_1?: string
+    level_2?: string
+    confidence?: 'high' | 'medium' | 'low'
+  }
+  time?: {
+    periodType?: 'monthly' | 'cumulative'
+    period?: string
+    comparePeriod?: string
+    confidence?: 'high' | 'medium' | 'low'
+  }
+  reportType?: 'fone' | 'tuwei'
+  intent?: {
+    goal?: 'exception_scan' | 'comparison' | 'report' | 'trend' | 'plan_vs_actual' | 'qa'
+  }
+  metrics?: {
+    primary?: string[]
+    secondary?: string[]
+  }
+  reportMode?: {
+    templateLoaded?: boolean
+    templatePath?: string
+    chartGuidanceLoaded?: boolean
+    chartOutputMode?: 'fenced_html_code_block'
+  }
+  dataContext?: FinancialAnalysisRuntimeDataContext
+  lastResolvedAt: number
+}
+
+export interface ConversationContext {
+  version: 1
+  financialAnalysis?: FinancialAnalysisSessionContext
+}
+
 /** OpenAI-compatible function/tool definition */
 export interface ToolDefinition {
   type: 'function'
@@ -62,6 +116,7 @@ export interface Conversation {
   id: string
   title: string
   messages: ChatMessage[]
+  context?: ConversationContext
   createdAt: number
   updatedAt: number
 }

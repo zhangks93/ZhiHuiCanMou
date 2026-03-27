@@ -5,6 +5,7 @@ import { useEffect, useCallback, useState } from 'react'
 import { X, Check } from 'lucide-react'
 
 import type { AgentDefinition } from '../../lib/agent/types'
+import { AgentIcon } from './AgentIcon'
 
 interface AgentBottomSheetProps {
   isOpen: boolean
@@ -108,7 +109,7 @@ export function AgentBottomSheet({
               }}
             >
               <div className="agent-sheet-item-icon">
-                {agent.icon.type === 'emoji' ? agent.icon.value : '🤖'}
+                <AgentIcon icon={agent.icon} size={20} />
               </div>
               <div className="agent-sheet-item-info">
                 <span className="agent-sheet-item-name">{agent.name}</span>
@@ -148,7 +149,7 @@ export function MobileAgentToggle({
       onClick={onClick}
     >
       <span className="mobile-agent-toggle-icon">
-        {agent.icon.type === 'emoji' ? agent.icon.value : '🤖'}
+        <AgentIcon icon={agent.icon} size={16} />
       </span>
       <span className="mobile-agent-toggle-name">{agent.name}</span>
       <span className="mobile-agent-toggle-arrow">▼</span>

@@ -2,6 +2,7 @@
 // WeChat/Telegram style contact list item
 
 import type { AgentDefinition } from '../../lib/agent/types'
+import { AgentIcon } from './AgentIcon'
 
 interface AgentCardProps {
   agent: AgentDefinition
@@ -20,21 +21,11 @@ export function AgentCard({
   lastMessage,
   unreadCount,
 }: AgentCardProps) {
-  const renderIcon = () => {
-    if (agent.icon.type === 'emoji') {
-      return (
-        <div className="agent-card-icon emoji-icon">
-          {agent.icon.value}
-        </div>
-      )
-    }
-    // Future: lucide icon support
-    return (
-      <div className="agent-card-icon">
-        <span className="text-lg">{agent.icon.value}</span>
-      </div>
-    )
-  }
+  const renderIcon = () => (
+    <div className={['agent-card-icon', agent.icon.type === 'emoji' ? 'emoji-icon' : ''].join(' ')}>
+      <AgentIcon icon={agent.icon} size={18} />
+    </div>
+  )
 
   return (
     <button

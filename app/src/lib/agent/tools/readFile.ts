@@ -10,8 +10,8 @@ export const readFileTool: RegisteredTool = {
     function: {
       name: 'read_file',
       description:
-        '读取 Skill 内置的模板/资源文件。文件路径格式：/assets/<skill-id>/<filename> 或 /templates/<filename>（兼容旧路径）。' +
-        '目前可用文件：/assets/financial-analysis/biz-analysis-report.md（经营分析报告模板）。',
+        '读取当前 Skill 已注册的模板与 references 资源。常用于报告模式读取模板、写作规范和图表指引。文件路径格式：/assets/<skill-id>/<asset-path> 或 /templates/<filename>（兼容旧路径）。' +
+        '例如：/assets/financial-analysis/biz-analysis-report.md、/assets/financial-analysis/references/report-generation.md、/assets/financial-analysis/references/analysis-method.md、/assets/financial-analysis/references/chart-guidance.md。',
       parameters: {
         type: 'object',
         properties: {

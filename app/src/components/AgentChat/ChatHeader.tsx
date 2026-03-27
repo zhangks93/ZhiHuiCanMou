@@ -2,6 +2,7 @@
 // DeepSeek/ChatGPT style header with agent avatar and info
 
 import type { AgentDefinition } from '../../lib/agent/types'
+import { AgentIcon } from './AgentIcon'
 
 interface ChatHeaderProps {
   agent: AgentDefinition
@@ -13,26 +14,14 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ agent, onBack, mobileToggle, className = '' }: ChatHeaderProps) {
-  const renderIcon = () => {
-    if (agent.icon.type === 'emoji') {
-      return (
-        <div
-          className="chat-header-avatar-icon"
-          style={{ background: `color-mix(in srgb, ${agent.color} 15%, rgba(255,255,255,0.8))`, borderColor: `color-mix(in srgb, ${agent.color} 30%, transparent)` }}
-        >
-          {agent.icon.value}
-        </div>
-      )
-    }
-    return (
-      <div
-        className="chat-header-avatar-icon"
-        style={{ background: `color-mix(in srgb, ${agent.color} 15%, rgba(255,255,255,0.8))`, borderColor: `color-mix(in srgb, ${agent.color} 30%, transparent)` }}
-      >
-        <span className="text-lg">{agent.icon.value}</span>
-      </div>
-    )
-  }
+  const renderIcon = () => (
+    <div
+      className="chat-header-avatar-icon"
+      style={{ background: `color-mix(in srgb, ${agent.color} 15%, rgba(255,255,255,0.8))`, borderColor: `color-mix(in srgb, ${agent.color} 30%, transparent)` }}
+    >
+      <AgentIcon icon={agent.icon} size={18} />
+    </div>
+  )
 
   return (
     <header className={['chat-header', className].join(' ')}>

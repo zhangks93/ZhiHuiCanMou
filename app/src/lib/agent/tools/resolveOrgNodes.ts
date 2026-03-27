@@ -1,24 +1,45 @@
-// 组织节点定位 Tool — 先定位组织，再查经营数据
+// 组织节点定位 Tool — 在组织范围不清晰时使用
 
 import type { RegisteredTool } from '../types'
 import { supabase } from '@/lib/supabase'
+
+interface OrgRow {
+  node_name: string
+  level_0: string | null
+  level_1: string | null
+  level_2: string | null
+  level_3: string | null
+  label: string | null
+}
+
+function inferCanonicalScope(rows: OrgRow[]) {
+  const level0Values = new Set(rows.map(row => row.level_0).filter(Boolean))
+  const level1Values = new Set(rows.map(row => row.level_1).filter(Boolean))
+  const level2Values = new Set(rows.map(row => row.level_2).filter(Boolean))
+
+  return {
+    level_0: level0Values.size === 1 ? [...level0Values][0] : null,
+    level_1: level1Values.size === 1 ? [...level1Values][0] : null,
+    level_2: level2Values.size === 1 ? [...level2Values][0] : null,
+  }
+}
 
 export const resolveOrgNodesTool: RegisteredTool = {
   definition: {
     type: 'function',
     function: {
       name: 'resolve_org_nodes',
-      description: '根据用户描述的组织名称，从组织层级表中定位匹配的业务节点。在查询经营数据之前，必须先调用此工具确定要查询哪些节点。支持按任意层级关键词模糊匹配（如"广州餐饮"、"物业中心"、"集团"、"深圳"等）。返回匹配节点的名称列表及其层级归属，供后续经营数据查询使用。',
+      description: '当用户给出的组织名称存在歧义时，定位匹配的组织节点或层级范围。支持按 level_0、level_1、level_2、level_3、node_name 或任意层级模糊匹配，返回候选节点、分组汇总和建议过滤方式。',
       parameters: {
         type: 'object',
         properties: {
           keyword: {
             type: 'string',
-            description: '组织名称关键词，支持模糊匹配。如"广州餐饮"、"物业"、"深圳"、"集团"、"餐饮中心"等。',
+            description: '组织名称关键词，支持模糊匹配，如“广州餐饮”“物业”“深圳”“餐饮中心”等。',
           },
           level: {
             type: 'string',
-            description: '指定在哪个层级匹配：level_0（集团级，如智汇后勤集团）、level_1（中心级，如餐饮中心）、level_2（板块/区域级，如广州餐饮）、level_3（项目级）、node_name（末级节点）、any（任意层级，默认）',
+            description: '指定在哪个层级匹配：level_0、level_1、level_2、level_3、node_name，或 any（默认）。',
             enum: ['level_0', 'level_1', 'level_2', 'level_3', 'node_name', 'any'],
           },
         },
@@ -60,37 +81,49 @@ export const resolveOrgNodesTool: RegisteredTool = {
 
     if (!data || data.length === 0) {
       return JSON.stringify({
-        message: `未找到匹配"${keyword}"的组织节点`,
-        suggestion: '请尝试更短的关键词，如只输入"餐饮"、"物业"、"广州"等',
+        message: `未找到匹配“${keyword}”的组织节点`,
+        suggestion: '请尝试更短的关键词，如“餐饮”“物业”“广州”等。',
       })
     }
 
-    // Group by level_0 + level_1 for summary
-    const byLevel1 = new Map<string, { level_0: string | null; level_2s: Set<string>; nodes: string[] }>()
-    for (const row of data) {
-      const l1 = row.level_1 || '未分类'
-      if (!byLevel1.has(l1)) {
-        byLevel1.set(l1, { level_0: row.level_0, level_2s: new Set(), nodes: [] })
+    const rows = data as OrgRow[]
+    const groupedMap = new Map<string, { level_0: string | null; level_2s: Set<string>; count: number }>()
+    for (const row of rows) {
+      const groupKey = row.level_1 || '未分类'
+      if (!groupedMap.has(groupKey)) {
+        groupedMap.set(groupKey, { level_0: row.level_0, level_2s: new Set(), count: 0 })
       }
-      const group = byLevel1.get(l1)!
+      const group = groupedMap.get(groupKey)!
       if (row.level_2) group.level_2s.add(row.level_2)
-      group.nodes.push(row.node_name)
+      group.count += 1
     }
 
-    const grouped = Array.from(byLevel1.entries()).map(([l1, g]) => ({
-      集团: g.level_0,
-      一级组织: l1,
-      二级组织列表: Array.from(g.level_2s),
-      节点列表: g.nodes,
-      节点数量: g.nodes.length,
+    const groupedSummary = Array.from(groupedMap.entries()).map(([level1, group]) => ({
+      level_0: group.level_0,
+      level_1: level1,
+      level_2_list: [...group.level_2s],
+      node_count: group.count,
     }))
 
+    const canonicalScope = inferCanonicalScope(rows)
+
     return JSON.stringify({
-      匹配关键词: keyword,
-      总节点数: data.length,
-      分组汇总: grouped,
-      全部节点名称: data.map(r => r.node_name),
-      使用说明: '请将上述"节点列表"中的名称用于 query_with_hierarchy 的 node_name 参数（精确匹配），或使用 level_1/level_2 参数按层级过滤',
+      keyword,
+      match_count: rows.length,
+      suggested_filter_mode: rows.length === 1 ? 'node_name' : canonicalScope.level_2 ? 'level_2' : canonicalScope.level_1 ? 'level_1' : 'node_name',
+      canonical_scope: canonicalScope,
+      top_matches: rows.slice(0, 8).map(row => ({
+        node_name: row.node_name,
+        level_0: row.level_0,
+        level_1: row.level_1,
+        level_2: row.level_2,
+        level_3: row.level_3,
+        label: row.label,
+      })),
+      grouped_summary: groupedSummary,
+      guidance: rows.length === 1
+        ? '可直接使用该 node_name 查询经营数据。'
+        : '若匹配较多，优先使用 level_1 或 level_2 过滤；如需精确查询，再使用具体 node_name。',
     }, null, 2)
   },
 }

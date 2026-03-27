@@ -50,7 +50,7 @@ export function Settings() {
     }
     saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim(), tavilyApiKey: tavilyApiKey.trim() || undefined })
 
-    // Dispatch custom event to notify AiAnalysis page (same tab)
+    // Dispatch custom event to notify agent chat pages (same tab)
     window.dispatchEvent(new Event('llm-config-updated'))
 
     setFeedback({ type: 'success', msg: '已保存' })

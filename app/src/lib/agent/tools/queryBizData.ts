@@ -8,13 +8,13 @@ export const queryBizDataTool: RegisteredTool = {
     type: 'function',
     function: {
       name: 'query_biz_data',
-      description: '查询教育后勤经营数据。可按组织节点、指标类别、报表类型、期间等维度查询 edu_biz_report 表中的经营数据。返回实际值、预算值、完成率、差异、同比等信息。',
+      description: '查询教育后勤经营数据基础明细，不附带组织层级。适合简单场景；如需层级分析，优先使用 query_with_hierarchy。period 仅支持传入系统提供的合法 period 精确值。',
       parameters: {
         type: 'object',
         properties: {
           node_name: {
             type: 'string',
-            description: '组织节点名称，如"餐饮中心"、"物业中心"、"教育后勤集团"等。留空则查询所有节点。',
+            description: '组织节点名称，如“餐饮中心”“物业中心”“教育后勤集团”等。留空则查询所有节点。',
           },
           metric_category: {
             type: 'string',
@@ -40,11 +40,11 @@ export const queryBizDataTool: RegisteredTool = {
           },
           period: {
             type: 'string',
-            description: '月度范围筛选。如 "202601"（1月当月）、"202602"（2月当月）、"<202603"（截至2月累计）。留空则不按期间筛选。',
+            description: '期间值。只能使用系统运行时上下文提供的合法 period 精确值。',
           },
           limit: {
             type: 'number',
-            description: '返回记录数上限，默认200，最大500',
+            description: '返回记录数上限，默认 200，最大 500',
           },
         },
         required: [],
@@ -87,26 +87,42 @@ export const queryBizDataTool: RegisteredTool = {
     if (!data || data.length === 0) {
       return JSON.stringify({
         message: '未找到匹配的数据',
-        filters: { node_name: nodeName, metric_category: metricCategory, report_type: reportType, period_type: periodType },
+        query_echo: {
+          node_name: nodeName || null,
+          metric_category: metricCategory || null,
+          report_type: reportType,
+          period_type: periodType,
+          period: periodFilter || null,
+        },
       })
     }
 
-    // Format for LLM readability
-    const summary = {
-      total_records: data.length,
-      filters: { node_name: nodeName || '全部', metric_category: metricCategory || '全部', report_type: reportType, period_type: periodType },
-      data: data.map(row => ({
-        节点: row.node_name,
-        指标: row.metric_category_cn,
-        实际值: row.actual_value,
-        预算值: row.budget_value,
-        完成率: row.completion_rate != null ? `${(row.completion_rate * 100).toFixed(1)}%` : null,
-        差异: row.diff_value,
-        同比: row.yoy_value != null ? `${(row.yoy_value * 100).toFixed(1)}%` : null,
-        期间: row.period,
+    return JSON.stringify({
+      summary: {
+        returned_count: data.length,
+        limit,
+        truncated: data.length >= limit,
+        report_type: reportType,
+        period_type: periodType,
+        period: periodFilter || '全部',
+      },
+      scope: {
+        node_name: nodeName || null,
+      },
+      rows: data.map(row => ({
+        node_name: row.node_name,
+        metric: row.metric_category,
+        metric_label: row.metric_category_cn,
+        actual: row.actual_value,
+        budget: row.budget_value,
+        completion_rate: row.completion_rate,
+        diff: row.diff_value,
+        yoy: row.yoy_value,
+        period: row.period,
       })),
-    }
-
-    return JSON.stringify(summary, null, 2)
+      guidance: data.length >= limit
+        ? '结果可能已截断，请缩小查询范围。'
+        : '如需层级信息，请改用 query_with_hierarchy。',
+    }, null, 2)
   },
 }

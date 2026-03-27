@@ -8,7 +8,7 @@ export const queryMonthlyPlanTool: RegisteredTool = {
     type: 'function',
     function: {
       name: 'query_monthly_plan',
-      description: '查询25学年突围月度计划数据（edu_biz_monthly_plan 表）。可按节点、指标、月份查询计划值。建议与 query_with_hierarchy 联用，对比计划与实际完成情况。月份格式为 202601-202606（1月至6月）或 total（全年合计）。',
+      description: '查询 25 学年突围月度计划数据（edu_biz_monthly_plan 表）。适用于计划 vs 实际对比分析，支持按节点、指标、月份查询。month 只能使用系统运行时上下文提供的合法月份值。',
       parameters: {
         type: 'object',
         properties: {
@@ -23,11 +23,11 @@ export const queryMonthlyPlanTool: RegisteredTool = {
           },
           month: {
             type: 'string',
-            description: '月份，格式 202601-202606（1月至6月），或 total（全年合计）。留空则返回所有月份。',
+            description: '月份。只能使用系统运行时上下文提供的合法 month 精确值。',
           },
           limit: {
             type: 'number',
-            description: '返回记录数上限，默认200，最大500',
+            description: '返回记录数上限，默认 200，最大 500',
           },
         },
         required: [],
@@ -65,29 +65,47 @@ export const queryMonthlyPlanTool: RegisteredTool = {
     }
 
     if (!data || data.length === 0) {
+      const { data: monthData } = await supabase
+        .from('edu_biz_monthly_plan')
+        .select('month')
+        .limit(100)
+
+      const availableMonths = Array.from(
+        new Set((monthData || []).map(row => row.month).filter((value): value is string => Boolean(value)))
+      ).sort((a, b) => b.localeCompare(a))
+
       return JSON.stringify({
         message: '未找到匹配的月度计划数据',
-        filters: { node_name: nodeName, metric_category: metricCategory, month },
-        tip: '月度计划数据仅含 revenue（营收）和 pretax_profit（税前利润）两个指标，月份范围 202601-202606 及 total。',
+        query_echo: {
+          node_name: nodeName || null,
+          metric_category: metricCategory || null,
+          month: month || null,
+        },
+        available_months: availableMonths,
+        guidance: '月度计划数据仅包含 revenue 和 pretax_profit 两个指标，可结合 query_with_hierarchy 做计划 vs 实际对比。',
       })
     }
 
-    const summary = {
-      total_records: data.length,
-      filters: {
-        node_name: nodeName || '全部',
-        metric_category: metricCategory || '全部',
-        month: month || '全部月份',
+    return JSON.stringify({
+      summary: {
+        returned_count: data.length,
+        limit,
+        truncated: data.length >= limit,
+        month: month || '全部',
       },
-      tip: '计划值单位为万元。可用 query_with_hierarchy 查询同期实际值进行计划 vs 实际对比。',
-      data: data.map(row => ({
-        节点: row.node_name,
-        指标: row.metric_category_cn,
-        月份: row.month,
-        计划值: row.plan_value,
+      scope: {
+        node_name: nodeName || null,
+      },
+      rows: data.map(row => ({
+        node_name: row.node_name,
+        metric: row.metric_category,
+        metric_label: row.metric_category_cn,
+        month: row.month,
+        plan_value: row.plan_value,
       })),
-    }
-
-    return JSON.stringify(summary, null, 2)
+      guidance: data.length >= limit
+        ? '结果可能已截断，请缩小节点或月份范围。'
+        : '计划值单位为万元，可结合 query_with_hierarchy 查询同期实际值进行对比。',
+    }, null, 2)
   },
 }

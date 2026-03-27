@@ -6,16 +6,30 @@ import {
   Send,
   Square,
   Settings,
-  Sparkles,
 } from 'lucide-react'
 
-import type { AgentDefinition, ChatMessage, Conversation } from '@/lib/agent/types'
+import type {
+  AgentDefinition,
+  ChatMessage,
+  Conversation,
+  FinancialAnalysisRuntimeDataContext,
+  FinancialAnalysisSessionContext,
+} from '@/lib/agent/types'
 import { loadConversations, saveConversations, createConversation, deleteConversation } from '@/lib/agent/conversationStore'
 import { loadLLMConfig } from '@/lib/llmConfig'
+import {
+  buildFinancialAnalysisRuntimeContextBlock,
+  getFinancialAnalysisRuntimeDataContext,
+} from '@/lib/agent/skills/financial-analysis/runtimeContext'
+import {
+  buildFinancialAnalysisSessionContextBlock,
+  updateFinancialAnalysisSessionContext,
+} from '@/lib/agent/skills/financial-analysis/sessionContext'
 import { AgentSelector } from './AgentSelector'
 import { ChatHeader } from './ChatHeader'
 import { ConversationList } from './ConversationList'
 import { MobileAgentToggle, AgentBottomSheet } from './MobileAgentSheet'
+import { AgentIcon } from './AgentIcon'
 import { ChatMessageItem } from '@/components/Chat/ChatMessageItem'
 
 interface AgentChatPageProps {
@@ -30,6 +44,30 @@ interface AgentChatPageProps {
 function generateTitle(text: string): string {
   const clean = text.replace(/\s+/g, ' ').trim()
   return clean.length > 24 ? `${clean.slice(0, 24)}...` : clean
+}
+
+function getFinancialAnalysisContext(conversation?: Conversation): FinancialAnalysisSessionContext | undefined {
+  return conversation?.context?.financialAnalysis
+}
+
+function buildAgentSystemPrompt(params: {
+  agent: AgentDefinition
+  conversation?: Conversation
+  runtimeDataContext?: FinancialAnalysisRuntimeDataContext
+}): string {
+  const { agent, conversation, runtimeDataContext } = params
+
+  if (agent.id !== 'financial-analysis') {
+    return agent.systemPrompt
+  }
+
+  const sessionContext = getFinancialAnalysisContext(conversation)
+  return [
+    agent.systemPrompt,
+    buildFinancialAnalysisRuntimeContextBlock(runtimeDataContext),
+    buildFinancialAnalysisSessionContextBlock(sessionContext),
+    '## Chart Output Contract\n- If the goal is a report and the data is sufficient, emit charts as fenced `html` code blocks.\n- Do not emit placeholder chart suggestions, chart titles without code, or raw HTML outside code fences.\n- If data is insufficient or inconsistent, skip charts instead of fabricating placeholders.',
+  ].filter(Boolean).join('\n\n')
 }
 
 /**
@@ -51,7 +89,7 @@ function AgentEmptyState({
             background: `linear-gradient(135deg, ${agent.color}, ${agent.color}dd)`,
           }}
         >
-          <Sparkles size={20} strokeWidth={1.7} />
+          <AgentIcon icon={agent.icon} size={20} strokeWidth={1.7} />
         </div>
         <div className="space-y-2 text-center">
           <div>
@@ -126,17 +164,9 @@ export function AgentChatPage({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const shouldAutoScrollRef = useRef(true)
   const agentRef = useRef<InstanceType<typeof import('@/lib/agent').ChatAgent> | null>(null)
-  const agentSystemPrompt = useRef<string>('')
 
   // Get active agent
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0]
-
-  // Load agent system prompt
-  useEffect(() => {
-    if (activeAgent) {
-      agentSystemPrompt.current = activeAgent.systemPrompt
-    }
-  }, [activeAgent])
 
   // Initialize agent and load conversations
   useEffect(() => {
@@ -198,7 +228,11 @@ export function AgentChatPage({
     if (activeConversationId) {
       const updated = conversations.map(c => {
         if (c.id === activeConversationId) {
-          return { ...c, messages, updatedAt: Date.now() }
+          return {
+            ...c,
+            messages,
+            updatedAt: Date.now(),
+          }
         }
         return c
       })
@@ -244,7 +278,11 @@ export function AgentChatPage({
     if (activeConversationId && messages.length > 0) {
       const updated = conversations.map(c => {
         if (c.id === activeConversationId) {
-          return { ...c, messages, updatedAt: Date.now() }
+          return {
+            ...c,
+            messages,
+            updatedAt: Date.now(),
+          }
         }
         return c
       })
@@ -297,6 +335,16 @@ export function AgentChatPage({
       setActiveConversationId(conversationId)
     }
 
+    const currentConversation = nextConversations.find(conversation => conversation.id === conversationId)
+    const runtimeDataContext = activeAgent.id === 'financial-analysis'
+      ? await getFinancialAnalysisRuntimeDataContext()
+      : undefined
+    const systemPrompt = buildAgentSystemPrompt({
+      agent: activeAgent,
+      conversation: currentConversation,
+      runtimeDataContext,
+    })
+
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -342,7 +390,7 @@ export function AgentChatPage({
     try {
       if (!agentRef.current) throw new Error('AI agent not initialized')
 
-      const stream = agentRef.current.chat(nextMessages, agentSystemPrompt.current)
+      const stream = agentRef.current.chat(nextMessages, systemPrompt)
       for await (const chunk of stream) {
         switch (chunk.type) {
           case 'text':
@@ -383,7 +431,27 @@ export function AgentChatPage({
     const updatedConversations = nextConversations.map(conversation => {
       if (conversation.id !== conversationId) return conversation
       const title = conversation.title === '新对话' ? generateTitle(text) : conversation.title
-      return { ...conversation, title, messages: finalMessages, updatedAt: Date.now() }
+      const financialAnalysisContext = activeAgent.id === 'financial-analysis'
+        ? updateFinancialAnalysisSessionContext({
+            previous: conversation.context?.financialAnalysis,
+            userMessage,
+            assistantMessage,
+            runtimeDataContext,
+          })
+        : conversation.context?.financialAnalysis
+
+      return {
+        ...conversation,
+        title,
+        messages: finalMessages,
+        context: activeAgent.id === 'financial-analysis'
+          ? {
+              version: 1 as const,
+              financialAnalysis: financialAnalysisContext,
+            }
+          : conversation.context,
+        updatedAt: Date.now(),
+      }
     })
     persist(updatedConversations)
   }, [activeAgent, activeConversationId, conversations, input, isStreaming, messages, persist])
@@ -465,7 +533,9 @@ export function AgentChatPage({
       </aside>
 
       {/* Backdrop for mobile */}
-      {sidebarOpen && <button type="button" className="chat-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+      {!isDesktop && sidebarOpen && (
+        <button type="button" className="chat-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+      )}
 
       {/* Main Chat Area */}
       <div className="agent-chat-main">
@@ -494,7 +564,13 @@ export function AgentChatPage({
               <AgentEmptyState agent={activeAgent} onPrompt={handlePrompt} />
             ) : (
               displayMessages.map(message => (
-                <ChatMessageItem key={message.id} message={message} isStreaming={message.streaming} />
+                <ChatMessageItem
+                  key={message.id}
+                  message={message}
+                  isStreaming={message.streaming}
+                  enableHtmlPreview={activeAgent?.id === 'financial-analysis' && message.role === 'assistant'}
+                  assistantIcon={activeAgent?.icon}
+                />
               ))
             )}
             <div ref={messagesEndRef} />

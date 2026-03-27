@@ -3,6 +3,13 @@ import type { Conversation } from './types'
 const LEGACY_STORAGE_KEY = 'agent_conversations'
 const MAX_CONVERSATIONS = 50
 
+function normalizeConversations(conversations: Conversation[]): Conversation[] {
+  return conversations.map((conversation) => ({
+    ...conversation,
+    context: conversation.context?.version === 1 ? conversation.context : { version: 1 },
+  }))
+}
+
 /**
  * Get storage key for a specific agent
  */
@@ -16,7 +23,7 @@ export function getStorageKey(agentId: string): string {
 export function loadConversations(agentId: string): Conversation[] {
   try {
     const raw = localStorage.getItem(getStorageKey(agentId))
-    if (raw) return JSON.parse(raw) as Conversation[]
+    if (raw) return normalizeConversations(JSON.parse(raw) as Conversation[])
 
     // Migration: Check for legacy conversations
     if (agentId === 'financial-analysis') {
@@ -32,7 +39,7 @@ export function loadConversations(agentId: string): Conversation[] {
  * Save conversations for a specific agent
  */
 export function saveConversations(conversations: Conversation[], agentId: string): void {
-  const trimmed = conversations.slice(0, MAX_CONVERSATIONS)
+  const trimmed = normalizeConversations(conversations.slice(0, MAX_CONVERSATIONS))
   localStorage.setItem(getStorageKey(agentId), JSON.stringify(trimmed))
 }
 
@@ -44,6 +51,9 @@ export function createConversation(): Conversation {
     id: crypto.randomUUID(),
     title: '新对话',
     messages: [],
+    context: {
+      version: 1,
+    },
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
@@ -64,7 +74,7 @@ function migrateLegacyConversations(): Conversation[] {
     const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY)
     if (!legacyRaw) return []
 
-    const legacyConversations: Conversation[] = JSON.parse(legacyRaw)
+    const legacyConversations: Conversation[] = normalizeConversations(JSON.parse(legacyRaw) as Conversation[])
     if (!Array.isArray(legacyConversations) || legacyConversations.length === 0) {
       // Clear legacy and return empty
       localStorage.removeItem(LEGACY_STORAGE_KEY)
@@ -72,7 +82,7 @@ function migrateLegacyConversations(): Conversation[] {
     }
 
     // Migrate to financial-analysis agent storage
-    localStorage.setItem(getStorageKey('financial-analysis'), legacyRaw)
+    localStorage.setItem(getStorageKey('financial-analysis'), JSON.stringify(legacyConversations))
     // Clear legacy storage
     localStorage.removeItem(LEGACY_STORAGE_KEY)
 
