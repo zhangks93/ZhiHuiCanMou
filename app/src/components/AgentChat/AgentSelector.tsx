@@ -41,8 +41,13 @@ export function AgentSelector({
         onClick={() => setIsExpanded(true)}
         aria-label="展开助手列表"
       >
-        <span className="agent-selector-toggle-icon">
-          <AgentIcon icon={enabledAgents.find(a => a.id === activeAgentId)?.icon} size={18} />
+        <span
+          className={[
+            'agent-selector-toggle-icon',
+            enabledAgents.find(a => a.id === activeAgentId)?.icon.type === 'image' ? 'agent-icon-circle' : '',
+          ].join(' ')}
+        >
+          <AgentIcon icon={enabledAgents.find(a => a.id === activeAgentId)?.icon} size={18} fit="container" />
         </span>
         <span className="agent-selector-toggle-hint">▼</span>
       </button>

@@ -22,22 +22,34 @@ export interface SkillConfig {
  * Build an AgentDefinition from a skill config, prompt text, and optional assets.
  * Assets are registered in the global asset registry for read_file access.
  */
+interface SkillLoadOptions {
+  imageAssets?: Record<string, string>
+}
+
 export function loadSkill(
   config: SkillConfig,
   systemPrompt: string,
-  assets?: Record<string, string>
+  assets?: Record<string, string>,
+  options?: SkillLoadOptions
 ): AgentDefinition {
   // Register assets if provided
   if (assets && Object.keys(assets).length > 0) {
     registerAssets(config.id, assets)
   }
 
+  const icon = config.icon.type === 'image'
+    ? {
+        ...config.icon,
+        value: options?.imageAssets?.[config.icon.value] ?? config.icon.value,
+      }
+    : config.icon
+
   return {
     id: config.id,
     name: config.name,
     description: config.description,
     tagline: config.tagline,
-    icon: config.icon,
+    icon,
     systemPrompt,
     tools: resolveTools(config.tools),
     quickPrompts: config.quickPrompts,

@@ -22,8 +22,12 @@ export function AgentCard({
   unreadCount,
 }: AgentCardProps) {
   const renderIcon = () => (
-    <div className={['agent-card-icon', agent.icon.type === 'emoji' ? 'emoji-icon' : ''].join(' ')}>
-      <AgentIcon icon={agent.icon} size={18} />
+    <div className={[
+      'agent-card-icon',
+      agent.icon.type === 'emoji' ? 'emoji-icon' : '',
+      agent.icon.type === 'image' ? 'agent-icon-circle' : '',
+    ].join(' ')}>
+      <AgentIcon icon={agent.icon} size={18} fit="container" />
     </div>
   )
 

@@ -55,8 +55,8 @@ export class ChatAgent {
     depth: number,
   ): AsyncGenerator<ChatStreamChunk> {
     // ReAct safety: prevent runaway tool call loops
-    if (depth >= 8) {
-      yield { type: 'text', content: '\n\n> ⚠️ 已达到最大工具调用轮次（8轮），请尝试缩小查询范围或分步提问。' }
+    if (depth >= 20) {
+      yield { type: 'text', content: '\n\n> ⚠️ 已达到最大工具调用轮次（20轮），请尝试缩小查询范围或分步提问。' }
       return
     }
     if (this.config.provider === 'claude') {

@@ -1729,6 +1729,11 @@
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(248, 251, 255, 0.6));
 }
 
+.agent-icon-circle {
+  border-radius: 9999px !important;
+  overflow: hidden;
+}
+
 .agent-card-status {
   position: absolute;
   bottom: -0.1rem;

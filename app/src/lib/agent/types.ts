@@ -123,7 +123,7 @@ export interface Conversation {
 
 /** Agent icon type - can be emoji or icon component */
 export interface AgentIcon {
-  type: 'emoji' | 'lucide'
+  type: 'emoji' | 'lucide' | 'image'
   value: string
 }
 

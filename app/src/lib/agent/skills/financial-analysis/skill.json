@@ -4,8 +4,8 @@
   "description": "专注于25学年经营数据分析",
   "tagline": "查看经营异常、生成分析报告、对比部门表现",
   "icon": {
-    "type": "lucide",
-    "value": "BarChart3"
+    "type": "image",
+    "value": "avatar.png"
   },
   "tools": [
     "resolve_org_nodes",

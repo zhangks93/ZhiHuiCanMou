@@ -20,8 +20,14 @@ export function ChatMessageItem({
 
   return (
     <article className={`chat-message-row ${isUser ? 'chat-message-row-user' : ''}`}>
-      <div className={`chat-avatar ${isUser ? 'chat-avatar-user' : 'chat-avatar-assistant'}`}>
-        {isUser ? <User size={16} /> : <AgentIcon icon={assistantIcon} size={16} />}
+      <div
+        className={[
+          'chat-avatar',
+          isUser ? 'chat-avatar-user' : 'chat-avatar-assistant',
+          !isUser && assistantIcon?.type === 'image' ? 'agent-icon-circle' : '',
+        ].join(' ')}
+      >
+        {isUser ? <User size={16} /> : <AgentIcon icon={assistantIcon} size={16} fit="container" />}
       </div>
       <div className={`chat-message-shell ${isUser ? 'chat-message-shell-user' : 'chat-message-shell-assistant'}`}>
         <div className={`chat-message-card ${isUser ? 'chat-message-card-user' : 'chat-message-card-assistant'}`}>

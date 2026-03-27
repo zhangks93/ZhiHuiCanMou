@@ -108,8 +108,8 @@ export function AgentBottomSheet({
                 onClose()
               }}
             >
-              <div className="agent-sheet-item-icon">
-                <AgentIcon icon={agent.icon} size={20} />
+              <div className={['agent-sheet-item-icon', agent.icon.type === 'image' ? 'agent-icon-circle' : ''].join(' ')}>
+                <AgentIcon icon={agent.icon} size={20} fit="container" />
               </div>
               <div className="agent-sheet-item-info">
                 <span className="agent-sheet-item-name">{agent.name}</span>
@@ -148,8 +148,8 @@ export function MobileAgentToggle({
       className="mobile-agent-toggle"
       onClick={onClick}
     >
-      <span className="mobile-agent-toggle-icon">
-        <AgentIcon icon={agent.icon} size={16} />
+      <span className={['mobile-agent-toggle-icon', agent.icon.type === 'image' ? 'agent-icon-circle' : ''].join(' ')}>
+        <AgentIcon icon={agent.icon} size={16} fit="container" />
       </span>
       <span className="mobile-agent-toggle-name">{agent.name}</span>
       <span className="mobile-agent-toggle-arrow">▼</span>

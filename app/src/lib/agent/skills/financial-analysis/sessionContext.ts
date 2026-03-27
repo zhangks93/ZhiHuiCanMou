@@ -214,7 +214,7 @@ export function buildFinancialAnalysisSessionContextBlock(
   if (typeof sessionContext.reportMode?.chartGuidanceLoaded === 'boolean') {
     lines.push(`- chart_guidance_loaded: ${sessionContext.reportMode.chartGuidanceLoaded ? 'yes' : 'no'}`)
   }
-  lines.push('- note: reuse this context unless the user explicitly changes scope, time, report type, or goal; before each new formal data query, still run resolve_org_nodes again.')
+  lines.push('- note: reuse this context unless the user explicitly changes scope, time, report type, or goal; when scope is already high-confidence and unchanged, do not call resolve_org_nodes again; resolve again only if the user changes the target or the scope is ambiguous.')
 
   return lines.join('\n')
 }

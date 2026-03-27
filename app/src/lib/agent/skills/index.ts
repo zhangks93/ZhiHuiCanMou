@@ -8,6 +8,7 @@ import type { SkillConfig } from './loader'
 // --- financial-analysis ---
 import financialAnalysisConfig from './financial-analysis/skill.json'
 import financialAnalysisPrompt from './financial-analysis/prompt.md?raw'
+import financialAnalysisAvatar from './financial-analysis/assets/avatar.png'
 import bizAnalysisReport from './financial-analysis/assets/biz-analysis-report.md?raw'
 import reportGenerationReference from './financial-analysis/references/report-generation.md?raw'
 import analysisMethodReference from './financial-analysis/references/analysis-method.md?raw'
@@ -25,6 +26,11 @@ export const financialAnalysisAgent = loadSkill(
     'references/chart-guidance.md': chartGuidanceReference,
     'references/workflow.md': workflowReference,
     'references/metrics.md': metricsReference,
+  },
+  {
+    imageAssets: {
+      'avatar.png': financialAnalysisAvatar,
+    },
   }
 )
 

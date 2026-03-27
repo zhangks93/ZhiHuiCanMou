@@ -84,12 +84,12 @@ function AgentEmptyState({
     <div className="flex min-h-full flex-col items-center justify-center px-4 py-12">
       <div className="chat-empty-state">
         <div
-          className="chat-empty-icon"
+          className={['chat-empty-icon', agent.icon.type === 'image' ? 'agent-icon-circle' : ''].join(' ')}
           style={{
             background: `linear-gradient(135deg, ${agent.color}, ${agent.color}dd)`,
           }}
         >
-          <AgentIcon icon={agent.icon} size={20} strokeWidth={1.7} />
+          <AgentIcon icon={agent.icon} size={20} strokeWidth={1.7} fit="container" />
         </div>
         <div className="space-y-2 text-center">
           <div>

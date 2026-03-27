@@ -1,7 +1,7 @@
 # 指标与参数速查
 
 ## query_with_hierarchy 参数说明
-- `node_name`：由 `resolve_org_nodes` 确认后的标准节点名称
+- `node_name`：首次查询时由 `resolve_org_nodes` 确认后的标准节点名称；若当前会话中该对象已高置信度确认且未变更，可直接复用
 - `metric_category`：指标英文名
 - `report_type`：
   - `fone` = 年初预算

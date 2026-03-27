@@ -16,10 +16,10 @@ interface ChatHeaderProps {
 export function ChatHeader({ agent, onBack, mobileToggle, className = '' }: ChatHeaderProps) {
   const renderIcon = () => (
     <div
-      className="chat-header-avatar-icon"
+      className={['chat-header-avatar-icon', agent.icon.type === 'image' ? 'agent-icon-circle' : ''].join(' ')}
       style={{ background: `color-mix(in srgb, ${agent.color} 15%, rgba(255,255,255,0.8))`, borderColor: `color-mix(in srgb, ${agent.color} 30%, transparent)` }}
     >
-      <AgentIcon icon={agent.icon} size={18} />
+      <AgentIcon icon={agent.icon} size={18} fit="container" />
     </div>
   )
 
