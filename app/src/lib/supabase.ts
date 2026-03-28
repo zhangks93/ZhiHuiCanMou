@@ -3,36 +3,6 @@ import { env } from '@/config/env'
 
 export const supabase = createClient(env.supabase.url, env.supabase.anonKey)
 
-// --- Types ---
-export interface ScheduleItem {
-  id: string
-  title: string
-  description?: string
-  start_time: string
-  end_time?: string
-  type: 'meeting' | 'business' | 'routine' | 'urgent'
-  location?: string
-  created_at?: string
-}
-
-export interface OrgData {
-  id: string
-  name: string
-  total_count: number
-  details: Record<string, number>
-  updated_at?: string
-}
-
-export interface BizDataItem {
-  id: string
-  business_unit: string
-  budget_revenue: number
-  actual_revenue: number
-  budget_profit: number
-  actual_profit: number
-  updated_at?: string
-}
-
 // --- 教育后勤经营数据 (NEW: edu_biz_report & edu_biz_monthly_plan) ---
 
 // 指标类别枚举 (25个指标)
@@ -243,16 +213,6 @@ export interface BizDataSnapshot {
   created_at: string
 }
 
-export interface Opportunity {
-  id: string
-  name: string
-  amount: number
-  stage: string
-  level: 'A' | 'B' | 'C'
-  region?: string
-  owner?: string
-}
-
 // --- Profile (public.profiles - synced from Feishu) ---
 export type UserRole = 'president' | 'director' | 'manager' | 'supervisor'
 
@@ -354,60 +314,6 @@ export function getUserDisplayInfo(user: User): { name: string; avatarUrl?: stri
     name: meta?.name ?? user.email ?? '未命名用户',
     avatarUrl: meta?.avatar,
   }
-}
-
-// --- 考勤数据 ---
-export interface Employee {
-  id: string
-  employee_code: string
-  name: string
-  company: string | null
-  department: string | null
-  join_date: string | null
-  level: string | null
-  employee_type: string | null
-  created_at: string
-}
-
-export interface AttendanceRecord {
-  id: string
-  employee_id: string
-  period_start: string
-  period_end: string
-  expected_days: number | null
-  actual_days: number | null
-  work_days: number | null
-  overtime_days: number | null
-  personal_leave: number | null
-  sick_leave: number | null
-  bereavement_leave: number | null
-  marriage_leave: number | null
-  maternity_leave: number | null
-  annual_leave: number | null
-  compensatory_leave: number | null
-  other_leave: number | null
-  absent_days: number | null
-  late_times: number | null
-  early_leave_times: number | null
-  created_at: string
-  updated_at: string
-}
-
-export interface AttendanceWithEmployee extends AttendanceRecord {
-  employee: Employee
-}
-
-export interface DepartmentAttendanceSummary {
-  department: string
-  employee_count: number
-  total_expected: number
-  total_actual: number
-  rate: number
-  total_leave: number
-  total_late: number
-  total_early: number
-  total_absent: number
-  total_overtime: number
 }
 
 // --- 飞书通讯录 ---
