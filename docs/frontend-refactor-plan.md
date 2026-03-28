@@ -29,7 +29,6 @@ app/src
     settings/
     dashboard/
     opportunity/
-    work-report/
     org/
     attendance/
   shared/

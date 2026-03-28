@@ -28,5 +28,48 @@ export default defineConfig({
     target: process.env.TAURI_PLATFORM === 'windows' ? 'chrome105' : 'safari13',
     minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_DEBUG,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return
+          }
+
+          if (
+            id.includes('react-syntax-highlighter')
+            || id.includes('highlight.js')
+            || id.includes('refractor')
+            || id.includes('prismjs')
+            || id.includes('react-markdown')
+            || id.includes('remark-gfm')
+            || id.includes('mdast')
+            || id.includes('micromark')
+            || id.includes('unified')
+          ) {
+            return 'vendor-markdown'
+          }
+
+          if (id.includes('recharts') || id.includes('victory-vendor')) {
+            return 'vendor-charts'
+          }
+
+          if (
+            id.includes('@tanstack/react-table')
+            || id.includes('@dnd-kit/')
+            || id.includes('@hello-pangea/dnd')
+          ) {
+            return 'vendor-table'
+          }
+
+          if (id.includes('@supabase/') || id.includes('@tauri-apps/')) {
+            return 'vendor-platform'
+          }
+
+          if (id.includes('lucide-react')) {
+            return 'vendor-icons'
+          }
+        },
+      },
+    },
   },
 })
