@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Settings as SettingsIcon, Bot, Check, Trash2, Globe, Plus, AlertTriangle } from 'lucide-react'
+import { Settings as SettingsIcon, Bot, Check, Trash2, Plus, AlertTriangle } from 'lucide-react'
 import { loadLLMConfig, saveLLMConfig, clearLLMConfig, loadProviderSettings, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig, type ProviderSettings } from '@/lib/llmConfig'
 import { MODULE_NAV_CONFIG } from '@/config/modules'
 import { getEnabledModules, saveEnabledModules } from '@/lib/moduleStorage'
@@ -11,7 +11,6 @@ export function Settings() {
   const [apiUrl, setApiUrl] = useState(initialConfig?.apiUrl ?? DEFAULT_URLS[initialConfig?.provider ?? 'openai'])
   const [apiKey, setApiKey] = useState(initialConfig?.apiKey ?? '')
   const [model, setModel] = useState(initialConfig?.model ?? DEFAULT_MODELS[initialConfig?.provider ?? 'openai'])
-  const [tavilyApiKey, setTavilyApiKey] = useState(initialConfig?.tavilyApiKey ?? '')
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
   // Module management state
@@ -48,7 +47,7 @@ export function Settings() {
       setFeedback({ type: 'error', msg: '请输入 API Key' })
       return
     }
-    saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim(), tavilyApiKey: tavilyApiKey.trim() || undefined })
+    saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim() })
 
     // Dispatch custom event to notify agent chat pages (same tab)
     window.dispatchEvent(new Event('llm-config-updated'))
@@ -63,7 +62,6 @@ export function Settings() {
     setApiUrl(DEFAULT_URLS.openai)
     setApiKey('')
     setModel(DEFAULT_MODELS.openai)
-    setTavilyApiKey('')
     setFeedback({ type: 'success', msg: '已清除' })
     setTimeout(() => setFeedback(null), 2000)
   }
@@ -94,7 +92,7 @@ export function Settings() {
     setThresholds(tempThresholds)
     setIsEditingThresholds(false)
 
-    // Dispatch custom event to notify BizData page
+    // Dispatch custom event to notify business data pages
     window.dispatchEvent(new Event('threshold-updated'))
 
     setFeedback({ type: 'success', msg: '预警阈值已保存' })
@@ -301,7 +299,7 @@ export function Settings() {
         <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)] lg:col-span-2">
           <div className="flex items-center gap-2 mb-4">
             <Bot size={18} strokeWidth={1.5} className="text-gray-600" />
-            <h3 className="font-medium text-gray-800">AI 分析配置</h3>
+            <h3 className="font-medium text-gray-800">AI 模型配置</h3>
           </div>
 
           <div className="space-y-4 max-w-lg">
@@ -376,27 +374,6 @@ export function Settings() {
                 'sk-or-...'
               }
               />
-            </div>
-
-            {/* Tavily Search API Key */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-1.5">
-                <span className="flex items-center gap-1.5">
-                  <Globe size={13} />
-                  Tavily Search API Key
-                  <span className="text-xs text-gray-400 font-normal">（可选，用于联网搜索）</span>
-                </span>
-              </label>
-              <input
-                type="password"
-                className="input input-bordered input-sm w-full font-mono text-xs"
-                value={tavilyApiKey}
-                onChange={(e) => setTavilyApiKey(e.target.value)}
-                placeholder="tvly-..."
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                免费申请：tavily.com（1000次/月）
-              </p>
             </div>
 
             {/* Actions */}

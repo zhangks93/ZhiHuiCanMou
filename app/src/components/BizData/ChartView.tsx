@@ -42,8 +42,8 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
 
     if (!currentLevel.node) {
       return allNodesWithAggregation.filter(n => {
-        const { level_1, level_2, level_3 } = n.orgHierarchy
-        return level_1 && !level_2 && !level_3 && n.node_name === level_1
+        const { level_1, level_2 } = n.orgHierarchy
+        return level_1 && !level_2 && n.node_name === level_1
       }).sort((a, b) => a.sort_order - b.sort_order)
     }
 

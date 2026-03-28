@@ -95,7 +95,7 @@ export function IntegratedComparisonTable({
           accessorFn: (row) => row.node_name,
           cell: ({ row, getValue }) => {
             const hasChildren = getChildren(row.original, allNodes).length > 0
-            const isTotal = row.original.orgHierarchy.label === '总计'
+            const isTotal = row.original.orgHierarchy.level_0 === row.original.node_name
 
             return (
               <div
@@ -219,7 +219,7 @@ export function IntegratedComparisonTable({
               </thead>
               <tbody>
                 {table.getRowModel().rows.map((row) => {
-                  const isTotal = row.original.orgHierarchy.label === '总计'
+                  const isTotal = row.original.orgHierarchy.level_0 === row.original.node_name
 
                   return (
                     <React.Fragment key={row.id}>

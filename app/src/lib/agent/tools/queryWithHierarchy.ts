@@ -8,7 +8,7 @@ export const queryWithHierarchyTool: RegisteredTool = {
     type: 'function',
     function: {
       name: 'query_with_hierarchy',
-      description: '查询教育后勤经营数据，并附带组织层级信息（level_0/level_1/level_2/level_3）。优先用于经营分析主查询，可按 node_name 或 level_0/level_1/level_2 过滤。period 仅支持传入系统提供的合法 period 精确值。',
+      description: '查询教育后勤经营数据，并附带组织层级信息（level_0/level_1/level_2）。优先用于经营分析主查询，可按 node_name 或 level_0/level_1/level_2 过滤。period 仅支持传入系统提供的合法 period 精确值。',
       parameters: {
         type: 'object',
         properties: {
@@ -141,7 +141,7 @@ export const queryWithHierarchyTool: RegisteredTool = {
     const nodeNames = [...new Set(bizData.map(row => row.node_name))]
     const { data: hierData, error: hierError } = await supabase
       .from('edu_org_hierarchy')
-      .select('node_name, level_0, level_1, level_2, level_3, label')
+      .select('node_name, level_0, level_1, level_2')
       .in('node_name', nodeNames)
 
     if (hierError) {
@@ -152,8 +152,6 @@ export const queryWithHierarchyTool: RegisteredTool = {
       level_0: string | null
       level_1: string | null
       level_2: string | null
-      level_3: string | null
-      label: string | null
     }>()
 
     for (const row of hierData || []) {
@@ -161,8 +159,6 @@ export const queryWithHierarchyTool: RegisteredTool = {
         level_0: row.level_0,
         level_1: row.level_1,
         level_2: row.level_2,
-        level_3: row.level_3,
-        label: row.label,
       })
     }
 
@@ -188,8 +184,6 @@ export const queryWithHierarchyTool: RegisteredTool = {
           level_0: hierarchy?.level_0 || null,
           level_1: hierarchy?.level_1 || null,
           level_2: hierarchy?.level_2 || null,
-          level_3: hierarchy?.level_3 || null,
-          label: hierarchy?.label || null,
           metric: row.metric_category,
           metric_label: row.metric_category_cn,
           actual: row.actual_value,

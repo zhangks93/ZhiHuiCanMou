@@ -3,7 +3,6 @@ export interface LLMConfig {
   apiUrl: string
   apiKey: string
   model: string
-  tavilyApiKey?: string
 }
 
 export interface ProviderSettings {
@@ -14,7 +13,6 @@ export interface ProviderSettings {
 
 interface LLMConfigStore {
   provider: LLMConfig['provider']
-  tavilyApiKey?: string
   providers: Partial<Record<LLMConfig['provider'], ProviderSettings>>
 }
 
@@ -48,7 +46,6 @@ function loadStore(): LLMConfigStore | null {
     if (parsed.provider && parsed.apiKey) {
       const store: LLMConfigStore = {
         provider: parsed.provider,
-        tavilyApiKey: parsed.tavilyApiKey,
         providers: {
           [parsed.provider]: {
             apiUrl: parsed.apiUrl,
@@ -67,7 +64,7 @@ function loadStore(): LLMConfigStore | null {
   }
 }
 
-/** Load active provider's config (used by AgentChat / BizData) */
+/** Load active provider's config */
 export function loadLLMConfig(): LLMConfig | null {
   const store = loadStore()
   if (!store) return null
@@ -78,7 +75,6 @@ export function loadLLMConfig(): LLMConfig | null {
     apiUrl: settings.apiUrl,
     apiKey: settings.apiKey,
     model: settings.model,
-    tavilyApiKey: store.tavilyApiKey,
   }
 }
 
@@ -88,17 +84,10 @@ export function loadProviderSettings(provider: LLMConfig['provider']): ProviderS
   return store?.providers[provider] ?? null
 }
 
-/** Load tavilyApiKey from store */
-export function loadTavilyApiKey(): string | undefined {
-  const store = loadStore()
-  return store?.tavilyApiKey
-}
-
 /** Save config, preserving other provider's settings */
 export function saveLLMConfig(config: LLMConfig): void {
   const store = loadStore() || { provider: config.provider, providers: {} }
   store.provider = config.provider
-  store.tavilyApiKey = config.tavilyApiKey
   store.providers[config.provider] = {
     apiUrl: config.apiUrl,
     apiKey: config.apiKey,

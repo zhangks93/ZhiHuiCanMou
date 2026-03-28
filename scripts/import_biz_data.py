@@ -20,6 +20,7 @@
 import os
 import sys
 import json
+import re
 import openpyxl
 import requests
 from pathlib import Path
@@ -147,10 +148,15 @@ DATA_ROW_START = 8
 DATA_ROW_END = 139
 
 
+def normalize_header(value) -> str:
+    """Normalize Excel header text for header-based column lookup."""
+    return str(value or "").strip().lower()
+
+
 def load_org_hierarchy(excel_path: Path) -> list[dict]:
     """
     从组织标签映射表加载组织层级数据
-    返回: [{node_name, level_1, level_2, level_3, label}, ...]
+    返回: [{node_name, level_0, level_1, level_2}, ...]
     """
     if not excel_path.exists():
         print(f"  警告: 组织标签映射文件不存在 {excel_path}")
@@ -159,29 +165,36 @@ def load_org_hierarchy(excel_path: Path) -> list[dict]:
     wb = openpyxl.load_workbook(str(excel_path), data_only=True)
     ws = wb.active
 
-    rows = []
-    # 第一行是表头，从第二行开始读取
+    header_map = {}
+    for col_idx in range(1, ws.max_column + 1):
+        header = normalize_header(ws.cell(row=1, column=col_idx).value)
+        if header:
+            header_map[header] = col_idx
+
+    required_headers = ["level_0", "level_1", "level_2", "node_name"]
+    missing_headers = [header for header in required_headers if header not in header_map]
+    if missing_headers:
+        raise ValueError(f"组织标签映射表缺少字段: {', '.join(missing_headers)}")
+
+    rows_by_node = {}
     for row_idx in range(2, ws.max_row + 1):
-        node_name = ws.cell(row=row_idx, column=6).value  # F列: 组织标签（节点名称）
+        node_name = str(ws.cell(row=row_idx, column=header_map["node_name"]).value or "").strip()
         if not node_name:
             continue
-        node_name = str(node_name).strip()
 
-        level_1 = str(ws.cell(row=row_idx, column=2).value or "").strip() or None  # B列: 中心/区域
-        level_2 = str(ws.cell(row=row_idx, column=3).value or "").strip() or None  # C列: 板块业务分类
-        level_3 = str(ws.cell(row=row_idx, column=4).value or "").strip() or None  # D列: 25年业务板块-分析汇报一级
-        label = str(ws.cell(row=row_idx, column=5).value or "").strip() or None    # E列: 业务板块-分析汇报二级
+        level_0 = str(ws.cell(row=row_idx, column=header_map["level_0"]).value or "").strip() or None
+        level_1 = str(ws.cell(row=row_idx, column=header_map["level_1"]).value or "").strip() or None
+        level_2 = str(ws.cell(row=row_idx, column=header_map["level_2"]).value or "").strip() or None
 
-        rows.append({
+        rows_by_node[node_name] = {
             "node_name": node_name,
-            "level_0": "智汇后勤集团",
+            "level_0": level_0,
             "level_1": level_1,
             "level_2": level_2,
-            "level_3": level_3,
-            "label": label,
-        })
+        }
 
     wb.close()
+    rows = list(rows_by_node.values())
     print(f"  加载了 {len(rows)} 个组织节点")
     return rows
 
@@ -190,45 +203,34 @@ def clean_org_hierarchy(rows: list[dict]) -> list[dict]:
     """
     清理组织层级数据：
     1. 如果不同层级出现相同名称，将低层级的值设为空
-    2. 如果 level_1-3 的值与 node_name 相同，将对应的 level 值设为空
+    2. 如果 level_0-2 的值与 node_name 相同，将对应的 level 值设为空
     """
     cleaned_count = 0
 
     for row in rows:
         node_name = row["node_name"]
+        level_0 = row["level_0"]
         level_1 = row["level_1"]
         level_2 = row["level_2"]
-        level_3 = row["level_3"]
 
-        # 检查 level_1 与 node_name 是否相同
+        if level_0 and level_0 == node_name:
+            row["level_0"] = None
+            cleaned_count += 1
+
         if level_1 and level_1 == node_name:
             row["level_1"] = None
             cleaned_count += 1
 
-        # 检查 level_2 与 node_name 是否相同
         if level_2 and level_2 == node_name:
             row["level_2"] = None
             cleaned_count += 1
 
-        # 检查 level_3 与 node_name 是否相同
-        if level_3 and level_3 == node_name:
-            row["level_3"] = None
+        if level_0 and row["level_1"] and level_0 == row["level_1"]:
+            row["level_1"] = None
             cleaned_count += 1
 
-        # 检查不同层级之间是否有重复
-        # 如果 level_2 和 level_3 相同，清空 level_3
-        if level_2 and level_3 and level_2 == level_3:
-            row["level_3"] = None
-            cleaned_count += 1
-
-        # 如果 level_1 和 level_2 相同，清空 level_2
-        if level_1 and level_2 and level_1 == level_2:
+        if row["level_1"] and row["level_2"] and row["level_1"] == row["level_2"]:
             row["level_2"] = None
-            cleaned_count += 1
-
-        # 如果 level_1 和 level_3 相同，清空 level_3
-        if level_1 and level_3 and level_1 == level_3:
-            row["level_3"] = None
             cleaned_count += 1
 
     print(f"  清理了 {cleaned_count} 个重复层级值")
@@ -251,6 +253,29 @@ def safe_num(v):
         return float(v)
     except (TypeError, ValueError):
         return None
+
+
+def normalize_period(raw_period, period_type: str) -> str | None:
+    """
+    统一期间字段格式。
+    - monthly: 保持 YYYYMM
+    - cumulative: 统一为 <YYYYMM
+    """
+    text = str(raw_period or "").strip()
+    if not text:
+        return None
+
+    months = re.findall(r"20\d{4}", text)
+    if not months:
+        return text
+
+    if period_type == "cumulative":
+        return f"<{months[-1]}"
+
+    if len(months) == 1:
+        return months[0]
+
+    return text
 
 
 def upsert_batch(table: str, rows: list[dict], batch_size: int = 500):
@@ -294,8 +319,8 @@ def parse_main_sheets(wb, valid_nodes: set):
         print(f"  处理 [{sheet_name}]")
 
         # 读取期间信息 (Row 3)
-        period = str(ws.cell(row=3, column=2).value or "").strip()
-        period_yoy = str(ws.cell(row=3, column=3).value or "").strip()
+        period = normalize_period(ws.cell(row=3, column=2).value, config["period_type"])
+        period_yoy = normalize_period(ws.cell(row=3, column=3).value, config["period_type"])
 
         sheet_rows = 0
         for row_idx in range(DATA_ROW_START, DATA_ROW_END + 1):
@@ -334,7 +359,7 @@ def parse_main_sheets(wb, valid_nodes: set):
                     "report_type": config["report_type"],
                     "period_type": config["period_type"],
                     "period": period,
-                    "period_yoy": period_yoy if period_yoy else None,
+                    "period_yoy": period_yoy,
                     "node_name": node_name,
                     "metric_category": metric_en,
                     "metric_category_cn": metric_cn,
@@ -429,8 +454,8 @@ def parse_cost_sheets(wb, valid_nodes: set):
         print(f"  处理 [{sheet_name}]")
 
         # 读取期间信息 (Row 3)
-        period = str(ws.cell(row=3, column=2).value or "").strip()
-        period_yoy = str(ws.cell(row=3, column=3).value or "").strip()
+        period = normalize_period(ws.cell(row=3, column=2).value, config["period_type"])
+        period_yoy = normalize_period(ws.cell(row=3, column=3).value, config["period_type"])
 
         sheet_rows = 0
         for row_idx in range(DATA_ROW_START, DATA_ROW_END + 1):
@@ -462,7 +487,7 @@ def parse_cost_sheets(wb, valid_nodes: set):
                     "report_type": config["report_type"],
                     "period_type": config["period_type"],
                     "period": period,
-                    "period_yoy": period_yoy if period_yoy else None,
+                    "period_yoy": period_yoy,
                     "node_name": node_name,
                     "metric_category": metric_en,
                     "metric_category_cn": metric_cn,

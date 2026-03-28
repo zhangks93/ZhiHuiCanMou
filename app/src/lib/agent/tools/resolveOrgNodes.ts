@@ -8,8 +8,6 @@ interface OrgRow {
   level_0: string | null
   level_1: string | null
   level_2: string | null
-  level_3: string | null
-  label: string | null
 }
 
 function inferCanonicalScope(rows: OrgRow[]) {
@@ -29,7 +27,7 @@ export const resolveOrgNodesTool: RegisteredTool = {
     type: 'function',
     function: {
       name: 'resolve_org_nodes',
-      description: '当用户给出的组织名称存在歧义时，定位匹配的组织节点或层级范围。支持按 level_0、level_1、level_2、level_3、node_name 或任意层级模糊匹配，返回候选节点、分组汇总和建议过滤方式。',
+      description: '当用户给出的组织名称存在歧义时，定位匹配的组织节点或层级范围。支持按 level_0、level_1、level_2、node_name 或任意层级模糊匹配，返回候选节点、分组汇总和建议过滤方式。',
       parameters: {
         type: 'object',
         properties: {
@@ -39,8 +37,8 @@ export const resolveOrgNodesTool: RegisteredTool = {
           },
           level: {
             type: 'string',
-            description: '指定在哪个层级匹配：level_0、level_1、level_2、level_3、node_name，或 any（默认）。',
-            enum: ['level_0', 'level_1', 'level_2', 'level_3', 'node_name', 'any'],
+            description: '指定在哪个层级匹配：level_0、level_1、level_2、node_name，或 any（默认）。',
+            enum: ['level_0', 'level_1', 'level_2', 'node_name', 'any'],
           },
         },
         required: ['keyword'],
@@ -58,19 +56,17 @@ export const resolveOrgNodesTool: RegisteredTool = {
 
     const { data, error } = await supabase
       .from('edu_org_hierarchy')
-      .select('node_name, level_0, level_1, level_2, level_3, label')
+      .select('node_name, level_0, level_1, level_2')
       .or(
         level === 'any'
-          ? `level_0.ilike.%${keyword}%,level_1.ilike.%${keyword}%,level_2.ilike.%${keyword}%,level_3.ilike.%${keyword}%,node_name.ilike.%${keyword}%`
+          ? `level_0.ilike.%${keyword}%,level_1.ilike.%${keyword}%,level_2.ilike.%${keyword}%,node_name.ilike.%${keyword}%`
           : level === 'level_0'
             ? `level_0.ilike.%${keyword}%`
             : level === 'level_1'
               ? `level_1.ilike.%${keyword}%`
               : level === 'level_2'
                 ? `level_2.ilike.%${keyword}%`
-                : level === 'level_3'
-                  ? `level_3.ilike.%${keyword}%`
-                  : `node_name.ilike.%${keyword}%`,
+                : `node_name.ilike.%${keyword}%`,
       )
       .order('node_name')
       .limit(100)
@@ -117,8 +113,6 @@ export const resolveOrgNodesTool: RegisteredTool = {
         level_0: row.level_0,
         level_1: row.level_1,
         level_2: row.level_2,
-        level_3: row.level_3,
-        label: row.label,
       })),
       grouped_summary: groupedSummary,
       guidance: rows.length === 1

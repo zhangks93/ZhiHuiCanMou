@@ -332,7 +332,7 @@ Last updated: 2026-03-24
 #### Import Script
 `scripts/import_biz_data.py` — reads from `docs/data/25学年经营数据.xlsx`
 
-Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy (level_1, level_2, level_3, label).
+Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy (level_0, level_1, level_2).
 
 ---
 
@@ -362,7 +362,7 @@ Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table
 - Sheet 3: 1-6突围计划分月版（每个业务单元 × 2个指标 × 7列(6个月+合计)）
 
 #### Import Script
-`scripts/import_biz_data.py` — same script as edu_biz_report. Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy (level_1, level_2, level_3, label).
+`scripts/import_biz_data.py` — same script as edu_biz_report. Use LEFT JOIN with `edu_org_hierarchy` table to get organizational hierarchy (level_0, level_1, level_2).
 
 ---
 
@@ -375,14 +375,16 @@ Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table
 #### Columns
 - `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
 - `node_name` (text, unique): 组织标签（节点名称），对应 edu_biz_report 和 edu_biz_monthly_plan 的 node_name
-- `level_1` (text, nullable): 中心/区域 - 后勤管理中心, 三大区域, 商业业务, 战略支持中心, 科创发展中心
-- `level_2` (text, nullable): 板块业务分类 - 教育园特色餐饮, 西南区域, 东部区域, etc.
-- `level_3` (text, nullable): 25年业务板块-分析汇报一级 - Primary reporting unit
-- `label` (text, nullable): 业务板块-分析汇报二级 - Secondary tag/category (中心餐饮业务, 管理部门, 其他, etc.)
+- `level_0` (text, nullable): 集团层级
+- `level_1` (text, nullable): 一级组织层级
+- `level_2` (text, nullable): 二级组织层级
 - `created_at` (timestamptz, nullable): Creation timestamp, default: now()
 
 #### Indexes
 - `idx_edu_org_hierarchy_node_name` on (node_name)
+- `idx_edu_org_hierarchy_level_0` on (level_0)
+- `idx_edu_org_hierarchy_level_1` on (level_1)
+- `idx_edu_org_hierarchy_level_2` on (level_2)
 
 #### Usage Example
 ```sql
@@ -391,10 +393,9 @@ SELECT
   r.node_name,
   r.metric_category,
   r.actual_value,
+  h.level_0,
   h.level_1,
-  h.level_2,
-  h.level_3,
-  h.label
+  h.level_2
 FROM edu_biz_report r
 LEFT JOIN edu_org_hierarchy h ON r.node_name = h.node_name
 WHERE r.sheet_code = '1.1' AND r.metric_category = 'revenue';

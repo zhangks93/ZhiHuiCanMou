@@ -95,7 +95,6 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
     level1: true,
     level2: true,
     level3: true,
-    level4: true,
   })
 
   useMemo(() => {
@@ -106,15 +105,14 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
     return buildTreeWithAggregation(nodes)
   }, [nodes])
 
-  const getNodeLevel = (node: EnrichedBizDataNode): 0 | 1 | 2 | 3 | 4 | null => {
-    const { level_0, level_1, level_2, level_3 } = node.orgHierarchy
+  const getNodeLevel = (node: EnrichedBizDataNode): 0 | 1 | 2 | 3 | null => {
+    const { level_0, level_1, level_2 } = node.orgHierarchy
     const { node_name } = node
 
-    if (level_0 && !level_1 && !level_2 && !level_3 && node_name === level_0) return 0
-    if (level_1 && !level_2 && !level_3 && node_name === level_1) return 1
-    if (level_1 && level_2 && !level_3 && node_name === level_2) return 2
-    if (level_1 && level_2 && level_3 && node_name === level_3) return 3
-    if (level_1 && level_2 && level_3 && node_name !== level_3) return 4
+    if (level_0 && !level_1 && !level_2 && node_name === level_0) return 0
+    if (level_1 && !level_2 && node_name === level_1) return 1
+    if (level_1 && level_2 && node_name === level_2) return 2
+    if ((level_1 && !level_2 && node_name !== level_1) || (level_1 && level_2 && node_name !== level_2)) return 3
 
     return null
   }
@@ -237,7 +235,6 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
         if (level === 1) return showLevels.level1
         if (level === 2) return showLevels.level2
         if (level === 3) return showLevels.level3
-        if (level === 4) return showLevels.level4
         return true
       })
     },
@@ -266,8 +263,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
           { key: 'level0', label: '集团' },
           { key: 'level1', label: '一级' },
           { key: 'level2', label: '二级' },
-          { key: 'level3', label: '三级' },
-          { key: 'level4', label: '单元' },
+          { key: 'level3', label: '单元' },
         ].map(({ key, label }) => (
           <label key={key} className="flex items-center gap-1 cursor-pointer">
             <input

@@ -75,7 +75,7 @@ export interface EduBizReport {
   sheet_code: '1.1' | '1.2' | '2.1' | '2.2' | '2.3'
   report_type: 'fone' | 'tuwei'  // fone=年初预算, tuwei=突围考核
   period_type: 'cumulative' | 'monthly'
-  period: string  // e.g., "<202603", "202602", "202601-202602"
+  period: string  // e.g., "<202603" (cumulative), "202602" (monthly)
   period_yoy: string | null
   node_name: string
   sort_order: number
@@ -92,8 +92,6 @@ export interface EduBizReport {
     level_0: string | null
     level_1: string | null
     level_2: string | null
-    level_3: string | null
-    label: string | null
   } | null
 }
 
@@ -142,8 +140,6 @@ export interface EnrichedBizDataNode extends BizDataNode {
     level_0: string | null
     level_1: string | null
     level_2: string | null
-    level_3: string | null
-    label: string | null
   }
 }
 
