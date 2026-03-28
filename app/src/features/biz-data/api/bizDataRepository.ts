@@ -3,7 +3,7 @@ import {
   fetchAvailableMonths,
   fetchBizReport,
   fetchMonthlyPlan,
-} from '@/services/bizDataService'
+} from '../services/bizDataService'
 
 export interface BizDataFilters {
   reportType: 'fone' | 'tuwei'

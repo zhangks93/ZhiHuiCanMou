@@ -24,10 +24,10 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { ChevronRight, ChevronDown, GripVertical, Filter } from 'lucide-react'
-import type { EnrichedBizDataNode, MetricCategory } from '@/lib/supabase'
 import { METRIC_LABELS } from '@/lib/constants'
 import { fmt, fmtPct } from '@/lib/format'
-import { getChildren, buildTreeWithAggregation } from '@/services/bizDataService'
+import type { EnrichedBizDataNode, MetricCategory } from '@/features/biz-data/types'
+import { getChildren, buildTreeWithAggregation } from '@/features/biz-data/services/bizDataService'
 import {
   getNodeThresholds,
   getAlertLevel,

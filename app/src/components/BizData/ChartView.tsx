@@ -10,9 +10,9 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { ChevronRight } from 'lucide-react'
-import type { EnrichedBizDataNode, MetricCategory } from '@/lib/supabase'
 import { METRIC_LABELS, CHART_COLORS } from '@/lib/constants'
-import { buildTreeWithAggregation, getChildren } from '@/services/bizDataService'
+import type { EnrichedBizDataNode, MetricCategory } from '@/features/biz-data/types'
+import { buildTreeWithAggregation, getChildren } from '@/features/biz-data/services/bizDataService'
 import { fmt } from '@/lib/format'
 
 interface ChartViewProps {

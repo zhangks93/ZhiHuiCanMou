@@ -4,7 +4,7 @@ import type {
   EduBizMonthlyPlan,
   EnrichedBizDataNode,
   MetricCategory,
-} from '@/lib/supabase'
+} from '../types'
 
 export interface BizDataQueryOptions {
   period?: string

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { EnrichedBizDataNode, MetricCategory } from '@/lib/supabase'
 import { ALL_METRICS } from '@/lib/constants'
 import { loadAvailableMonths, loadBizData } from '../api/bizDataRepository'
+import type { EnrichedBizDataNode, MetricCategory } from '../types'
 
 export function useBizDataViewModel() {
   const [dataLoading, setDataLoading] = useState(false)

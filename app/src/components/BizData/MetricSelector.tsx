@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
-import type { MetricCategory } from '@/lib/supabase'
 import { METRIC_LABELS, METRIC_GROUPS } from '@/lib/constants'
+import type { MetricCategory } from '@/features/biz-data/types'
 
 interface MetricSelectorProps {
   selectedMetrics: MetricCategory[]
