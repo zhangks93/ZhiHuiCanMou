@@ -1,7 +1,7 @@
-import { clearAuthState, validateAuthState } from '@/lib/auth-storage'
-import { retrySetSession } from '@/lib/auth-retry'
-import { createAuthError, getAuthError, type AuthError } from '@/lib/auth-errors'
-import { supabase } from '@/lib/supabase'
+import { clearAuthState, validateAuthState } from '@/shared/lib/auth-storage'
+import { retrySetSession } from '@/shared/lib/auth-retry'
+import { createAuthError, getAuthError, type AuthError } from '@/shared/lib/auth-errors'
+import { supabase } from '@/shared/lib/supabase'
 import { closeCurrentOAuthWindow, emitOAuthComplete, isTauriRuntime } from './tauriOAuthService'
 
 export interface ParsedAuthCallbackParams {

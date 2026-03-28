@@ -1,8 +1,8 @@
 import type { MutableRefObject } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { supabase, getUserDisplayInfo } from '@/lib/supabase'
-import type { AuthUser } from '@/contexts/AuthContextDefinition'
-import { storeSessionToken, getSessionToken, clearSessionToken } from '@/lib/auth-storage'
+import { supabase, getUserDisplayInfo } from '@/shared/lib/supabase'
+import type { AuthUser } from '@/app/providers/AuthContext'
+import { storeSessionToken, getSessionToken, clearSessionToken } from '@/shared/lib/auth-storage'
 
 const REFRESH_THRESHOLD_MS = 5 * 60 * 1000
 

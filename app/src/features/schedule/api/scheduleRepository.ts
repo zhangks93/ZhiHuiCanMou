@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase'
-import type { Tables, TablesInsert, TablesUpdate } from '@/lib/database.types'
+import { supabase } from '@/shared/lib/supabase'
+import type { Tables, TablesInsert, TablesUpdate } from '@/shared/lib/database.types'
 
 export type Period = 'morning' | 'afternoon' | 'evening'
 export type ItemType = 'meeting' | 'business' | 'routine' | 'urgent'

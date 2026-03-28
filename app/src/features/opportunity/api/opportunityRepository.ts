@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/lib/supabase'
 import type { OpportunityLedger } from '../types'
 
 export async function fetchOpportunityLedger(): Promise<OpportunityLedger[]> {

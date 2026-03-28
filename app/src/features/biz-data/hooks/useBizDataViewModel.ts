@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ALL_METRICS } from '@/lib/constants'
+import { ALL_METRICS } from '@/shared/lib/constants'
 import { loadAvailableMonths, loadBizData } from '../api/bizDataRepository'
 import type { EnrichedBizDataNode, MetricCategory } from '../types'
 

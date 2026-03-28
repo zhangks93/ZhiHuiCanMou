@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/lib/supabase'
 
 export async function fetchDashboardSnapshot(today: string) {
   const [bizRes, scheduleRes, warningRes, opportunityRes, membersRes] = await Promise.all([

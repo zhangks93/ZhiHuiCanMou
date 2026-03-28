@@ -1,5 +1,5 @@
 import { HashRouter } from 'react-router-dom'
-import { AuthProvider } from '@/contexts/AuthContext'
+import { AuthProvider } from '@/app/providers/AuthProvider'
 import { AppRoutes } from '@/app/router/routes'
 
 function App() {

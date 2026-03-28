@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/lib/supabase'
 import type { FeishuDepartment, FeishuMember } from '../types'
 
 export async function fetchOrgDirectory(): Promise<{

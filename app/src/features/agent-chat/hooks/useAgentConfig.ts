@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react'
-import { loadLLMConfig, subscribeLLMConfig, type LLMConfig } from '@/lib/llmConfig'
+import { loadLLMConfig, subscribeLLMConfig, type LLMConfig } from '@/shared/lib/llmConfig'
 
 interface ChatAgentRuntime {
   updateConfig: (config: LLMConfig) => void

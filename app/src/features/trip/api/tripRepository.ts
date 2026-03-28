@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase'
-import type { Tables } from '@/lib/database.types'
+import { supabase } from '@/shared/lib/supabase'
+import type { Tables } from '@/shared/lib/database.types'
 
 export interface BusinessTrip {
   id: number

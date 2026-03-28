@@ -1,4 +1,4 @@
-import type { MetricCategory } from '@/lib/supabase'
+import type { MetricCategory } from '@/shared/lib/supabase'
 
 export type { MetricCategory }
 
