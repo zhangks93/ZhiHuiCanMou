@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { createAuthError, getAuthError, type AuthError } from '@/shared/lib/auth-errors'
 import {
   completeBrowserOAuth,
@@ -202,7 +202,7 @@ export function AuthCallback() {
 
       {/* Ambient glow orbs */}
       <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
-        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.12),transparent_65%)] animate-pulse-glow" />
+        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(34,197,94,0.12),transparent_65%)] animate-pulse-glow" />
         <div className="absolute -bottom-16 -left-16 h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.09),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
       </div>
 
@@ -215,7 +215,7 @@ export function AuthCallback() {
             </div>
             {/* Status-colored ring */}
             {isInProgress && (
-              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(37,99,235,0.14)]" style={{ animation: 'orbit 12s linear infinite' }} />
+              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(34,197,94,0.14)]" style={{ animation: 'orbit 12s linear infinite' }} />
             )}
             {status === 'success' && (
               <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(15,159,110,0.20)]" />
@@ -229,14 +229,14 @@ export function AuthCallback() {
         {/* Card */}
         <div className="relative overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/60 px-6 py-8 text-center shadow-[0_24px_64px_rgba(15,23,42,0.08)] backdrop-blur-xl">
           {/* Top accent line */}
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.28)] to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.28)] to-transparent" />
 
           {/* Status indicator */}
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center">
             {isInProgress && (
               <div className="relative">
                 <div className="h-10 w-10 animate-spin rounded-full border-[2.5px] border-[rgba(148,163,184,0.16)] border-t-[var(--color-accent)]" />
-                <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-[2.5px] border-transparent border-b-[rgba(37,99,235,0.2)]" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+                <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-[2.5px] border-transparent border-b-[rgba(34,197,94,0.2)]" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
               </div>
             )}
             {status === 'success' && (
@@ -266,7 +266,7 @@ export function AuthCallback() {
           {isInProgress && (
             <div className="mx-auto mt-6 h-[3px] w-full max-w-[200px] overflow-hidden rounded-full bg-[rgba(15,23,42,0.04)]">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[rgba(37,99,235,0.6)] transition-[width] duration-300 ease-out"
+                className="h-full rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[rgba(34,197,94,0.6)] transition-[width] duration-300 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>

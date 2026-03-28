@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo } from 'react'
 import {
   BarChart,
   Bar,
@@ -108,7 +108,7 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
               className={`
                 px-2 py-1 rounded-lg transition-all duration-150
                 ${index === drillDownPath.length - 1
-                  ? 'bg-[var(--color-accent)] text-white font-medium shadow-[0_2px_8px_rgba(37,99,235,0.25)]'
+                  ? 'bg-[var(--color-accent)] text-white font-medium shadow-[0_2px_8px_rgba(34,197,94,0.25)]'
                   : 'text-[var(--color-text-muted)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)]'
                 }
               `}

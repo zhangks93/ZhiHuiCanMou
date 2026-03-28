@@ -1,4 +1,4 @@
-interface StatCardProps {
+﻿interface StatCardProps {
   label: string
   value: string | number
   unit?: string
@@ -9,7 +9,7 @@ interface StatCardProps {
 }
 
 const accentMap = {
-  default: 'bg-[rgba(37,99,235,0.08)] text-[var(--color-accent-hover)]',
+  default: 'bg-[rgba(34,197,94,0.08)] text-[var(--color-accent-hover)]',
   success: 'bg-[rgba(15,159,110,0.10)] text-[#08724d]',
   warning: 'bg-[rgba(217,119,6,0.10)] text-[#a55406]',
   error: 'bg-[rgba(220,38,38,0.08)] text-[#b42318]',
@@ -33,7 +33,7 @@ export function StatCard({
       ].join(' ')}
     >
       {/* Top accent line */}
-      <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.25)] to-transparent" />
+      <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.25)] to-transparent" />
 
       <div className="relative flex items-center justify-between gap-2">
         <div className="min-w-0">

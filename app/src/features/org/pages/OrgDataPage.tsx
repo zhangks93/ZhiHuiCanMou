@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Users, Building2, ChevronRight, ChevronDown, Layers3 } from 'lucide-react'
+import { Users, Building2, ChevronRight, ChevronDown, Layers3, TrendingUp, TrendingDown, Clock3 } from 'lucide-react'
 import { useOrgDirectoryData } from '../hooks/useOrgDirectoryData'
-import type { FeishuDepartment, FeishuMember } from '../types'
+import type { DepartmentMemberChange, FeishuDepartment, FeishuMember } from '../types'
 
 interface DeptNode extends FeishuDepartment {
   children: DeptNode[]
@@ -52,6 +52,26 @@ function flattenTree(nodes: DeptNode[]): DeptNode[] {
   }
   nodes.forEach(visit)
   return list
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return '暂无'
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
+function getSelectedChange(
+  changes: DepartmentMemberChange[],
+  departmentId: string | null | undefined,
+) {
+  if (!departmentId) return null
+  return changes.find(change => change.department_id === departmentId) ?? null
 }
 
 function OrgTreeNode({
@@ -129,7 +149,7 @@ function OrgTreeNode({
 }
 
 export function OrgDataPage() {
-  const { departments, members, loading } = useOrgDirectoryData()
+  const { departments, members, latestSyncRun, snapshotRuns, departmentChanges, loading } = useOrgDirectoryData()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedId, setSelectedId] = useState('')
 
@@ -172,10 +192,24 @@ export function OrgDataPage() {
 
   const selectedNode = selectedId ? nodeMap.get(selectedId) : null
   const selectedParent = selectedNode?.parent_id ? departmentMap.get(selectedNode.parent_id) : null
+  const selectedChange = getSelectedChange(departmentChanges, selectedNode?.department_id)
   const selectedRatio =
     selectedNode && stats.totalMembers > 0
       ? (selectedNode.totalMembers / stats.totalMembers) * 100
       : 0
+
+  const latestSnapshot = snapshotRuns[0] ?? null
+  const previousSnapshot = snapshotRuns[1] ?? null
+  const changedDepartments = departmentChanges.filter(change => change.member_count_change !== 0 || change.change_type !== 'unchanged')
+  const netMemberChange = latestSnapshot && previousSnapshot ? latestSnapshot.member_count - previousSnapshot.member_count : 0
+  const growthLeaders = [...changedDepartments]
+    .filter(change => change.member_count_change > 0)
+    .sort((a, b) => b.member_count_change - a.member_count_change)
+    .slice(0, 5)
+  const shrinkLeaders = [...changedDepartments]
+    .filter(change => change.member_count_change < 0)
+    .sort((a, b) => a.member_count_change - b.member_count_change)
+    .slice(0, 5)
 
   const rankedDepartments = [...allNodes]
     .filter(node => node.totalMembers > 0)
@@ -244,6 +278,14 @@ export function OrgDataPage() {
           架构根节点 {stats.rootCount} 个
           {stats.largestDept ? ` · 最大部门：${stats.largestDept.name}（${stats.largestDept.totalMembers} 人）` : ''}
         </p>
+        <p className="mt-2 text-xs text-gray-500">
+          最近同步：{formatDateTime(latestSyncRun?.finished_at)}
+          {latestSyncRun?.snapshot_taken
+            ? ` · 已保存快照：${formatDateTime(latestSyncRun.snapshot_at)}`
+            : latestSyncRun?.snapshot_reason
+              ? ` · 未保存快照：${latestSyncRun.snapshot_reason}`
+              : ''}
+        </p>
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -300,6 +342,82 @@ export function OrgDataPage() {
         <div className="space-y-6">
           <section className="rounded-[22px] border border-[var(--color-border)] bg-white/86 backdrop-blur-xl p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
             <div className="flex items-center gap-2">
+              <Clock3 size={16} className="text-gray-600" />
+              <h3 className="font-medium text-gray-800">快照变动</h3>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="rounded-lg bg-gray-50 p-2 text-center">
+                <p className="text-xs text-gray-500">最近快照</p>
+                <p className="mt-1 text-sm font-semibold text-gray-800">{latestSnapshot ? latestSnapshot.department_count : '-'}</p>
+                <p className="text-[11px] text-gray-500">部门</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2 text-center">
+                <p className="text-xs text-gray-500">变动部门</p>
+                <p className="mt-1 text-sm font-semibold text-gray-800">{changedDepartments.length}</p>
+                <p className="text-[11px] text-gray-500">近两次对比</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-2 text-center">
+                <p className="text-xs text-gray-500">人数净变化</p>
+                <p
+                  className={`mt-1 text-sm font-semibold tabular-nums ${
+                    netMemberChange > 0 ? 'text-emerald-600' : netMemberChange < 0 ? 'text-rose-600' : 'text-gray-800'
+                  }`}
+                >
+                  {previousSnapshot ? `${netMemberChange > 0 ? '+' : ''}${netMemberChange}` : '-'}
+                </p>
+                <p className="text-[11px] text-gray-500">总人数</p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              {latestSnapshot ? `最新快照：${formatDateTime(latestSnapshot.snapshot_at)}` : '暂无历史快照'}
+              {previousSnapshot ? ` · 上次快照：${formatDateTime(previousSnapshot.snapshot_at)}` : ''}
+            </p>
+
+            {changedDepartments.length > 0 && (
+              <div className="mt-4 space-y-4">
+                {growthLeaders.length > 0 && (
+                  <div>
+                    <div className="mb-2 flex items-center gap-2 text-sm text-emerald-700">
+                      <TrendingUp size={14} />
+                      <span>增长最多</span>
+                    </div>
+                    <div className="space-y-2">
+                      {growthLeaders.map(change => (
+                        <div key={`up-${change.department_id}`} className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
+                          <span className="truncate pr-3 text-sm text-gray-700">{change.department_name}</span>
+                          <span className="shrink-0 text-sm font-medium tabular-nums text-emerald-700">
+                            +{change.member_count_change}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {shrinkLeaders.length > 0 && (
+                  <div>
+                    <div className="mb-2 flex items-center gap-2 text-sm text-rose-700">
+                      <TrendingDown size={14} />
+                      <span>减少最多</span>
+                    </div>
+                    <div className="space-y-2">
+                      {shrinkLeaders.map(change => (
+                        <div key={`down-${change.department_id}`} className="flex items-center justify-between rounded-lg bg-rose-50 px-3 py-2">
+                          <span className="truncate pr-3 text-sm text-gray-700">{change.department_name}</span>
+                          <span className="shrink-0 text-sm font-medium tabular-nums text-rose-700">
+                            {change.member_count_change}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-[22px] border border-[var(--color-border)] bg-white/86 backdrop-blur-xl p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
+            <div className="flex items-center gap-2">
               <Building2 size={16} className="text-gray-600" />
               <h3 className="font-medium text-gray-800">部门详情</h3>
             </div>
@@ -326,6 +444,33 @@ export function OrgDataPage() {
                     <p className="text-base font-semibold text-gray-800 tabular-nums">{selectedNode.children.length}</p>
                   </div>
                 </div>
+                {selectedChange && selectedChange.previous_snapshot_at && (
+                  <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/80 p-3">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>最近两次快照人数变化</span>
+                      <span>
+                        {formatDateTime(selectedChange.previous_snapshot_at)} → {formatDateTime(selectedChange.latest_snapshot_at)}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        {selectedChange.previous_member_count} → {selectedChange.current_member_count}
+                      </span>
+                      <span
+                        className={`text-sm font-semibold tabular-nums ${
+                          selectedChange.member_count_change > 0
+                            ? 'text-emerald-600'
+                            : selectedChange.member_count_change < 0
+                              ? 'text-rose-600'
+                              : 'text-gray-700'
+                        }`}
+                      >
+                        {selectedChange.member_count_change > 0 ? '+' : ''}
+                        {selectedChange.member_count_change}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
                     <span>占全体成员比例</span>

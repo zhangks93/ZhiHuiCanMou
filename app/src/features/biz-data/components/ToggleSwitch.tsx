@@ -1,4 +1,4 @@
-interface ToggleSwitchProps<T extends string> {
+﻿interface ToggleSwitchProps<T extends string> {
   value: T
   options: Array<{ value: T; label: string; icon?: React.ReactNode }>
   onChange: (value: T) => void
@@ -25,7 +25,7 @@ export function ToggleSwitch<T extends string>({
           className={`
             flex items-center justify-center gap-1 px-2.5 rounded-full font-medium transition-all duration-200 h-full
             ${value === opt.value
-              ? 'bg-[var(--color-accent)] text-white shadow-[0_2px_8px_rgba(37,99,235,0.3)]'
+              ? 'bg-[var(--color-accent)] text-white shadow-[0_2px_8px_rgba(34,197,94,0.3)]'
               : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-strong)]'
             }
           `}

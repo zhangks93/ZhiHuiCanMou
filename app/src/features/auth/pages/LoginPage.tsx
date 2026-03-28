@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { env } from '@/app/config/env'
 import { storeAuthState } from '@/shared/lib/auth-storage'
@@ -147,7 +147,7 @@ export function Login() {
 
       {/* Ambient glow orbs */}
       <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
-        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.12),transparent_65%)] animate-pulse-glow" />
+        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(34,197,94,0.12),transparent_65%)] animate-pulse-glow" />
         <div className="absolute -bottom-16 -left-16 h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.09),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
       </div>
 
@@ -160,7 +160,7 @@ export function Login() {
               CM
             </div>
             {/* Orbit ring */}
-            <div className="absolute -inset-3 rounded-[30px] border border-[rgba(37,99,235,0.12)]" style={{ animation: 'orbit 20s linear infinite' }} />
+            <div className="absolute -inset-3 rounded-[30px] border border-[rgba(34,197,94,0.12)]" style={{ animation: 'orbit 20s linear infinite' }} />
           </div>
 
           <h1 className="mt-6 text-center text-[22px] font-semibold leading-tight text-[var(--color-text-strong)]">
@@ -174,12 +174,12 @@ export function Login() {
         {/* Sign-in card — glass morphism */}
         <div className="relative overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/60 px-6 py-7 shadow-[0_24px_64px_rgba(15,23,42,0.08)] backdrop-blur-xl">
           {/* Top accent line */}
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.28)] to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.28)] to-transparent" />
 
           {/* Shimmer overlay when loading */}
           {isLoading && (
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.04)] to-transparent" style={{ animation: 'shimmer 2s ease-in-out infinite' }} />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.04)] to-transparent" style={{ animation: 'shimmer 2s ease-in-out infinite' }} />
             </div>
           )}
 
@@ -187,7 +187,7 @@ export function Login() {
             type="button"
             onClick={handleFeishuLogin}
             disabled={!canLogin || isLoading}
-            className="group relative flex w-full items-center justify-between rounded-[20px] border border-[rgba(37,99,235,0.12)] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-4 text-left text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(15,23,42,0.25)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            className="group relative flex w-full items-center justify-between rounded-[20px] border border-[rgba(34,197,94,0.12)] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-4 text-left text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(15,23,42,0.25)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
             <div>
               <div className="text-sm font-semibold">飞书账号登录</div>

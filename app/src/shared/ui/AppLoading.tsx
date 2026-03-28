@@ -1,4 +1,4 @@
-type AppLoadingVariant = 'screen' | 'overlay' | 'block' | 'inline'
+﻿type AppLoadingVariant = 'screen' | 'overlay' | 'block' | 'inline'
 
 interface AppLoadingProps {
   label?: string
@@ -42,7 +42,7 @@ export function AppLoading({
         <>
           <div className="pointer-events-none fixed inset-0 -z-10 bg-background" />
           <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
-            <div className="absolute -right-20 -top-20 h-[360px] w-[360px] rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.10),transparent_65%)] animate-pulse-glow" />
+            <div className="absolute -right-20 -top-20 h-[360px] w-[360px] rounded-full bg-[radial-gradient(circle,rgba(34,197,94,0.10),transparent_65%)] animate-pulse-glow" />
             <div className="absolute -bottom-16 -left-16 h-[280px] w-[280px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.07),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
           </div>
         </>
@@ -55,7 +55,7 @@ export function AppLoading({
               CM
             </div>
             <div
-              className="absolute -inset-3 rounded-[26px] border border-[rgba(37,99,235,0.10)]"
+              className="absolute -inset-3 rounded-[26px] border border-[rgba(34,197,94,0.10)]"
               style={{ animation: 'orbit 16s linear infinite' }}
             />
           </div>

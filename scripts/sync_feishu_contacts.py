@@ -1,36 +1,73 @@
 """
 飞书通讯录同步脚本
-从飞书开放平台获取部门和成员数据，同步到 Supabase（feishu_departments / feishu_members）
-用法: python sync_feishu_contacts.py [--root-dept-id <id>]
-      默认根部门 ID 为 "0"（整个公司），可通过参数指定
+
+功能:
+1. 每次同步都刷新当前态表: feishu_departments / feishu_members
+2. 当本次同步时间距离上次已保存快照 >= 7 天时，额外写入历史快照:
+   - feishu_sync_runs
+   - feishu_department_snapshots
+   - feishu_member_snapshots
+3. 应用端可基于最近两次快照查看部门人数变动
+
+用法:
+  python scripts/sync_feishu_contacts.py [--root-dept-id <id>]
 """
 
+from __future__ import annotations
+
 import os
-import json
 import time
+from datetime import datetime, timedelta, timezone
+
 import httpx
 from dotenv import load_dotenv
 
-# ── 飞书 API 地址 ──────────────────────────────────────────────
-# 部门详情: GET /contact/v3/departments/{department_id}
-# 子部门列表: GET /contact/v3/departments/{department_id}/children
+
 FEISHU_HOST = "https://open.feishu.cn/open-apis"
 TOKEN_URL = f"{FEISHU_HOST}/auth/v3/tenant_access_token/internal"
 DEPT_BASE_URL = f"{FEISHU_HOST}/contact/v3/departments"
 USER_LIST_URL = f"{FEISHU_HOST}/contact/v3/users"
 SCOPES_URL = f"{FEISHU_HOST}/contact/v3/scopes"
 
+SNAPSHOT_INTERVAL = timedelta(days=7)
+REQUEST_TIMEOUT = 30
+UPSERT_BATCH_SIZE = 100
+SNAPSHOT_BATCH_SIZE = 200
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def to_iso(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def chunked(items: list[dict], size: int) -> list[list[dict]]:
+    return [items[index:index + size] for index in range(0, len(items), size)]
+
+
+def normalize_department_ids(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, str) and item]
+    if isinstance(value, str) and value:
+        return [value]
+    return []
+
 
 def _extract_parent_department_id(
     dept: dict,
     fallback_parent_id: str | None = None,
 ) -> str | None:
-    """
-    Normalize parent department id from Feishu payload.
-    Feishu may return parent info as:
-      - parent_department_id: str
-      - parent_department_ids: list[str] | str
-    """
     parent = dept.get("parent_department_id")
     if isinstance(parent, str) and parent:
         return parent
@@ -50,15 +87,15 @@ def _extract_parent_department_id(
 
 
 def discover_root_departments(token: str) -> list[str]:
-    """通过多种方式自动发现应用可访问的根部门 ID 列表"""
     headers = {"Authorization": f"Bearer {token}"}
 
-    # 方式1: scopes API
     try:
-        resp = httpx.get(SCOPES_URL, headers=headers, params={
-            "department_id_type": "department_id",
-            "user_id_type": "open_id",
-        }, timeout=30)
+        resp = httpx.get(
+            SCOPES_URL,
+            headers=headers,
+            params={"department_id_type": "department_id", "user_id_type": "open_id"},
+            timeout=REQUEST_TIMEOUT,
+        )
         data = resp.json()
         if data.get("code") == 0:
             dept_ids = data.get("data", {}).get("department_ids", [])
@@ -66,61 +103,69 @@ def discover_root_departments(token: str) -> list[str]:
                 print(f"[OK] scopes: {len(dept_ids)} root dept(s): {dept_ids}")
                 return dept_ids
         print(f"  scopes API: code={data.get('code')}, msg={data.get('msg', '')}")
-    except Exception as e:
-        print(f"  scopes API failed: {e}")
+    except Exception as exc:
+        print(f"  scopes API failed: {exc}")
 
-    # 方式2: 搜索部门名称
     try:
         search_url = f"{FEISHU_HOST}/contact/v3/departments/search"
-        resp = httpx.post(search_url, headers=headers, params={
-            "department_id_type": "department_id",
-            "user_id_type": "open_id",
-            "page_size": 20,
-        }, json={"query": ""}, timeout=30)
+        resp = httpx.post(
+            search_url,
+            headers=headers,
+            params={
+                "department_id_type": "department_id",
+                "user_id_type": "open_id",
+                "page_size": 20,
+            },
+            json={"query": ""},
+            timeout=REQUEST_TIMEOUT,
+        )
         data = resp.json()
         if data.get("code") == 0:
             items = data.get("data", {}).get("items", [])
             if items:
-                # 找出没有 parent 或 parent 不在列表中的作为根
                 all_ids = {d.get("department_id") for d in items}
-                roots = []
-                for d in items:
-                    pid = d.get("parent_department_id", "")
-                    if not pid or pid == "0" or pid not in all_ids:
-                        roots.append(d.get("department_id"))
-                        print(f"  found dept: {d.get('name')} ({d.get('department_id')}) parent={pid}")
+                roots: list[str] = []
+                for dept in items:
+                    parent_id = dept.get("parent_department_id", "")
+                    if not parent_id or parent_id == "0" or parent_id not in all_ids:
+                        roots.append(dept.get("department_id"))
+                        print(
+                            f"  found dept: {dept.get('name')} ({dept.get('department_id')}) parent={parent_id}"
+                        )
                 if roots:
                     return roots
-                # 全部返回
-                return [d.get("department_id") for d in items]
+                return [d.get("department_id") for d in items if d.get("department_id")]
         print(f"  search API: code={data.get('code')}, msg={data.get('msg', '')}")
-    except Exception as e:
-        print(f"  search API failed: {e}")
+    except Exception as exc:
+        print(f"  search API failed: {exc}")
 
-    # 方式3: 列出根部门 0 的子部门（需要全公司通讯录权限）
     try:
-        resp = httpx.get(f"{DEPT_BASE_URL}/0/children", headers=headers, params={
-            "department_id_type": "department_id",
-            "user_id_type": "open_id",
-            "page_size": 50,
-        }, timeout=30)
+        resp = httpx.get(
+            f"{DEPT_BASE_URL}/0/children",
+            headers=headers,
+            params={
+                "department_id_type": "department_id",
+                "user_id_type": "open_id",
+                "page_size": 50,
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
         data = resp.json()
         if data.get("code") == 0:
             items = data.get("data", {}).get("items", [])
-            dept_ids = [d.get("department_id") for d in items]
-            for d in items:
-                print(f"  top-level dept: {d.get('name')} ({d.get('department_id')})")
+            dept_ids = [d.get("department_id") for d in items if d.get("department_id")]
+            for dept in items:
+                print(f"  top-level dept: {dept.get('name')} ({dept.get('department_id')})")
             return dept_ids
         print(f"  children API: code={data.get('code')}, msg={data.get('msg', '')}")
-    except Exception as e:
-        print(f"  children API failed: {e}")
+    except Exception as exc:
+        print(f"  children API failed: {exc}")
 
     return []
 
 
 def get_tenant_token(app_id: str, app_secret: str) -> str:
-    """获取 tenant_access_token"""
-    resp = httpx.post(TOKEN_URL, json={"app_id": app_id, "app_secret": app_secret})
+    resp = httpx.post(TOKEN_URL, json={"app_id": app_id, "app_secret": app_secret}, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     if data.get("code") != 0:
@@ -131,14 +176,13 @@ def get_tenant_token(app_id: str, app_secret: str) -> str:
 
 
 def feishu_get(token: str, url: str, params: dict | None = None) -> dict:
-    """带 token 的 GET 请求，含简单速率限制重试"""
     headers = {"Authorization": f"Bearer {token}"}
     for attempt in range(3):
-        resp = httpx.get(url, headers=headers, params=params or {}, timeout=30)
+        resp = httpx.get(url, headers=headers, params=params or {}, timeout=REQUEST_TIMEOUT)
         if resp.status_code == 429:
-            wait = 2 ** attempt
-            print(f"  限流，等待 {wait}s 后重试…")
-            time.sleep(wait)
+            wait_seconds = 2 ** attempt
+            print(f"  限流，等待 {wait_seconds}s 后重试…")
+            time.sleep(wait_seconds)
             continue
         resp.raise_for_status()
         data = resp.json()
@@ -148,32 +192,51 @@ def feishu_get(token: str, url: str, params: dict | None = None) -> dict:
     raise RuntimeError("重试次数用尽")
 
 
-# ── 拉取部门树 ─────────────────────────────────────────────────
+def rest_get(base_url: str, headers: dict, table: str, params: dict) -> list[dict]:
+    resp = httpx.get(f"{base_url}/{table}", headers=headers, params=params, timeout=REQUEST_TIMEOUT)
+    resp.raise_for_status()
+    data = resp.json()
+    return data if isinstance(data, list) else []
+
+
+def rest_insert(base_url: str, headers: dict, table: str, rows: list[dict]) -> list[dict]:
+    if not rows:
+        return []
+    resp = httpx.post(
+        f"{base_url}/{table}",
+        headers={**headers, "Prefer": "return=representation"},
+        json=rows,
+        timeout=REQUEST_TIMEOUT,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return data if isinstance(data, list) else []
+
 
 def fetch_departments(token: str, root_dept_id: str) -> list[dict]:
-    """递归获取所有子部门，并获取每个部门的详细信息（包含 order）"""
-    all_depts = []
+    all_depts: list[dict] = []
+    seen_department_ids: set[str] = set()
 
-    # 先获取根部门自身信息（部门 0 无详情接口，跳过）
     if root_dept_id != "0":
         try:
-            root_data = feishu_get(token, f"{DEPT_BASE_URL}/{root_dept_id}", {
-                "department_id_type": "department_id",
-                "user_id_type": "open_id",
-            })
-            if root_data:
-                dept = root_data.get("department", {})
-                if dept:
-                    dept = dict(dept)
-                    parent_department_id = _extract_parent_department_id(dept)
-                    if parent_department_id:
-                        dept["parent_department_id"] = parent_department_id
-                    all_depts.append(dept)
-                    print(f"  根部门: {dept.get('name')} ({dept.get('department_id')})")
-        except Exception as e:
-            print(f"  获取根部门信息失败: {e}")
+            root_data = feishu_get(
+                token,
+                f"{DEPT_BASE_URL}/{root_dept_id}",
+                {"department_id_type": "department_id", "user_id_type": "open_id"},
+            )
+            dept = root_data.get("department", {})
+            if dept and dept.get("department_id") not in seen_department_ids:
+                dept = dict(dept)
+                parent_department_id = _extract_parent_department_id(dept)
+                if parent_department_id:
+                    dept["parent_department_id"] = parent_department_id
+                seen_department_ids.add(dept["department_id"])
+                all_depts.append(dept)
+                print(f"  根部门: {dept.get('name')} ({dept.get('department_id')})")
+        except Exception as exc:
+            print(f"  获取根部门信息失败: {exc}")
 
-    def _crawl(parent_id: str):
+    def crawl(parent_id: str):
         page_token = None
         while True:
             params = {
@@ -184,57 +247,48 @@ def fetch_departments(token: str, root_dept_id: str) -> list[dict]:
             if page_token:
                 params["page_token"] = page_token
 
-            # 飞书: 子部门列表 GET /departments/{department_id}/children
             data = feishu_get(token, f"{DEPT_BASE_URL}/{parent_id}/children", params)
             items = data.get("items", [])
             for dept in items:
                 dept_id = dept.get("department_id", "")
+                if not dept_id:
+                    continue
+
                 normalized_parent = _extract_parent_department_id(
                     dept,
                     None if parent_id == "0" else parent_id,
                 )
-                # 获取部门详情以获得 order 字段
                 try:
-                    detail_data = feishu_get(token, f"{DEPT_BASE_URL}/{dept_id}", {
-                        "department_id_type": "department_id",
-                        "user_id_type": "open_id",
-                    })
+                    detail_data = feishu_get(
+                        token,
+                        f"{DEPT_BASE_URL}/{dept_id}",
+                        {"department_id_type": "department_id", "user_id_type": "open_id"},
+                    )
                     dept_detail = detail_data.get("department", {})
-                    if dept_detail:
-                        merged = {**dept, **dept_detail}
-                        merged_parent = _extract_parent_department_id(
-                            merged,
-                            normalized_parent,
-                        )
-                        if merged_parent:
-                            merged["parent_department_id"] = merged_parent
-                        all_depts.append(merged)
-                    else:
-                        dept = dict(dept)
-                        if normalized_parent:
-                            dept["parent_department_id"] = normalized_parent
-                        all_depts.append(dept)
+                    merged = {**dept, **dept_detail} if dept_detail else dict(dept)
                 except Exception:
-                    dept = dict(dept)
-                    if normalized_parent:
-                        dept["parent_department_id"] = normalized_parent
-                    all_depts.append(dept)
-                print(f"  部门: {dept.get('name')} ({dept_id}) <- {parent_id}")
-                _crawl(dept_id)
+                    merged = dict(dept)
+
+                merged_parent = _extract_parent_department_id(merged, normalized_parent)
+                if merged_parent:
+                    merged["parent_department_id"] = merged_parent
+
+                if dept_id not in seen_department_ids:
+                    seen_department_ids.add(dept_id)
+                    all_depts.append(merged)
+                print(f"  部门: {merged.get('name')} ({dept_id}) <- {parent_id}")
+                crawl(dept_id)
 
             if not data.get("has_more"):
                 break
             page_token = data.get("page_token")
 
-    _crawl(root_dept_id)
+    crawl(root_dept_id)
     return all_depts
 
 
-# ── 拉取成员 ──────────────────────────────────────────────────
-
 def fetch_members(token: str, department_id: str) -> list[dict]:
-    """获取指定部门的直属成员（不含子部门）"""
-    members = []
+    members: list[dict] = []
     page_token = None
     while True:
         params = {
@@ -247,8 +301,7 @@ def fetch_members(token: str, department_id: str) -> list[dict]:
             params["page_token"] = page_token
 
         data = feishu_get(token, f"{USER_LIST_URL}/find_by_department", params)
-        items = data.get("items", [])
-        members.extend(items)
+        members.extend(data.get("items", []))
 
         if not data.get("has_more"):
             break
@@ -257,63 +310,51 @@ def fetch_members(token: str, department_id: str) -> list[dict]:
     return members
 
 
-# ── 写入 Supabase ─────────────────────────────────────────────
-
 def upsert_departments(
     base_url: str,
     headers: dict,
     departments: list[dict],
-    member_counts: dict[str, int] | None = None,
+    member_counts: dict[str, int],
 ):
-    """将部门数据 upsert 到 feishu_departments"""
-    rows = []
-    for d in departments:
-        dept_id = d.get("department_id", "") or ""
-        parent_department_id = _extract_parent_department_id(d)
+    rows: list[dict] = []
+    for dept in departments:
+        dept_id = dept.get("department_id", "") or ""
+        if not dept_id:
+            continue
+
+        parent_department_id = _extract_parent_department_id(dept)
         parent_id = parent_department_id if parent_department_id and parent_department_id != "0" else None
 
-        # 处理排序字段，兼容字符串 / 数字
-        order_raw = d.get("order", 0)
+        order_raw = dept.get("order", 0)
         try:
             order_value = int(order_raw)
         except (TypeError, ValueError):
             order_value = 0
 
-        # 优先使用计算得到的成员数量，其次回落到接口返回字段
-        if member_counts is not None:
-            mc = member_counts.get(dept_id, 0)
-        else:
-            mc_raw = d.get("member_count", 0)
-            try:
-                mc = int(mc_raw)
-            except (TypeError, ValueError):
-                mc = 0
-
-        rows.append({
-            "department_id": dept_id,
-            "name": d.get("name", ""),
-            "parent_id": parent_id,
-            "order_value": order_value,
-            "member_count": mc,
-            "leader_user_id": d.get("leader_user_id", None),
-            "status": json.dumps(d.get("status", {})),
-        })
+        rows.append(
+            {
+                "department_id": dept_id,
+                "name": dept.get("name", ""),
+                "parent_id": parent_id,
+                "order_value": order_value,
+                "member_count": member_counts.get(dept_id, 0),
+                "leader_user_id": dept.get("leader_user_id"),
+                "status": dept.get("status", {}),
+            }
+        )
 
     if not rows:
         print("无部门数据")
         return
 
-    # 分批 upsert（每批 100）
-    for i in range(0, len(rows), 100):
-        batch = rows[i:i+100]
-        # 使用 on_conflict=department_id 来做 upsert
+    for batch in chunked(rows, UPSERT_BATCH_SIZE):
         resp = httpx.post(
             f"{base_url}/feishu_departments",
             headers={**headers, "Prefer": "return=representation,resolution=merge-duplicates"},
             json=batch,
-            timeout=30,
+            timeout=REQUEST_TIMEOUT,
         )
-        if resp.status_code in [200, 201]:
+        if resp.status_code in (200, 201):
             print(f"  [OK] dept upsert {len(batch)}")
         else:
             print(f"  [FAIL] dept upsert: {resp.status_code} {resp.text[:300]}")
@@ -323,26 +364,20 @@ def _is_missing_column_error(resp: httpx.Response, column_name: str) -> bool:
     if resp.status_code != 400:
         return False
     text = (resp.text or "").lower()
-    return (
-        '"code":"42703"' in text
-        and "does not exist" in text
-        and column_name.lower() in text
-    )
+    return '"code":"42703"' in text and "does not exist" in text and column_name.lower() in text
 
 
 def detect_member_department_column(base_url: str, headers: dict) -> str:
-    """探测 feishu_members 使用 department_id 还是 department_ids 列。"""
-    candidates = ("department_id", "department_ids")
-    for column in candidates:
+    for column in ("department_id", "department_ids"):
         try:
             resp = httpx.get(
                 f"{base_url}/feishu_members",
                 headers=headers,
                 params={"select": column, "limit": 1},
-                timeout=30,
+                timeout=REQUEST_TIMEOUT,
             )
-        except Exception as e:
-            print(f"  [WARN] detect column failed for {column}: {e}")
+        except Exception as exc:
+            print(f"  [WARN] detect column failed for {column}: {exc}")
             continue
 
         if resp.status_code == 200:
@@ -351,53 +386,44 @@ def detect_member_department_column(base_url: str, headers: dict) -> str:
         if _is_missing_column_error(resp, column):
             continue
 
-    # 默认优先使用 department_id，兼容当前库结构
     print("  [WARN] failed to auto-detect department column, fallback to department_id")
     return "department_id"
 
 
 def build_member_rows(members: list[dict], dept_column: str) -> list[dict]:
-    """构建 feishu_members upsert 数据，按指定部门字段写入。"""
-    rows = []
-    seen_open_ids = set()
-    for m in members:
-        open_id = m.get("open_id", "")
+    rows: list[dict] = []
+    seen_open_ids: set[str] = set()
+    for member in members:
+        open_id = member.get("open_id", "")
         if not open_id or open_id in seen_open_ids:
             continue
         seen_open_ids.add(open_id)
 
-        avatar = m.get("avatar", {})
-        dept_ids = m.get("department_ids", [])
+        avatar = member.get("avatar", {})
+        dept_ids = normalize_department_ids(member.get("department_ids"))
+        primary_dept_id = dept_ids[0] if dept_ids else None
 
-        # 目前约定：每个员工只归属一个部门
-        # 飞书返回的是列表，这里取第一个部门 ID，作为与部门表 department_id 一致的文本字段
-        primary_dept_id: str | None
-        if isinstance(dept_ids, list):
-            primary_dept_id = dept_ids[0] if dept_ids else None
-        else:
-            # 兼容后端未来可能直接返回字符串的情况
-            primary_dept_id = dept_ids or None
-
-        rows.append({
-            "open_id": open_id,
-            "user_id": m.get("user_id", None),
-            "name": m.get("name", ""),
-            "en_name": m.get("en_name", None),
-            "employee_no": m.get("employee_no", None),
-            "email": m.get("email", None),
-            "avatar_url": avatar.get("avatar_origin") or avatar.get("avatar_240") or avatar.get("avatar_72") or None,
-            dept_column: primary_dept_id,
-            "job_title": m.get("job_title", None),
-            "gender": m.get("gender", 0),
-            "employee_type": m.get("employee_type", None),
-            "status": json.dumps(m.get("status", {})),
-            "join_time": m.get("join_time", None),
-        })
+        rows.append(
+            {
+                "open_id": open_id,
+                "user_id": member.get("user_id"),
+                "name": member.get("name", ""),
+                "en_name": member.get("en_name"),
+                "employee_no": member.get("employee_no"),
+                "email": member.get("email"),
+                "avatar_url": avatar.get("avatar_origin") or avatar.get("avatar_240") or avatar.get("avatar_72"),
+                dept_column: primary_dept_id,
+                "job_title": member.get("job_title"),
+                "gender": member.get("gender", 0),
+                "employee_type": member.get("employee_type"),
+                "status": member.get("status", {}),
+                "join_time": member.get("join_time"),
+            }
+        )
     return rows
 
 
 def upsert_members(base_url: str, headers: dict, members: list[dict]):
-    """将成员数据 upsert 到 feishu_members"""
     dept_column = detect_member_department_column(base_url, headers)
     attempted_columns = {dept_column}
     rows = build_member_rows(members, dept_column)
@@ -406,50 +432,188 @@ def upsert_members(base_url: str, headers: dict, members: list[dict]):
         print("无成员数据")
         return
 
-    i = 0
-    while i < len(rows):
-        batch = rows[i:i+100]
+    index = 0
+    while index < len(rows):
+        batch = rows[index:index + UPSERT_BATCH_SIZE]
         resp = httpx.post(
             f"{base_url}/feishu_members",
             headers={**headers, "Prefer": "return=representation,resolution=merge-duplicates"},
             json=batch,
-            timeout=30,
+            timeout=REQUEST_TIMEOUT,
         )
-        if resp.status_code in [200, 201]:
+        if resp.status_code in (200, 201):
             print(f"  [OK] member upsert {len(batch)}")
-            i += 100
+            index += UPSERT_BATCH_SIZE
             continue
 
-        # 兼容历史库字段命名：department_id <-> department_ids
         if _is_missing_column_error(resp, dept_column):
             fallback_column = "department_ids" if dept_column == "department_id" else "department_id"
             if fallback_column not in attempted_columns:
-                print(
-                    f"  [WARN] column {dept_column} not found, retry with {fallback_column}"
-                )
+                print(f"  [WARN] column {dept_column} not found, retry with {fallback_column}")
                 attempted_columns.add(fallback_column)
                 dept_column = fallback_column
                 rows = build_member_rows(members, dept_column)
-                i = 0
-            else:
-                print(
-                    f"  [FAIL] member upsert: missing both department_id and department_ids columns, detail={resp.text[:300]}"
-                )
-                i += 100
-        else:
-            print(f"  [FAIL] member upsert: {resp.status_code} {resp.text[:300]}")
-            i += 100
+                index = 0
+                continue
+
+            print(f"  [FAIL] member upsert: missing both department columns, detail={resp.text[:300]}")
+            index += UPSERT_BATCH_SIZE
+            continue
+
+        print(f"  [FAIL] member upsert: {resp.status_code} {resp.text[:300]}")
+        index += UPSERT_BATCH_SIZE
 
 
-# ── 主流程 ────────────────────────────────────────────────────
+def get_latest_snapshot_run(base_url: str, headers: dict) -> dict | None:
+    rows = rest_get(
+        base_url,
+        headers,
+        "feishu_sync_runs",
+        {
+            "select": "id,snapshot_at,created_at",
+            "snapshot_taken": "eq.true",
+            "order": "snapshot_at.desc,created_at.desc",
+            "limit": "1",
+        },
+    )
+    return rows[0] if rows else None
+
+
+def should_take_snapshot(last_snapshot_at: datetime | None, current_time: datetime) -> tuple[bool, str]:
+    if last_snapshot_at is None:
+        return True, "首个可用快照"
+
+    elapsed = current_time - last_snapshot_at
+    if elapsed >= SNAPSHOT_INTERVAL:
+        return True, f"距离上次快照已 {elapsed.days} 天"
+
+    remaining = SNAPSHOT_INTERVAL - elapsed
+    remaining_days = max(1, int(remaining.total_seconds() // 86400) + (1 if remaining.total_seconds() % 86400 else 0))
+    return False, f"距离 7 天阈值还差约 {remaining_days} 天"
+
+
+def insert_sync_run(
+    base_url: str,
+    headers: dict,
+    *,
+    started_at: datetime,
+    finished_at: datetime,
+    snapshot_taken: bool,
+    snapshot_at: datetime | None,
+    last_snapshot_at: datetime | None,
+    snapshot_reason: str,
+    root_department_ids: list[str],
+    department_count: int,
+    member_count: int,
+) -> dict:
+    rows = rest_insert(
+        base_url,
+        headers,
+        "feishu_sync_runs",
+        [
+            {
+                "started_at": to_iso(started_at),
+                "finished_at": to_iso(finished_at),
+                "snapshot_taken": snapshot_taken,
+                "snapshot_at": to_iso(snapshot_at) if snapshot_at else None,
+                "last_snapshot_at": to_iso(last_snapshot_at) if last_snapshot_at else None,
+                "snapshot_reason": snapshot_reason,
+                "root_department_ids": root_department_ids,
+                "department_count": department_count,
+                "member_count": member_count,
+            }
+        ],
+    )
+    if not rows:
+        raise RuntimeError("创建 feishu_sync_runs 记录失败")
+    return rows[0]
+
+
+def build_department_snapshot_rows(sync_run_id: str, snapshot_at: datetime, departments: list[dict], member_counts: dict[str, int]) -> list[dict]:
+    rows: list[dict] = []
+    snapshot_at_value = to_iso(snapshot_at)
+    for dept in departments:
+        dept_id = dept.get("department_id", "") or ""
+        if not dept_id:
+            continue
+
+        order_raw = dept.get("order", 0)
+        try:
+            order_value = int(order_raw)
+        except (TypeError, ValueError):
+            order_value = 0
+
+        parent_id = _extract_parent_department_id(dept)
+        rows.append(
+            {
+                "sync_run_id": sync_run_id,
+                "snapshot_at": snapshot_at_value,
+                "department_id": dept_id,
+                "name": dept.get("name", ""),
+                "parent_id": parent_id if parent_id and parent_id != "0" else None,
+                "order_value": order_value,
+                "member_count": member_counts.get(dept_id, 0),
+                "leader_user_id": dept.get("leader_user_id"),
+                "status": dept.get("status", {}),
+            }
+        )
+    return rows
+
+
+def build_member_snapshot_rows(sync_run_id: str, snapshot_at: datetime, members: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    snapshot_at_value = to_iso(snapshot_at)
+    seen_open_ids: set[str] = set()
+    for member in members:
+        open_id = member.get("open_id", "")
+        if not open_id or open_id in seen_open_ids:
+            continue
+        seen_open_ids.add(open_id)
+
+        dept_ids = normalize_department_ids(member.get("department_ids"))
+        rows.append(
+            {
+                "sync_run_id": sync_run_id,
+                "snapshot_at": snapshot_at_value,
+                "open_id": open_id,
+                "user_id": member.get("user_id"),
+                "name": member.get("name", ""),
+                "employee_no": member.get("employee_no"),
+                "email": member.get("email"),
+                "primary_department_id": dept_ids[0] if dept_ids else None,
+                "department_ids": dept_ids,
+                "job_title": member.get("job_title"),
+                "gender": member.get("gender", 0),
+                "employee_type": member.get("employee_type"),
+                "status": member.get("status", {}),
+                "join_time": member.get("join_time"),
+            }
+        )
+    return rows
+
+
+def insert_snapshot_rows(base_url: str, headers: dict, table: str, rows: list[dict]):
+    if not rows:
+        print(f"  [SKIP] {table}: no rows")
+        return
+
+    for batch in chunked(rows, SNAPSHOT_BATCH_SIZE):
+        inserted = rest_insert(base_url, headers, table, batch)
+        print(f"  [OK] {table} insert {len(inserted) or len(batch)}")
+
 
 def sync(root_dept_id: str = "0"):
+    started_at = utc_now()
     load_dotenv("app/.env")
 
     app_id = os.getenv("FEISHU_APP_ID") or os.getenv("VITE_FEISHU_APP_ID")
     app_secret = os.getenv("FEISHU_APP_SECRET")
-    supabase_url = os.getenv("VITE_SUPABASE_URL")
-    supabase_key = os.getenv("VITE_SUPABASE_ANON_KEY")
+    supabase_url = os.getenv("VITE_SUPABASE_URL") or os.getenv("SUPABASE_URL")
+    supabase_key = (
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        or os.getenv("VITE_SUPABASE_ANON_KEY")
+        or os.getenv("SUPABASE_ANON_KEY")
+    )
 
     if not app_id or not app_secret:
         print("错误: 缺少 FEISHU_APP_ID / FEISHU_APP_SECRET")
@@ -458,7 +622,7 @@ def sync(root_dept_id: str = "0"):
         print("  FEISHU_APP_SECRET=xxxx")
         return
     if not supabase_url or not supabase_key:
-        print("错误: 缺少 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY")
+        print("错误: 缺少 Supabase 配置（VITE_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / VITE_SUPABASE_ANON_KEY）")
         return
 
     sb_headers = {
@@ -468,10 +632,8 @@ def sync(root_dept_id: str = "0"):
     }
     sb_base = f"{supabase_url}/rest/v1"
 
-    # 1) 获取 token
     token = get_tenant_token(app_id, app_secret)
 
-    # 2) 自动发现可访问的根部门（当 root_dept_id=0 时）
     root_ids = [root_dept_id]
     if root_dept_id == "0":
         discovered = discover_root_departments(token)
@@ -481,64 +643,83 @@ def sync(root_dept_id: str = "0"):
         else:
             print("  no scoped depts found, using 0")
 
-    # 3) 拉取部门
-    departments = []
-    for rid in root_ids:
-        print(f"\n-- fetch dept tree (root: {rid}) --")
-        depts = fetch_departments(token, rid)
-        departments.extend(depts)
+    departments: list[dict] = []
+    for root_id in root_ids:
+        print(f"\n-- fetch dept tree (root: {root_id}) --")
+        departments.extend(fetch_departments(token, root_id))
     print(f"\ntotal departments: {len(departments)}\n")
 
-    # 3) 拉取成员（遍历每个部门）
     print("── 拉取成员 ──")
-    all_members = []
-    dept_ids_to_crawl = [d.get("department_id", "") for d in departments]
-    # 也包含根部门自身
+    all_members: list[dict] = []
+    dept_ids_to_crawl = [dept.get("department_id", "") for dept in departments if dept.get("department_id")]
     if root_dept_id != "0" and root_dept_id not in dept_ids_to_crawl:
         dept_ids_to_crawl.insert(0, root_dept_id)
 
     for dept_id in dept_ids_to_crawl:
-        if not dept_id:
-            continue
         members = fetch_members(token, dept_id)
-        dept_name = next((d["name"] for d in departments if d.get("department_id") == dept_id), dept_id)
+        dept_name = next((dept["name"] for dept in departments if dept.get("department_id") == dept_id), dept_id)
         print(f"  {dept_name}: {len(members)} 人")
         all_members.extend(members)
 
-    # 去重（同一人可能在多个部门）
-    unique_map = {}
-    for m in all_members:
-        oid = m.get("open_id", "")
-        if oid:
-            unique_map[oid] = m
+    unique_map: dict[str, dict] = {}
+    for member in all_members:
+        open_id = member.get("open_id", "")
+        if open_id:
+            unique_map[open_id] = member
     unique_members = list(unique_map.values())
     print(f"共获取 {len(unique_members)} 个唯一成员\n")
 
-    # 基于成员数据计算各部门成员数
     dept_member_counts: dict[str, int] = {}
-    for m in unique_members:
-        dept_ids = m.get("department_ids", [])
-        # 兼容新格式：department_ids 现在是单个字符串而非数组
-        if isinstance(dept_ids, str):
-            dept_ids = [dept_ids] if dept_ids else []
-        for dept_id in dept_ids:
-            if not dept_id:
-                continue
+    for member in unique_members:
+        for dept_id in normalize_department_ids(member.get("department_ids")):
             dept_member_counts[dept_id] = dept_member_counts.get(dept_id, 0) + 1
 
-    # 4) 写入 Supabase
-    print("── 写入 Supabase ──")
+    print("── 写入当前态 Supabase ──")
     upsert_departments(sb_base, sb_headers, departments, dept_member_counts)
     upsert_members(sb_base, sb_headers, unique_members)
+
+    current_time = utc_now()
+    latest_snapshot_run = get_latest_snapshot_run(sb_base, sb_headers)
+    last_snapshot_at = parse_iso_datetime(latest_snapshot_run.get("snapshot_at")) if latest_snapshot_run else None
+    take_snapshot, snapshot_reason = should_take_snapshot(last_snapshot_at, current_time)
+
+    sync_run = insert_sync_run(
+        sb_base,
+        sb_headers,
+        started_at=started_at,
+        finished_at=current_time,
+        snapshot_taken=take_snapshot,
+        snapshot_at=current_time if take_snapshot else None,
+        last_snapshot_at=last_snapshot_at,
+        snapshot_reason=snapshot_reason,
+        root_department_ids=root_ids,
+        department_count=len(departments),
+        member_count=len(unique_members),
+    )
+
+    if take_snapshot:
+        print(f"── 写入历史快照 ── ({snapshot_reason})")
+        department_snapshot_rows = build_department_snapshot_rows(
+            sync_run["id"],
+            current_time,
+            departments,
+            dept_member_counts,
+        )
+        member_snapshot_rows = build_member_snapshot_rows(sync_run["id"], current_time, unique_members)
+        insert_snapshot_rows(sb_base, sb_headers, "feishu_department_snapshots", department_snapshot_rows)
+        insert_snapshot_rows(sb_base, sb_headers, "feishu_member_snapshots", member_snapshot_rows)
+    else:
+        print(f"── 跳过历史快照 ── ({snapshot_reason})")
 
     print(f"\n完成! 部门 {len(departments)} 个, 成员 {len(unique_members)} 人")
 
 
 if __name__ == "__main__":
     import sys
+
     root = "0"
     if "--root-dept-id" in sys.argv:
-        idx = sys.argv.index("--root-dept-id")
-        if idx + 1 < len(sys.argv):
-            root = sys.argv[idx + 1]
+        index = sys.argv.index("--root-dept-id")
+        if index + 1 < len(sys.argv):
+            root = sys.argv[index + 1]
     sync(root)

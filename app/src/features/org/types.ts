@@ -29,3 +29,30 @@ export interface FeishuMember {
   created_at: string
   updated_at: string
 }
+
+export interface FeishuSyncRun {
+  id: string
+  started_at: string
+  finished_at: string
+  snapshot_taken: boolean
+  snapshot_at: string | null
+  last_snapshot_at: string | null
+  snapshot_reason: string | null
+  root_department_ids: string[]
+  department_count: number
+  member_count: number
+  created_at: string
+}
+
+export interface DepartmentMemberChange {
+  department_id: string
+  department_name: string
+  parent_id: string | null
+  order_value: number
+  current_member_count: number
+  previous_member_count: number
+  member_count_change: number
+  change_type: 'new' | 'removed' | 'changed' | 'unchanged'
+  latest_snapshot_at: string | null
+  previous_snapshot_at: string | null
+}

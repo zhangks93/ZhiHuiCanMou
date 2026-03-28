@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
@@ -46,7 +46,7 @@ const STAGE_STYLE: Record<StageCode, { bg: string; text: string; dot: string; ic
     icon: Search,
   },
   opportunity: {
-    bg: 'bg-[rgba(37,99,235,0.08)]',
+    bg: 'bg-[rgba(34,197,94,0.08)]',
     text: 'text-[var(--color-accent-hover)]',
     dot: 'bg-[var(--color-accent-hover)]',
     icon: Clock3,
@@ -163,7 +163,7 @@ function FilterSelect({ value, onChange, options }: SelectProps) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none cursor-pointer rounded-xl border border-[var(--color-border)] bg-white/80 pl-3 pr-7 py-1.5 text-xs font-medium text-[var(--color-text-strong)] shadow-[var(--shadow-xs)] outline-none transition-all duration-160 hover:border-[rgba(37,99,235,0.18)] hover:bg-white/96 focus:border-[rgba(37,99,235,0.4)] focus:shadow-[0_0_0_3px_rgba(37,99,235,0.08)]"
+        className="appearance-none cursor-pointer rounded-xl border border-[var(--color-border)] bg-white/80 pl-3 pr-7 py-1.5 text-xs font-medium text-[var(--color-text-strong)] shadow-[var(--shadow-xs)] outline-none transition-all duration-160 hover:border-[rgba(34,197,94,0.18)] hover:bg-white/96 focus:border-[rgba(34,197,94,0.4)] focus:shadow-[0_0_0_3px_rgba(34,197,94,0.08)]"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -241,7 +241,7 @@ function DesktopTable({ rows, expandedIds, onToggle, onSort, sortCol, sortDir }:
               <>
                 <tr
                   key={row.id}
-                  className="cursor-pointer border-b border-[rgba(148,163,184,0.10)] transition-colors duration-160 hover:bg-[rgba(37,99,235,0.03)]"
+                  className="cursor-pointer border-b border-[rgba(148,163,184,0.10)] transition-colors duration-160 hover:bg-[rgba(34,197,94,0.03)]"
                   onClick={() => onToggle(row.id)}
                 >
                   <td className="px-3 py-3">
@@ -385,13 +385,13 @@ function StatCard({ label, value, unit, color = 'default' }: {
   color?: 'default' | 'success' | 'warning'
 }) {
   const accentMap = {
-    default: 'bg-[rgba(37,99,235,0.08)] text-[var(--color-accent-hover)]',
+    default: 'bg-[rgba(34,197,94,0.08)] text-[var(--color-accent-hover)]',
     success: 'bg-[rgba(15,159,110,0.10)] text-[#08724d]',
     warning: 'bg-[rgba(217,119,6,0.10)] text-[#a55406]',
   }
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white/90 px-4 py-3 shadow-[var(--shadow-xs)]">
-      <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(37,99,235,0.20)] to-transparent" />
+      <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.20)] to-transparent" />
       <div className="relative flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
@@ -459,7 +459,7 @@ function Pagination({ page, total, pageSize, onChange }: PaginationProps) {
                 onClick={() => onChange(n as number)}
                 className={`min-w-[26px] rounded-lg px-1.5 py-1 text-xs font-medium transition-colors duration-120 ${
                   n === page
-                    ? 'bg-[rgba(37,99,235,0.10)] text-[var(--color-accent-hover)] font-semibold'
+                    ? 'bg-[rgba(34,197,94,0.10)] text-[var(--color-accent-hover)] font-semibold'
                     : 'text-[var(--color-text-muted)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)]'
                 }`}
               >
@@ -654,7 +654,7 @@ export function OpportunityPage() {
             placeholder="搜索项目名称..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-white/80 pl-8 pr-3 py-1.5 text-xs text-[var(--color-text-strong)] placeholder:text-[var(--color-text-muted)] shadow-[var(--shadow-xs)] outline-none transition-all duration-160 hover:border-[rgba(37,99,235,0.18)] focus:border-[rgba(37,99,235,0.4)] focus:shadow-[0_0_0_3px_rgba(37,99,235,0.08)]"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-white/80 pl-8 pr-3 py-1.5 text-xs text-[var(--color-text-strong)] placeholder:text-[var(--color-text-muted)] shadow-[var(--shadow-xs)] outline-none transition-all duration-160 hover:border-[rgba(34,197,94,0.18)] focus:border-[rgba(34,197,94,0.4)] focus:shadow-[0_0_0_3px_rgba(34,197,94,0.08)]"
           />
           {searchText && (
             <button
@@ -668,7 +668,7 @@ export function OpportunityPage() {
 
         {hasActiveFilter && (
           <button
-            className="inline-flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-white/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--color-text-muted)] transition-all duration-160 hover:border-[rgba(37,99,235,0.18)] hover:text-[var(--color-text-strong)]"
+            className="inline-flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-white/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--color-text-muted)] transition-all duration-160 hover:border-[rgba(34,197,94,0.18)] hover:text-[var(--color-text-strong)]"
             onClick={() => {
               setFilterGroup('all')
               setFilterStage('all')

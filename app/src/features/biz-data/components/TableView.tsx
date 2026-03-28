@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -167,7 +167,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
             {hasChildren ? (
               <button
                 onClick={row.getToggleExpandedHandler()}
-                className="p-0.5 hover:bg-[rgba(37,99,235,0.08)] rounded-md transition-colors"
+                className="p-0.5 hover:bg-[rgba(34,197,94,0.08)] rounded-md transition-colors"
               >
                 {row.getIsExpanded() ? (
                   <ChevronDown size={14} className="text-[var(--color-text-muted)]" />
@@ -307,7 +307,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
                   {table.getRowModel().rows.map(row => {
                     const firstCell = row.getVisibleCells()[0]
                     return (
-                      <tr key={row.id} className="hover:bg-[rgba(37,99,235,0.03)] transition-colors h-[44px]">
+                      <tr key={row.id} className="hover:bg-[rgba(34,197,94,0.03)] transition-colors h-[44px]">
                         <td className="px-3 text-xs w-72 h-[44px] align-middle">
                           {flexRender(firstCell.column.columnDef.cell, firstCell.getContext())}
                         </td>
@@ -350,7 +350,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
                   {table.getRowModel().rows.map(row => {
                     const metricCells = row.getVisibleCells().slice(1)
                     return (
-                      <tr key={row.id} className="hover:bg-[rgba(37,99,235,0.03)] transition-colors h-[44px]">
+                      <tr key={row.id} className="hover:bg-[rgba(34,197,94,0.03)] transition-colors h-[44px]">
                         {metricOrder.map(metric => {
                           const actualCell = metricCells.find(c => c.column.id === `${metric}_actual`)
                           const budgetCell = metricCells.find(c => c.column.id === `${metric}_budget`)

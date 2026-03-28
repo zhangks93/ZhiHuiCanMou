@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Bot, Calendar, Sparkles } from 'lucide-react'
 import { ROUTES } from '@/app/config/constants'
 import { PageTitle } from '@/shared/ui/PageTitle'
@@ -122,7 +122,7 @@ export function DashboardPage() {
                       'flex w-full items-start gap-3 rounded-[22px] border p-4 text-left transition-all duration-200',
                       isUrgent
                         ? 'border-error-200 bg-error-50 hover:shadow-[0_18px_44px_rgba(220,38,38,0.08)]'
-                        : 'border-accent-200 bg-accent-50 hover:shadow-[0_18px_44px_rgba(37,99,235,0.08)]',
+                        : 'border-accent-200 bg-accent-50 hover:shadow-[0_18px_44px_rgba(34,197,94,0.08)]',
                     ].join(' ')}
                   >
                     <div className="min-w-[60px] rounded-2xl bg-white/70 px-3 py-2 text-center">

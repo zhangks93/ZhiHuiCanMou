@@ -1,4 +1,4 @@
-import { Link2, Shield, Leaf, Store, UtensilsCrossed, ClipboardList, Telescope } from 'lucide-react'
+﻿import { Link2, Shield, Leaf, Store, UtensilsCrossed, ClipboardList, Telescope } from 'lucide-react'
 
 const links = [
   { icon: Shield, name: '安全管理系统' },
@@ -23,7 +23,7 @@ export function Links() {
             <a
               key={link.name}
               href="#"
-              className="flex flex-col items-center gap-3 rounded-[18px] border border-[var(--color-border)] bg-white/60 backdrop-blur-sm p-5 transition-all hover:border-[rgba(37,99,235,0.3)] hover:bg-white/80 hover:shadow-[0_10px_24px_rgba(37,99,235,0.10)]"
+              className="flex flex-col items-center gap-3 rounded-[18px] border border-[var(--color-border)] bg-white/60 backdrop-blur-sm p-5 transition-all hover:border-[rgba(34,197,94,0.3)] hover:bg-white/80 hover:shadow-[0_10px_24px_rgba(34,197,94,0.10)]"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded bg-primary-50 text-primary">
                 <Icon size={24} strokeWidth={1.5} />
