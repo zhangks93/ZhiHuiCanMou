@@ -1,43 +1,13 @@
 import { useEffect, useState } from 'react'
-import { validateAuthState, clearAuthState } from '@/lib/auth-storage'
-import { retrySetSession } from '@/lib/auth-retry'
 import { createAuthError, getAuthError, type AuthError } from '@/lib/auth-errors'
-
-/**
- * OAuth 回调页：解析 Supabase magic link 重定向中的 token，通过事件传给主窗口
- * 主窗口负责调用 setSession；此页仅在 Tauri 内嵌 WebView 的 OAuth 弹窗中加载
- *
- * 支持的 URL 格式：
- * - Web: /#/auth-callback#access_token=xxx&refresh_token=xxx
- * - Mobile deep link: canmou://auth-callback#access_token=xxx&refresh_token=xxx
- */
-function parseHashParams(hash: string): Record<string, string> {
-  const params: Record<string, string> = {}
-  const fragment = hash.startsWith('#') ? hash.slice(1) : hash
-  // 支持 #access_token=xxx、#/auth-callback#access_token=xxx 等格式
-  const paramPart = fragment.includes('#') ? (fragment.split('#').pop() ?? '') : fragment
-  new URLSearchParams(paramPart).forEach((v, k) => { params[k] = v })
-  return params
-}
-
-function parseUrlParams(url: string): Record<string, string> {
-  const params: Record<string, string> = {}
-  try {
-    // 处理 deep link URL: canmou://auth-callback#access_token=xxx
-    if (url.includes('#')) {
-      const hashPart = url.split('#').pop() ?? ''
-      new URLSearchParams(hashPart).forEach((v, k) => { params[k] = v })
-    }
-    // 处理 query string: ?access_token=xxx
-    if (url.includes('?')) {
-      const queryPart = url.split('?').pop()?.split('#')[0] ?? ''
-      new URLSearchParams(queryPart).forEach((v, k) => { params[k] = v })
-    }
-  } catch (e) {
-    console.error('Failed to parse URL params:', e)
-  }
-  return params
-}
+import {
+  completeBrowserOAuth,
+  completeDesktopOAuth,
+  getAuthRuntime,
+  parseAuthCallbackParams,
+  validateCallbackState,
+  waitForAuthenticatedUser,
+} from '@/features/auth/services/authCallbackService'
 
 type AuthStatus = 'parsing' | 'authenticating' | 'retrying' | 'success' | 'error'
 
@@ -87,45 +57,23 @@ export function AuthCallback() {
     }, 200)
 
     const run = async () => {
-      // 尝试从多个来源获取 token
-      const hash = window.location.hash
-      const search = window.location.search
-      const fullUrl = window.location.href
-
-      addDebugInfo(`完整URL: ${fullUrl}`)
-      addDebugInfo(`Hash: ${hash}`)
-      addDebugInfo(`Search: ${search}`)
-
-      // 合并所有可能的参数来源
-      const hashParams = parseHashParams(hash)
-      const urlParams = parseUrlParams(fullUrl)
-      const searchParams = parseUrlParams(search)
-      const params = { ...urlParams, ...searchParams, ...hashParams }
-
-      addDebugInfo(`解析参数: ${JSON.stringify(params)}`)
-
-      const accessToken = params.access_token
-      const refreshToken = params.refresh_token
-      const state = params.state
+      const { accessToken, refreshToken, state, debugDetails } = parseAuthCallbackParams(window.location)
+      debugDetails.forEach(addDebugInfo)
 
       // Validate CSRF state parameter
-      if (state) {
-        const isValidState = validateAuthState(state)
-        if (!isValidState) {
-          addDebugInfo('错误: State 验证失败 (可能的 CSRF 攻击)')
-          const error = getAuthError('STATE_VALIDATION_FAILED')
-          if (mounted) {
-            setStatus('error')
-            setErrorMsg(error.message)
-            setAuthError(error)
-          }
-          return
+      const stateError = validateCallbackState(state)
+      if (stateError) {
+        addDebugInfo('错误: State 验证失败 (可能的 CSRF 攻击)')
+        if (mounted) {
+          setStatus('error')
+          setErrorMsg(stateError.message)
+          setAuthError(stateError)
         }
-        addDebugInfo('State 验证成功')
-      } else {
+        return
+      } else if (!state) {
         addDebugInfo('警告: 未收到 state 参数')
-        // Clear any stored state to prevent reuse
-        clearAuthState()
+      } else {
+        addDebugInfo('State 验证成功')
       }
 
       if (!accessToken || !refreshToken) {
@@ -146,9 +94,7 @@ export function AuthCallback() {
         setProgress(50)
       }
 
-      const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
-      const isMobileDevice =
-        typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      const { isTauri, isMobileDevice } = getAuthRuntime()
 
       addDebugInfo(`环境: ${isTauri ? 'Tauri' : 'Web'}, ${isMobileDevice ? '移动端' : '桌面端'}`)
 
@@ -156,8 +102,7 @@ export function AuthCallback() {
         // 桌面 Tauri：通过事件通知主窗口并关闭弹窗
         try {
           addDebugInfo('桌面模式: 发送事件到主窗口')
-          const { emit } = await import('@tauri-apps/api/event')
-          emit('auth:oauth-complete', { access_token: accessToken, refresh_token: refreshToken })
+          await completeDesktopOAuth(accessToken, refreshToken)
 
           if (mounted) {
             setStatus('success')
@@ -165,13 +110,6 @@ export function AuthCallback() {
           }
 
           addDebugInfo('事件发送成功，准备关闭窗口')
-
-          // 延迟关闭，让用户看到成功状态
-          setTimeout(async () => {
-            const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow')
-            const win = getCurrentWebviewWindow()
-            if (win) win.close()
-          }, 1500)
         } catch (e) {
           const errorMsg = e instanceof Error ? e.message : String(e)
           addDebugInfo(`桌面模式错误: ${errorMsg}`)
@@ -183,12 +121,10 @@ export function AuthCallback() {
       } else {
         // Web / 移动端：在当前窗口直接 setSession 并返回首页
         addDebugInfo('移动端/Web模式: 直接设置会话')
-        const { supabase } = await import('@/lib/supabase')
-
-        // Use retry mechanism for setSession
-        const result = await retrySetSession(
-          () => supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
-          (attempt, error) => {
+        const result = await completeBrowserOAuth({
+          accessToken,
+          refreshToken,
+          onRetry: (attempt, error) => {
             const errorMessage = error instanceof Error ? error.message : String(error)
             addDebugInfo(`重试第 ${attempt} 次: ${errorMessage}`)
             if (mounted) {
@@ -196,18 +132,15 @@ export function AuthCallback() {
               setRetryAttempt(attempt)
               setProgress(50 + (attempt * 10))
             }
-          }
-        )
+          },
+        })
 
-        if (!result.success) {
-          const error = result.error as { code?: string; message?: string } | undefined
-          const authErr = error?.code ? getAuthError(error.code) : createAuthError(error)
-          addDebugInfo(`setSession 失败 (${result.attempts} 次尝试): ${error?.message || String(error)}`)
-          console.error('setSession error:', error)
+        if (result.authError) {
+          addDebugInfo(`setSession 失败 (${result.attempts} 次尝试): ${result.authError.message}`)
           if (mounted) {
             setStatus('error')
-            setErrorMsg(authErr.message)
-            setAuthError(authErr)
+            setErrorMsg(result.authError.message)
+            setAuthError(result.authError)
           }
           return
         }
@@ -216,16 +149,14 @@ export function AuthCallback() {
 
         // Wait for auth state to propagate by checking getUser()
         addDebugInfo('等待认证状态更新...')
-        let authStateReady = false
-        for (let i = 0; i < 10; i++) {
-          const { data: { user: currentUser }, error: getUserError } = await supabase.auth.getUser()
-          if (currentUser && !getUserError) {
-            addDebugInfo(`认证状态已更新 (${i + 1} 次检查)`)
-            authStateReady = true
-            break
+        const authState = await waitForAuthenticatedUser()
+        const authStateReady = authState.ready
+        if (authStateReady) {
+          addDebugInfo(`认证状态已更新 (${authState.checkCount} 次检查)`)
+        } else {
+          for (let check = 1; check <= authState.checkCount; check += 1) {
+            addDebugInfo(`等待认证状态... (${check}/${authState.checkCount})`)
           }
-          addDebugInfo(`等待认证状态... (${i + 1}/10)`)
-          await new Promise(resolve => setTimeout(resolve, 300))
         }
 
         if (!authStateReady) {
