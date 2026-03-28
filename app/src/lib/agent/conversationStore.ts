@@ -1,4 +1,5 @@
 import type { Conversation } from './types'
+import { createBrowserStore } from '@/shared/storage/createBrowserStore'
 
 const LEGACY_STORAGE_KEY = 'agent_conversations'
 const MAX_CONVERSATIONS = 50
@@ -17,13 +18,24 @@ export function getStorageKey(agentId: string): string {
   return `agent_conversations_${agentId}`
 }
 
+function getConversationStore(agentId: string) {
+  return createBrowserStore<Conversation[]>({
+    key: getStorageKey(agentId),
+    fallback: [],
+    deserialize: (raw) => {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? normalizeConversations(parsed as Conversation[]) : null
+    },
+  })
+}
+
 /**
  * Load conversations for a specific agent
  */
 export function loadConversations(agentId: string): Conversation[] {
   try {
-    const raw = localStorage.getItem(getStorageKey(agentId))
-    if (raw) return normalizeConversations(JSON.parse(raw) as Conversation[])
+    const stored = getConversationStore(agentId).get()
+    if (stored.length > 0) return stored
 
     // Migration: Check for legacy conversations
     if (agentId === 'financial-analysis') {
@@ -40,7 +52,7 @@ export function loadConversations(agentId: string): Conversation[] {
  */
 export function saveConversations(conversations: Conversation[], agentId: string): void {
   const trimmed = normalizeConversations(conversations.slice(0, MAX_CONVERSATIONS))
-  localStorage.setItem(getStorageKey(agentId), JSON.stringify(trimmed))
+  getConversationStore(agentId).set(trimmed)
 }
 
 /**
@@ -82,7 +94,7 @@ function migrateLegacyConversations(): Conversation[] {
     }
 
     // Migrate to financial-analysis agent storage
-    localStorage.setItem(getStorageKey('financial-analysis'), JSON.stringify(legacyConversations))
+    getConversationStore('financial-analysis').set(legacyConversations)
     // Clear legacy storage
     localStorage.removeItem(LEGACY_STORAGE_KEY)
 
@@ -91,6 +103,13 @@ function migrateLegacyConversations(): Conversation[] {
   } catch {
     return []
   }
+}
+
+export function subscribeConversations(
+  agentId: string,
+  listener: (conversations: Conversation[]) => void,
+): () => void {
+  return getConversationStore(agentId).subscribe(listener)
 }
 
 /**

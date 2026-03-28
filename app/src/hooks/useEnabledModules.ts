@@ -4,7 +4,7 @@ import {
   SECTION_LABELS,
   FIXED_NAV,
 } from '@/config/modules'
-import { getEnabledModules } from '@/lib/moduleStorage'
+import { getEnabledModules, subscribeEnabledModules } from '@/lib/moduleStorage'
 
 export interface NavItem {
   to: string
@@ -23,17 +23,7 @@ export function useEnabledModules() {
   const [enabledModuleIds, setEnabledModuleIds] = useState<string[]>(() => getEnabledModules())
 
   useEffect(() => {
-    const handleStorageChange = () => {
-      setEnabledModuleIds(getEnabledModules())
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-    window.addEventListener('modules-updated', handleStorageChange)
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('modules-updated', handleStorageChange)
-    }
+    return subscribeEnabledModules(setEnabledModuleIds)
   }, [])
 
   const navSections = useMemo(() => buildNavSections(enabledModuleIds), [enabledModuleIds])

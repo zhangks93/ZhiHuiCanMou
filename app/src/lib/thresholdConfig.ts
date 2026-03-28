@@ -1,3 +1,5 @@
+import { createBrowserStore } from '@/shared/storage/createBrowserStore'
+
 // 预警阈值配置管理
 
 export interface ThresholdConfig {
@@ -19,20 +21,25 @@ export const DEFAULT_THRESHOLDS: ThresholdSettings = {
   },
 }
 
+const thresholdSettingsStore = createBrowserStore<ThresholdSettings>({
+  key: STORAGE_KEY,
+  fallback: DEFAULT_THRESHOLDS,
+  deserialize: (raw) => {
+    const parsed = JSON.parse(raw)
+    if (
+      parsed?.default?.yellowThreshold != null &&
+      parsed?.default?.redThreshold != null
+    ) {
+      return parsed as ThresholdSettings
+    }
+    return null
+  },
+})
+
 // 加载阈值配置
 export function loadThresholdSettings(): ThresholdSettings {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      // 验证数据结构
-      if (
-        parsed.default?.yellowThreshold != null &&
-        parsed.default?.redThreshold != null
-      ) {
-        return parsed
-      }
-    }
+    return thresholdSettingsStore.get()
   } catch (error) {
     console.error('[ThresholdConfig] Failed to load settings:', error)
   }
@@ -42,8 +49,7 @@ export function loadThresholdSettings(): ThresholdSettings {
 // 保存阈值配置
 export function saveThresholdSettings(settings: ThresholdSettings): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-    console.log('[ThresholdConfig] Settings saved:', settings)
+    thresholdSettingsStore.set(settings)
   } catch (error) {
     console.error('[ThresholdConfig] Failed to save settings:', error)
   }
@@ -52,6 +58,12 @@ export function saveThresholdSettings(settings: ThresholdSettings): void {
 // 重置为默认阈值
 export function resetThresholdSettings(): void {
   saveThresholdSettings(DEFAULT_THRESHOLDS)
+}
+
+export function subscribeThresholdSettings(
+  listener: (settings: ThresholdSettings) => void,
+): () => void {
+  return thresholdSettingsStore.subscribe(listener)
 }
 
 // 获取节点的预警阈值（统一使用默认阈值）

@@ -1,3 +1,5 @@
+import { createBrowserStore } from '@/shared/storage/createBrowserStore'
+
 export interface LLMConfig {
   provider: 'openai' | 'claude' | 'deepseek' | 'kimi' | 'openrouter'
   apiUrl: string
@@ -34,34 +36,35 @@ export const DEFAULT_MODELS: Record<LLMConfig['provider'], string> = {
   openrouter: 'openai/gpt-4o-mini',
 }
 
+function deserializeStore(raw: string): LLMConfigStore | null {
+  const parsed = JSON.parse(raw)
+  if (parsed?.providers) return parsed as LLMConfigStore
+
+  if (parsed?.provider && parsed?.apiKey) {
+    return {
+      provider: parsed.provider,
+      providers: {
+        [parsed.provider]: {
+          apiUrl: parsed.apiUrl,
+          apiKey: parsed.apiKey,
+          model: parsed.model,
+        },
+      },
+    }
+  }
+
+  return null
+}
+
+const llmConfigStore = createBrowserStore<LLMConfigStore | null>({
+  key: STORAGE_KEY,
+  fallback: null,
+  deserialize: deserializeStore,
+})
+
 /** Read raw store from localStorage, migrating old flat format if needed */
 function loadStore(): LLMConfigStore | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    // New format already has 'providers' key
-    if (parsed.providers) return parsed as LLMConfigStore
-    // Old flat format → migrate
-    if (parsed.provider && parsed.apiKey) {
-      const store: LLMConfigStore = {
-        provider: parsed.provider,
-        providers: {
-          [parsed.provider]: {
-            apiUrl: parsed.apiUrl,
-            apiKey: parsed.apiKey,
-            model: parsed.model,
-          },
-        },
-      }
-      // Persist migrated format
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
-      return store
-    }
-    return null
-  } catch {
-    return null
-  }
+  return llmConfigStore.get()
 }
 
 /** Load active provider's config */
@@ -93,9 +96,15 @@ export function saveLLMConfig(config: LLMConfig): void {
     apiKey: config.apiKey,
     model: config.model,
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+  llmConfigStore.set(store)
 }
 
 export function clearLLMConfig(): void {
-  localStorage.removeItem(STORAGE_KEY)
+  llmConfigStore.remove()
+}
+
+export function subscribeLLMConfig(listener: (config: LLMConfig | null) => void): () => void {
+  return llmConfigStore.subscribe(() => {
+    listener(loadLLMConfig())
+  })
 }

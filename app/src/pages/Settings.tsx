@@ -49,9 +49,6 @@ export function Settings() {
     }
     saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim() })
 
-    // Dispatch custom event to notify agent chat pages (same tab)
-    window.dispatchEvent(new Event('llm-config-updated'))
-
     setFeedback({ type: 'success', msg: '已保存' })
     setTimeout(() => setFeedback(null), 2000)
   }
@@ -74,9 +71,6 @@ export function Settings() {
     setEnabledModules(newEnabled)
     saveEnabledModules(newEnabled)
 
-    // Dispatch custom event to notify other components
-    window.dispatchEvent(new Event('modules-updated'))
-
     setFeedback({ type: 'success', msg: '模块配置已更新' })
     setTimeout(() => setFeedback(null), 2000)
   }
@@ -91,9 +85,6 @@ export function Settings() {
     saveThresholdSettings(tempThresholds)
     setThresholds(tempThresholds)
     setIsEditingThresholds(false)
-
-    // Dispatch custom event to notify business data pages
-    window.dispatchEvent(new Event('threshold-updated'))
 
     setFeedback({ type: 'success', msg: '预警阈值已保存' })
     setTimeout(() => setFeedback(null), 2000)

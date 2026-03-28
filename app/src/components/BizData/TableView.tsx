@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,7 +28,14 @@ import type { EnrichedBizDataNode, MetricCategory } from '@/lib/supabase'
 import { METRIC_LABELS } from '@/lib/constants'
 import { fmt, fmtPct } from '@/lib/format'
 import { getChildren, buildTreeWithAggregation } from '@/services/bizDataService'
-import { getNodeThresholds, getAlertLevel, getAlertColorClass, getAlertBgClass, getAlertBorderClass } from '@/lib/thresholdConfig'
+import {
+  getNodeThresholds,
+  getAlertLevel,
+  getAlertColorClass,
+  getAlertBgClass,
+  getAlertBorderClass,
+  subscribeThresholdSettings,
+} from '@/lib/thresholdConfig'
 
 interface TableViewProps {
   nodes: EnrichedBizDataNode[]
@@ -82,12 +89,10 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
   const [metricOrder, setMetricOrder] = useState<MetricCategory[]>(selectedMetrics)
   const [thresholdVersion, setThresholdVersion] = useState(0)
 
-  useMemo(() => {
-    const handleThresholdUpdate = () => {
-      setThresholdVersion(v => v + 1)
-    }
-    window.addEventListener('threshold-updated', handleThresholdUpdate)
-    return () => window.removeEventListener('threshold-updated', handleThresholdUpdate)
+  useEffect(() => {
+    return subscribeThresholdSettings(() => {
+      setThresholdVersion((v) => v + 1)
+    })
   }, [])
 
   const [showLevels, setShowLevels] = useState({
@@ -97,7 +102,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
     level3: true,
   })
 
-  useMemo(() => {
+  useEffect(() => {
     setMetricOrder(selectedMetrics)
   }, [selectedMetrics])
 

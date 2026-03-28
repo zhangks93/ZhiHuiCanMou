@@ -1,3 +1,5 @@
+import { createBrowserStore } from '@/shared/storage/createBrowserStore'
+
 /**
  * Secure token storage utility with encryption and expiry handling
  * Enables offline authentication and session recovery
@@ -19,6 +21,25 @@ const STORAGE_PREFIX = 'canmou_auth_'
 const STATE_KEY = `${STORAGE_PREFIX}state`
 const SESSION_KEY = `${STORAGE_PREFIX}session`
 
+const authStateStore = createBrowserStore<AuthState | null>({
+  key: STATE_KEY,
+  storage: 'session',
+  fallback: null,
+  deserialize: (raw) => {
+    const parsed = JSON.parse(raw)
+    return parsed?.state && parsed?.expiresAt ? (parsed as AuthState) : null
+  },
+})
+
+const sessionTokenStore = createBrowserStore<StoredToken | null>({
+  key: SESSION_KEY,
+  fallback: null,
+  deserialize: (raw) => {
+    const parsed = JSON.parse(raw)
+    return parsed?.value && parsed?.expiresAt ? (parsed as StoredToken) : null
+  },
+})
+
 /**
  * Store OAuth state parameter with expiry (10 minutes)
  */
@@ -30,7 +51,7 @@ export function storeAuthState(state: string, platform?: 'mobile' | 'desktop'): 
   }
 
   try {
-    sessionStorage.setItem(STATE_KEY, JSON.stringify(authState))
+    authStateStore.set(authState)
   } catch (error) {
     console.error('[AuthStorage] Failed to store auth state:', error)
   }
@@ -42,14 +63,12 @@ export function storeAuthState(state: string, platform?: 'mobile' | 'desktop'): 
  */
 export function getAuthState(): AuthState | null {
   try {
-    const stored = sessionStorage.getItem(STATE_KEY)
-    if (!stored) return null
-
-    const authState: AuthState = JSON.parse(stored)
+    const authState = authStateStore.get()
+    if (!authState) return null
 
     // Check expiry
     if (Date.now() > authState.expiresAt) {
-      sessionStorage.removeItem(STATE_KEY)
+      authStateStore.remove()
       return null
     }
 
@@ -73,7 +92,7 @@ export function validateAuthState(receivedState: string | null): boolean {
 
   // Clear state after validation (one-time use)
   if (isValid) {
-    sessionStorage.removeItem(STATE_KEY)
+    authStateStore.remove()
   }
 
   return isValid
@@ -84,7 +103,7 @@ export function validateAuthState(receivedState: string | null): boolean {
  */
 export function clearAuthState(): void {
   try {
-    sessionStorage.removeItem(STATE_KEY)
+    authStateStore.remove()
   } catch (error) {
     console.error('[AuthStorage] Failed to clear auth state:', error)
   }
@@ -101,7 +120,7 @@ export function storeSessionToken(token: string, expiresInSeconds: number): void
   }
 
   try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(stored))
+    sessionTokenStore.set(stored)
   } catch (error) {
     console.error('[AuthStorage] Failed to store session token:', error)
   }
@@ -112,14 +131,12 @@ export function storeSessionToken(token: string, expiresInSeconds: number): void
  */
 export function getSessionToken(): string | null {
   try {
-    const stored = localStorage.getItem(SESSION_KEY)
-    if (!stored) return null
-
-    const token: StoredToken = JSON.parse(stored)
+    const token = sessionTokenStore.get()
+    if (!token) return null
 
     // Check expiry
     if (Date.now() > token.expiresAt) {
-      localStorage.removeItem(SESSION_KEY)
+      sessionTokenStore.remove()
       return null
     }
 
@@ -135,10 +152,8 @@ export function getSessionToken(): string | null {
  */
 export function getSessionTokenTTL(): number | null {
   try {
-    const stored = localStorage.getItem(SESSION_KEY)
-    if (!stored) return null
-
-    const token: StoredToken = JSON.parse(stored)
+    const token = sessionTokenStore.get()
+    if (!token) return null
     const ttl = Math.floor((token.expiresAt - Date.now()) / 1000)
 
     return ttl > 0 ? ttl : null
@@ -153,7 +168,7 @@ export function getSessionTokenTTL(): number | null {
  */
 export function clearSessionToken(): void {
   try {
-    localStorage.removeItem(SESSION_KEY)
+    sessionTokenStore.remove()
   } catch (error) {
     console.error('[AuthStorage] Failed to clear session token:', error)
   }

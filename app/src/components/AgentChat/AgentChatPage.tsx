@@ -17,6 +17,7 @@ import type {
 } from '@/lib/agent/types'
 import { loadConversations, saveConversations, createConversation, deleteConversation } from '@/lib/agent/conversationStore'
 import { loadLLMConfig } from '@/lib/llmConfig'
+import { subscribeLLMConfig } from '@/lib/llmConfig'
 import {
   buildFinancialAnalysisRuntimeContextBlock,
   getFinancialAnalysisRuntimeDataContext,
@@ -190,14 +191,12 @@ export function AgentChatPage({
 
   // Listen for config updates
   useEffect(() => {
-    const handler = () => {
-      const config = loadLLMConfig()
-      if (config) {
-        setConfigOk(true)
+    return subscribeLLMConfig((config) => {
+      setConfigOk(Boolean(config))
+      if (config && agentRef.current) {
+        agentRef.current.updateConfig(config)
       }
-    }
-    window.addEventListener('llm-config-updated', handler)
-    return () => window.removeEventListener('llm-config-updated', handler)
+    })
   }, [])
 
   // Scroll to bottom on new messages
