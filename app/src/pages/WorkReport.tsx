@@ -1,39 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
-import {
-  Plus,
-  Link2,
-  Trash2,
-  GripVertical,
-  Calendar,
-  Flag,
-  GitBranch,
-} from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { Plus, Link2, Trash2, GripVertical, Calendar, Flag, GitBranch } from 'lucide-react'
 import { MODULE_NAV_CONFIG, DEFAULT_ENABLED_MODULE_IDS } from '@/config/modules'
 import { PageTitle } from '@/components/ui/PageTitle'
-
-interface WorkItemLink {
-  url: string
-  title?: string
-}
-
-interface WorkItem {
-  id: string
-  module_id: string
-  title: string | null
-  content: string | null
-  links: WorkItemLink[]
-  status: string
-  priority: string
-  period_start: string | null
-  period_end: string | null
-  created_at: string
-  reporter_id: string
-}
+import { useWorkReportData } from '@/features/work-report/hooks/useWorkReportData'
+import type { WorkItemLink } from '@/features/work-report/api/workReportRepository'
 
 const MODULE_OPTIONS = DEFAULT_ENABLED_MODULE_IDS.filter(
-  (id) => id !== 'work-report' && MODULE_NAV_CONFIG[id]
+  (id) => id !== 'work-report' && MODULE_NAV_CONFIG[id],
 )
 
 const STATUSES = [
@@ -50,28 +24,8 @@ const PRIORITY_CONFIG: Record<string, { label: string; class: string }> = {
   urgent: { label: '紧急', class: 'badge-error' },
 }
 
-function getWeekRange(): { start: string; end: string } {
-  const now = new Date()
-  const day = now.getDay()
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-  const monday = new Date(now)
-  monday.setDate(diff)
-  const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  return {
-    start: monday.toISOString().slice(0, 10),
-    end: sunday.toISOString().slice(0, 10),
-  }
-}
-
-function parseDroppableId(id: string): { moduleId: string; status: string } {
-  const [, moduleId, status] = id.split('-')
-  return { moduleId: moduleId ?? '', status: status ?? 'todo' }
-}
-
 export function WorkReport() {
-  const [workItems, setWorkItems] = useState<WorkItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const { workItems, loading, moveWorkItem, submitWorkItem } = useWorkReportData()
   const [showForm, setShowForm] = useState(false)
   const [formModule, setFormModule] = useState(MODULE_OPTIONS[0] ?? 'schedule')
   const [formTitle, setFormTitle] = useState('')
@@ -81,131 +35,32 @@ export function WorkReport() {
   const [formLinkUrl, setFormLinkUrl] = useState('')
   const [formLinkTitle, setFormLinkTitle] = useState('')
 
-  function mapStatus(s: string): string {
-    const m: Record<string, string> = {
-      draft: 'todo',
-      submitted: 'in_progress',
-      approved: 'done',
-    }
-    return m[s] ?? (STATUSES.some((st) => st.id === s) ? s : 'todo')
+  const handleDragEnd = async (result: DropResult) => {
+    await moveWorkItem(result)
   }
 
-  const normalizeItems = useCallback((raw: unknown[]): WorkItem[] => {
-    return raw.map((r) => {
-      const row = r as Record<string, unknown>
-      return {
-        id: String(row.id),
-        module_id: String(row.module_id),
-        title: (row.title as string) ?? (row.content ? String(row.content).slice(0, 80) : null) ?? '未命名',
-        content: (row.content as string) ?? null,
-        links: (Array.isArray(row.links) ? row.links : []) as WorkItemLink[],
-        status: mapStatus(String(row.status ?? 'todo')),
-        priority: String(row.priority ?? 'medium'),
-        period_start: (row.period_start as string) ?? null,
-        period_end: (row.period_end as string) ?? null,
-        created_at: String(row.created_at ?? ''),
-        reporter_id: String(row.reporter_id ?? ''),
-      }
-    })
-  }, [])
-
-  const fetchItems = useCallback(async () => {
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (!u) return []
-    const { data } = await supabase
-      .from('work_items')
-      .select('*')
-      .eq('reporter_id', u.id)
-      .order('created_at', { ascending: false })
-    return normalizeItems(data ?? [])
-  }, [normalizeItems])
-
-  useEffect(() => {
-    let cancelled = false
-    fetchItems()
-      .then((items) => {
-        if (!cancelled) {
-          setWorkItems(items)
-          setLoading(false)
-        }
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          console.warn('[WorkReport] Fetch failed:', e)
-          setLoading(false)
-        }
-      })
-    return () => { cancelled = true }
-  }, [fetchItems])
-
-  const handleDragEnd = useCallback(
-    async (result: DropResult) => {
-      if (!result.destination) return
-      const { draggableId, destination } = result
-      const { moduleId, status } = parseDroppableId(destination.droppableId)
-
-      const item = workItems.find((i) => i.id === draggableId)
-      if (!item || (item.module_id === moduleId && item.status === status)) return
-
-      setWorkItems((prev) =>
-        prev.map((i) =>
-          i.id === draggableId ? { ...i, module_id: moduleId, status } : i
-        )
-      )
-
-      const { error } = await supabase
-        .from('work_items')
-        .update({ module_id: moduleId, status, updated_at: new Date().toISOString() })
-        .eq('id', draggableId)
-
-      if (error) {
-        console.error('[WorkReport] Update failed:', error)
-        void fetchItems().then(setWorkItems)
-      }
-    },
-    [workItems, fetchItems]
-  )
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (!u) return
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', u.id)
-      .single()
-    const orgId = profile?.org_id ?? '00000000-0000-0000-0000-000000000001'
-    const { start, end } = getWeekRange()
-
-    const { error } = await supabase.from('work_items').insert({
-      org_id: orgId,
-      module_id: formModule,
-      reporter_id: u.id,
-      title: formTitle || formContent?.slice(0, 80) || '未命名',
-      content: formContent || null,
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const success = await submitWorkItem({
+      moduleId: formModule,
+      title: formTitle,
+      content: formContent,
       links: formLinks,
-      status: 'todo',
       priority: formPriority,
-      period_start: start,
-      period_end: end,
     })
 
-    if (error) {
-      console.error('[WorkReport] Insert failed:', error)
-      return
-    }
+    if (!success) return
+
     setFormTitle('')
     setFormContent('')
     setFormLinks([])
     setShowForm(false)
-    fetchItems().then(setWorkItems)
   }
 
   const addLink = () => {
     if (formLinkUrl.trim()) {
-      setFormLinks((prev) => [
-        ...prev,
+      setFormLinks((previous) => [
+        ...previous,
         { url: formLinkUrl.trim(), title: formLinkTitle.trim() || undefined },
       ])
       setFormLinkUrl('')
@@ -213,14 +68,12 @@ export function WorkReport() {
     }
   }
 
-  const removeLink = (i: number) => {
-    setFormLinks((prev) => prev.filter((_, idx) => idx !== i))
+  const removeLink = (index: number) => {
+    setFormLinks((previous) => previous.filter((_, itemIndex) => itemIndex !== index))
   }
 
   const moduleLabel = (id: string) => MODULE_NAV_CONFIG[id]?.label ?? id
-
-  // Group by project (module_id), then by status
-  const projects = [...new Set(workItems.map((i) => i.module_id))].filter(Boolean)
+  const projects = [...new Set(workItems.map((item) => item.module_id))].filter(Boolean)
   if (projects.length === 0) projects.push(...MODULE_OPTIONS)
 
   return (
@@ -237,10 +90,7 @@ export function WorkReport() {
           <GitBranch size={16} />
           按项目分组、按状态流转，协同推进任务
         </p>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="btn btn-primary btn-sm gap-2"
-        >
+        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary btn-sm gap-2">
           <Plus size={16} />
           新建任务
         </button>
@@ -249,7 +99,7 @@ export function WorkReport() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-        className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 mb-6 shadow-[0_24px_64px_rgba(15,23,42,0.10)]"
+          className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 mb-6 shadow-[0_24px_64px_rgba(15,23,42,0.10)]"
         >
           <h3 className="font-medium text-primary mb-4 flex items-center gap-2">
             <GitBranch size={18} />
@@ -290,9 +140,9 @@ export function WorkReport() {
                 onChange={(e) => setFormPriority(e.target.value)}
                 className="select select-bordered select-sm w-full max-w-xs"
               >
-                {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v.label}
+                {Object.entries(PRIORITY_CONFIG).map(([key, value]) => (
+                  <option key={key} value={key}>
+                    {value.label}
                   </option>
                 ))}
               </select>
@@ -332,21 +182,17 @@ export function WorkReport() {
               </div>
               {formLinks.length > 0 && (
                 <ul className="space-y-1">
-                  {formLinks.map((l, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm">
+                  {formLinks.map((link, index) => (
+                    <li key={`${link.url}-${index}`} className="flex items-center gap-2 text-sm">
                       <a
-                        href={l.url}
+                        href={link.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="link link-accent truncate flex-1"
                       >
-                        {l.title || l.url}
+                        {link.title || link.url}
                       </a>
-                      <button
-                        type="button"
-                        onClick={() => removeLink(i)}
-                        className="text-error hover:underline"
-                      >
+                      <button type="button" onClick={() => removeLink(index)} className="text-error hover:underline">
                         <Trash2 size={14} />
                       </button>
                     </li>
@@ -355,12 +201,8 @@ export function WorkReport() {
               )}
             </div>
             <div className="flex gap-2">
-              <button type="submit" className="btn btn-primary btn-sm">
-                创建
-              </button>
-              <button type="button" onClick={() => setShowForm(false)} className="btn btn-ghost btn-sm">
-                取消
-              </button>
+              <button type="submit" className="btn btn-primary btn-sm">创建</button>
+              <button type="button" onClick={() => setShowForm(false)} className="btn btn-ghost btn-sm">取消</button>
             </div>
           </div>
         </form>
@@ -375,15 +217,10 @@ export function WorkReport() {
               <table className="w-full min-w-[800px] border-collapse">
                 <thead>
                   <tr className="border-b border-primary-200 bg-primary-50/50">
-                    <th className="w-40 px-4 py-3 text-left text-sm font-medium text-primary-500">
-                      项目
-                    </th>
-                    {STATUSES.map((s) => (
-                      <th
-                        key={s.id}
-                        className="min-w-[200px] px-3 py-3 text-center text-sm font-medium text-primary-500"
-                      >
-                        {s.label}
+                    <th className="w-40 px-4 py-3 text-left text-sm font-medium text-primary-500">项目</th>
+                    {STATUSES.map((status) => (
+                      <th key={status.id} className="min-w-[200px] px-3 py-3 text-center text-sm font-medium text-primary-500">
+                        {status.label}
                       </th>
                     ))}
                   </tr>
@@ -392,15 +229,11 @@ export function WorkReport() {
                   {projects.map((projectId) => (
                     <tr key={projectId} className="border-b border-primary-100">
                       <td className="px-4 py-3 align-top">
-                        <div className="font-medium text-primary sticky left-0">
-                          {moduleLabel(projectId)}
-                        </div>
+                        <div className="font-medium text-primary sticky left-0">{moduleLabel(projectId)}</div>
                       </td>
                       {STATUSES.map((status) => {
                         const droppableId = `project-${projectId}-${status.id}`
-                        const items = workItems.filter(
-                          (i) => i.module_id === projectId && i.status === status.id
-                        )
+                        const items = workItems.filter((item) => item.module_id === projectId && item.status === status.id)
                         return (
                           <td key={droppableId} className="align-top p-2">
                             <Droppable droppableId={droppableId} direction="vertical">
@@ -410,41 +243,31 @@ export function WorkReport() {
                                   {...provided.droppableProps}
                                   className={`min-h-[120px] rounded-lg px-3 py-2 transition-colors ${
                                     snapshot.isDraggingOver ? 'bg-accent/10 ring-2 ring-accent/30' : ''
-                                  } ${STATUSES.find((s) => s.id === status.id)?.color ?? 'bg-base-200/50'}`}
+                                  } ${status.color}`}
                                 >
                                   {items.length === 0 && !snapshot.isDraggingOver && (
-                                    <div className="text-xs text-primary-400/70 py-4 text-center">
-                                      拖拽卡片到此处
-                                    </div>
+                                    <div className="text-xs text-primary-400/70 py-4 text-center">拖拽卡片到此处</div>
                                   )}
-                                  {items.map((item, idx) => (
-                                    <Draggable
-                                      key={item.id}
-                                      draggableId={item.id}
-                                      index={idx}
-                                    >
-                                      {(prov, snap) => (
+                                  {items.map((item, index) => (
+                                    <Draggable key={item.id} draggableId={item.id} index={index}>
+                                      {(dragProvided, dragSnapshot) => (
                                         <div
-                                          ref={prov.innerRef}
-                                          {...prov.draggableProps}
+                                          ref={dragProvided.innerRef}
+                                          {...dragProvided.draggableProps}
                                           className={`mb-2 rounded-lg border border-primary-200 bg-surface p-3 shadow-card hover:shadow-card-hover transition-shadow ${
-                                            snap.isDragging ? 'opacity-90 shadow-lg' : ''
+                                            dragSnapshot.isDragging ? 'opacity-90 shadow-lg' : ''
                                           }`}
                                         >
                                           <div className="flex items-start gap-2">
                                             <div
-                                              {...prov.dragHandleProps}
+                                              {...dragProvided.dragHandleProps}
                                               className="mt-0.5 cursor-grab text-primary-300 hover:text-primary"
                                             >
                                               <GripVertical size={14} />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                               <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                <span
-                                                  className={`badge badge-sm ${
-                                                    PRIORITY_CONFIG[item.priority]?.class ?? 'badge-ghost'
-                                                  }`}
-                                                >
+                                                <span className={`badge badge-sm ${PRIORITY_CONFIG[item.priority]?.class ?? 'badge-ghost'}`}>
                                                   {PRIORITY_CONFIG[item.priority]?.label ?? '中'}
                                                 </span>
                                               </div>

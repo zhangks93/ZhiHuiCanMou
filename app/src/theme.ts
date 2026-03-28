@@ -5,7 +5,6 @@
  * 修改此文件即可快速调整全局 UI 样式
  */
 
-// ─── 颜色体系 ───────────────────────────────────────
 export const colors = {
   primary: {
     DEFAULT: '#304766',
@@ -74,7 +73,6 @@ export const colors = {
   },
 } as const
 
-// ─── 透明度预设（与主色搭配使用）─────────────────────
 export const alpha = {
   accent: {
     '4': 'rgba(95, 127, 188, 0.04)',
@@ -143,106 +141,61 @@ export const alpha = {
   },
 } as const
 
-// ─── 字体 ────────────────────────────────────────────
 export const fonts = {
-  /** 正文字体 */
   body: '"Aptos", "Segoe UI Variable Text", "PingFang SC", "Microsoft YaHei", sans-serif',
-  /** 标题字体（衬线） */
   heading: '"Iowan Old Style", "Source Han Serif SC", "Noto Serif SC", serif',
-  /** Tailwind sans-serif 栈 */
   sans: ['Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
-  /** Tailwind serif 栈 */
   serif: ['Noto Serif SC', 'Noto Sans SC', 'serif'],
 } as const
 
-// ─── 字号体系 ─────────────────────────────────────────
 export const fontSize = {
-  /** 极小标签 10px */
   '2xs': '0.625rem',
-  /** 小标签 11px */
   xs: '0.6875rem',
-  /** 辅助文字 12px */
   sm: '0.75rem',
-  /** 正文 (默认) 13px */
   base: '0.8125rem',
-  /** 略大正文 14px */
   md: '0.875rem',
-  /** 中等 15px */
   lg: '0.9375rem',
-  /** 较大 16px */
   xl: '1rem',
-  /** 小标题 18px */
   '2xl': '1.125rem',
-  /** 标题 20px */
   '3xl': '1.25rem',
-  /** 大标题 24px */
   '4xl': '1.5rem',
-  /** 特大标题 28px */
   '5xl': '1.75rem',
 } as const
 
-// ─── 圆角体系 ─────────────────────────────────────────
 export const radius = {
-  /** 小圆角 6px */
   sm: '0.375rem',
-  /** 中圆角 8px */
   md: '0.5rem',
-  /** 略大 12px */
   lg: '0.75rem',
-  /** 标准 16px */
   xl: '1rem',
-  /** 输入框 17px */
   input: '1.05rem',
-  /** 按钮 17.6px */
   btn: '1.1rem',
-  /** 卡片 20px */
   card: '20px',
-  /** 侧边栏 22px */
   sidebar: '22px',
-  /** 区域卡片 24px */
   section: '24px',
-  /** 面板 28px */
   panel: '28px',
-  /** 模态框 30px */
   modal: '30px',
-  /** 英雄区 32px */
   hero: '32px',
-  /** 药丸/圆形 9999px */
   pill: '9999px',
 } as const
 
-// ─── 阴影体系 ─────────────────────────────────────────
 export const shadow = {
-  /** 极轻阴影 */
   xs: '0 1px 2px rgba(15, 23, 42, 0.05)',
-  /** 卡片阴影 */
   card: '0 2px 8px rgba(26, 39, 68, 0.06)',
-  /** 柔和阴影 */
   soft: '0 18px 54px rgba(15, 23, 42, 0.08)',
-  /** 卡片悬浮 */
   cardHover: '0 8px 24px rgba(26, 39, 68, 0.08)',
-  /** 大面积悬浮 */
   panelHover: '0 24px 72px rgba(15, 23, 42, 0.13)',
-  /** 提示框 */
   tooltip: '0 12px 32px rgba(15, 23, 42, 0.12)',
-  /** 模态框 */
   modal: '0 30px 72px rgba(15, 23, 42, 0.2)',
-  /** 侧边栏 */
   sidebar: '0 24px 64px rgba(15, 23, 42, 0.10)',
-  /** 内嵌柔光 */
   innerSoft: 'inset 0 1px 1px rgba(255, 255, 255, 0.5)',
   innerWhite: 'inset 0 1px 0 rgba(255, 255, 255, 0.7)',
   innerWhiteStrong: 'inset 0 1px 0 rgba(255, 255, 255, 0.75)',
-  /** 强调按钮发光 */
   btnPrimary: '0 14px 32px rgba(95, 127, 188, 0.20)',
   btnError: '0 14px 32px rgba(220, 38, 38, 0.18)',
-  /** 聚焦环 */
   focusRing: '0 0 0 4px rgba(95, 127, 188, 0.08)',
-  /** 激活对话项 */
   chatActive: '0 10px 24px rgba(95, 127, 188, 0.10)',
 } as const
 
-// ─── 布局 ────────────────────────────────────────────
 export const layout = {
   sidebarWidth: '272px',
   sidebarWidthCollapsed: '96px',
@@ -256,7 +209,6 @@ export const layout = {
   chatSidebarWidthCollapsed: '5.75rem',
 } as const
 
-// ─── 毛玻璃效果 ──────────────────────────────────────
 export const glass = {
   blur: {
     sm: 'blur(8px)',
@@ -269,14 +221,12 @@ export const glass = {
   },
 } as const
 
-// ─── 过渡动画 ─────────────────────────────────────────
 export const transition = {
   fast: '160ms ease',
   normal: '200ms ease',
   smooth: '180ms ease-out',
 } as const
 
-// ─── 动画定义 ─────────────────────────────────────────
 export const animation = {
   fadeIn: 'fadeIn 0.4s ease-out forwards',
   slideUp: 'slideUp 0.35s ease-out forwards',
@@ -287,48 +237,40 @@ export const animation = {
   breathe: 'breathe 2s ease-in-out infinite',
 } as const
 
-// ─── 背景渐变预设 ─────────────────────────────────────
 export const gradient = {
-  /** 主背景 */
   pageBackground: [
     'radial-gradient(circle at 8% 10%, rgba(95, 127, 188, 0.12), transparent 24%)',
     'radial-gradient(circle at 88% 8%, rgba(142, 169, 213, 0.08), transparent 26%)',
     'radial-gradient(circle at 82% 82%, rgba(15, 23, 42, 0.06), transparent 22%)',
     'linear-gradient(180deg, #f8fbff 0%, #eff4fb 48%, #edf2f8 100%)',
   ].join(', '),
-  /** 主按钮 */
   btnPrimary: 'linear-gradient(135deg, #4f6fae, #5f7fbc 56%, #7d99ca)',
   btnPrimaryHover: 'linear-gradient(135deg, #425f99, #4f6fae 56%, #5f7fbc)',
-  /** 错误按钮 */
   btnError: 'linear-gradient(135deg, #b91c1c, #dc2626)',
-  /** 用户头像 */
   avatarUser: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-  /** 空状态图标 */
   emptyIcon: 'linear-gradient(135deg, #0f172a, #1e293b)',
 } as const
 
-// ─── DaisyUI 主题映射 ─────────────────────────────────
 export const daisyTheme = {
-  'primary': colors.primary.DEFAULT,
+  primary: colors.primary.DEFAULT,
   'primary-content': '#ffffff',
-  'secondary': colors.primary.dark,
-  'accent': colors.accent.DEFAULT,
-  'neutral': '#1a202c',
+  secondary: colors.primary.dark,
+  accent: colors.accent.DEFAULT,
+  neutral: '#1a202c',
   'neutral-content': '#f9fafb',
   'base-100': colors.surface,
   'base-200': colors.background,
   'base-300': '#e8e6e3',
   'base-content': '#2d3748',
-  'info': colors.accent.DEFAULT,
-  'success': colors.success.DEFAULT,
+  info: colors.accent.DEFAULT,
+  success: colors.success.DEFAULT,
   'success-content': '#ffffff',
-  'warning': colors.warning.DEFAULT,
+  warning: colors.warning.DEFAULT,
   'warning-content': '#1a202c',
-  'error': colors.error.DEFAULT,
+  error: colors.error.DEFAULT,
   'error-content': '#ffffff',
 } as const
 
-// ─── 聚合导出 ─────────────────────────────────────────
 const theme = {
   colors,
   alpha,

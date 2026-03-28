@@ -14,8 +14,9 @@ import {
   Building2,
   Clock3,
 } from 'lucide-react'
-import { supabase, type OpportunityLedger } from '@/lib/supabase'
+import type { OpportunityLedger } from '@/lib/supabase'
 import { AppLoading } from '@/components/ui/AppLoading'
+import { useOpportunityData } from '@/features/opportunity/hooks/useOpportunityData'
 
 // ─── Stage config ────────────────────────────────────────────────────────────
 
@@ -500,8 +501,7 @@ function PagBtn({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export function Opportunity() {
-  const [allData, setAllData] = useState<OpportunityLedger[]>([])
-  const [loading, setLoading] = useState(true)
+  const { allData, loading } = useOpportunityData()
 
   // Filters
   const [filterGroup, setFilterGroup] = useState('all')
@@ -514,23 +514,6 @@ export function Opportunity() {
   const [sortCol, setSortCol] = useState('first_year_revenue')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
-
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('opportunity_ledger')
-        .select('*')
-        .order('row_number', { ascending: true })
-
-      if (!error && data) {
-        setAllData(data as OpportunityLedger[])
-      }
-      setLoading(false)
-    }
-
-    void fetchData()
-  }, [])
 
   // Derived: group & stage filter options
   const groupOptions = useMemo(() => {

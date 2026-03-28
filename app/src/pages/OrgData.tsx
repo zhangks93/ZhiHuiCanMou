@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase, type FeishuDepartment, type FeishuMember } from '@/lib/supabase'
+import type { FeishuDepartment, FeishuMember } from '@/lib/supabase'
 import { Users, Building2, ChevronRight, ChevronDown, Layers3 } from 'lucide-react'
+import { useOrgDirectoryData } from '@/features/org/hooks/useOrgDirectoryData'
 
 interface DeptNode extends FeishuDepartment {
   children: DeptNode[]
@@ -128,22 +129,9 @@ function OrgTreeNode({
 }
 
 export function OrgData() {
-  const [departments, setDepartments] = useState<FeishuDepartment[]>([])
-  const [members, setMembers] = useState<FeishuMember[]>([])
-  const [loading, setLoading] = useState(true)
+  const { departments, members, loading } = useOrgDirectoryData()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedId, setSelectedId] = useState('')
-
-  useEffect(() => {
-    Promise.all([
-      supabase.from('feishu_departments').select('*'),
-      supabase.from('feishu_members').select('*'),
-    ]).then(([deptRes, memRes]) => {
-      setDepartments((deptRes.data ?? []) as FeishuDepartment[])
-      setMembers((memRes.data ?? []) as FeishuMember[])
-      setLoading(false)
-    })
-  }, [])
 
   const tree = useMemo(() => buildTree(departments, members), [departments, members])
   const allNodes = useMemo(() => flattenTree(tree), [tree])
