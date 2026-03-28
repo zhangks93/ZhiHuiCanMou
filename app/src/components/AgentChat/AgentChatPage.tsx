@@ -17,7 +17,7 @@ import type {
 } from '@/lib/agent/types'
 import { loadConversations, saveConversations, createConversation, deleteConversation } from '@/lib/agent/conversationStore'
 import { loadLLMConfig } from '@/lib/llmConfig'
-import { subscribeLLMConfig } from '@/lib/llmConfig'
+import { useAgentConfig } from '@/features/agent-chat/hooks/useAgentConfig'
 import {
   buildFinancialAnalysisRuntimeContextBlock,
   getFinancialAnalysisRuntimeDataContext,
@@ -157,7 +157,6 @@ export function AgentChatPage({
   const [streamingMsg, setStreamingMsg] = useState<ChatMessage | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [agentSheetOpen, setAgentSheetOpen] = useState(false)
-  const [configOk, setConfigOk] = useState(false)
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -165,17 +164,13 @@ export function AgentChatPage({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const shouldAutoScrollRef = useRef(true)
   const agentRef = useRef<InstanceType<typeof import('@/lib/agent').ChatAgent> | null>(null)
+  const { configOk } = useAgentConfig(agentRef)
 
   // Get active agent
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0]
 
   // Initialize agent and load conversations
   useEffect(() => {
-    const config = loadLLMConfig()
-    if (config) {
-      setConfigOk(true)
-    }
-
     // Load conversations for current agent
     const saved = loadConversations(activeAgentId)
     setConversations(saved)
@@ -188,16 +183,6 @@ export function AgentChatPage({
       setSidebarOpen(true)
     }
   }, [activeAgentId])
-
-  // Listen for config updates
-  useEffect(() => {
-    return subscribeLLMConfig((config) => {
-      setConfigOk(Boolean(config))
-      if (config && agentRef.current) {
-        agentRef.current.updateConfig(config)
-      }
-    })
-  }, [])
 
   // Scroll to bottom on new messages
   useEffect(() => {
