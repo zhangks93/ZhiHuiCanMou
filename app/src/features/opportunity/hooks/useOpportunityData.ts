@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { OpportunityLedger } from '@/lib/supabase'
 import { fetchOpportunityLedger } from '../api/opportunityRepository'
+import type { OpportunityLedger } from '../types'
 
 export function useOpportunityData() {
   const [allData, setAllData] = useState<OpportunityLedger[]>([])

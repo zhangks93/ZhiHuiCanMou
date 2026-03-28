@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FeishuDepartment, FeishuMember } from '@/lib/supabase'
 import { Users, Building2, ChevronRight, ChevronDown, Layers3 } from 'lucide-react'
 import { useOrgDirectoryData } from '../hooks/useOrgDirectoryData'
+import type { FeishuDepartment, FeishuMember } from '../types'
 
 interface DeptNode extends FeishuDepartment {
   children: DeptNode[]

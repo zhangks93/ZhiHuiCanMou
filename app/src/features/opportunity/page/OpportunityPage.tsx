@@ -14,9 +14,9 @@ import {
   Building2,
   Clock3,
 } from 'lucide-react'
-import type { OpportunityLedger } from '@/lib/supabase'
 import { AppLoading } from '@/components/ui/AppLoading'
 import { useOpportunityData } from '../hooks/useOpportunityData'
+import type { OpportunityLedger } from '../types'
 
 // ─── Stage config ────────────────────────────────────────────────────────────
 

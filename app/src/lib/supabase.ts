@@ -280,27 +280,6 @@ export interface WorkItem {
   updated_at: string
 }
 
-// --- Opportunity Ledger (商机项目台账, visible_v1 schema) ---
-export interface OpportunityLedger {
-  id: string
-  snapshot_id: string
-  snapshot_date: string
-  sheet_name: string
-  row_number: number
-  schema_version: string
-  project_group: string | null
-  project_name: string
-  stage_code: string
-  stage_label: string
-  progress_note: string | null
-  target_date: string | null
-  target_date_raw: string | null
-  first_year_revenue: number | null
-  first_year_revenue_raw: string | null
-  created_at: string
-  updated_at: string
-}
-
 // --- User metadata from Feishu OAuth ---
 export interface UserMetadata {
   name?: string
@@ -316,35 +295,3 @@ export function getUserDisplayInfo(user: User): { name: string; avatarUrl?: stri
   }
 }
 
-// --- 飞书通讯录 ---
-export interface FeishuDepartment {
-  id: string
-  department_id: string
-  name: string
-  parent_id: string | null
-  order_value: number
-  member_count: number
-  leader_user_id: string | null
-  status: Record<string, unknown> | null
-  created_at: string
-  updated_at: string
-}
-
-export interface FeishuMember {
-  id: string
-  open_id: string
-  user_id: string | null
-  name: string
-  en_name: string | null
-  employee_no: string | null
-  email: string | null
-  avatar_url: string | null
-  department_ids: string[]
-  job_title: string | null
-  gender: number
-  employee_type: number | null
-  status: Record<string, unknown> | null
-  join_time: number | null
-  created_at: string
-  updated_at: string
-}

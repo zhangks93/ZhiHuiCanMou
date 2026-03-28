@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { FeishuDepartment, FeishuMember } from '@/lib/supabase'
 import { fetchOrgDirectory } from '../api/orgRepository'
+import type { FeishuDepartment, FeishuMember } from '../types'
 
 export function useOrgDirectoryData() {
   const [departments, setDepartments] = useState<FeishuDepartment[]>([])
