@@ -76,13 +76,13 @@ function AddModal({
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={16} /></button>
         </div>
         <div className="space-y-3">
-          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="日程标题" className="input input-bordered w-full text-sm" />
+          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="日程标题" className="input input-bordered w-full text-body" />
           <div className="flex gap-2">
             {(['morning', 'afternoon', 'evening'] as Period[]).map((value) => (
               <button
                 key={value}
                 onClick={() => setPeriod(value)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${period === value ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                className={`flex-1 py-1.5 rounded-lg text-caption font-medium transition-colors ${period === value ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >
                 {PERIOD_LABEL[value]}
               </button>
@@ -93,14 +93,14 @@ function AddModal({
               <button
                 key={value}
                 onClick={() => setType(value)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${type === value ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                className={`flex-1 py-1.5 rounded-lg text-caption font-medium transition-colors ${type === value ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >
                 {TYPE_LABEL[value]}
               </button>
             ))}
           </div>
-          <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="地点（可选）" className="input input-bordered w-full text-sm" />
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="描述（可选）" className="textarea textarea-bordered w-full text-sm" rows={2} />
+          <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="地点（可选）" className="input input-bordered w-full text-body" />
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="描述（可选）" className="textarea textarea-bordered w-full text-body" rows={2} />
           <button onClick={handleSave} disabled={saving || !title.trim()} className="btn btn-primary btn-sm w-full">
             {saving ? '保存中...' : '添加'}
           </button>
@@ -145,10 +145,10 @@ function NotesModal({
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
           placeholder="记录会议要点、决议事项、待办跟进..."
-          className="textarea textarea-bordered w-full text-sm leading-relaxed"
+          className="textarea textarea-bordered w-full text-body leading-relaxed"
           rows={8}
         />
-        <p className="text-xs text-gray-400 mt-1 mb-3">会议纪要将被 AI 分析助手用于提供更精准的业务洞察</p>
+        <p className="text-caption text-gray-400 mt-1 mb-3">会议纪要将被 AI 分析助手用于提供更精准的业务洞察</p>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="btn btn-ghost btn-sm">取消</button>
           <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">{saving ? '保存中...' : '保存'}</button>
@@ -206,8 +206,8 @@ export function SchedulePage() {
 
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="app-table-shell p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Calendar size={18} strokeWidth={1.5} className="text-accent" />
@@ -217,7 +217,7 @@ export function SchedulePage() {
             </div>
             <div className="flex gap-1">
               <button onClick={() => setWeekOffset((value) => value - 1)} className="btn btn-ghost btn-xs">‹</button>
-              <button onClick={() => { setWeekOffset(0); setSelectedDate(fmtDate(today)) }} className="btn btn-ghost btn-xs text-xs">今天</button>
+              <button onClick={() => { setWeekOffset(0); setSelectedDate(fmtDate(today)) }} className="btn btn-ghost btn-xs text-caption">今天</button>
               <button onClick={() => setWeekOffset((value) => value + 1)} className="btn btn-ghost btn-xs">›</button>
             </div>
           </div>
@@ -235,9 +235,9 @@ export function SchedulePage() {
                   className={`min-w-[48px] py-2 rounded-lg text-center transition-colors flex-shrink-0 relative
                     ${isSelected ? 'bg-accent text-white shadow-card' : isTodayValue ? 'bg-accent/10 text-accent border border-accent/30' : 'bg-primary-50 text-[var(--color-text)] hover:bg-primary-100 border border-[var(--color-border)]'}`}
                 >
-                  <div className="text-xs opacity-80">{WEEKDAYS[index]}</div>
-                  <div className="text-base font-semibold">{date.getDate()}</div>
-                  {count > 0 && <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-medium ${isSelected ? 'bg-white text-accent' : 'bg-accent text-white'}`}>{count}</div>}
+                  <div className="text-caption opacity-80">{WEEKDAYS[index]}</div>
+                  <div className="text-body font-semibold">{date.getDate()}</div>
+                  {count > 0 && <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full text-caption flex items-center justify-center font-medium ${isSelected ? 'bg-white text-accent' : 'bg-accent text-white'}`}>{count}</div>}
                 </button>
               )
             })}
@@ -245,21 +245,21 @@ export function SchedulePage() {
           <button onClick={() => setShowAdd(true)} className="btn btn-primary btn-sm w-full gap-1.5">
             <Plus size={14} /> 添加日程
           </button>
-        </div>
+        </section>
 
-        <div className="lg:col-span-2 bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
+        <section className="app-table-shell p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-medium text-[var(--color-text-strong)] font-serif">
               {selectedDate} 日程
             </h3>
-            <span className="text-xs text-gray-400">{loading ? '加载中...' : `${dayItems.length} 项`}</span>
+            <span className="text-caption text-gray-400">{loading ? '加载中...' : `${dayItems.length} 项`}</span>
           </div>
 
           {dayItems.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <Calendar size={32} className="mx-auto mb-2 opacity-40" />
-              <p className="text-sm">{loading ? '加载中...' : '当日暂无日程'}</p>
-              {!loading && <button onClick={() => setShowAdd(true)} className="text-xs text-accent mt-2 hover:underline">点击添加</button>}
+              <p className="text-body">{loading ? '加载中...' : '当日暂无日程'}</p>
+              {!loading && <button onClick={() => setShowAdd(true)} className="text-caption text-accent mt-2 hover:underline">点击添加</button>}
             </div>
           ) : (
             <div className="space-y-4">
@@ -267,21 +267,21 @@ export function SchedulePage() {
                 const Icon = PERIOD_ICON[period]
                 return (
                   <div key={period}>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="mb-3 flex items-center gap-2">
                       <Icon size={14} className="text-accent" />
-                      <span className="text-xs font-medium text-gray-500">{PERIOD_LABEL[period]}</span>
+                      <span className="text-caption font-medium text-gray-500">{PERIOD_LABEL[period]}</span>
                     </div>
                     <div className="space-y-2 ml-5">
                       {periodItems.map((item) => (
-                        <div key={item.id} className="group flex gap-3 p-3 rounded-lg bg-primary-50/80 border-l-[3px] border-accent hover:bg-primary-50 transition-colors">
+                        <div key={item.id} className="group flex gap-3 rounded-[18px] border border-[var(--color-border)] bg-white/78 p-3.5 transition-colors hover:bg-primary-50/70">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-[var(--color-text-strong)] truncate">{item.title}</span>
-                              {item.type && <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${TYPE_COLOR[item.type]}`}>{TYPE_LABEL[item.type]}</span>}
+                              {item.type && <span className={`text-caption px-1.5 py-0.5 rounded font-medium ${TYPE_COLOR[item.type]}`}>{TYPE_LABEL[item.type]}</span>}
                               {item.meeting_notes && <FileText size={12} className="text-accent" />}
                             </div>
                             {(item.description || item.location) && (
-                              <div className="text-sm text-[var(--color-text-muted)] truncate mt-0.5">
+                              <div className="text-body text-[var(--color-text-muted)] truncate mt-0.5">
                                 {[item.location, item.description].filter(Boolean).join(' · ')}
                               </div>
                             )}
@@ -302,7 +302,7 @@ export function SchedulePage() {
               })}
             </div>
           )}
-        </div>
+        </section>
       </div>
 
       {showAdd && <AddModal date={selectedDate} onClose={() => setShowAdd(false)} onSaved={handleCreate} />}

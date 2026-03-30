@@ -30,7 +30,7 @@ function ToolCallItem({ toolCall }: { toolCall: ToolCallRecord }) {
         <span className="chat-process-item-meta">
           <ToolStatusIcon status={toolCall.status} />
           <Wrench size={14} />
-          <span className="font-mono text-[12px]">{toolCall.name}</span>
+          <span className="font-mono text-caption">{toolCall.name}</span>
         </span>
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
@@ -46,7 +46,7 @@ function ToolCallItem({ toolCall }: { toolCall: ToolCallRecord }) {
               <pre>{toolCall.result}</pre>
             </div>
           )}
-          {toolCall.error && <div className="text-error text-xs">{toolCall.error}</div>}
+          {toolCall.error && <div className="text-error text-caption">{toolCall.error}</div>}
         </div>
       )}
     </div>

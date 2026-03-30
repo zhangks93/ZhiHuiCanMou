@@ -4,17 +4,10 @@ import { MainLayout } from '@/app/layout/MainLayout'
 import { ProtectedRoute } from '@/app/router/ProtectedRoute'
 import { PublicRoute } from '@/app/router/PublicRoute'
 import { AppLoading } from '@/shared/ui/AppLoading'
-import { ROUTES } from '@/app/config/constants'
+import { ROUTES, buildDataHref, buildWorkspaceHref } from '@/app/config/constants'
 
-const Dashboard = lazy(() => import('@/features/dashboard').then(module => ({ default: module.DashboardPage })))
-const Schedule = lazy(() => import('@/features/schedule').then(module => ({ default: module.SchedulePage })))
-const OrgData = lazy(() => import('@/features/org').then(module => ({ default: module.OrgDataPage })))
-const BizData = lazy(() => import('@/features/biz-data').then(module => ({ default: module.BizDataPage })))
-const Opportunity = lazy(() => import('@/features/opportunity').then(module => ({ default: module.OpportunityPage })))
-const Competitor = lazy(() => import('@/features/competitor').then(module => ({ default: module.CompetitorPage })))
-const Trip = lazy(() => import('@/features/trip').then(module => ({ default: module.TripPage })))
-const Attendance = lazy(() => import('@/features/attendance').then(module => ({ default: module.AttendancePage })))
-const Links = lazy(() => import('@/features/links').then(module => ({ default: module.LinksPage })))
+const Workspace = lazy(() => import('@/features/workspace').then(module => ({ default: module.WorkspacePage })))
+const DataHub = lazy(() => import('@/features/data-hub').then(module => ({ default: module.DataHubPage })))
 const AgentChat = lazy(() => import('@/features/agent-chat').then(module => ({ default: module.AgentChatFeaturePage })))
 const Settings = lazy(() => import('@/features/settings').then(module => ({ default: module.SettingsPage })))
 const Login = lazy(() => import('@/features/auth').then(module => ({ default: module.LoginPage })))
@@ -50,15 +43,16 @@ export function AppRoutes() {
           </ProtectedRoute>
         )}
       >
-        <Route index element={withRouteSuspense(<Dashboard />)} />
-        <Route path="schedule" element={withRouteSuspense(<Schedule />)} />
-        <Route path="org-data" element={withRouteSuspense(<OrgData />)} />
-        <Route path="biz-data" element={withRouteSuspense(<BizData />)} />
-        <Route path="opportunity" element={withRouteSuspense(<Opportunity />)} />
-        <Route path="competitor" element={withRouteSuspense(<Competitor />)} />
-        <Route path="trip" element={withRouteSuspense(<Trip />)} />
-        <Route path="attendance" element={withRouteSuspense(<Attendance />)} />
-        <Route path="links" element={withRouteSuspense(<Links />)} />
+        <Route index element={withRouteSuspense(<Workspace />)} />
+        <Route path="data" element={withRouteSuspense(<DataHub />)} />
+        <Route path="schedule" element={<Navigate to={buildWorkspaceHref('schedule')} replace />} />
+        <Route path="links" element={<Navigate to={buildWorkspaceHref('links')} replace />} />
+        <Route path="org-data" element={<Navigate to={buildDataHref('org-data')} replace />} />
+        <Route path="biz-data" element={<Navigate to={buildDataHref('biz-data')} replace />} />
+        <Route path="opportunity" element={<Navigate to={buildDataHref('opportunity')} replace />} />
+        <Route path="competitor" element={<Navigate to={buildDataHref('competitor')} replace />} />
+        <Route path="trip" element={<Navigate to={buildDataHref('trip')} replace />} />
+        <Route path="attendance" element={<Navigate to={buildDataHref('attendance')} replace />} />
         <Route path="ai" element={withRouteSuspense(<AgentChat />)} />
         <Route path="settings" element={withRouteSuspense(<Settings />)} />
         <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />

@@ -1,25 +1,33 @@
-import { Clock, User, AlertCircle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Fragment } from 'react'
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Clock, User } from 'lucide-react'
 import { useAttendanceData } from '../hooks/useAttendanceData'
 
 function RateBadge({ rate }: { rate: number }) {
   const style = rate >= 95 ? 'bg-green-100 text-green-700' : rate >= 90 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-  return <span className={`text-xs px-2 py-0.5 rounded font-medium ${style}`}>{rate.toFixed(1)}%</span>
+  return <span className={`rounded font-medium text-caption px-2 py-0.5 ${style}`}>{rate.toFixed(1)}%</span>
 }
+
+const STAT_TONE = {
+  blue: 'bg-accent-50 text-accent',
+  green: 'bg-success-100 text-success-700',
+  yellow: 'bg-warning-100 text-warning-700',
+  red: 'bg-error-100 text-error-700',
+} as const
 
 function StatCard({ icon: Icon, label, value, color = 'blue' }: {
   icon: React.ElementType
   label: string
   value: string | number
-  color?: string
+  color?: keyof typeof STAT_TONE
 }) {
   return (
-    <div className="bg-white/86 backdrop-blur-xl rounded-[18px] border border-[var(--color-border)] p-4 shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
-      <div className={`p-2 rounded-lg bg-${color}-50 text-${color}-600 w-fit`}>
+    <div className="app-metric-card p-4">
+      <div className={`w-fit rounded-lg p-2 ${STAT_TONE[color]}`}>
         <Icon size={20} />
       </div>
       <div className="mt-3">
-        <div className="text-2xl font-semibold text-gray-800">{value}</div>
-        <div className="text-xs text-gray-600 mt-1">{label}</div>
+        <div className="text-title font-semibold text-gray-800">{value}</div>
+        <div className="mt-1 text-caption text-gray-600">{label}</div>
       </div>
     </div>
   )
@@ -47,7 +55,7 @@ export function AttendancePage() {
     return (
       <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-10 text-center shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
         <Clock size={40} className="mx-auto text-gray-300 animate-spin" />
-        <p className="text-gray-400 mt-4">加载中...</p>
+        <p className="mt-4 text-gray-400">加载中...</p>
       </div>
     )
   }
@@ -59,22 +67,34 @@ export function AttendancePage() {
   }
 
   return (
-    <>
-      <div className="mb-4 flex justify-end">
-        {availableMonths.length > 0 && (
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="px-3 py-1.5 text-sm border border-[var(--color-border)] rounded-xl bg-white/86 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-          >
-            {availableMonths.map((month) => (
-              <option key={month} value={month}>{formatMonth(month)}</option>
-            ))}
-          </select>
-        )}
-      </div>
+    <div className="app-page">
+      <section className="app-section-card app-section-card-muted p-5 sm:p-6">
+        <div className="app-section-header">
+          <div>
+            <div className="app-section-kicker">Attendance Board</div>
+            <div className="app-section-title mt-2">
+              <Clock size={18} className="text-accent" />
+              <h3 className="text-title font-semibold">考勤管理</h3>
+            </div>
+            <p className="mt-2 text-body leading-6 text-[var(--color-text-muted)]">
+              以月份为入口，先看整体出勤概况，再展开到部门和成员明细。
+            </p>
+          </div>
+          {availableMonths.length > 0 && (
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="select select-sm w-full max-w-[180px]"
+            >
+              {availableMonths.map((month) => (
+                <option key={month} value={month}>{formatMonth(month)}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      </section>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard icon={User} label="统计人数" value={overallStats.employeeCount} color="blue" />
         <StatCard
           icon={CheckCircle2}
@@ -86,37 +106,38 @@ export function AttendancePage() {
         <StatCard icon={Clock} label="请假天数" value={overallStats.totalLeave.toFixed(1)} color="blue" />
       </div>
 
-      <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
-        <div className="flex items-center gap-2 mb-4">
-          <Clock size={18} className="text-gray-600" />
-          <h3 className="font-medium text-gray-800">部门考勤汇总</h3>
-          <span className="text-xs text-gray-500 ml-2">{formatMonth(selectedMonth)}</span>
+      <section className="app-table-shell">
+        <div className="app-table-toolbar">
+          <div className="flex items-center gap-2">
+            <Clock size={18} className="text-gray-600" />
+            <h3 className="font-medium text-gray-800">部门考勤汇总</h3>
+            <span className="ml-2 text-caption text-gray-500">{formatMonth(selectedMonth)}</span>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="app-table-scroll">
+          <table className="app-data-table text-body">
             <thead>
-              <tr className="bg-gray-50 border-y border-gray-200">
-                <th className="text-left py-3 px-3 font-medium text-gray-700">部门</th>
-                <th className="text-left py-3 px-3 font-medium text-gray-700">上级部门</th>
-                <th className="text-center py-3 px-3 font-medium text-gray-700">人数</th>
-                <th className="text-right py-3 px-3 font-medium text-gray-700">应出勤</th>
-                <th className="text-right py-3 px-3 font-medium text-gray-700">实出勤</th>
-                <th className="text-center py-3 px-3 font-medium text-gray-700">出勤率</th>
-                <th className="text-right py-3 px-3 font-medium text-gray-700">请假</th>
-                <th className="text-right py-3 px-3 font-medium text-gray-700">迟到</th>
-                <th className="text-right py-3 px-3 font-medium text-gray-700">早退</th>
-                <th className="text-right py-3 px-3 font-medium text-gray-700">旷工</th>
+              <tr>
+                <th className="text-left">部门</th>
+                <th className="text-left">上级部门</th>
+                <th className="text-center">人数</th>
+                <th className="text-right">应出勤</th>
+                <th className="text-right">实出勤</th>
+                <th className="text-center">出勤率</th>
+                <th className="text-right">请假</th>
+                <th className="text-right">迟到</th>
+                <th className="text-right">早退</th>
+                <th className="text-right">旷工</th>
               </tr>
             </thead>
             <tbody>
               {summaries.map((summary) => (
-                <>
+                <Fragment key={summary.department_id}>
                   <tr
-                    key={summary.department_id}
-                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    className="cursor-pointer hover:bg-gray-50"
                     onClick={() => void toggleDepartment(summary.department_id)}
                   >
-                    <td className="py-3 px-3 font-medium text-gray-800">
+                    <td className="font-medium text-gray-800">
                       <div className="flex items-center gap-2">
                         {expandedDept === summary.department_id ? (
                           <ChevronDown size={16} className="text-gray-400" />
@@ -126,82 +147,77 @@ export function AttendancePage() {
                         {summary.department_name}
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-gray-500 text-xs">{summary.parent_name || '-'}</td>
-                    <td className="py-3 px-3 text-center text-gray-600">{summary.employee_count}</td>
-                    <td className="py-3 px-3 text-right text-gray-600">{summary.total_expected.toFixed(1)}</td>
-                    <td className="py-3 px-3 text-right text-gray-600">{summary.total_actual.toFixed(1)}</td>
-                    <td className="py-3 px-3 text-center"><RateBadge rate={summary.rate} /></td>
-                    <td className="py-3 px-3 text-right text-gray-600">{summary.total_leave.toFixed(1)}</td>
-                    <td className="py-3 px-3 text-right text-gray-600">{summary.total_late}</td>
-                    <td className="py-3 px-3 text-right text-gray-600">{summary.total_early}</td>
-                    <td className="py-3 px-3 text-right text-gray-600">{summary.total_absent.toFixed(1)}</td>
+                    <td className="text-caption text-gray-500">{summary.parent_name || '-'}</td>
+                    <td className="text-center text-gray-600">{summary.employee_count}</td>
+                    <td className="text-right text-gray-600">{summary.total_expected.toFixed(1)}</td>
+                    <td className="text-right text-gray-600">{summary.total_actual.toFixed(1)}</td>
+                    <td className="text-center"><RateBadge rate={summary.rate} /></td>
+                    <td className="text-right text-gray-600">{summary.total_leave.toFixed(1)}</td>
+                    <td className="text-right text-gray-600">{summary.total_late}</td>
+                    <td className="text-right text-gray-600">{summary.total_early}</td>
+                    <td className="text-right text-gray-600">{summary.total_absent.toFixed(1)}</td>
                   </tr>
                   {expandedDept === summary.department_id && (
                     <tr>
                       <td colSpan={10} className="bg-gray-50 p-0">
-                        <div className="px-8 py-4">
+                        <div className="px-6 py-4">
                           {loadingMembers ? (
-                            <div className="text-center py-4 text-gray-400">加载中...</div>
+                            <div className="py-4 text-center text-gray-400">加载中...</div>
                           ) : memberRecords.length > 0 ? (
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="border-b border-gray-200">
-                                  <th className="text-left py-2 px-2 font-medium text-gray-600">姓名</th>
-                                  <th className="text-left py-2 px-2 font-medium text-gray-600">工号</th>
-                                  <th className="text-left py-2 px-2 font-medium text-gray-600">职位</th>
-                                  <th className="text-right py-2 px-2 font-medium text-gray-600">应出勤</th>
-                                  <th className="text-right py-2 px-2 font-medium text-gray-600">实出勤</th>
-                                  <th className="text-center py-2 px-2 font-medium text-gray-600">出勤率</th>
-                                  <th className="text-right py-2 px-2 font-medium text-gray-600">请假</th>
-                                  <th className="text-right py-2 px-2 font-medium text-gray-600">迟到</th>
-                                  <th className="text-right py-2 px-2 font-medium text-gray-600">早退</th>
-                                  <th className="text-right py-2 px-2 font-medium text-gray-600">旷工</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {memberRecords.map((member) => (
-                                  <tr key={member.id} className="border-b border-gray-100">
-                                    <td className="py-2 px-2 text-gray-700">{member.member_name}</td>
-                                    <td className="py-2 px-2 text-gray-600">{member.employee_no}</td>
-                                    <td className="py-2 px-2 text-gray-600">{member.job_title || '-'}</td>
-                                    <td className="py-2 px-2 text-right text-gray-600">{member.expected_days.toFixed(1)}</td>
-                                    <td className="py-2 px-2 text-right text-gray-600">{member.actual_days.toFixed(1)}</td>
-                                    <td className="py-2 px-2 text-center">
-                                      <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                        member.rate >= 95 ? 'bg-green-100 text-green-700' :
-                                          member.rate >= 90 ? 'bg-yellow-100 text-yellow-700' :
-                                            'bg-red-100 text-red-700'
-                                      }`}
-                                      >
-                                        {member.rate.toFixed(1)}%
-                                      </span>
-                                    </td>
-                                    <td className="py-2 px-2 text-right text-gray-600">{member.leave_days.toFixed(1)}</td>
-                                    <td className="py-2 px-2 text-right text-gray-600">{member.late_times}</td>
-                                    <td className="py-2 px-2 text-right text-gray-600">{member.early_leave_times}</td>
-                                    <td className="py-2 px-2 text-right text-gray-600">{member.absent_days.toFixed(1)}</td>
+                            <div className="overflow-x-auto rounded-[18px] border border-[var(--color-border)] bg-white/86">
+                              <table className="w-full text-caption">
+                                <thead>
+                                  <tr className="border-b border-gray-200">
+                                    <th className="px-2 py-2 text-left font-medium text-gray-600">姓名</th>
+                                    <th className="px-2 py-2 text-left font-medium text-gray-600">工号</th>
+                                    <th className="px-2 py-2 text-left font-medium text-gray-600">职位</th>
+                                    <th className="px-2 py-2 text-right font-medium text-gray-600">应出勤</th>
+                                    <th className="px-2 py-2 text-right font-medium text-gray-600">实出勤</th>
+                                    <th className="px-2 py-2 text-center font-medium text-gray-600">出勤率</th>
+                                    <th className="px-2 py-2 text-right font-medium text-gray-600">请假</th>
+                                    <th className="px-2 py-2 text-right font-medium text-gray-600">迟到</th>
+                                    <th className="px-2 py-2 text-right font-medium text-gray-600">早退</th>
+                                    <th className="px-2 py-2 text-right font-medium text-gray-600">旷工</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {memberRecords.map((member) => (
+                                    <tr key={member.id} className="border-b border-gray-100 last:border-b-0">
+                                      <td className="px-2 py-2 text-gray-700">{member.member_name}</td>
+                                      <td className="px-2 py-2 text-gray-600">{member.employee_no}</td>
+                                      <td className="px-2 py-2 text-gray-600">{member.job_title || '-'}</td>
+                                      <td className="px-2 py-2 text-right text-gray-600">{member.expected_days.toFixed(1)}</td>
+                                      <td className="px-2 py-2 text-right text-gray-600">{member.actual_days.toFixed(1)}</td>
+                                      <td className="px-2 py-2 text-center">
+                                        <RateBadge rate={member.rate} />
+                                      </td>
+                                      <td className="px-2 py-2 text-right text-gray-600">{member.leave_days.toFixed(1)}</td>
+                                      <td className="px-2 py-2 text-right text-gray-600">{member.late_times}</td>
+                                      <td className="px-2 py-2 text-right text-gray-600">{member.early_leave_times}</td>
+                                      <td className="px-2 py-2 text-right text-gray-600">{member.absent_days.toFixed(1)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           ) : (
-                            <div className="text-center py-4 text-gray-400">暂无成员记录</div>
+                            <div className="py-4 text-center text-gray-400">暂无成员记录</div>
                           )}
                         </div>
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
           {summaries.length === 0 && !loading && (
-            <div className="text-center py-8 text-gray-400">
+            <div className="py-8 text-center text-gray-400">
               暂无考勤数据
             </div>
           )}
         </div>
-      </div>
-    </>
+      </section>
+    </div>
   )
 }

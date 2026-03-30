@@ -90,7 +90,7 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
     return (
       <div className="biz-content-area">
         <div className="app-empty-state">
-          <p className="text-[var(--color-text-muted)] text-xs">请至少选择一个指标</p>
+          <p className="text-[var(--color-text-muted)] text-caption">请至少选择一个指标</p>
         </div>
       </div>
     )
@@ -99,7 +99,7 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
   return (
     <div className="space-y-3">
       {/* Breadcrumb Navigation */}
-      <div className="flex items-center gap-1 text-xs">
+      <div className="flex items-center gap-1 text-caption">
         {drillDownPath.map((level, index) => (
           <div key={index} className="flex items-center gap-1">
             {index > 0 && <ChevronRight size={12} className="text-[var(--color-text-muted)]" />}
@@ -108,7 +108,7 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
               className={`
                 px-2 py-1 rounded-lg transition-all duration-150
                 ${index === drillDownPath.length - 1
-                  ? 'bg-[var(--color-accent)] text-white font-medium shadow-[0_2px_8px_rgba(34,197,94,0.25)]'
+                  ? 'bg-[var(--color-accent)] text-white font-medium shadow-[0_2px_8px_rgba(15,23,42,0.16)]'
                   : 'text-[var(--color-text-muted)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)]'
                 }
               `}
@@ -123,7 +123,7 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
       <div className="biz-content-area">
         {currentLevelNodes.length === 0 ? (
           <div className="app-empty-state">
-            <p className="text-xs">暂无数据</p>
+            <p className="text-caption">暂无数据</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={460}>
@@ -134,13 +134,13 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
                 angle={-45}
                 textAnchor="end"
                 height={120}
-                tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
+                tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }}
               />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} />
+              <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} />
               <Tooltip
                 formatter={(value: unknown) => fmt(value as number)}
                 contentStyle={{
-                  fontSize: 11,
+                  fontSize: 12,
                   borderRadius: '0.75rem',
                   border: '1px solid var(--color-border)',
                   background: 'rgba(255,255,255,0.96)',
@@ -148,7 +148,7 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
                   boxShadow: '0 12px 32px rgba(15,23,42,0.12)',
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
 
               {selectedMetrics.flatMap((metric, idx) => {
                 const baseColor = CHART_COLORS[idx % CHART_COLORS.length]
@@ -180,7 +180,7 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
 
       {/* Hint */}
       {currentLevelNodes.length > 0 && (
-        <div className="text-[10px] text-[var(--color-text-muted)] text-center opacity-60">
+        <div className="text-caption text-[var(--color-text-muted)] text-center opacity-60">
           点击柱状图下钻查看下级数据
         </div>
       )}

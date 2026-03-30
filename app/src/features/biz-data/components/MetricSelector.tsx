@@ -45,7 +45,7 @@ export function MetricSelector({
     <div className="relative inline-block" ref={dropdownRef} style={{ zIndex: isOpen ? 9999 : 'auto' }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium bg-[rgba(15,23,42,0.06)] text-[var(--color-text)] hover:bg-[rgba(15,23,42,0.1)] transition-colors"
+        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-caption font-medium bg-[rgba(15,23,42,0.06)] text-[var(--color-text)] hover:bg-[rgba(15,23,42,0.1)] transition-colors"
       >
         <span>
           指标 {selectedMetrics.length}/{maxSelection}
@@ -56,7 +56,7 @@ export function MetricSelector({
       {isOpen && (
         <div className="absolute left-0 mt-2 w-64 rounded-xl border border-[var(--color-border)] bg-white/96 shadow-[0_20px_50px_rgba(15,23,42,0.15)] backdrop-blur-xl" style={{ zIndex: 9999 }}>
           <div className="px-3 py-2 border-b border-[var(--color-border)]">
-            <p className="text-[11px] text-[var(--color-text-muted)]">
+            <p className="text-caption text-[var(--color-text-muted)]">
               最多选择 {maxSelection} 个指标
             </p>
           </div>
@@ -67,7 +67,7 @@ export function MetricSelector({
 
               return (
                 <div key={groupIdx} className="mb-2 last:mb-0">
-                  <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+                  <div className="px-2.5 py-1 text-caption font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
                     {group.label}
                   </div>
                   <div className="space-y-px">
@@ -81,7 +81,7 @@ export function MetricSelector({
                           onClick={() => !isDisabled && toggleMetric(metric)}
                           disabled={isDisabled}
                           className={`
-                            w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-left transition-all duration-150
+                            w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-caption text-left transition-all duration-150
                             ${isSelected
                               ? 'bg-[rgba(34,197,94,0.08)] text-[var(--color-text-strong)]'
                               : isDisabled

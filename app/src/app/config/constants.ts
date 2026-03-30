@@ -9,6 +9,7 @@ export const ROUTES = {
   LOGIN: '/login',
   AUTH_CALLBACK: '/auth-callback',
   HOME: '/',
+  DATA: '/data',
   SCHEDULE: '/schedule',
   ORG_DATA: '/org-data',
   BIZ_DATA: '/biz-data',
@@ -20,3 +21,19 @@ export const ROUTES = {
   AI_ANALYSIS: '/ai',
   SETTINGS: '/settings',
 } as const
+
+export function buildWorkspaceHref(tab?: 'schedule' | 'links') {
+  if (!tab) return ROUTES.HOME
+  return `${ROUTES.HOME}?tab=${tab}`
+}
+
+export function buildDataHref(
+  tab: 'org-data' | 'biz-data' | 'competitor' | 'opportunity' | 'trip' | 'attendance' = 'org-data',
+) {
+  return `${ROUTES.DATA}?tab=${tab}`
+}
+
+export function buildSettingsHref(tab: 'settings' | 'logout' = 'settings') {
+  if (tab === 'settings') return ROUTES.SETTINGS
+  return `${ROUTES.SETTINGS}?tab=${tab}`
+}

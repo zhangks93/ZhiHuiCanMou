@@ -26,6 +26,9 @@ export default {
         error: theme.colors.error,
       },
       fontSize: {
+        'caption': theme.fontSize.caption,
+        'body': theme.fontSize.body,
+        'title': theme.fontSize.title,
         '2xs': theme.fontSize['2xs'],
         'xs': theme.fontSize.xs,
         'sm': theme.fontSize.sm,

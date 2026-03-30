@@ -16,18 +16,6 @@ import type { BusinessTrip } from '../api/tripRepository'
 
 const columnHelper = createColumnHelper<BusinessTrip>()
 
-function StatCard({ label, value, unit }: { label: string; value: string | number; unit?: string }) {
-  return (
-    <div className="bg-white/86 backdrop-blur-xl rounded-[18px] border border-[var(--color-border)] p-4 shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
-      <div className="text-2xl font-semibold text-gray-800">
-        {value}
-        {unit && <span className="text-sm text-gray-500 ml-1">{unit}</span>}
-      </div>
-      <div className="text-xs text-gray-600 mt-1">{label}</div>
-    </div>
-  )
-}
-
 function formatDate(dateStr: string) {
   const date = new Date(dateStr)
   return `${date.getMonth() + 1}/${date.getDate()}`
@@ -152,20 +140,6 @@ export function TripPage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  const { monthTrips, totalDays, avgDays } = useMemo(() => {
-    const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const currentMonthTrips = trips.filter((trip) => new Date(trip.start_time) >= monthStart)
-    const days = currentMonthTrips.reduce((sum, trip) => sum + calculateDays(trip.start_time, trip.end_time), 0)
-    const uniqueEmployees = new Set(currentMonthTrips.map((trip) => trip.employee_id)).size
-
-    return {
-      monthTrips: currentMonthTrips,
-      totalDays: days,
-      avgDays: uniqueEmployees > 0 ? (days / uniqueEmployees).toFixed(1) : '0',
-    }
-  }, [trips])
-
   if (loading) {
     return (
       <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-10 text-center shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
@@ -176,29 +150,23 @@ export function TripPage() {
   }
 
   return (
-    <>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="当前在途人员" value={ongoingTrips.length} unit="人" />
-        <StatCard label="本月出差人次" value={monthTrips.length} unit="次" />
-        <StatCard label="本月出差天数" value={totalDays} unit="天" />
-        <StatCard label="人均出差天数" value={avgDays} unit="天" />
-      </div>
+    <div className="app-page">
 
       <div className="grid grid-cols-1 gap-6">
         {ongoingTrips.length > 0 && (
-          <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
+          <section className="app-table-shell p-5">
             <div className="flex items-center gap-2 mb-4">
               <Plane size={18} className="text-gray-600" />
               <h3 className="font-medium text-gray-900">当前在途人员</h3>
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{ongoingTrips.length}人</span>
+              <span className="text-caption bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{ongoingTrips.length}人</span>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="app-table-scroll">
+              <table className="app-data-table text-body">
                 <thead>
                   {ongoingTable.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id} className="bg-gray-50 border-y border-gray-200">
+                    <tr key={headerGroup.id}>
                       {headerGroup.headers.map((header) => (
-                        <th key={header.id} className="text-left py-2 px-3 font-medium text-gray-700">
+                        <th key={header.id} className="text-left">
                           {flexRender(header.column.columnDef.header, header.getContext())}
                         </th>
                       ))}
@@ -207,9 +175,9 @@ export function TripPage() {
                 </thead>
                 <tbody>
                   {ongoingTable.getRowModel().rows.map((row) => (
-                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={row.id}>
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="py-2 px-3">
+                        <td key={cell.id}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
@@ -218,32 +186,32 @@ export function TripPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </section>
         )}
 
-        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
-          <div className="flex items-center justify-between mb-4">
+        <section className="app-table-shell">
+          <div className="app-table-toolbar">
             <div className="flex items-center gap-2">
               <Calendar size={18} className="text-gray-600" />
-              <h3 className="font-medium text-gray-900">出差记录</h3>
+              <h3 className="font-medium text-gray-900">当前在途{ongoingTrips.length}人</h3>
             </div>
             <input
               type="text"
               placeholder="搜索姓名、部门、客户..."
               value={globalFilter ?? ''}
               onChange={(event) => setGlobalFilter(event.target.value)}
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="input input-sm w-full max-w-[260px]"
             />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="app-table-scroll">
+            <table className="app-data-table text-body">
               <thead>
                 {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id} className="bg-gray-50 border-y border-gray-200">
+                  <tr key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
                       <th
                         key={header.id}
-                        className="text-left py-2 px-3 font-medium text-gray-700 cursor-pointer select-none"
+                        className="cursor-pointer select-none text-left"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         <div className="flex items-center gap-1">
@@ -260,9 +228,9 @@ export function TripPage() {
               </thead>
               <tbody>
                 {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={row.id}>
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="py-2 px-3">
+                      <td key={cell.id}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -276,32 +244,32 @@ export function TripPage() {
               </div>
             )}
           </div>
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-gray-600">
+          <div className="mt-4 flex items-center justify-between px-5 pb-5">
+            <div className="text-body text-gray-600">
               共 {table.getFilteredRowModel().rows.length} 条记录
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
-                className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-3 py-1 text-body border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
               >
                 上一页
               </button>
-              <span className="text-sm text-gray-600">
+              <span className="text-body text-gray-600">
                 第 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()} 页
               </span>
               <button
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
-                className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-3 py-1 text-body border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
               >
                 下一页
               </button>
             </div>
           </div>
-        </div>
+        </section>
       </div>
-    </>
+    </div>
   )
 }

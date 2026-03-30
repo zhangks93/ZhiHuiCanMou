@@ -147,7 +147,7 @@ export function Login() {
 
       {/* Ambient glow orbs */}
       <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
-        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(34,197,94,0.12),transparent_65%)] animate-pulse-glow" />
+        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(95,127,188,0.14),transparent_65%)] animate-pulse-glow" />
         <div className="absolute -bottom-16 -left-16 h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.09),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
       </div>
 
@@ -156,17 +156,17 @@ export function Login() {
         <div className="mb-8 flex flex-col items-center">
           {/* Logo mark with orbit ring */}
           <div className="relative">
-            <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-950 text-[15px] font-semibold tracking-[0.2em] text-white shadow-[0_20px_48px_rgba(15,23,42,0.22)]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-950 text-body font-semibold tracking-[0.2em] text-white shadow-[0_20px_48px_rgba(15,23,42,0.22)]">
               CM
             </div>
             {/* Orbit ring */}
-            <div className="absolute -inset-3 rounded-[30px] border border-[rgba(34,197,94,0.12)]" style={{ animation: 'orbit 20s linear infinite' }} />
+            <div className="absolute -inset-3 rounded-[30px] border border-[rgba(95,127,188,0.14)]" style={{ animation: 'orbit 20s linear infinite' }} />
           </div>
 
-          <h1 className="mt-6 text-center text-[22px] font-semibold leading-tight text-[var(--color-text-strong)]">
+          <h1 className="mt-6 text-center text-title font-semibold leading-tight text-[var(--color-text-strong)]">
             智汇参谋
           </h1>
-          <p className="mt-1.5 text-center text-[13px] leading-6 text-[var(--color-text-muted)]">
+          <p className="mt-1.5 text-center text-body leading-6 text-[var(--color-text-muted)]">
             教育后勤智慧决策平台
           </p>
         </div>
@@ -174,12 +174,12 @@ export function Login() {
         {/* Sign-in card — glass morphism */}
         <div className="relative overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/60 px-6 py-7 shadow-[0_24px_64px_rgba(15,23,42,0.08)] backdrop-blur-xl">
           {/* Top accent line */}
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.28)] to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(95,127,188,0.24)] to-transparent" />
 
           {/* Shimmer overlay when loading */}
           {isLoading && (
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.04)] to-transparent" style={{ animation: 'shimmer 2s ease-in-out infinite' }} />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(95,127,188,0.05)] to-transparent" style={{ animation: 'shimmer 2s ease-in-out infinite' }} />
             </div>
           )}
 
@@ -187,11 +187,11 @@ export function Login() {
             type="button"
             onClick={handleFeishuLogin}
             disabled={!canLogin || isLoading}
-            className="group relative flex w-full items-center justify-between rounded-[20px] border border-[rgba(34,197,94,0.12)] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-4 text-left text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(15,23,42,0.25)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            className="group relative flex w-full items-center justify-between rounded-[20px] border border-[rgba(95,127,188,0.16)] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-4 text-left text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(15,23,42,0.25)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
             <div>
-              <div className="text-sm font-semibold">飞书账号登录</div>
-              <div className="mt-0.5 text-[13px] text-slate-400">
+              <div className="text-body font-semibold">飞书账号登录</div>
+              <div className="mt-0.5 text-body text-slate-400">
                 {isLoading ? '正在跳转至授权页面...' : '使用组织身份进行认证'}
               </div>
             </div>
@@ -205,13 +205,13 @@ export function Login() {
           </button>
 
           {!canLogin && (
-            <div className="mt-4 rounded-2xl border border-[rgba(220,38,38,0.12)] bg-[rgba(220,38,38,0.04)] px-4 py-3 text-sm leading-6 text-[var(--color-error)]">
+            <div className="mt-4 rounded-2xl border border-[rgba(220,38,38,0.12)] bg-[rgba(220,38,38,0.04)] px-4 py-3 text-body leading-6 text-[var(--color-error)]">
               飞书登录未配置，请检查环境变量。
             </div>
           )}
 
           {showFallback && deepLinkError && (
-            <div className="mt-4 rounded-2xl border border-[rgba(217,119,6,0.14)] bg-[rgba(217,119,6,0.04)] px-4 py-4 text-sm leading-7">
+            <div className="mt-4 rounded-2xl border border-[rgba(217,119,6,0.14)] bg-[rgba(217,119,6,0.04)] px-4 py-4 text-body leading-7">
               <div className="font-semibold text-[var(--color-text-strong)]">回调失败</div>
               <div className="mt-1 text-[var(--color-text-muted)]">{deepLinkError}</div>
               <button
@@ -228,23 +228,23 @@ export function Login() {
             </div>
           )}
 
-          <p className="mt-5 text-center text-[12px] leading-5 text-[var(--color-text-muted)]/60">
+          <p className="mt-5 text-center text-caption leading-5 text-[var(--color-text-muted)]/60">
             登录即表示您将通过组织飞书账号完成身份验证
           </p>
         </div>
 
         {/* Version tag */}
-        <div className="mt-5 text-center text-[11px] tracking-[0.12em] text-[var(--color-text-muted)]/40">
+        <div className="mt-5 text-center text-caption tracking-[0.12em] text-[var(--color-text-muted)]/40">
           CANMOU v1.0
         </div>
 
         {/* Debug log */}
         {debugInfo.length > 0 && (
           <div className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white/40 p-4 backdrop-blur-lg">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+            <div className="mb-2 text-caption font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
               Debug
             </div>
-            <div className="max-h-40 overflow-y-auto font-mono text-[11px] leading-5 text-[var(--color-text-muted)]">
+            <div className="max-h-40 overflow-y-auto font-mono text-caption leading-5 text-[var(--color-text-muted)]">
               {debugInfo.map((info) => (
                 <div key={info}>{info}</div>
               ))}

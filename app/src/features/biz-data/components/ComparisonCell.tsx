@@ -52,7 +52,7 @@ export function ComparisonCell({
     return (
       <div className="text-right">
         <div className="font-medium text-gray-900">{formatValue(actual)}</div>
-        <div className="text-xs text-gray-500 mt-0.5">
+        <div className="text-caption text-gray-500 mt-0.5">
           同期: {formatValue(yoy)}
           {yoyDiff != null && (
             <span className={yoyDiff >= 0 ? 'text-success-700' : 'text-error-700'}>
@@ -69,17 +69,17 @@ export function ComparisonCell({
     <div className="text-right">
       <div className="font-medium text-gray-900">{formatValue(actual)}</div>
       <div className="flex items-center justify-end gap-2 mt-1">
-        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${rateBg(completionRate)}`}>
+        <span className={`inline-block px-2 py-0.5 rounded text-caption font-medium ${rateBg(completionRate)}`}>
           {fmtPct(completionRate)}
         </span>
         {diff != null && (
-          <span className="text-xs text-gray-600">
+          <span className="text-caption text-gray-600">
             {diff >= 0 ? '+' : ''}{formatValue(diff)}
             {diffArrow(diff)}
           </span>
         )}
       </div>
-      <div className="text-xs text-gray-500 mt-0.5">
+      <div className="text-caption text-gray-500 mt-0.5">
         {mode === 'budget' ? '预算' : '考核'}: {formatValue(budget)}
       </div>
     </div>

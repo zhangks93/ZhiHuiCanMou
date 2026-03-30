@@ -94,8 +94,8 @@ function AgentEmptyState({
         </div>
         <div className="space-y-2 text-center">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--color-text-strong)]">{agent.name}</h2>
-            <p className="mx-auto mt-1.5 max-w-xl text-xs leading-6 text-[var(--color-text-muted)]">
+            <h2 className="text-title font-semibold text-[var(--color-text-strong)]">{agent.name}</h2>
+            <p className="mx-auto mt-1.5 max-w-xl text-caption leading-6 text-[var(--color-text-muted)]">
               {agent.description}
             </p>
           </div>
@@ -128,8 +128,8 @@ function ConfigPrompt() {
       <div className="chat-config-card">
         <Settings size={28} className="text-[var(--color-text-muted)]" />
         <div className="space-y-1.5 text-center">
-          <h2 className="text-base font-semibold text-[var(--color-text-strong)]">请先配置 AI 模型</h2>
-          <p className="text-xs leading-6 text-[var(--color-text-muted)]">
+          <h2 className="text-body font-semibold text-[var(--color-text-strong)]">请先配置 AI 模型</h2>
+          <p className="text-caption leading-6 text-[var(--color-text-muted)]">
             前往设置页填写 API Key 和模型名称
           </p>
         </div>

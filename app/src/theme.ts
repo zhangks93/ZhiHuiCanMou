@@ -149,17 +149,20 @@ export const fonts = {
 } as const
 
 export const fontSize = {
-  '2xs': '0.625rem',
-  xs: '0.6875rem',
+  caption: '0.75rem',
+  body: '0.875rem',
+  title: '1.25rem',
+  '2xs': '0.75rem',
+  xs: '0.75rem',
   sm: '0.75rem',
-  base: '0.8125rem',
+  base: '0.875rem',
   md: '0.875rem',
-  lg: '0.9375rem',
-  xl: '1rem',
-  '2xl': '1.125rem',
+  lg: '0.875rem',
+  xl: '1.25rem',
+  '2xl': '1.25rem',
   '3xl': '1.25rem',
-  '4xl': '1.5rem',
-  '5xl': '1.75rem',
+  '4xl': '1.25rem',
+  '5xl': '1.25rem',
 } as const
 
 export const radius = {

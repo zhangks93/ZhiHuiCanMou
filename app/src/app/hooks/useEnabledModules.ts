@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   MODULE_NAV_CONFIG,
-  SECTION_LABELS,
+  PRIMARY_NAV_CONFIG,
   FIXED_NAV,
 } from '@/app/config/modules'
 import { getEnabledModules, subscribeEnabledModules } from '@/shared/lib/moduleStorage'
@@ -15,6 +15,7 @@ export interface NavItem {
 }
 
 export interface NavSection {
+  key: string
   title: string
   items: NavItem[]
 }
@@ -27,21 +28,23 @@ export function useEnabledModules() {
   }, [])
 
   const navSections = useMemo(() => buildNavSections(enabledModuleIds), [enabledModuleIds])
+  const topLevelNav = useMemo(() => buildTopLevelNav(navSections), [navSections])
 
   return {
     navSections,
+    topLevelNav,
     enabledModuleIds,
     isLoading: false,
   }
 }
 
 function buildNavSections(enabledModuleIds: string[]): NavSection[] {
-  const workbench: NavItem[] = [
+  const workspace: NavItem[] = [
     { to: FIXED_NAV.home.routePath, icon: FIXED_NAV.home.icon, label: FIXED_NAV.home.label },
   ]
-  const dataCenter: NavItem[] = []
-  const business: NavItem[] = []
-  const tools: NavItem[] = []
+  const data: NavItem[] = []
+  const ai: NavItem[] = []
+  const settings: NavItem[] = []
 
   for (const id of enabledModuleIds) {
     const config = MODULE_NAV_CONFIG[id]
@@ -54,31 +57,47 @@ function buildNavSections(enabledModuleIds: string[]): NavSection[] {
       moduleId: id,
     }
 
-    if (config.section === 'workbench') workbench.push(item)
-    else if (config.section === 'data-center') dataCenter.push(item)
-    else if (config.section === 'business') business.push(item)
-    else if (config.section === 'tools') tools.push(item)
+    if (config.section === 'workspace') workspace.push(item)
+    else if (config.section === 'data') data.push(item)
+    else if (config.section === 'ai') ai.push(item)
   }
 
-  tools.push({
+  settings.push({
     to: FIXED_NAV.settings.routePath,
     icon: FIXED_NAV.settings.icon,
     label: FIXED_NAV.settings.label,
   })
 
   const sections: NavSection[] = []
-  if (workbench.length > 0) {
-    sections.push({ title: SECTION_LABELS.workbench ?? '工作台', items: workbench })
+  if (data.length > 0) {
+    sections.push({ key: 'data', title: '数据', items: data })
   }
-  if (dataCenter.length > 0) {
-    sections.push({ title: SECTION_LABELS['data-center'] ?? '数据中心', items: dataCenter })
+  if (ai.length > 0) {
+    sections.push({ key: 'ai', title: 'AI', items: ai })
   }
-  if (business.length > 0) {
-    sections.push({ title: SECTION_LABELS.business ?? '业务管理', items: business })
+  if (workspace.length > 0) {
+    sections.push({ key: 'workspace', title: '工作台', items: workspace })
   }
-  if (tools.length > 0) {
-    sections.push({ title: SECTION_LABELS.tools ?? '工具与分析', items: tools })
+  if (settings.length > 0) {
+    sections.push({ key: 'settings', title: '设置', items: settings })
   }
 
   return sections
+}
+
+function buildTopLevelNav(sections: NavSection[]): NavItem[] {
+  const items: NavItem[] = []
+
+  for (const section of sections) {
+    const config = PRIMARY_NAV_CONFIG[section.key as keyof typeof PRIMARY_NAV_CONFIG]
+    if (!config) continue
+
+    items.push({
+      to: config.routePath,
+      icon: config.icon,
+      label: config.label,
+    })
+  }
+
+  return items
 }

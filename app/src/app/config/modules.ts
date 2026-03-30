@@ -5,6 +5,7 @@
 
 import {
   Home,
+  Database,
   Calendar,
   Users,
   BarChart3,
@@ -19,11 +20,38 @@ import {
 } from 'lucide-react'
 
 export const SECTION_LABELS: Record<string, string> = {
-  workbench: '工作台',
-  'data-center': '数据中心',
-  business: '业务管理',
-  tools: '工具与分析',
+  workspace: '工作台',
+  data: '数据',
+  ai: 'AI',
+  settings: '设置',
 }
+
+export const PRIMARY_NAV_CONFIG = {
+  data: {
+    label: '数据',
+    routePath: '/data',
+    icon: Database,
+    sortOrder: 0,
+  },
+  ai: {
+    label: 'AI',
+    routePath: '/ai',
+    icon: Sparkles,
+    sortOrder: 1,
+  },
+  workspace: {
+    label: '工作台',
+    routePath: '/',
+    icon: Home,
+    sortOrder: 2,
+  },
+  settings: {
+    label: '设置',
+    routePath: '/settings',
+    icon: Settings,
+    sortOrder: 3,
+  },
+} as const
 
 export interface ModuleNavConfig {
   id: string
@@ -38,65 +66,65 @@ export const MODULE_NAV_CONFIG: Record<string, Omit<ModuleNavConfig, 'id'>> = {
   schedule: {
     label: '日程提醒',
     routePath: '/schedule',
-    section: 'workbench',
+    section: 'workspace',
     icon: Calendar,
     sortOrder: 10,
+  },
+  links: {
+    label: '系统链接',
+    routePath: '/links',
+    section: 'workspace',
+    icon: Link2,
+    sortOrder: 11,
   },
   'org-data': {
     label: '常用数据',
     routePath: '/org-data',
-    section: 'data-center',
+    section: 'data',
     icon: Users,
     sortOrder: 20,
   },
   'biz-data': {
     label: '经营数据',
     routePath: '/biz-data',
-    section: 'data-center',
+    section: 'data',
     icon: BarChart3,
     sortOrder: 21,
-  },
-  opportunity: {
-    label: '商机台账',
-    routePath: '/opportunity',
-    section: 'business',
-    icon: Target,
-    sortOrder: 30,
   },
   competitor: {
     label: '竞对档案',
     routePath: '/competitor',
-    section: 'business',
+    section: 'data',
     icon: Trophy,
-    sortOrder: 31,
+    sortOrder: 22,
+  },
+  opportunity: {
+    label: '商机台账',
+    routePath: '/opportunity',
+    section: 'data',
+    icon: Target,
+    sortOrder: 23,
   },
   trip: {
     label: '出差管理',
     routePath: '/trip',
-    section: 'business',
+    section: 'data',
     icon: Plane,
-    sortOrder: 32,
+    sortOrder: 24,
   },
   attendance: {
     label: '考勤管理',
     routePath: '/attendance',
-    section: 'business',
+    section: 'data',
     icon: Clock,
-    sortOrder: 33,
-  },
-  links: {
-    label: '系统链接',
-    routePath: '/links',
-    section: 'tools',
-    icon: Link2,
-    sortOrder: 40,
+    sortOrder: 25,
   },
   ai: {
     label: 'AI 分析',
     routePath: '/ai',
-    section: 'tools',
+    section: 'ai',
     icon: Sparkles,
-    sortOrder: 41,
+    sortOrder: 30,
   },
 }
 
@@ -105,14 +133,14 @@ export const FIXED_NAV = {
   home: {
     label: '首页',
     routePath: '/',
-    section: 'workbench',
+    section: 'workspace',
     icon: Home,
     sortOrder: 0,
   },
   settings: {
     label: '设置',
     routePath: '/settings',
-    section: 'tools',
+    section: 'settings',
     icon: Settings,
     sortOrder: 99,
   },

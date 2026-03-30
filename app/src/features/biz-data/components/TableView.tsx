@@ -178,7 +178,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
             ) : (
               <span className="w-[18px]" />
             )}
-            <span className="font-medium text-xs text-[var(--color-text-strong)]">{getValue() as string}</span>
+            <span className="font-medium text-caption text-[var(--color-text-strong)]">{getValue() as string}</span>
           </div>
         )
       },
@@ -190,7 +190,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
         accessorFn: (row: EnrichedBizDataNode) => row.metrics[metric]?.actual,
         header: `${METRIC_LABELS[metric]} - 实际`,
         cell: ({ getValue }: { getValue: () => unknown }) => (
-          <span className="font-medium text-xs text-[var(--color-text-strong)]">{fmt(getValue() as number)}</span>
+          <span className="font-medium text-caption text-[var(--color-text-strong)]">{fmt(getValue() as number)}</span>
         ),
         size: 100,
       },
@@ -199,7 +199,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
         accessorFn: (row: EnrichedBizDataNode) => row.metrics[metric]?.[budgetField],
         header: `${METRIC_LABELS[metric]} - 预算`,
         cell: ({ getValue }: { getValue: () => unknown }) => (
-          <span className="text-xs text-[var(--color-text-muted)]">{fmt(getValue() as number)}</span>
+          <span className="text-caption text-[var(--color-text-muted)]">{fmt(getValue() as number)}</span>
         ),
         size: 100,
       },
@@ -217,7 +217,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
 
           return (
             <div className={`inline-flex items-center px-2 py-0.5 rounded-lg border ${bgClass} ${borderClass}`}>
-              <span className={`font-semibold text-xs ${colorClass}`}>
+              <span className={`font-semibold text-caption ${colorClass}`}>
                 {fmtPct(value)}
               </span>
             </div>
@@ -252,7 +252,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
     return (
       <div className="biz-content-area">
         <div className="app-empty-state">
-          <p className="text-[var(--color-text-muted)] text-xs">请至少选择一个指标</p>
+          <p className="text-[var(--color-text-muted)] text-caption">请至少选择一个指标</p>
         </div>
       </div>
     )
@@ -263,7 +263,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
       {/* Level Filter */}
       <div className="flex items-center gap-2 flex-wrap">
         <Filter size={13} className="text-[var(--color-text-muted)]" />
-        <span className="text-xs font-medium text-[var(--color-text-muted)]">层级:</span>
+        <span className="text-caption font-medium text-[var(--color-text-muted)]">层级:</span>
         {[
           { key: 'level0', label: '集团' },
           { key: 'level1', label: '一级' },
@@ -277,7 +277,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
               onChange={(e) => setShowLevels(prev => ({ ...prev, [key]: e.target.checked }))}
               className="radio w-3 h-3"
             />
-            <span className="text-[11px] text-[var(--color-text-muted)]">{label}</span>
+            <span className="text-caption text-[var(--color-text-muted)]">{label}</span>
           </label>
         ))}
       </div>
@@ -297,8 +297,8 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
                   <tr>
                     <th className="px-3 py-3 w-72 border-b border-[var(--color-border)]">
                       <div className="flex flex-col gap-1.5 items-center">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">业务单元</span>
-                        <div className="text-[10px] font-medium text-transparent">占位</div>
+                        <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">业务单元</span>
+                        <div className="text-caption font-medium text-transparent">占位</div>
                       </div>
                     </th>
                   </tr>
@@ -308,7 +308,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
                     const firstCell = row.getVisibleCells()[0]
                     return (
                       <tr key={row.id} className="hover:bg-[rgba(34,197,94,0.03)] transition-colors h-[44px]">
-                        <td className="px-3 text-xs w-72 h-[44px] align-middle">
+                        <td className="px-3 text-caption w-72 h-[44px] align-middle">
                           {flexRender(firstCell.column.columnDef.cell, firstCell.getContext())}
                         </td>
                       </tr>
@@ -331,10 +331,10 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
                         <th key={metric} className="border-b border-[var(--color-border)]">
                           <DraggableHeader id={metric}>
                             <div className="flex flex-col gap-1.5 min-w-[300px]">
-                              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-strong)]">
+                              <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-strong)]">
                                 {METRIC_LABELS[metric]}
                               </span>
-                              <div className="grid grid-cols-3 gap-1.5 text-[10px] font-medium text-[var(--color-text-muted)]">
+                              <div className="grid grid-cols-3 gap-1.5 text-caption font-medium text-[var(--color-text-muted)]">
                                 <span className="text-center">实际</span>
                                 <span className="text-center">预算</span>
                                 <span className="text-center">完成率</span>
@@ -358,7 +358,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
 
                           return (
                             <td key={metric} className="border-r border-[rgba(148,163,184,0.08)] last:border-r-0 h-[44px]">
-                              <div className="grid grid-cols-3 gap-1.5 px-3 text-xs min-w-[300px] h-full items-center">
+                              <div className="grid grid-cols-3 gap-1.5 px-3 text-caption min-w-[300px] h-full items-center">
                                 <div className="text-right">
                                   {actualCell && flexRender(actualCell.column.columnDef.cell, actualCell.getContext())}
                                 </div>

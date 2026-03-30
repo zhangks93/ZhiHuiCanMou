@@ -202,7 +202,7 @@ export function AuthCallback() {
 
       {/* Ambient glow orbs */}
       <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
-        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(34,197,94,0.12),transparent_65%)] animate-pulse-glow" />
+        <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(95,127,188,0.14),transparent_65%)] animate-pulse-glow" />
         <div className="absolute -bottom-16 -left-16 h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.09),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
       </div>
 
@@ -210,12 +210,12 @@ export function AuthCallback() {
         {/* Logo */}
         <div className="mb-8 flex justify-center">
           <div className="relative">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-slate-950 text-xs font-semibold tracking-[0.2em] text-white shadow-[0_16px_36px_rgba(15,23,42,0.20)]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-slate-950 text-caption font-semibold tracking-[0.2em] text-white shadow-[0_16px_36px_rgba(15,23,42,0.20)]">
               CM
             </div>
             {/* Status-colored ring */}
             {isInProgress && (
-              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(34,197,94,0.14)]" style={{ animation: 'orbit 12s linear infinite' }} />
+              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(95,127,188,0.14)]" style={{ animation: 'orbit 12s linear infinite' }} />
             )}
             {status === 'success' && (
               <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(15,159,110,0.20)]" />
@@ -229,14 +229,14 @@ export function AuthCallback() {
         {/* Card */}
         <div className="relative overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/60 px-6 py-8 text-center shadow-[0_24px_64px_rgba(15,23,42,0.08)] backdrop-blur-xl">
           {/* Top accent line */}
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.28)] to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(95,127,188,0.24)] to-transparent" />
 
           {/* Status indicator */}
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center">
             {isInProgress && (
               <div className="relative">
                 <div className="h-10 w-10 animate-spin rounded-full border-[2.5px] border-[rgba(148,163,184,0.16)] border-t-[var(--color-accent)]" />
-                <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-[2.5px] border-transparent border-b-[rgba(34,197,94,0.2)]" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+                <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-[2.5px] border-transparent border-b-[rgba(95,127,188,0.20)]" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
               </div>
             )}
             {status === 'success' && (
@@ -255,10 +255,10 @@ export function AuthCallback() {
             )}
           </div>
 
-          <h2 className="text-lg font-semibold text-[var(--color-text-strong)]">
+          <h2 className="text-title font-semibold text-[var(--color-text-strong)]">
             {authError?.title || cfg.title}
           </h2>
-          <p className="mt-1.5 text-sm text-[var(--color-text-muted)]">
+          <p className="mt-1.5 text-body text-[var(--color-text-muted)]">
             {authError?.message || message}
           </p>
 
@@ -266,7 +266,7 @@ export function AuthCallback() {
           {isInProgress && (
             <div className="mx-auto mt-6 h-[3px] w-full max-w-[200px] overflow-hidden rounded-full bg-[rgba(15,23,42,0.04)]">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[rgba(34,197,94,0.6)] transition-[width] duration-300 ease-out"
+                className="h-full rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[rgba(142,169,213,0.75)] transition-[width] duration-300 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -282,12 +282,12 @@ export function AuthCallback() {
           {status === 'error' && (
             <div className="mt-5 text-left">
               {authError && (
-                <div className="rounded-2xl border border-[rgba(220,38,38,0.10)] bg-[rgba(220,38,38,0.03)] px-4 py-3 text-sm leading-6 text-[var(--color-text-muted)]">
+                <div className="rounded-2xl border border-[rgba(220,38,38,0.10)] bg-[rgba(220,38,38,0.03)] px-4 py-3 text-body leading-6 text-[var(--color-text-muted)]">
                   {authError.suggestion}
                 </div>
               )}
               {!authError && errorMsg && (
-                <div className="rounded-2xl border border-[rgba(220,38,38,0.10)] bg-[rgba(220,38,38,0.03)] px-4 py-3 text-sm leading-6 text-[var(--color-error)]">
+                <div className="rounded-2xl border border-[rgba(220,38,38,0.10)] bg-[rgba(220,38,38,0.03)] px-4 py-3 text-body leading-6 text-[var(--color-error)]">
                   {errorMsg}
                 </div>
               )}
@@ -309,10 +309,10 @@ export function AuthCallback() {
         {/* Debug info */}
         {debugInfo.length > 0 && (
           <div className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white/40 p-4 backdrop-blur-lg">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+            <div className="mb-2 text-caption font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
               Debug
             </div>
-            <div className="max-h-40 overflow-y-auto font-mono text-[11px] leading-5 text-[var(--color-text-muted)]">
+            <div className="max-h-40 overflow-y-auto font-mono text-caption leading-5 text-[var(--color-text-muted)]">
               {debugInfo.map((info, idx) => (
                 <div key={idx}>{info}</div>
               ))}

@@ -12,8 +12,8 @@ export function ToggleSwitch<T extends string>({
   size = 'md',
 }: ToggleSwitchProps<T>) {
   const sizeClasses = {
-    sm: 'h-7 text-[11px]',
-    md: 'h-8 text-xs',
+    sm: 'h-7 text-caption',
+    md: 'h-8 text-caption',
   }
 
   return (
@@ -25,7 +25,7 @@ export function ToggleSwitch<T extends string>({
           className={`
             flex items-center justify-center gap-1 px-2.5 rounded-full font-medium transition-all duration-200 h-full
             ${value === opt.value
-              ? 'bg-[var(--color-accent)] text-white shadow-[0_2px_8px_rgba(34,197,94,0.3)]'
+              ? 'bg-[var(--color-accent)] text-white shadow-[0_2px_8px_rgba(15,23,42,0.16)]'
               : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-strong)]'
             }
           `}

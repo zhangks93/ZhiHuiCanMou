@@ -9,7 +9,7 @@
 }
 
 const accentMap = {
-  default: 'bg-[rgba(34,197,94,0.08)] text-[var(--color-accent-hover)]',
+  default: 'bg-[rgba(95,127,188,0.10)] text-[var(--color-accent-hover)]',
   success: 'bg-[rgba(15,159,110,0.10)] text-[#08724d]',
   warning: 'bg-[rgba(217,119,6,0.10)] text-[#a55406]',
   error: 'bg-[rgba(220,38,38,0.08)] text-[#b42318]',
@@ -33,28 +33,28 @@ export function StatCard({
       ].join(' ')}
     >
       {/* Top accent line */}
-      <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(34,197,94,0.25)] to-transparent" />
+      <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(95,127,188,0.24)] to-transparent" />
 
       <div className="relative flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+          <div className="text-caption font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
             {label}
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-semibold text-[var(--color-text-strong)]">
+            <span className="text-title font-semibold text-[var(--color-text-strong)]">
               {value}
             </span>
-            {unit ? <span className="text-xs text-[var(--color-text-muted)]">{unit}</span> : null}
+            {unit ? <span className="text-caption text-[var(--color-text-muted)]">{unit}</span> : null}
           </div>
         </div>
 
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] ${accentMap[color]}`}>
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-caption font-bold uppercase tracking-[0.06em] ${accentMap[color]}`}>
           Live
         </span>
       </div>
 
       {trend ? (
-        <div className={`mt-1.5 text-[11px] font-medium ${trendUp ? 'text-[#08724d]' : 'text-[#b42318]'}`}>
+        <div className={`mt-1.5 text-caption font-medium ${trendUp ? 'text-[#08724d]' : 'text-[#b42318]'}`}>
           {trend}
         </div>
       ) : null}

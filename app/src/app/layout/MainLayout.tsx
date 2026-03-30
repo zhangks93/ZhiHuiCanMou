@@ -17,12 +17,14 @@ export function MainLayout() {
 
       <main
         className={[
-          'relative h-screen overflow-y-auto px-5 pb-24 pt-6 transition-[padding] duration-200 ease-out md:px-6 lg:pr-8 lg:pb-10 lg:pt-8 xl:pr-10',
+          'relative h-screen overflow-hidden px-4 pb-24 pt-4 transition-[padding] duration-200 ease-out md:px-5 lg:pr-6 lg:pb-4 lg:pt-4 xl:pr-8',
           sidebarCollapsed ? 'lg:pl-[132px]' : 'lg:pl-[284px]',
         ].join(' ')}
       >
-        <div className="mx-auto max-w-[1360px] pb-6">
-          <Outlet />
+        <div className="app-main-surface">
+          <div className="app-main-body">
+            <Outlet />
+          </div>
         </div>
       </main>
 

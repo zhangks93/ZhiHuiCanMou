@@ -8,7 +8,7 @@ type HeaderProps = {
 }
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
-  '/': { title: '首页', subtitle: '运营驾驶舱' },
+  '/': { title: '首页', subtitle: '工作台模块' },
   '/schedule': { title: '日程提醒', subtitle: '今日安排与提醒' },
   '/org-data': { title: '常用数据', subtitle: '组织与基础信息' },
   '/biz-data': { title: '经营数据', subtitle: '经营结果与趋势分析' },
@@ -61,31 +61,31 @@ export function Header({ onMenuClick }: HeaderProps) {
               <Menu size={18} strokeWidth={1.8} />
             </button>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-body font-semibold text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
               CM
             </div>
           </div>
 
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-[var(--color-text-muted)] [font-family:var(--font-family-body)]">
+              <div className="flex min-w-0 items-center gap-2 text-body font-medium text-[var(--color-text-muted)] [font-family:var(--font-family-body)]">
                 <span className="truncate">参谋工作台</span>
                 <ChevronRight size={12} strokeWidth={1.8} className="shrink-0" />
                 <span className="truncate">{pageMeta.title}</span>
               </div>
-              <div className="truncate text-base font-semibold text-[var(--color-text-strong)] sm:text-[1.0625rem] [font-family:var(--font-family-body)]">
+              <div className="truncate text-body font-semibold text-[var(--color-text-strong)] sm:text-body [font-family:var(--font-family-body)]">
                 {pageMeta.subtitle}
               </div>
             </div>
 
-            <div className="hidden min-w-0 max-w-[320px] flex-1 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-white px-3 py-2.5 text-sm text-[var(--color-text-muted)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] xl:flex">
+            <div className="hidden min-w-0 max-w-[320px] flex-1 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-white px-3 py-2.5 text-body text-[var(--color-text-muted)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] xl:flex">
               <Search size={16} strokeWidth={1.8} />
               <span className="truncate">搜索页面、报表或指标</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden rounded-2xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-sm font-medium text-[var(--color-text-muted)] [font-family:var(--font-family-body)] sm:inline-flex">
+            <div className="hidden rounded-2xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-body font-medium text-[var(--color-text-muted)] [font-family:var(--font-family-body)] sm:inline-flex">
               {date}
             </div>
 
@@ -111,16 +111,16 @@ export function Header({ onMenuClick }: HeaderProps) {
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-950 text-[11px] font-semibold text-white">
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-950 text-caption font-semibold text-white">
                   {userInitial}
                 </div>
               )}
 
               <div className="hidden min-w-0 text-left md:block">
-                <div className="max-w-[108px] truncate text-sm font-semibold text-[var(--color-text-strong)] [font-family:var(--font-family-body)]">
+                <div className="max-w-[108px] truncate text-body font-semibold text-[var(--color-text-strong)] [font-family:var(--font-family-body)]">
                   {user?.name ?? '当前用户'}
                 </div>
-                <div className="text-[11px] text-[var(--color-text-muted)]">个人设置</div>
+                <div className="text-caption text-[var(--color-text-muted)]">个人设置</div>
               </div>
             </Link>
           </div>

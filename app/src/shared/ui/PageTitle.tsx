@@ -16,7 +16,7 @@ interface PageTitleProps {
 }
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
-  '/': { title: '首页', subtitle: '运营总览与重点提醒' },
+  '/': { title: '首页', subtitle: '工作台模块入口' },
   '/schedule': { title: '日程提醒', subtitle: '查看当天安排与后续提醒' },
   '/org-data': { title: '常用数据', subtitle: '组织与人员基础信息' },
   '/biz-data': { title: '经营数据', subtitle: '经营分析与结构化对比' },
@@ -64,11 +64,11 @@ export function PageTitle({
 
         <div className="space-y-3">
           <div className="min-w-0">
-            <h1 className="truncate text-[2rem] font-semibold leading-tight text-[var(--color-text-strong)] sm:text-[2.5rem]">
+            <h1 className="truncate text-title font-semibold leading-tight text-[var(--color-text-strong)] sm:text-title">
               {heading}
             </h1>
             {description ? (
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--color-text-muted)] sm:text-[15px]">
+              <p className="mt-3 max-w-3xl text-body leading-7 text-[var(--color-text-muted)] sm:text-body">
                 {description}
               </p>
             ) : null}

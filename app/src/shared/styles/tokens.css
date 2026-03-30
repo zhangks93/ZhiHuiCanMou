@@ -33,15 +33,18 @@
   --shadow-card: 0 20px 54px rgba(15, 23, 42, 0.09);
   --shadow-card-hover: 0 24px 72px rgba(15, 23, 42, 0.13);
 
-  --font-size-2xs: 0.625rem;
-  --font-size-xs: 0.6875rem;
-  --font-size-sm: 0.75rem;
-  --font-size-base: 0.8125rem;
-  --font-size-md: 0.875rem;
-  --font-size-lg: 0.9375rem;
-  --font-size-xl: 1rem;
-  --font-size-2xl: 1.125rem;
-  --font-size-3xl: 1.25rem;
+  --font-size-caption: 0.75rem;
+  --font-size-body: 0.875rem;
+  --font-size-title: 1.25rem;
+  --font-size-2xs: var(--font-size-caption);
+  --font-size-xs: var(--font-size-caption);
+  --font-size-sm: var(--font-size-caption);
+  --font-size-base: var(--font-size-body);
+  --font-size-md: var(--font-size-body);
+  --font-size-lg: var(--font-size-body);
+  --font-size-xl: var(--font-size-title);
+  --font-size-2xl: var(--font-size-title);
+  --font-size-3xl: var(--font-size-title);
   --font-family-body: "Aptos", "Segoe UI Variable Text", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-family-heading: "Iowan Old Style", "Source Han Serif SC", "Noto Serif SC", serif;
 

@@ -22,10 +22,10 @@ const VARIANT_CONTENT_CLASS: Record<AppLoadingVariant, string> = {
 }
 
 const VARIANT_LABEL_CLASS: Record<AppLoadingVariant, string> = {
-  screen: 'text-[12px] tracking-[0.1em] text-[var(--color-text-muted)]/70 animate-breathe',
-  overlay: 'text-sm font-medium text-[var(--color-text-strong)]',
-  block: 'text-sm text-[var(--color-text-muted)]',
-  inline: 'text-sm text-[var(--color-text-muted)]',
+  screen: 'text-caption tracking-[0.1em] text-[var(--color-text-muted)]/70 animate-breathe',
+  overlay: 'text-body font-medium text-[var(--color-text-strong)]',
+  block: 'text-body text-[var(--color-text-muted)]',
+  inline: 'text-body text-[var(--color-text-muted)]',
 }
 
 export function AppLoading({
@@ -42,7 +42,7 @@ export function AppLoading({
         <>
           <div className="pointer-events-none fixed inset-0 -z-10 bg-background" />
           <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
-            <div className="absolute -right-20 -top-20 h-[360px] w-[360px] rounded-full bg-[radial-gradient(circle,rgba(34,197,94,0.10),transparent_65%)] animate-pulse-glow" />
+            <div className="absolute -right-20 -top-20 h-[360px] w-[360px] rounded-full bg-[radial-gradient(circle,rgba(95,127,188,0.12),transparent_65%)] animate-pulse-glow" />
             <div className="absolute -bottom-16 -left-16 h-[280px] w-[280px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.07),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
           </div>
         </>
@@ -51,11 +51,11 @@ export function AppLoading({
       <div className={`${VARIANT_CONTENT_CLASS[variant]} ${contentClassName}`.trim()}>
         {isLarge && (
           <div className="relative">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-slate-950 text-xs font-semibold tracking-[0.2em] text-white shadow-[0_16px_36px_rgba(15,23,42,0.18)]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-slate-950 text-caption font-semibold tracking-[0.2em] text-white shadow-[0_16px_36px_rgba(15,23,42,0.18)]">
               CM
             </div>
             <div
-              className="absolute -inset-3 rounded-[26px] border border-[rgba(34,197,94,0.10)]"
+              className="absolute -inset-3 rounded-[26px] border border-[rgba(95,127,188,0.14)]"
               style={{ animation: 'orbit 16s linear infinite' }}
             />
           </div>

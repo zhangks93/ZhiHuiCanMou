@@ -58,7 +58,7 @@ export function DeepLinkTest() {
           marginBottom: '1.5rem',
         }}
       >
-        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '14px' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: 'var(--font-size-body)' }}>
           测试 URL:
         </label>
         <input
@@ -70,7 +70,7 @@ export function DeepLinkTest() {
             padding: '0.75rem',
             borderRadius: '8px',
             border: 'none',
-            fontSize: '14px',
+            fontSize: 'var(--font-size-body)',
             fontFamily: 'monospace',
             background: 'rgba(255, 255, 255, 0.9)',
             color: '#0f172a',
@@ -119,16 +119,16 @@ export function DeepLinkTest() {
           overflowY: 'auto',
         }}
       >
-        <h3 style={{ marginBottom: '1rem', fontSize: '14px', color: '#94a3b8' }}>日志输出</h3>
+        <h3 style={{ marginBottom: '1rem', fontSize: 'var(--font-size-body)', color: '#94a3b8' }}>日志输出</h3>
         {logs.length === 0 ? (
-          <p style={{ color: '#64748b', fontSize: '14px' }}>暂无日志</p>
+          <p style={{ color: '#64748b', fontSize: 'var(--font-size-body)' }}>暂无日志</p>
         ) : (
           logs.map((log, index) => (
             <div
               key={index}
               style={{
                 fontFamily: 'monospace',
-                fontSize: '12px',
+                fontSize: 'var(--font-size-caption)',
                 padding: '4px 0',
                 color: '#e2e8f0',
               }}
