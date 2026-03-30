@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 export interface SectionTabItem {
@@ -5,6 +6,7 @@ export interface SectionTabItem {
   label: string
   to: string
   active: boolean
+  icon?: ReactNode
 }
 
 interface SectionTabsProps {
@@ -28,6 +30,7 @@ export function SectionTabs({ tabs }: SectionTabsProps) {
                 : 'app-tab-item-idle',
             ].join(' ')}
           >
+            {tab.icon ? <span className="app-tab-item__icon">{tab.icon}</span> : null}
             {tab.label}
           </Link>
         ))}

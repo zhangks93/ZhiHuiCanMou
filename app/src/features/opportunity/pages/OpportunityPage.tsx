@@ -2,12 +2,12 @@
 import {
   ChevronDown,
   ChevronUp,
-  Circle,
   Search,
   X,
   CheckCircle2,
   Building2,
   Clock3,
+  type LucideIcon,
 } from 'lucide-react'
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { AppPagination } from '@/shared/ui/AppPagination'
@@ -34,7 +34,7 @@ const STAGE_LABEL: Record<StageCode, string> = {
   contracted: '签约',
 }
 
-const STAGE_STYLE: Record<StageCode, { bg: string; text: string; dot: string; barColor: string; icon: typeof Circle }> = {
+const STAGE_STYLE: Record<StageCode, { bg: string; text: string; dot: string; barColor: string; icon: LucideIcon }> = {
   lead: {
     bg: 'bg-[rgba(148,163,184,0.08)]',
     text: 'text-[#64748b]',
@@ -126,27 +126,32 @@ function StageBadge({ stageCode, stageLabel }: { stageCode: string; stageLabel: 
 
 interface TableProps {
   rows: OpportunityLedger[]
-  expandedIds: Set<string>
-  onToggle: (id: string) => void
   onSort: (col: string) => void
   sortCol: string
   sortDir: 'asc' | 'desc'
 }
 
-function DesktopTable({ rows, expandedIds, onToggle, onSort, sortCol, sortDir }: TableProps) {
+function DesktopTable({ rows, onSort, sortCol, sortDir }: TableProps) {
+  const columns = [
+    { id: 'project_group', label: '项目分组', sortable: false, align: 'text-left', width: '13%' },
+    { id: 'project_name', label: '项目名称', sortable: false, align: 'text-left', width: '27%' },
+    { id: 'stage', label: '推进阶段', sortable: false, align: 'text-left', width: '14%' },
+    { id: 'progress_note', label: '进度说明', sortable: false, align: 'text-left', width: '26%' },
+    { id: 'target_date', label: '预计完成时间', sortable: true, align: 'text-left', width: '10%' },
+    { id: 'first_year_revenue', label: '预期首年营收额', sortable: true, align: 'text-right', width: '10%' },
+  ] as const
+
   return (
     <div className="app-table-scroll hidden lg:block">
       <table className="app-data-table">
+        <colgroup>
+          {columns.map((col) => (
+            <col key={col.id} style={{ width: col.width }} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
-            {[
-              { id: 'project_group', label: '项目分组', sortable: false, align: 'text-left' },
-              { id: 'project_name', label: '项目名称', sortable: false, align: 'text-left' },
-              { id: 'stage', label: '推进阶段', sortable: false, align: 'text-left' },
-              { id: 'progress_note', label: '进度说明', sortable: false, align: 'text-left' },
-              { id: 'target_date', label: '预计完成时间', sortable: true, align: 'text-left' },
-              { id: 'first_year_revenue', label: '预期首年营收额', sortable: true, align: 'text-right' },
-            ].map((col) => (
+            {columns.map((col) => (
               <th
                 key={col.id}
                 onClick={col.sortable ? () => onSort(col.id) : undefined}
@@ -168,70 +173,38 @@ function DesktopTable({ rows, expandedIds, onToggle, onSort, sortCol, sortDir }:
         </thead>
         <tbody>
           {rows.map((row) => {
-            const isExpanded = expandedIds.has(row.id)
-            return [
-              (
-                <tr
-                  key={row.id}
-                  className="app-data-row-interactive"
-                  onClick={() => onToggle(row.id)}
-                >
-                  <td>
-                    <span className="app-cell-muted whitespace-nowrap">
-                      {row.project_group ?? '-'}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="max-w-[260px]">
-                      <div className="app-cell-strong line-clamp-2 font-medium">
-                        {row.project_name}
-                      </div>
-                      {!isExpanded && row.progress_note && (
-                        <div className="app-cell-muted mt-1 line-clamp-1">
-                          {row.progress_note.slice(0, 40)}{row.progress_note && row.progress_note.length > 40 ? '…' : ''}
-                        </div>
-                      )}
+            return (
+              <tr key={row.id}>
+                <td>
+                  <span className="app-cell-muted whitespace-nowrap">
+                    {row.project_group ?? '-'}
+                  </span>
+                </td>
+                <td>
+                  <div className="max-w-[320px]">
+                    <div className="app-cell-strong line-clamp-2 font-medium leading-snug">
+                      {row.project_name}
                     </div>
-                  </td>
-                  <td>
-                    <StageBadge stageCode={row.stage_code} stageLabel={row.stage_label} />
-                  </td>
-                  <td>
-                    <div className="app-cell-muted max-w-[300px] line-clamp-2">
-                      {row.progress_note ?? '-'}
-                    </div>
-                  </td>
-                  <td>
-                    <span className="app-cell-muted app-cell-numeric whitespace-nowrap">{formatDate(row.target_date)}</span>
-                  </td>
-                  <td className="text-right">
-                    <span className="app-cell-strong app-cell-numeric whitespace-nowrap font-semibold">
-                      {row.first_year_revenue != null ? `${row.first_year_revenue}万/年` : '-'}
-                    </span>
-                  </td>
-                </tr>
-              ),
-              isExpanded && row.progress_note ? (
-                <tr key={`${row.id}-expanded`} className="app-data-row-emphasis app-data-row-static">
-                    <td colSpan={6} className="px-6 py-4">
-                      <div className="rounded-xl border border-[rgba(148,163,184,0.08)] bg-white/60 p-4">
-                        <div className="mb-1.5 flex items-center gap-1.5">
-                          <Circle size={10} className="text-[var(--color-accent-hover)]" />
-                          <span className="text-caption font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">推进进度</span>
-                        </div>
-                        <p className="text-body leading-relaxed text-[var(--color-text-strong)] whitespace-pre-line">
-                          {row.progress_note}
-                        </p>
-                        {row.first_year_revenue_raw && (
-                          <div className="mt-2 text-body text-[var(--color-text-muted)]">
-                            原始值：{row.first_year_revenue_raw}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-              ) : null,
-            ]
+                  </div>
+                </td>
+                <td>
+                  <StageBadge stageCode={row.stage_code} stageLabel={row.stage_label} />
+                </td>
+                <td>
+                  <div className="app-cell-muted max-w-[360px] line-clamp-2 leading-relaxed">
+                    {row.progress_note ?? '-'}
+                  </div>
+                </td>
+                <td>
+                  <span className="app-cell-muted app-cell-numeric whitespace-nowrap">{formatDate(row.target_date)}</span>
+                </td>
+                <td className="text-right">
+                  <span className="app-cell-strong app-cell-numeric whitespace-nowrap font-semibold">
+                    {row.first_year_revenue != null ? `${row.first_year_revenue}万/年` : '-'}
+                  </span>
+                </td>
+              </tr>
+            )
           })}
         </tbody>
       </table>
@@ -243,21 +216,18 @@ function DesktopTable({ rows, expandedIds, onToggle, onSort, sortCol, sortDir }:
 
 interface MobileCardsProps {
   rows: OpportunityLedger[]
-  expandedId: string | null
-  onToggle: (id: string) => void
 }
 
-function MobileCards({ rows, expandedId, onToggle }: MobileCardsProps) {
+function MobileCards({ rows }: MobileCardsProps) {
   return (
     <div className="lg:hidden space-y-2 px-4 py-3">
       {rows.map((row) => {
-        const isOpen = expandedId === row.id
         return (
           <div
             key={row.id}
             className="rounded-xl border border-[rgba(148,163,184,0.10)] bg-white/90 p-4 transition-all duration-160"
           >
-            <div className="flex items-start justify-between gap-2" onClick={() => onToggle(row.id)}>
+            <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="line-clamp-2 text-caption font-semibold text-[var(--color-text-strong)] leading-snug">
                   {row.project_name}
@@ -275,32 +245,16 @@ function MobileCards({ rows, expandedId, onToggle }: MobileCardsProps) {
               <StageBadge stageCode={row.stage_code} stageLabel={row.stage_label} />
             </div>
 
-            <div
-              className="mt-2 flex cursor-pointer items-center justify-between"
-              onClick={() => onToggle(row.id)}
-            >
-              <span className="text-caption text-[var(--color-text-muted)] line-clamp-1 flex-1 pr-2">
+            <div className="mt-3 rounded-lg bg-[rgba(15,23,42,0.03)] p-3">
+              <p className="text-caption leading-relaxed text-[var(--color-text-muted)] whitespace-pre-line">
                 {row.progress_note ?? '暂无进度说明'}
-              </span>
-              <span className="shrink-0 text-caption text-[var(--color-accent-hover)]">
-                {isOpen ? '收起' : '展开'}
-              </span>
-            </div>
-
-            {isOpen && row.progress_note && (
-              <div className="mt-3 border-t border-[rgba(148,163,184,0.08)] pt-3">
-                <div className="rounded-lg bg-[rgba(15,23,42,0.03)] p-3">
-                  <p className="text-caption leading-relaxed text-[var(--color-text-muted)] whitespace-pre-line">
-                    {row.progress_note}
-                  </p>
-                  {row.first_year_revenue_raw && (
-                    <div className="mt-2 text-caption text-[var(--color-text-muted)]">
-                      原始值：{row.first_year_revenue_raw}
-                    </div>
-                  )}
+              </p>
+              {row.first_year_revenue_raw && (
+                <div className="mt-2 text-caption text-[var(--color-text-muted)]">
+                  原始值：{row.first_year_revenue_raw}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )
       })}
@@ -323,8 +277,6 @@ export function OpportunityPage() {
   const [searchText, setSearchText] = useState('')
 
   // UI state
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [expandedMobile, setExpandedMobile] = useState<string | null>(null)
   const [sortCol, setSortCol] = useState('first_year_revenue')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
@@ -399,14 +351,6 @@ export function OpportunityPage() {
     }
   }
 
-  function toggleExpand(id: string) {
-    setExpandedIds((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
   const hasActiveFilter = filterGroup !== 'all' || filterStage !== 'all' || searchText !== ''
 
   return (
@@ -471,16 +415,12 @@ export function OpportunityPage() {
           <>
             <DesktopTable
               rows={paginated}
-              expandedIds={expandedIds}
-              onToggle={toggleExpand}
               onSort={handleSort}
               sortCol={sortCol}
               sortDir={sortDir}
             />
             <MobileCards
               rows={paginated}
-              expandedId={expandedMobile}
-              onToggle={setExpandedMobile}
             />
             <AppPagination
               page={page}

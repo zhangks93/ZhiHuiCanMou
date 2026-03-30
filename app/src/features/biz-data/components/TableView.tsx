@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -45,6 +45,9 @@ interface TableViewProps {
   showLevels: LevelVisibility
 }
 
+const HEADER_CONTENT_CLASS =
+  'flex min-h-[84px] flex-col justify-center gap-1.5 px-3 py-3'
+
 function DraggableHeader({ id, children }: { id: string; children: React.ReactNode }) {
   const {
     attributes,
@@ -65,7 +68,7 @@ function DraggableHeader({ id, children }: { id: string; children: React.ReactNo
     <div
       ref={setNodeRef}
       style={style}
-      className="px-3 py-3 relative group"
+      className={`${HEADER_CONTENT_CLASS} relative group`}
     >
       <div className="flex items-start gap-1.5">
         <button
@@ -90,6 +93,10 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
 
   const [metricOrder, setMetricOrder] = useState<MetricCategory[]>(selectedMetrics)
   const [thresholdVersion, setThresholdVersion] = useState(0)
+  const leftHeaderRowRef = useRef<HTMLTableRowElement | null>(null)
+  const metricHeaderRowRef = useRef<HTMLTableRowElement | null>(null)
+  const leftRowRefs = useRef<Array<HTMLTableRowElement | null>>([])
+  const metricRowRefs = useRef<Array<HTMLTableRowElement | null>>([])
 
   useEffect(() => {
     return subscribeThresholdSettings(() => {
@@ -118,12 +125,12 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   }
 
   const filteredRootNodes = useMemo(() => {
-    const level0Nodes = allNodesWithAggregation.filter(n => getNodeLevel(n) === 0)
+    const level0Nodes = allNodesWithAggregation.filter((node) => getNodeLevel(node) === 0)
     if (level0Nodes.length > 0 && showLevels.level0) {
       return level0Nodes
     }
-    return allNodesWithAggregation.filter(n => {
-      const level = getNodeLevel(n)
+    return allNodesWithAggregation.filter((node) => {
+      const level = getNodeLevel(node)
       return level === 1 && showLevels.level1
     })
   }, [allNodesWithAggregation, showLevels])
@@ -179,7 +186,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
       },
       size: 280,
     },
-    ...metricOrder.flatMap(metric => [
+    ...metricOrder.flatMap((metric) => [
       {
         id: `${metric}_actual`,
         accessorFn: (row: EnrichedBizDataNode) => row.metrics[metric]?.actual,
@@ -230,7 +237,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
     getExpandedRowModel: getExpandedRowModel(),
     getSubRows: (row) => {
       const children = getChildren(row, allNodesWithAggregation)
-      return children.filter(child => {
+      return children.filter((child) => {
         const level = getNodeLevel(child)
         if (level === 1) return showLevels.level1
         if (level === 2) return showLevels.level2
@@ -242,6 +249,73 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
       expanded: {},
     },
   })
+
+  const visibleRows = table.getRowModel().rows
+  const visibleRowIds = visibleRows.map((row) => row.id).join('|')
+
+  const syncPairedHeights = useCallback(() => {
+    const resetHeight = (element: HTMLTableRowElement | null) => {
+      if (element) {
+        element.style.height = ''
+      }
+    }
+
+    resetHeight(leftHeaderRowRef.current)
+    resetHeight(metricHeaderRowRef.current)
+    leftRowRefs.current.forEach(resetHeight)
+    metricRowRefs.current.forEach(resetHeight)
+
+    const syncPair = (left: HTMLTableRowElement | null, right: HTMLTableRowElement | null) => {
+      if (!left || !right) return
+      const height = Math.ceil(Math.max(left.getBoundingClientRect().height, right.getBoundingClientRect().height))
+      const nextHeight = `${height}px`
+      left.style.height = nextHeight
+      right.style.height = nextHeight
+    }
+
+    syncPair(leftHeaderRowRef.current, metricHeaderRowRef.current)
+
+    const rowCount = Math.max(leftRowRefs.current.length, metricRowRefs.current.length)
+    for (let index = 0; index < rowCount; index += 1) {
+      syncPair(leftRowRefs.current[index] ?? null, metricRowRefs.current[index] ?? null)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    leftRowRefs.current = leftRowRefs.current.slice(0, visibleRows.length)
+    metricRowRefs.current = metricRowRefs.current.slice(0, visibleRows.length)
+    syncPairedHeights()
+  }, [metricOrder, syncPairedHeights, visibleRowIds, visibleRows.length])
+
+  useEffect(() => {
+    const handleResize = () => {
+      syncPairedHeights()
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    if (typeof ResizeObserver === 'undefined') {
+      return () => {
+        window.removeEventListener('resize', handleResize)
+      }
+    }
+
+    const observer = new ResizeObserver(() => {
+      syncPairedHeights()
+    })
+
+    const observedElements = [
+      leftHeaderRowRef.current?.closest('table'),
+      metricHeaderRowRef.current?.closest('table'),
+    ].filter((element): element is HTMLTableElement => Boolean(element))
+
+    observedElements.forEach((element) => observer.observe(element))
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [syncPairedHeights])
 
   if (selectedMetrics.length === 0) {
     return (
@@ -262,13 +336,12 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
       >
         <div className="app-table-shell">
           <div className="flex">
-            {/* Fixed first column */}
             <div className="z-20 flex-shrink-0 border-r border-[var(--color-border)] bg-white/72">
               <table className="app-data-table app-data-table-compact">
                 <thead className="sticky top-0">
-                  <tr>
-                    <th className="w-72">
-                      <div className="flex flex-col gap-1.5 items-center">
+                  <tr ref={leftHeaderRowRef}>
+                    <th className="w-72 !p-0">
+                      <div className={`${HEADER_CONTENT_CLASS} items-center`}>
                         <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">业务单元</span>
                         <div className="text-caption font-medium text-transparent">占位</div>
                       </div>
@@ -276,11 +349,16 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                   </tr>
                 </thead>
                 <tbody>
-                  {table.getRowModel().rows.map(row => {
+                  {visibleRows.map((row, index) => {
                     const firstCell = row.getVisibleCells()[0]
                     return (
-                      <tr key={row.id}>
-                        <td className="h-[44px] w-72 align-middle">
+                      <tr
+                        key={row.id}
+                        ref={(node) => {
+                          leftRowRefs.current[index] = node
+                        }}
+                      >
+                        <td className="w-72 align-middle">
                           {flexRender(firstCell.column.columnDef.cell, firstCell.getContext())}
                         </td>
                       </tr>
@@ -290,19 +368,18 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
               </table>
             </div>
 
-            {/* Scrollable metric columns */}
             <div className="app-table-scroll flex-1">
               <table className="app-data-table app-data-table-compact">
                 <thead className="sticky top-0">
-                  <tr>
+                  <tr ref={metricHeaderRowRef}>
                     <SortableContext
                       items={metricOrder}
                       strategy={horizontalListSortingStrategy}
                     >
-                      {metricOrder.map(metric => (
-                        <th key={metric}>
+                      {metricOrder.map((metric) => (
+                        <th key={metric} className="!p-0">
                           <DraggableHeader id={metric}>
-                            <div className="flex flex-col gap-1.5 min-w-[300px]">
+                            <div className="flex min-w-[300px] flex-col gap-1.5">
                               <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-strong)]">
                                 {METRIC_LABELS[metric]}
                               </span>
@@ -319,18 +396,23 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                   </tr>
                 </thead>
                 <tbody>
-                  {table.getRowModel().rows.map(row => {
+                  {visibleRows.map((row, index) => {
                     const metricCells = row.getVisibleCells().slice(1)
                     return (
-                      <tr key={row.id}>
-                        {metricOrder.map(metric => {
-                          const actualCell = metricCells.find(c => c.column.id === `${metric}_actual`)
-                          const budgetCell = metricCells.find(c => c.column.id === `${metric}_budget`)
-                          const completionCell = metricCells.find(c => c.column.id === `${metric}_completion`)
+                      <tr
+                        key={row.id}
+                        ref={(node) => {
+                          metricRowRefs.current[index] = node
+                        }}
+                      >
+                        {metricOrder.map((metric) => {
+                          const actualCell = metricCells.find((cell) => cell.column.id === `${metric}_actual`)
+                          const budgetCell = metricCells.find((cell) => cell.column.id === `${metric}_budget`)
+                          const completionCell = metricCells.find((cell) => cell.column.id === `${metric}_completion`)
 
                           return (
-                            <td key={metric} className="h-[44px] border-r border-[rgba(148,163,184,0.08)] last:border-r-0">
-                              <div className="grid grid-cols-3 gap-1.5 px-3 min-w-[300px] h-full items-center">
+                            <td key={metric} className="border-r border-[rgba(148,163,184,0.08)] last:border-r-0">
+                              <div className="grid h-full min-w-[300px] grid-cols-3 items-center gap-1.5 px-3">
                                 <div className="text-right">
                                   {actualCell && flexRender(actualCell.column.columnDef.cell, actualCell.getContext())}
                                 </div>

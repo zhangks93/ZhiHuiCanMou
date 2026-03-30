@@ -667,6 +667,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.5rem;
   min-height: 3.25rem;
   padding: 0.75rem 1.1rem;
   border: 1px solid transparent;
@@ -680,6 +681,13 @@
     background-color 160ms ease,
     color 160ms ease,
     box-shadow 160ms ease;
+}
+
+.app-tab-item__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .app-tab-item-active {
