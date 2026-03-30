@@ -83,7 +83,7 @@ export function MetricSelector({
                           className={`
                             w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-caption text-left transition-all duration-150
                             ${isSelected
-                              ? 'bg-[rgba(34,197,94,0.08)] text-[var(--color-text-strong)]'
+                              ? 'text-[var(--color-text-strong)]'
                               : isDisabled
                               ? 'text-[var(--color-text-muted)] cursor-not-allowed opacity-40'
                               : 'text-[var(--color-text)] hover:bg-[rgba(15,23,42,0.04)]'

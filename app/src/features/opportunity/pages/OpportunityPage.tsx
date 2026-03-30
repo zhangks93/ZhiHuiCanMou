@@ -2,10 +2,6 @@
 import {
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   Circle,
   Search,
   X,
@@ -14,6 +10,7 @@ import {
   Clock3,
 } from 'lucide-react'
 import { AppLoading } from '@/shared/ui/AppLoading'
+import { AppPagination } from '@/shared/ui/AppPagination'
 import { useOpportunityData } from '../hooks/useOpportunityData'
 import type { OpportunityLedger } from '../types'
 
@@ -138,10 +135,10 @@ interface TableProps {
 
 function DesktopTable({ rows, expandedIds, onToggle, onSort, sortCol, sortDir }: TableProps) {
   return (
-    <div className="hidden lg:block overflow-x-auto">
-      <table className="w-full border-collapse">
+    <div className="app-table-scroll hidden lg:block">
+      <table className="app-data-table">
         <thead>
-          <tr className="bg-[rgba(15,23,42,0.03)]">
+          <tr>
             {[
               { id: 'project_group', label: '项目分组', sortable: false, align: 'text-left' },
               { id: 'project_name', label: '项目名称', sortable: false, align: 'text-left' },
@@ -153,7 +150,7 @@ function DesktopTable({ rows, expandedIds, onToggle, onSort, sortCol, sortDir }:
               <th
                 key={col.id}
                 onClick={col.sortable ? () => onSort(col.id) : undefined}
-                className={`${col.align} border-b border-[var(--color-border)] px-3 py-2.5 text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)] whitespace-nowrap ${col.sortable ? 'cursor-pointer select-none hover:text-[var(--color-text-strong)]' : ''}`}
+                className={`${col.align} ${col.sortable ? 'is-sortable' : ''}`}
               >
                 <span className="inline-flex items-center gap-1">
                   {col.label}
@@ -172,69 +169,69 @@ function DesktopTable({ rows, expandedIds, onToggle, onSort, sortCol, sortDir }:
         <tbody>
           {rows.map((row) => {
             const isExpanded = expandedIds.has(row.id)
-            return (
-              <>
+            return [
+              (
                 <tr
                   key={row.id}
-                  className="cursor-pointer border-b border-[rgba(148,163,184,0.10)] transition-colors duration-160 hover:bg-[rgba(34,197,94,0.03)]"
+                  className="app-data-row-interactive"
                   onClick={() => onToggle(row.id)}
                 >
-                  <td className="px-3 py-3">
-                    <span className="text-caption text-[var(--color-text-muted)] whitespace-nowrap">
+                  <td>
+                    <span className="app-cell-muted whitespace-nowrap">
                       {row.project_group ?? '-'}
                     </span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td>
                     <div className="max-w-[260px]">
-                      <div className="text-caption font-medium text-[var(--color-text-strong)] line-clamp-2">
+                      <div className="app-cell-strong line-clamp-2 font-medium">
                         {row.project_name}
                       </div>
                       {!isExpanded && row.progress_note && (
-                        <div className="mt-1 text-caption text-[var(--color-text-muted)] line-clamp-1">
+                        <div className="app-cell-muted mt-1 line-clamp-1">
                           {row.progress_note.slice(0, 40)}{row.progress_note && row.progress_note.length > 40 ? '…' : ''}
                         </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-3">
+                  <td>
                     <StageBadge stageCode={row.stage_code} stageLabel={row.stage_label} />
                   </td>
-                  <td className="px-3 py-3">
-                    <div className="max-w-[300px] text-caption text-[var(--color-text-muted)] line-clamp-2">
+                  <td>
+                    <div className="app-cell-muted max-w-[300px] line-clamp-2">
                       {row.progress_note ?? '-'}
                     </div>
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    <span className="text-caption text-[var(--color-text-muted)]">{formatDate(row.target_date)}</span>
+                  <td>
+                    <span className="app-cell-muted app-cell-numeric whitespace-nowrap">{formatDate(row.target_date)}</span>
                   </td>
-                  <td className="px-3 py-3 text-right whitespace-nowrap">
-                    <span className="text-caption font-semibold tabular-nums text-[var(--color-text-strong)]">
+                  <td className="text-right">
+                    <span className="app-cell-strong app-cell-numeric whitespace-nowrap font-semibold">
                       {row.first_year_revenue != null ? `${row.first_year_revenue}万/年` : '-'}
                     </span>
                   </td>
                 </tr>
-                {isExpanded && row.progress_note && (
-                  <tr key={`${row.id}-expanded`} className="border-b border-[rgba(148,163,184,0.10)] bg-[rgba(15,23,42,0.02)]">
-                    <td colSpan={6} className="px-6 py-3">
+              ),
+              isExpanded && row.progress_note ? (
+                <tr key={`${row.id}-expanded`} className="app-data-row-emphasis app-data-row-static">
+                    <td colSpan={6} className="px-6 py-4">
                       <div className="rounded-xl border border-[rgba(148,163,184,0.08)] bg-white/60 p-4">
                         <div className="mb-1.5 flex items-center gap-1.5">
                           <Circle size={10} className="text-[var(--color-accent-hover)]" />
                           <span className="text-caption font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">推进进度</span>
                         </div>
-                        <p className="text-caption leading-relaxed text-[var(--color-text-strong)] whitespace-pre-line">
+                        <p className="text-body leading-relaxed text-[var(--color-text-strong)] whitespace-pre-line">
                           {row.progress_note}
                         </p>
                         {row.first_year_revenue_raw && (
-                          <div className="mt-2 text-caption text-[var(--color-text-muted)]">
+                          <div className="mt-2 text-body text-[var(--color-text-muted)]">
                             原始值：{row.first_year_revenue_raw}
                           </div>
                         )}
                       </div>
                     </td>
                   </tr>
-                )}
-              </>
-            )
+              ) : null,
+            ]
           })}
         </tbody>
       </table>
@@ -314,90 +311,6 @@ function MobileCards({ rows, expandedId, onToggle }: MobileCardsProps) {
 // ─── Pagination ──────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 10
-
-interface PaginationProps {
-  page: number
-  total: number
-  pageSize: number
-  onChange: (p: number) => void
-}
-
-function Pagination({ page, total, pageSize, onChange }: PaginationProps) {
-  const totalPages = Math.ceil(total / pageSize)
-  if (totalPages <= 1) return null
-
-  const from = (page - 1) * pageSize + 1
-  const to = Math.min(page * pageSize, total)
-
-  // Build page number array with ellipsis
-  function pageNumbers(): (number | '…')[] {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1)
-    const pages: (number | '…')[] = [1]
-    if (page > 3) pages.push('…')
-    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
-      pages.push(i)
-    }
-    if (page < totalPages - 2) pages.push('…')
-    pages.push(totalPages)
-    return pages
-  }
-
-  return (
-    <div className="flex items-center justify-between border-t border-[rgba(148,163,184,0.10)] px-4 py-2.5">
-      <span className="text-caption tabular-nums text-[var(--color-text-muted)]">
-        {from}–{to} / 共 <span className="font-semibold text-[var(--color-text-strong)]">{total}</span> 条
-      </span>
-      <div className="flex items-center gap-0.5">
-        <PagBtn icon={ChevronsLeft} onClick={() => onChange(1)} disabled={page === 1} label="首页" />
-        <PagBtn icon={ChevronLeft} onClick={() => onChange(page - 1)} disabled={page === 1} label="上一页" />
-        <div className="flex items-center gap-0.5 mx-1">
-          {pageNumbers().map((n, i) =>
-            n === '…' ? (
-              <span key={`e${i}`} className="w-6 text-center text-caption text-[var(--color-text-muted)] select-none">…</span>
-            ) : (
-              <button
-                key={n}
-                onClick={() => onChange(n as number)}
-                className={`min-w-[26px] rounded-lg px-1.5 py-1 text-caption font-medium transition-colors duration-120 ${
-                  n === page
-                    ? 'bg-[rgba(34,197,94,0.10)] text-[var(--color-accent-hover)] font-semibold'
-                    : 'text-[var(--color-text-muted)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)]'
-                }`}
-              >
-                {n}
-              </button>
-            )
-          )}
-        </div>
-        <PagBtn icon={ChevronRight} onClick={() => onChange(page + 1)} disabled={page === totalPages} label="下一页" />
-        <PagBtn icon={ChevronsRight} onClick={() => onChange(totalPages)} disabled={page === totalPages} label="末页" />
-      </div>
-    </div>
-  )
-}
-
-function PagBtn({
-  icon: Icon,
-  onClick,
-  disabled,
-  label,
-}: {
-  icon: React.ElementType
-  onClick: () => void
-  disabled: boolean
-  label: string
-}) {
-  return (
-    <button
-      aria-label={label}
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded-lg p-1 text-[var(--color-text-muted)] transition-colors duration-120 hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)] disabled:cursor-not-allowed disabled:opacity-30"
-    >
-      <Icon size={14} />
-    </button>
-  )
-}
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -577,7 +490,7 @@ export function OpportunityPage() {
               expandedId={expandedMobile}
               onToggle={setExpandedMobile}
             />
-            <Pagination
+            <AppPagination
               page={page}
               total={filtered.length}
               pageSize={PAGE_SIZE}

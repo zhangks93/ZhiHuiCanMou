@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react'
+import { useMemo, type Dispatch, type SetStateAction } from 'react'
 import {
   BarChart,
   Bar,
@@ -9,7 +9,6 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
-import { ChevronRight } from 'lucide-react'
 import { METRIC_LABELS, CHART_COLORS } from '@/shared/lib/constants'
 import type { EnrichedBizDataNode, MetricCategory } from '@/features/biz-data/types'
 import { buildTreeWithAggregation, getChildren } from '@/features/biz-data/services/bizDataService'
@@ -19,31 +18,35 @@ interface ChartViewProps {
   nodes: EnrichedBizDataNode[]
   reportType: 'fone' | 'tuwei'
   selectedMetrics: MetricCategory[]
+  drillDownPath: DrillDownLevel[]
+  onDrillDownPathChange: Dispatch<SetStateAction<DrillDownLevel[]>>
 }
 
-interface DrillDownLevel {
+export interface DrillDownLevel {
   node: EnrichedBizDataNode | null
   label: string
 }
 
-export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps) {
+export function ChartView({
+  nodes,
+  reportType,
+  selectedMetrics,
+  drillDownPath,
+  onDrillDownPathChange,
+}: ChartViewProps) {
   const budgetField = reportType === 'fone' ? 'budget_fone' : 'budget_tuwei'
 
   const allNodesWithAggregation = useMemo(() => {
     return buildTreeWithAggregation(nodes)
   }, [nodes])
 
-  const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([
-    { node: null, label: '全部' }
-  ])
-
   const currentLevelNodes = useMemo(() => {
     const currentLevel = drillDownPath[drillDownPath.length - 1]
 
     if (!currentLevel.node) {
-      return allNodesWithAggregation.filter(n => {
-        const { level_1, level_2 } = n.orgHierarchy
-        return level_1 && !level_2 && n.node_name === level_1
+      return allNodesWithAggregation.filter((node) => {
+        const { level_1, level_2 } = node.orgHierarchy
+        return level_1 && !level_2 && node.node_name === level_1
       }).sort((a, b) => a.sort_order - b.sort_order)
     }
 
@@ -51,12 +54,12 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
   }, [drillDownPath, allNodesWithAggregation])
 
   const chartData = useMemo(() => {
-    return currentLevelNodes.map(node => {
+    return currentLevelNodes.map((node) => {
       const dataPoint: Record<string, string | number | null> = {
         name: node.node_name,
       }
 
-      selectedMetrics.forEach(metric => {
+      selectedMetrics.forEach((metric) => {
         const metricData = node.metrics[metric]
         dataPoint[`${metric}_actual`] = metricData?.actual ?? null
         dataPoint[`${metric}_budget`] = metricData?.[budgetField] ?? null
@@ -66,24 +69,22 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
     })
   }, [currentLevelNodes, selectedMetrics, budgetField])
 
-  const handleBarClick = (data: any) => {
-    if (!data || typeof data.name !== 'string') return
+  const handleBarClick = (data: { name?: string } | undefined) => {
+    if (!data?.name) return
 
-    const clickedNode = currentLevelNodes.find(n => n.node_name === data.name)
+    const clickedNode = currentLevelNodes.find((node) => node.node_name === data.name)
     if (!clickedNode) return
 
     const children = getChildren(clickedNode, allNodesWithAggregation)
+    if (children.length === 0) return
 
-    if (children.length > 0) {
-      setDrillDownPath(prev => [...prev, {
+    onDrillDownPathChange((prev) => [
+      ...prev,
+      {
         node: clickedNode,
-        label: clickedNode.node_name
-      }])
-    }
-  }
-
-  const handleBreadcrumbClick = (index: number) => {
-    setDrillDownPath(prev => prev.slice(0, index + 1))
+        label: clickedNode.node_name,
+      },
+    ])
   }
 
   if (selectedMetrics.length === 0) {
@@ -98,28 +99,6 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
 
   return (
     <div className="space-y-3">
-      {/* Breadcrumb Navigation */}
-      <div className="flex items-center gap-1 text-caption">
-        {drillDownPath.map((level, index) => (
-          <div key={index} className="flex items-center gap-1">
-            {index > 0 && <ChevronRight size={12} className="text-[var(--color-text-muted)]" />}
-            <button
-              onClick={() => handleBreadcrumbClick(index)}
-              className={`
-                px-2 py-1 rounded-lg transition-all duration-150
-                ${index === drillDownPath.length - 1
-                  ? 'bg-[var(--color-accent)] text-white font-medium shadow-[0_2px_8px_rgba(15,23,42,0.16)]'
-                  : 'text-[var(--color-text-muted)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)]'
-                }
-              `}
-            >
-              {level.label}
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* Chart */}
       <div className="biz-content-area">
         {currentLevelNodes.length === 0 ? (
           <div className="app-empty-state">
@@ -150,8 +129,8 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
 
-              {selectedMetrics.flatMap((metric, idx) => {
-                const baseColor = CHART_COLORS[idx % CHART_COLORS.length]
+              {selectedMetrics.flatMap((metric, index) => {
+                const baseColor = CHART_COLORS[index % CHART_COLORS.length]
                 return [
                   <Bar
                     key={`${metric}_actual`}
@@ -178,7 +157,6 @@ export function ChartView({ nodes, reportType, selectedMetrics }: ChartViewProps
         )}
       </div>
 
-      {/* Hint */}
       {currentLevelNodes.length > 0 && (
         <div className="text-caption text-[var(--color-text-muted)] text-center opacity-60">
           点击柱状图下钻查看下级数据

@@ -23,11 +23,12 @@ import {
   horizontalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ChevronRight, ChevronDown, GripVertical, Filter } from 'lucide-react'
+import { ChevronRight, ChevronDown, GripVertical } from 'lucide-react'
 import { METRIC_LABELS } from '@/shared/lib/constants'
 import { fmt, fmtPct } from '@/shared/lib/format'
 import type { EnrichedBizDataNode, MetricCategory } from '@/features/biz-data/types'
 import { getChildren, buildTreeWithAggregation } from '@/features/biz-data/services/bizDataService'
+import type { LevelVisibility } from './HierarchyLevelFilter'
 import {
   getNodeThresholds,
   getAlertLevel,
@@ -41,6 +42,7 @@ interface TableViewProps {
   nodes: EnrichedBizDataNode[]
   reportType: 'fone' | 'tuwei'
   selectedMetrics: MetricCategory[]
+  showLevels: LevelVisibility
 }
 
 function DraggableHeader({ id, children }: { id: string; children: React.ReactNode }) {
@@ -82,7 +84,7 @@ function DraggableHeader({ id, children }: { id: string; children: React.ReactNo
   )
 }
 
-export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps) {
+export function TableView({ nodes, reportType, selectedMetrics, showLevels }: TableViewProps) {
   const budgetField = reportType === 'fone' ? 'budget_fone' : 'budget_tuwei'
   const completionField = reportType === 'fone' ? 'completion_fone' : 'completion_tuwei'
 
@@ -94,13 +96,6 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
       setThresholdVersion((v) => v + 1)
     })
   }, [])
-
-  const [showLevels, setShowLevels] = useState({
-    level0: true,
-    level1: true,
-    level2: true,
-    level3: true,
-  })
 
   useEffect(() => {
     setMetricOrder(selectedMetrics)
@@ -178,7 +173,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
             ) : (
               <span className="w-[18px]" />
             )}
-            <span className="font-medium text-caption text-[var(--color-text-strong)]">{getValue() as string}</span>
+            <span className="font-medium text-[var(--color-text-strong)]">{getValue() as string}</span>
           </div>
         )
       },
@@ -190,7 +185,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
         accessorFn: (row: EnrichedBizDataNode) => row.metrics[metric]?.actual,
         header: `${METRIC_LABELS[metric]} - 实际`,
         cell: ({ getValue }: { getValue: () => unknown }) => (
-          <span className="font-medium text-caption text-[var(--color-text-strong)]">{fmt(getValue() as number)}</span>
+          <span className="font-medium text-[var(--color-text-strong)]">{fmt(getValue() as number)}</span>
         ),
         size: 100,
       },
@@ -199,7 +194,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
         accessorFn: (row: EnrichedBizDataNode) => row.metrics[metric]?.[budgetField],
         header: `${METRIC_LABELS[metric]} - 预算`,
         cell: ({ getValue }: { getValue: () => unknown }) => (
-          <span className="text-caption text-[var(--color-text-muted)]">{fmt(getValue() as number)}</span>
+          <span className="text-[var(--color-text-muted)]">{fmt(getValue() as number)}</span>
         ),
         size: 100,
       },
@@ -217,7 +212,7 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
 
           return (
             <div className={`inline-flex items-center px-2 py-0.5 rounded-lg border ${bgClass} ${borderClass}`}>
-              <span className={`font-semibold text-caption ${colorClass}`}>
+              <span className={`font-semibold ${colorClass}`}>
                 {fmtPct(value)}
               </span>
             </div>
@@ -260,42 +255,19 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
 
   return (
     <div className="space-y-3">
-      {/* Level Filter */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Filter size={13} className="text-[var(--color-text-muted)]" />
-        <span className="text-caption font-medium text-[var(--color-text-muted)]">层级:</span>
-        {[
-          { key: 'level0', label: '集团' },
-          { key: 'level1', label: '一级' },
-          { key: 'level2', label: '二级' },
-          { key: 'level3', label: '单元' },
-        ].map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-1 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showLevels[key as keyof typeof showLevels]}
-              onChange={(e) => setShowLevels(prev => ({ ...prev, [key]: e.target.checked }))}
-              className="radio w-3 h-3"
-            />
-            <span className="text-caption text-[var(--color-text-muted)]">{label}</span>
-          </label>
-        ))}
-      </div>
-
-      {/* Table */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <div className="biz-content-area overflow-hidden rounded-xl border border-[var(--color-border)]">
+        <div className="app-table-shell">
           <div className="flex">
             {/* Fixed first column */}
-            <div className="flex-shrink-0 border-r border-[var(--color-border)] bg-white/60 z-20">
-              <table className="border-collapse">
-                <thead className="bg-[rgba(15,23,42,0.03)] sticky top-0">
+            <div className="z-20 flex-shrink-0 border-r border-[var(--color-border)] bg-white/72">
+              <table className="app-data-table app-data-table-compact">
+                <thead className="sticky top-0">
                   <tr>
-                    <th className="px-3 py-3 w-72 border-b border-[var(--color-border)]">
+                    <th className="w-72">
                       <div className="flex flex-col gap-1.5 items-center">
                         <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">业务单元</span>
                         <div className="text-caption font-medium text-transparent">占位</div>
@@ -303,12 +275,12 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[rgba(148,163,184,0.1)]">
+                <tbody>
                   {table.getRowModel().rows.map(row => {
                     const firstCell = row.getVisibleCells()[0]
                     return (
-                      <tr key={row.id} className="hover:bg-[rgba(34,197,94,0.03)] transition-colors h-[44px]">
-                        <td className="px-3 text-caption w-72 h-[44px] align-middle">
+                      <tr key={row.id}>
+                        <td className="h-[44px] w-72 align-middle">
                           {flexRender(firstCell.column.columnDef.cell, firstCell.getContext())}
                         </td>
                       </tr>
@@ -319,16 +291,16 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
             </div>
 
             {/* Scrollable metric columns */}
-            <div className="flex-1 overflow-x-auto">
-              <table className="border-collapse">
-                <thead className="bg-[rgba(15,23,42,0.03)] sticky top-0">
+            <div className="app-table-scroll flex-1">
+              <table className="app-data-table app-data-table-compact">
+                <thead className="sticky top-0">
                   <tr>
                     <SortableContext
                       items={metricOrder}
                       strategy={horizontalListSortingStrategy}
                     >
                       {metricOrder.map(metric => (
-                        <th key={metric} className="border-b border-[var(--color-border)]">
+                        <th key={metric}>
                           <DraggableHeader id={metric}>
                             <div className="flex flex-col gap-1.5 min-w-[300px]">
                               <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-strong)]">
@@ -346,19 +318,19 @@ export function TableView({ nodes, reportType, selectedMetrics }: TableViewProps
                     </SortableContext>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[rgba(148,163,184,0.1)]">
+                <tbody>
                   {table.getRowModel().rows.map(row => {
                     const metricCells = row.getVisibleCells().slice(1)
                     return (
-                      <tr key={row.id} className="hover:bg-[rgba(34,197,94,0.03)] transition-colors h-[44px]">
+                      <tr key={row.id}>
                         {metricOrder.map(metric => {
                           const actualCell = metricCells.find(c => c.column.id === `${metric}_actual`)
                           const budgetCell = metricCells.find(c => c.column.id === `${metric}_budget`)
                           const completionCell = metricCells.find(c => c.column.id === `${metric}_completion`)
 
                           return (
-                            <td key={metric} className="border-r border-[rgba(148,163,184,0.08)] last:border-r-0 h-[44px]">
-                              <div className="grid grid-cols-3 gap-1.5 px-3 text-caption min-w-[300px] h-full items-center">
+                            <td key={metric} className="h-[44px] border-r border-[rgba(148,163,184,0.08)] last:border-r-0">
+                              <div className="grid grid-cols-3 gap-1.5 px-3 min-w-[300px] h-full items-center">
                                 <div className="text-right">
                                   {actualCell && flexRender(actualCell.column.columnDef.cell, actualCell.getContext())}
                                 </div>

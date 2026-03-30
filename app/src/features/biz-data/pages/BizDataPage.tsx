@@ -1,10 +1,13 @@
+import { useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { ReportTypeToggle } from '../components/ReportTypeToggle'
 import { PeriodTypeToggle } from '../components/PeriodTypeToggle'
 import { MonthSelector } from '../components/MonthSelector'
 import { ViewModeToggle } from '../components/ViewModeToggle'
 import { MetricSelector } from '../components/MetricSelector'
-import { ChartView } from '../components/ChartView'
+import { ChartHierarchyBreadcrumb } from '../components/ChartHierarchyBreadcrumb'
+import { ChartView, type DrillDownLevel } from '../components/ChartView'
+import { HierarchyLevelFilter, type LevelVisibility } from '../components/HierarchyLevelFilter'
 import { TableView } from '../components/TableView'
 import { useBizDataViewModel } from '../hooks/useBizDataViewModel'
 
@@ -26,42 +29,53 @@ export function BizDataPage() {
     availableMetrics,
   } = useBizDataViewModel()
 
+  const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([{ node: null, label: '全部' }])
+  const [showLevels, setShowLevels] = useState<LevelVisibility>({
+    level0: true,
+    level1: true,
+    level2: true,
+    level3: true,
+  })
+
+  useEffect(() => {
+    setDrillDownPath([{ node: null, label: '全部' }])
+  }, [nodes])
+
   return (
     <div className="app-page">
-      <section className="app-section-card app-section-card-muted p-4 sm:p-5">
-        <div className="app-section-header">
-          <div>
-            <div className="app-section-kicker">Business Lens</div>
-            <div className="app-section-title mt-2">
-              <h3 className="text-title font-semibold">经营分析视图</h3>
-            </div>
-            <p className="mt-2 text-body leading-6 text-[var(--color-text-muted)]">
-              在同一页内切换口径、期间、图表与表格视角，让经营数据的筛选和阅读路径更集中。
-            </p>
+      <section className="space-y-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
+            <ReportTypeToggle value={reportType} onChange={setReportType} />
+            <PeriodTypeToggle value={periodType} onChange={setPeriodType} />
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
           </div>
-
-          <div className="biz-toolbar">
-            <div className="flex items-center gap-2 flex-wrap flex-1">
-              <ReportTypeToggle value={reportType} onChange={setReportType} />
-              <div className="w-px h-6 bg-[var(--color-border)]" />
-              <PeriodTypeToggle value={periodType} onChange={setPeriodType} />
-              <div className="w-px h-6 bg-[var(--color-border)]" />
-              <ViewModeToggle value={viewMode} onChange={setViewMode} />
-              <MetricSelector
-                selectedMetrics={selectedMetrics}
-                onChange={setSelectedMetrics}
-                availableMetrics={availableMetrics}
-                maxSelection={6}
-              />
-            </div>
-            {availableMonths.length > 0 && (
+          {availableMonths.length > 0 && (
+            <div className="xl:ml-auto">
               <MonthSelector
                 value={selectedMonth}
                 options={availableMonths}
                 onChange={setSelectedMonth}
               />
-            )}
-          </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:flex-wrap">
+          {viewMode === 'table' ? (
+            <HierarchyLevelFilter value={showLevels} onChange={setShowLevels} />
+          ) : (
+            <ChartHierarchyBreadcrumb
+              items={drillDownPath.map(({ label }) => ({ label }))}
+              onSelect={(index) => setDrillDownPath((prev) => prev.slice(0, index + 1))}
+            />
+          )}
+          <MetricSelector
+            selectedMetrics={selectedMetrics}
+            onChange={setSelectedMetrics}
+            availableMetrics={availableMetrics}
+            maxSelection={6}
+          />
         </div>
       </section>
 
@@ -86,9 +100,20 @@ export function BizDataPage() {
             </div>
           </div>
         ) : viewMode === 'table' ? (
-          <TableView nodes={nodes} reportType={reportType} selectedMetrics={selectedMetrics} />
+          <TableView
+            nodes={nodes}
+            reportType={reportType}
+            selectedMetrics={selectedMetrics}
+            showLevels={showLevels}
+          />
         ) : (
-          <ChartView nodes={nodes} reportType={reportType} selectedMetrics={selectedMetrics} />
+          <ChartView
+            nodes={nodes}
+            reportType={reportType}
+            selectedMetrics={selectedMetrics}
+            drillDownPath={drillDownPath}
+            onDrillDownPathChange={setDrillDownPath}
+          />
         )}
       </div>
     </div>

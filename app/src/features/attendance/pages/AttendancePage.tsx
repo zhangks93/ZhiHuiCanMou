@@ -108,14 +108,14 @@ export function AttendancePage() {
 
       <section className="app-table-shell">
         <div className="app-table-toolbar">
-          <div className="flex items-center gap-2">
-            <Clock size={18} className="text-gray-600" />
-            <h3 className="font-medium text-gray-800">部门考勤汇总</h3>
-            <span className="ml-2 text-caption text-gray-500">{formatMonth(selectedMonth)}</span>
+          <div className="app-table-title">
+            <Clock size={18} className="text-[var(--color-text-muted)]" />
+            <h3>部门考勤汇总</h3>
+            <span className="app-table-meta">{formatMonth(selectedMonth)}</span>
           </div>
         </div>
         <div className="app-table-scroll">
-          <table className="app-data-table text-body">
+          <table className="app-data-table">
             <thead>
               <tr>
                 <th className="text-left">部门</th>
@@ -134,74 +134,74 @@ export function AttendancePage() {
               {summaries.map((summary) => (
                 <Fragment key={summary.department_id}>
                   <tr
-                    className="cursor-pointer hover:bg-gray-50"
+                    className="app-data-row-interactive"
                     onClick={() => void toggleDepartment(summary.department_id)}
                   >
-                    <td className="font-medium text-gray-800">
+                    <td className="font-medium text-[var(--color-text-strong)]">
                       <div className="flex items-center gap-2">
                         {expandedDept === summary.department_id ? (
-                          <ChevronDown size={16} className="text-gray-400" />
+                          <ChevronDown size={16} className="text-[var(--color-text-muted)]" />
                         ) : (
-                          <ChevronRight size={16} className="text-gray-400" />
+                          <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
                         )}
                         {summary.department_name}
                       </div>
                     </td>
-                    <td className="text-caption text-gray-500">{summary.parent_name || '-'}</td>
-                    <td className="text-center text-gray-600">{summary.employee_count}</td>
-                    <td className="text-right text-gray-600">{summary.total_expected.toFixed(1)}</td>
-                    <td className="text-right text-gray-600">{summary.total_actual.toFixed(1)}</td>
+                    <td className="app-cell-muted">{summary.parent_name || '-'}</td>
+                    <td className="app-cell-muted app-cell-numeric text-center">{summary.employee_count}</td>
+                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_expected.toFixed(1)}</td>
+                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_actual.toFixed(1)}</td>
                     <td className="text-center"><RateBadge rate={summary.rate} /></td>
-                    <td className="text-right text-gray-600">{summary.total_leave.toFixed(1)}</td>
-                    <td className="text-right text-gray-600">{summary.total_late}</td>
-                    <td className="text-right text-gray-600">{summary.total_early}</td>
-                    <td className="text-right text-gray-600">{summary.total_absent.toFixed(1)}</td>
+                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_leave.toFixed(1)}</td>
+                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_late}</td>
+                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_early}</td>
+                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_absent.toFixed(1)}</td>
                   </tr>
                   {expandedDept === summary.department_id && (
-                    <tr>
-                      <td colSpan={10} className="bg-gray-50 p-0">
+                    <tr className="app-data-row-emphasis app-data-row-static">
+                      <td colSpan={10} className="p-0">
                         <div className="px-6 py-4">
                           {loadingMembers ? (
-                            <div className="py-4 text-center text-gray-400">加载中...</div>
+                            <div className="py-4 text-center text-[var(--color-text-muted)]">加载中...</div>
                           ) : memberRecords.length > 0 ? (
-                            <div className="overflow-x-auto rounded-[18px] border border-[var(--color-border)] bg-white/86">
-                              <table className="w-full text-caption">
+                            <div className="app-table-subtable app-table-scroll">
+                              <table className="app-data-table app-data-table-compact">
                                 <thead>
-                                  <tr className="border-b border-gray-200">
-                                    <th className="px-2 py-2 text-left font-medium text-gray-600">姓名</th>
-                                    <th className="px-2 py-2 text-left font-medium text-gray-600">工号</th>
-                                    <th className="px-2 py-2 text-left font-medium text-gray-600">职位</th>
-                                    <th className="px-2 py-2 text-right font-medium text-gray-600">应出勤</th>
-                                    <th className="px-2 py-2 text-right font-medium text-gray-600">实出勤</th>
-                                    <th className="px-2 py-2 text-center font-medium text-gray-600">出勤率</th>
-                                    <th className="px-2 py-2 text-right font-medium text-gray-600">请假</th>
-                                    <th className="px-2 py-2 text-right font-medium text-gray-600">迟到</th>
-                                    <th className="px-2 py-2 text-right font-medium text-gray-600">早退</th>
-                                    <th className="px-2 py-2 text-right font-medium text-gray-600">旷工</th>
+                                  <tr>
+                                    <th className="text-left">姓名</th>
+                                    <th className="text-left">工号</th>
+                                    <th className="text-left">职位</th>
+                                    <th className="text-right">应出勤</th>
+                                    <th className="text-right">实出勤</th>
+                                    <th className="text-center">出勤率</th>
+                                    <th className="text-right">请假</th>
+                                    <th className="text-right">迟到</th>
+                                    <th className="text-right">早退</th>
+                                    <th className="text-right">旷工</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {memberRecords.map((member) => (
-                                    <tr key={member.id} className="border-b border-gray-100 last:border-b-0">
-                                      <td className="px-2 py-2 text-gray-700">{member.member_name}</td>
-                                      <td className="px-2 py-2 text-gray-600">{member.employee_no}</td>
-                                      <td className="px-2 py-2 text-gray-600">{member.job_title || '-'}</td>
-                                      <td className="px-2 py-2 text-right text-gray-600">{member.expected_days.toFixed(1)}</td>
-                                      <td className="px-2 py-2 text-right text-gray-600">{member.actual_days.toFixed(1)}</td>
-                                      <td className="px-2 py-2 text-center">
+                                    <tr key={member.id}>
+                                      <td className="app-cell-strong">{member.member_name}</td>
+                                      <td className="app-cell-muted">{member.employee_no}</td>
+                                      <td className="app-cell-muted">{member.job_title || '-'}</td>
+                                      <td className="app-cell-muted app-cell-numeric text-right">{member.expected_days.toFixed(1)}</td>
+                                      <td className="app-cell-muted app-cell-numeric text-right">{member.actual_days.toFixed(1)}</td>
+                                      <td className="text-center">
                                         <RateBadge rate={member.rate} />
                                       </td>
-                                      <td className="px-2 py-2 text-right text-gray-600">{member.leave_days.toFixed(1)}</td>
-                                      <td className="px-2 py-2 text-right text-gray-600">{member.late_times}</td>
-                                      <td className="px-2 py-2 text-right text-gray-600">{member.early_leave_times}</td>
-                                      <td className="px-2 py-2 text-right text-gray-600">{member.absent_days.toFixed(1)}</td>
+                                      <td className="app-cell-muted app-cell-numeric text-right">{member.leave_days.toFixed(1)}</td>
+                                      <td className="app-cell-muted app-cell-numeric text-right">{member.late_times}</td>
+                                      <td className="app-cell-muted app-cell-numeric text-right">{member.early_leave_times}</td>
+                                      <td className="app-cell-muted app-cell-numeric text-right">{member.absent_days.toFixed(1)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
                             </div>
                           ) : (
-                            <div className="py-4 text-center text-gray-400">暂无成员记录</div>
+                            <div className="py-4 text-center text-[var(--color-text-muted)]">暂无成员记录</div>
                           )}
                         </div>
                       </td>
@@ -212,7 +212,7 @@ export function AttendancePage() {
             </tbody>
           </table>
           {summaries.length === 0 && !loading && (
-            <div className="py-8 text-center text-gray-400">
+            <div className="py-8 text-center text-[var(--color-text-muted)]">
               暂无考勤数据
             </div>
           )}
