@@ -18,7 +18,7 @@ export function MainLayout() {
       <main
         className={[
           'relative h-screen overflow-hidden px-4 pb-24 pt-4 transition-[padding] duration-200 ease-out md:px-5 lg:pr-6 lg:pb-4 lg:pt-4 xl:pr-8',
-          sidebarCollapsed ? 'lg:pl-[132px]' : 'lg:pl-[284px]',
+          sidebarCollapsed ? 'lg:pl-[104px]' : 'lg:pl-[220px]',
         ].join(' ')}
       >
         <div className="app-main-surface">

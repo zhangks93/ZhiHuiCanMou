@@ -35,6 +35,9 @@ export function ChartView({
   onDrillDownPathChange,
 }: ChartViewProps) {
   const budgetField = reportType === 'fone' ? 'budget_fone' : 'budget_tuwei'
+  const captionFont = 'var(--font-size-caption)'
+  const bodyFont = 'var(--font-size-body)'
+  const bodyFontFamily = 'var(--font-family-body)'
 
   const allNodesWithAggregation = useMemo(() => {
     return buildTreeWithAggregation(nodes)
@@ -113,13 +116,14 @@ export function ChartView({
                 angle={-45}
                 textAnchor="end"
                 height={120}
-                tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }}
+                tick={{ fontSize: captionFont, fontFamily: bodyFontFamily, fill: 'var(--color-text-muted)' }}
               />
-              <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} />
+              <YAxis tick={{ fontSize: captionFont, fontFamily: bodyFontFamily, fill: 'var(--color-text-muted)' }} />
               <Tooltip
                 formatter={(value: unknown) => fmt(value as number)}
                 contentStyle={{
-                  fontSize: 12,
+                  fontSize: bodyFont,
+                  fontFamily: bodyFontFamily,
                   borderRadius: '0.75rem',
                   border: '1px solid var(--color-border)',
                   background: 'rgba(255,255,255,0.96)',
@@ -127,7 +131,7 @@ export function ChartView({
                   boxShadow: '0 12px 32px rgba(15,23,42,0.12)',
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: captionFont, fontFamily: bodyFontFamily }} />
 
               {selectedMetrics.flatMap((metric, index) => {
                 const baseColor = CHART_COLORS[index % CHART_COLORS.length]

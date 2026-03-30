@@ -81,7 +81,7 @@ function buildHtmlPreviewWindowDocument(previewDocument: string) {
     '<meta name="referrer" content="no-referrer" />',
     '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; font-src data:; connect-src \'none\'; frame-src blob:; object-src \'none\'; base-uri \'none\'; form-action \'none\';" />',
     '<title>图表预览</title>',
-    '<style>html, body { margin: 0; min-height: 100%; background: #f8fafc; font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: #0f172a; } body { min-height: 100vh; } .preview-shell { display: flex; min-height: 100vh; flex-direction: column; } .preview-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid rgba(15, 23, 42, 0.08); background: rgba(255, 255, 255, 0.92); } .preview-title { font-size: 0.875rem; font-weight: 600; } .preview-meta { color: #64748b; font-size: 0.75rem; } .preview-frame { flex: 1; width: 100%; min-height: calc(100vh - 65px); border: 0; background: #ffffff; }</style>',
+    '<style>html, body { margin: 0; min-height: 100%; background: #f8fafc; font-family: "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; color: #0f172a; } body { min-height: 100vh; } .preview-shell { display: flex; min-height: 100vh; flex-direction: column; } .preview-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid rgba(15, 23, 42, 0.08); background: rgba(255, 255, 255, 0.92); } .preview-title { font-size: 0.875rem; font-weight: 500; } .preview-meta { color: #64748b; font-size: 0.75rem; } .preview-frame { flex: 1; width: 100%; min-height: calc(100vh - 65px); border: 0; background: #ffffff; }</style>',
     '</head>',
     '<body>',
     '<div class="preview-shell">',
@@ -201,7 +201,9 @@ export function ChatMarkdown({
                       padding: '1rem',
                       borderRadius: 0,
                       background: 'transparent',
+                      fontFamily: 'var(--font-family-body)',
                       fontSize: 'var(--font-size-body)',
+                      fontWeight: 400,
                       lineHeight: 1.7,
                     }}
                   >

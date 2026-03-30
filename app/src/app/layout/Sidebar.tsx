@@ -35,7 +35,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
         className={[
           'fixed inset-y-4 left-4 z-50 flex flex-col overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/86 shadow-[0_24px_64px_rgba(15,23,42,0.10)] backdrop-blur-xl transition-all duration-200 ease-out lg:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-[115%]',
-          collapsed ? 'w-[92px]' : 'w-[248px]',
+          collapsed ? 'w-[69px]' : 'w-[186px]',
         ].join(' ')}
       >
         <div className="border-b border-[var(--color-border)] px-4 py-4">
@@ -98,15 +98,15 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                   'flex w-full items-center rounded-2xl border border-transparent px-3 py-3 text-body text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-border)] hover:bg-[rgba(15,23,42,0.04)] hover:text-[var(--color-text-strong)] [font-family:var(--font-family-body)]',
                 collapsed ? 'justify-center' : 'gap-2.5',
               ].join(' ')}
-              title={collapsed ? '展开导航' : '收起导航'}
-              aria-label={collapsed ? '展开导航' : '收起导航'}
+              title={collapsed ? '展开' : '收起'}
+              aria-label={collapsed ? '展开' : '收起'}
             >
               {collapsed ? (
                 <PanelLeftOpen size={18} strokeWidth={1.7} />
               ) : (
                 <>
                   <PanelLeftClose size={18} strokeWidth={1.7} />
-                  <span>收起导航</span>
+                  <span>收起</span>
                 </>
               )}
             </button>

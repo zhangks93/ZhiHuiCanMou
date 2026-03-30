@@ -21,13 +21,17 @@ function StatCard({ icon: Icon, label, value, color = 'blue' }: {
   color?: keyof typeof STAT_TONE
 }) {
   return (
-    <div className="app-metric-card p-4">
-      <div className={`w-fit rounded-lg p-2 ${STAT_TONE[color]}`}>
-        <Icon size={20} />
+    <div className="app-metric-card relative flex min-h-[88px] items-center gap-3 px-3.5 py-3 sm:min-h-[94px] sm:px-4">
+      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] ${STAT_TONE[color]}`}>
+        <Icon size={18} strokeWidth={2.2} />
       </div>
-      <div className="mt-3">
-        <div className="text-title font-semibold text-gray-800">{value}</div>
-        <div className="mt-1 text-caption text-gray-600">{label}</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-caption font-semibold uppercase tracking-[0.14em] text-gray-500">
+          {label}
+        </div>
+        <div className="mt-1 truncate text-title font-semibold leading-none text-gray-800">
+          {value}
+        </div>
       </div>
     </div>
   )
@@ -68,33 +72,7 @@ export function AttendancePage() {
 
   return (
     <div className="app-page">
-      <section className="app-section-card app-section-card-muted p-5 sm:p-6">
-        <div className="app-section-header">
-          <div>
-            <div className="app-section-kicker">Attendance Board</div>
-            <div className="app-section-title mt-2">
-              <Clock size={18} className="text-accent" />
-              <h3 className="text-title font-semibold">考勤管理</h3>
-            </div>
-            <p className="mt-2 text-body leading-6 text-[var(--color-text-muted)]">
-              以月份为入口，先看整体出勤概况，再展开到部门和成员明细。
-            </p>
-          </div>
-          {availableMonths.length > 0 && (
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="select select-sm w-full max-w-[180px]"
-            >
-              {availableMonths.map((month) => (
-                <option key={month} value={month}>{formatMonth(month)}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      </section>
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard icon={User} label="统计人数" value={overallStats.employeeCount} color="blue" />
         <StatCard
           icon={CheckCircle2}
@@ -111,8 +89,18 @@ export function AttendancePage() {
           <div className="app-table-title">
             <Clock size={18} className="text-[var(--color-text-muted)]" />
             <h3>部门考勤汇总</h3>
-            <span className="app-table-meta">{formatMonth(selectedMonth)}</span>
           </div>
+          {availableMonths.length > 0 && (
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="select select-sm ml-auto w-full sm:w-auto sm:min-w-[180px]"
+            >
+              {availableMonths.map((month) => (
+                <option key={month} value={month}>{formatMonth(month)}</option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="app-table-scroll">
           <table className="app-data-table">

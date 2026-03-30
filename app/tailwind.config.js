@@ -15,6 +15,7 @@ export default {
       fontFamily: {
         sans: theme.fonts.sans,
         serif: theme.fonts.serif,
+        mono: theme.fonts.mono,
       },
       colors: {
         primary: theme.colors.primary,
@@ -28,6 +29,7 @@ export default {
       fontSize: {
         'caption': theme.fontSize.caption,
         'body': theme.fontSize.body,
+        'subtitle': theme.fontSize.subtitle,
         'title': theme.fontSize.title,
         '2xs': theme.fontSize['2xs'],
         'xs': theme.fontSize.xs,
@@ -40,6 +42,14 @@ export default {
         '3xl': theme.fontSize['3xl'],
         '4xl': theme.fontSize['4xl'],
         '5xl': theme.fontSize['5xl'],
+      },
+      fontWeight: {
+        normal: theme.fontWeight.regular,
+        medium: theme.fontWeight.medium,
+        semibold: theme.fontWeight.medium,
+        bold: theme.fontWeight.medium,
+        extrabold: theme.fontWeight.medium,
+        black: theme.fontWeight.medium,
       },
       borderRadius: {
         'card': theme.radius.card,

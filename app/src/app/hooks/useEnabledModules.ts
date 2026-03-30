@@ -73,7 +73,7 @@ function buildNavSections(enabledModuleIds: string[]): NavSection[] {
     sections.push({ key: 'data', title: '数据', items: data })
   }
   if (ai.length > 0) {
-    sections.push({ key: 'ai', title: 'AI', items: ai })
+    sections.push({ key: 'ai', title: '智能体', items: ai })
   }
   if (workspace.length > 0) {
     sections.push({ key: 'workspace', title: '工作台', items: workspace })

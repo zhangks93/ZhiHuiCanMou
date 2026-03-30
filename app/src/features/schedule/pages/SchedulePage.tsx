@@ -211,7 +211,7 @@ export function SchedulePage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Calendar size={18} strokeWidth={1.5} className="text-accent" />
-              <h3 className="font-medium text-[var(--color-text-strong)] font-serif">
+              <h3 className="font-medium text-[var(--color-text-strong)]">
                 {refDate.getFullYear()}年{refDate.getMonth() + 1}月
               </h3>
             </div>
@@ -249,7 +249,7 @@ export function SchedulePage() {
 
         <section className="app-table-shell p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium text-[var(--color-text-strong)] font-serif">
+            <h3 className="font-medium text-[var(--color-text-strong)]">
               {selectedDate} 日程
             </h3>
             <span className="text-caption text-gray-400">{loading ? '加载中...' : `${dayItems.length} 项`}</span>

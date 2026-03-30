@@ -45,7 +45,7 @@ export function DeepLinkTest() {
         padding: '2rem',
         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
         color: 'white',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'var(--font-family-body)',
       }}
     >
       <h1 style={{ marginBottom: '2rem' }}>Deep Link 测试工具</h1>
@@ -71,7 +71,7 @@ export function DeepLinkTest() {
             borderRadius: '8px',
             border: 'none',
             fontSize: 'var(--font-size-body)',
-            fontFamily: 'monospace',
+            fontFamily: 'var(--font-family-body)',
             background: 'rgba(255, 255, 255, 0.9)',
             color: '#0f172a',
           }}
@@ -87,7 +87,7 @@ export function DeepLinkTest() {
             border: 'none',
             background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
             color: '#0f172a',
-            fontWeight: 600,
+            fontWeight: 500,
             cursor: 'pointer',
           }}
         >
@@ -102,7 +102,7 @@ export function DeepLinkTest() {
             border: 'none',
             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
             color: 'white',
-            fontWeight: 600,
+            fontWeight: 500,
             cursor: 'pointer',
           }}
         >
@@ -127,7 +127,7 @@ export function DeepLinkTest() {
             <div
               key={index}
               style={{
-                fontFamily: 'monospace',
+                fontFamily: 'var(--font-family-body)',
                 fontSize: 'var(--font-size-caption)',
                 padding: '4px 0',
                 color: '#e2e8f0',

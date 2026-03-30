@@ -3,8 +3,8 @@
  * Single CSS entry for global custom properties. Keep values aligned with src/theme.ts.
  */
 :root {
-  --shell-sidebar-width: 272px;
-  --shell-sidebar-width-collapsed: 96px;
+  --shell-sidebar-width: 186px;
+  --shell-sidebar-width-collapsed: 69px;
   --shell-header-height: 72px;
 
   --color-background: #edf3f9;
@@ -35,18 +35,23 @@
 
   --font-size-caption: 0.75rem;
   --font-size-body: 0.875rem;
+  --font-size-subtitle: 1rem;
   --font-size-title: 1.25rem;
   --font-size-2xs: var(--font-size-caption);
   --font-size-xs: var(--font-size-caption);
   --font-size-sm: var(--font-size-caption);
   --font-size-base: var(--font-size-body);
   --font-size-md: var(--font-size-body);
-  --font-size-lg: var(--font-size-body);
-  --font-size-xl: var(--font-size-title);
+  --font-size-lg: var(--font-size-subtitle);
+  --font-size-xl: var(--font-size-subtitle);
   --font-size-2xl: var(--font-size-title);
   --font-size-3xl: var(--font-size-title);
-  --font-family-body: "Aptos", "Segoe UI Variable Text", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-family-heading: "Iowan Old Style", "Source Han Serif SC", "Noto Serif SC", serif;
+  --font-size-4xl: var(--font-size-title);
+  --font-size-5xl: var(--font-size-title);
+  --font-family-body: "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-family-heading: var(--font-family-body);
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
 
   --radius-card: 20px;
   --radius-sidebar: 22px;

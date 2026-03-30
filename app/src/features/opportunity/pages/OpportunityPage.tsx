@@ -95,7 +95,7 @@ function FilterSelect({ value, onChange, options }: SelectProps) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none cursor-pointer rounded-xl border border-[var(--color-border)] bg-white/80 pl-3 pr-7 py-1.5 text-caption font-medium text-[var(--color-text-strong)] shadow-[var(--shadow-xs)] outline-none transition-all duration-160 hover:border-[rgba(95,127,188,0.18)] hover:bg-white/96 focus:border-[rgba(95,127,188,0.40)] focus:shadow-[0_0_0_3px_rgba(95,127,188,0.08)]"
+        className="app-filter-control app-filter-select min-w-[104px]"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -411,10 +411,7 @@ export function OpportunityPage() {
 
   return (
     <div className="app-page">
-
-      {/* Filter bar */}
-      <section className="app-section-card app-section-card-muted p-4">
-        <div className="flex flex-wrap items-center gap-2 px-1">
+      <div className="flex flex-wrap items-center gap-2">
         <FilterSelect
           value={filterGroup}
           onChange={setFilterGroup}
@@ -430,19 +427,19 @@ export function OpportunityPage() {
         <div className="relative flex-1 min-w-[160px] max-w-[240px]">
           <Search
             size={12}
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-accent)]"
           />
           <input
             type="text"
             placeholder="搜索项目名称..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-white/80 pl-8 pr-3 py-1.5 text-caption text-[var(--color-text-strong)] placeholder:text-[var(--color-text-muted)] shadow-[var(--shadow-xs)] outline-none transition-all duration-160 hover:border-[rgba(95,127,188,0.18)] focus:border-[rgba(95,127,188,0.40)] focus:shadow-[0_0_0_3px_rgba(95,127,188,0.08)]"
+            className="app-filter-control app-filter-search-input"
           />
           {searchText && (
             <button
               onClick={() => setSearchText('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text-strong)]"
+              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-strong)]"
             >
               <X size={11} />
             </button>
@@ -451,7 +448,7 @@ export function OpportunityPage() {
 
         {hasActiveFilter && (
           <button
-            className="inline-flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-white/60 px-2.5 py-1.5 text-caption font-medium text-[var(--color-text-muted)] transition-all duration-160 hover:border-[rgba(95,127,188,0.18)] hover:text-[var(--color-text-strong)]"
+            className="app-filter-control app-filter-action"
             onClick={() => {
               setFilterGroup('all')
               setFilterStage('all')
@@ -462,12 +459,7 @@ export function OpportunityPage() {
             清除筛选
           </button>
         )}
-
-        <span className="ml-auto text-caption font-medium tabular-nums text-[var(--color-text-muted)]">
-          共 {filtered.length} 条
-        </span>
-        </div>
-      </section>
+      </div>
 
       {/* Data table */}
       <div className="app-table-shell">

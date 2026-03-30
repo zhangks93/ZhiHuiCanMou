@@ -38,7 +38,7 @@ export function MonthSelector({ value, options, onChange }: MonthSelectorProps) 
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none h-8 pl-8 pr-7 rounded-full text-caption font-medium bg-[rgba(15,23,42,0.06)] border-0 text-[var(--color-text-strong)] cursor-pointer hover:bg-[rgba(15,23,42,0.1)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20"
+        className="app-filter-control app-filter-select app-filter-control-with-leading-icon"
       >
         {options.map(month => (
           <option key={month} value={month}>

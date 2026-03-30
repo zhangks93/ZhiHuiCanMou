@@ -22,7 +22,7 @@ import {
 export const SECTION_LABELS: Record<string, string> = {
   workspace: '工作台',
   data: '数据',
-  ai: 'AI',
+  ai: '智能体',
   settings: '设置',
 }
 
@@ -34,7 +34,7 @@ export const PRIMARY_NAV_CONFIG = {
     sortOrder: 0,
   },
   ai: {
-    label: 'AI',
+    label: '智能体',
     routePath: '/ai',
     icon: Sparkles,
     sortOrder: 1,

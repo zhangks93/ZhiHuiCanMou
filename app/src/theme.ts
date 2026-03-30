@@ -142,27 +142,34 @@ export const alpha = {
 } as const
 
 export const fonts = {
-  body: '"Aptos", "Segoe UI Variable Text", "PingFang SC", "Microsoft YaHei", sans-serif',
-  heading: '"Iowan Old Style", "Source Han Serif SC", "Noto Serif SC", serif',
-  sans: ['Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
-  serif: ['Noto Serif SC', 'Noto Sans SC', 'serif'],
+  body: '"Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+  heading: '"Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+  sans: ['"Source Han Sans SC"', '"Noto Sans SC"', 'PingFang SC', '"Microsoft YaHei"', 'sans-serif'],
+  serif: ['"Source Han Sans SC"', '"Noto Sans SC"', 'PingFang SC', '"Microsoft YaHei"', 'sans-serif'],
+  mono: ['"Source Han Sans SC"', '"Noto Sans SC"', 'PingFang SC', '"Microsoft YaHei"', 'sans-serif'],
 } as const
 
 export const fontSize = {
   caption: '0.75rem',
   body: '0.875rem',
+  subtitle: '1rem',
   title: '1.25rem',
   '2xs': '0.75rem',
   xs: '0.75rem',
   sm: '0.75rem',
   base: '0.875rem',
   md: '0.875rem',
-  lg: '0.875rem',
-  xl: '1.25rem',
+  lg: '1rem',
+  xl: '1rem',
   '2xl': '1.25rem',
   '3xl': '1.25rem',
   '4xl': '1.25rem',
   '5xl': '1.25rem',
+} as const
+
+export const fontWeight = {
+  regular: '400',
+  medium: '500',
 } as const
 
 export const radius = {
@@ -200,8 +207,8 @@ export const shadow = {
 } as const
 
 export const layout = {
-  sidebarWidth: '272px',
-  sidebarWidthCollapsed: '96px',
+  sidebarWidth: '186px',
+  sidebarWidthCollapsed: '69px',
   headerHeight: '72px',
   chatMaxWidth: '56rem',
   chatMessageMaxWidth: '50rem',
@@ -279,6 +286,7 @@ const theme = {
   alpha,
   fonts,
   fontSize,
+  fontWeight,
   radius,
   shadow,
   layout,

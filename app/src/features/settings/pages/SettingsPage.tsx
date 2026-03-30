@@ -302,7 +302,7 @@ export function Settings() {
                     <div className="text-caption text-gray-500 mt-0.5">
                       {module.section === 'workspace' && 'Workspace'}
                       {module.section === 'data' && 'Data'}
-                      {module.section === 'ai' && 'AI'}
+                      {module.section === 'ai' && '智能体'}
                     </div>
                   </div>
                   <div className={`ml-2 p-1 rounded ${
