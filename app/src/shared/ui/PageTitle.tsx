@@ -44,7 +44,9 @@ export function PageTitle({
   actions,
 }: PageTitleProps) {
   const location = useLocation()
-  const routeMeta = PAGE_META[location.pathname]
+  const routeMeta = location.pathname.startsWith('/ai/')
+    ? PAGE_META['/ai']
+    : PAGE_META[location.pathname]
 
   const heading = !looksBroken(title) ? title : routeMeta?.title ?? '首页'
   const description = !looksBroken(subtitle) ? subtitle : routeMeta?.subtitle

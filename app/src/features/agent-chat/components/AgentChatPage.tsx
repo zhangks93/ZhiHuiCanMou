@@ -6,6 +6,7 @@ import {
   Send,
   Square,
   Settings,
+  PanelLeftOpen,
 } from 'lucide-react'
 
 import type {
@@ -26,20 +27,15 @@ import {
   buildFinancialAnalysisSessionContextBlock,
   updateFinancialAnalysisSessionContext,
 } from '@/shared/lib/agent/skills/financial-analysis/sessionContext'
-import { AgentSelector } from './AgentSelector'
 import { ChatHeader } from './ChatHeader'
 import { ConversationList } from './ConversationList'
-import { MobileAgentToggle, AgentBottomSheet } from './MobileAgentSheet'
 import { AgentIcon } from './AgentIcon'
 import { ChatMessageItem } from './ChatMessageItem'
 
 interface AgentChatPageProps {
-  /** Available agents */
   agents: AgentDefinition[]
-  /** Initial agent ID */
   defaultAgentId?: string
-  /** Callback when agent changes */
-  onAgentChange?: (agentId: string) => void
+  onBackToDirectory?: () => void
 }
 
 function generateTitle(text: string): string {
@@ -144,11 +140,9 @@ function ConfigPrompt() {
 export function AgentChatPage({
   agents,
   defaultAgentId,
-  onAgentChange,
+  onBackToDirectory,
 }: AgentChatPageProps) {
-  const [activeAgentId, setActiveAgentId] = useState<string>(
-    defaultAgentId || agents[0]?.id || 'financial-analysis'
-  )
+  const activeAgentId = defaultAgentId || agents[0]?.id || 'financial-analysis'
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -156,9 +150,7 @@ export function AgentChatPage({
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingMsg, setStreamingMsg] = useState<ChatMessage | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [agentSheetOpen, setAgentSheetOpen] = useState(false)
 
-  // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -166,70 +158,10 @@ export function AgentChatPage({
   const agentRef = useRef<InstanceType<typeof import('@/shared/lib/agent').ChatAgent> | null>(null)
   const { configOk } = useAgentConfig(agentRef)
 
-  // Get active agent
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0]
 
-  // Initialize agent and load conversations
   useEffect(() => {
-    // Load conversations for current agent
     const saved = loadConversations(activeAgentId)
-    setConversations(saved)
-    if (saved.length > 0) {
-      setActiveConversationId(saved[0].id)
-      setMessages(saved[0].messages)
-    }
-
-    if (window.innerWidth >= 1024) {
-      setSidebarOpen(true)
-    }
-  }, [activeAgentId])
-
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    if (shouldAutoScrollRef.current) {
-      const behavior = messages.length > 0 ? 'smooth' : 'auto'
-      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
-    }
-  }, [messages, streamingMsg])
-
-  // Handle scroll for auto-scroll
-  const handleMessagesScroll = useCallback(() => {
-    const container = messagesContainerRef.current
-    if (!container) return
-    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-    shouldAutoScrollRef.current = distanceFromBottom < 120
-  }, [])
-
-  // Persist conversations
-  const persist = useCallback((nextConversations: Conversation[]) => {
-    setConversations(nextConversations)
-    saveConversations(nextConversations, activeAgentId)
-  }, [activeAgentId])
-
-  // Handle agent selection
-  const handleSelectAgent = useCallback((agentId: string) => {
-    // Save current conversations first
-    if (activeConversationId) {
-      const updated = conversations.map(c => {
-        if (c.id === activeConversationId) {
-          return {
-            ...c,
-            messages,
-            updatedAt: Date.now(),
-          }
-        }
-        return c
-      })
-      saveConversations(updated, activeAgentId)
-    }
-
-    setActiveAgentId(agentId)
-    setActiveConversationId(null)
-    setMessages([])
-    onAgentChange?.(agentId)
-
-    // Load conversations for new agent
-    const saved = loadConversations(agentId)
     setConversations(saved)
     if (saved.length > 0) {
       setActiveConversationId(saved[0].id)
@@ -238,9 +170,31 @@ export function AgentChatPage({
       setActiveConversationId(null)
       setMessages([])
     }
-  }, [activeAgentId, activeConversationId, conversations, messages, onAgentChange])
 
-  // New conversation
+    if (window.innerWidth >= 1024) {
+      setSidebarOpen(true)
+    }
+  }, [activeAgentId])
+
+  useEffect(() => {
+    if (shouldAutoScrollRef.current) {
+      const behavior = messages.length > 0 ? 'smooth' : 'auto'
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+    }
+  }, [messages, streamingMsg])
+
+  const handleMessagesScroll = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    shouldAutoScrollRef.current = distanceFromBottom < 120
+  }, [])
+
+  const persist = useCallback((nextConversations: Conversation[]) => {
+    setConversations(nextConversations)
+    saveConversations(nextConversations, activeAgentId)
+  }, [activeAgentId])
+
   const handleNewConversation = useCallback(() => {
     const conversation = createConversation()
     const nextConversations = [conversation, ...conversations]
@@ -254,11 +208,9 @@ export function AgentChatPage({
     textareaRef.current?.focus()
   }, [conversations, persist])
 
-  // Select conversation
   const handleSelectConversation = useCallback((id: string) => {
     if (isStreaming) return
 
-    // Save current conversation first
     if (activeConversationId && messages.length > 0) {
       const updated = conversations.map(c => {
         if (c.id === activeConversationId) {
@@ -284,7 +236,6 @@ export function AgentChatPage({
     }
   }, [conversations, activeConversationId, messages, isStreaming, persist])
 
-  // Delete conversation
   const handleDeleteConversation = useCallback((id: string) => {
     if (isStreaming) return
     const nextConversations = deleteConversation(conversations, id)
@@ -300,12 +251,10 @@ export function AgentChatPage({
     }
   }, [conversations, activeConversationId, isStreaming, persist])
 
-  // Send message
   const handleSend = useCallback(async () => {
     const text = input.trim()
     if (!text || isStreaming || !activeAgent) return
 
-    // Dynamic import to avoid circular dependency
     const { ChatAgent } = await import('@/shared/lib/agent')
     const { queryBizDataTool, queryWithHierarchyTool, queryMonthlyPlanTool, resolveOrgNodesTool, readFileTool } = await import('@/shared/lib/agent')
 
@@ -345,7 +294,6 @@ export function AgentChatPage({
       textareaRef.current.style.height = 'auto'
     }
 
-    // Initialize agent if needed
     if (!agentRef.current) {
       const config = loadLLMConfig()
       if (config) {
@@ -440,12 +388,10 @@ export function AgentChatPage({
     persist(updatedConversations)
   }, [activeAgent, activeConversationId, conversations, input, isStreaming, messages, persist])
 
-  // Abort streaming
   const handleAbort = useCallback(() => {
     agentRef.current?.abort()
   }, [])
 
-  // Keyboard handler
   const handleKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
@@ -453,7 +399,6 @@ export function AgentChatPage({
     }
   }, [handleSend])
 
-  // Input change
   const handleInputChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
     setInput(event.target.value)
     const element = event.target
@@ -461,7 +406,6 @@ export function AgentChatPage({
     element.style.height = `${Math.min(element.scrollHeight, 220)}px`
   }, [])
 
-  // Quick prompt
   const handlePrompt = useCallback((prompt: string) => {
     setInput(prompt)
     shouldAutoScrollRef.current = true
@@ -488,24 +432,12 @@ export function AgentChatPage({
 
   return (
     <div className="agent-chat-page">
-      {/* Left Sidebar - Agent Selector */}
       <aside
         className={[
           'agent-chat-sidebar',
           sidebarOpen ? 'agent-chat-sidebar-open' : '',
         ].join(' ')}
       >
-        <AgentSelector
-          agents={agents}
-          activeAgentId={activeAgentId}
-          onSelectAgent={handleSelectAgent}
-          className="agent-selector-standalone"
-        />
-
-        {/* Separator */}
-        <div className="agent-sidebar-divider" />
-
-        {/* Conversation List */}
         <ConversationList
           conversations={conversations}
           activeId={activeConversationId}
@@ -516,28 +448,31 @@ export function AgentChatPage({
         />
       </aside>
 
-      {/* Backdrop for mobile */}
       {!isDesktop && sidebarOpen && (
         <button type="button" className="chat-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Main Chat Area */}
       <div className="agent-chat-main">
-        {/* Header */}
         {activeAgent && (
           <ChatHeader
             agent={activeAgent}
-            onBack={!isDesktop ? () => setSidebarOpen(true) : undefined}
+            onBack={onBackToDirectory}
             mobileToggle={
-              <MobileAgentToggle
-                agent={activeAgent}
-                onClick={() => setAgentSheetOpen(true)}
-              />
+              <button
+                type="button"
+                className="mobile-agent-toggle"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <span className="mobile-agent-toggle-icon">
+                  <PanelLeftOpen size={16} strokeWidth={1.9} />
+                </span>
+                <span className="mobile-agent-toggle-name">对话记录</span>
+                <span className="mobile-agent-toggle-arrow">▼</span>
+              </button>
             }
           />
         )}
 
-        {/* Messages */}
         <div
           ref={messagesContainerRef}
           className="chat-messages"
@@ -561,7 +496,6 @@ export function AgentChatPage({
           </div>
         </div>
 
-        {/* Composer */}
         <footer className="chat-composer-wrap">
           <div className="chat-composer">
             <textarea
@@ -599,15 +533,6 @@ export function AgentChatPage({
           </div>
         </footer>
       </div>
-
-      {/* Mobile Agent Selection Bottom Sheet */}
-      <AgentBottomSheet
-        isOpen={agentSheetOpen}
-        agents={agents}
-        activeAgentId={activeAgentId}
-        onClose={() => setAgentSheetOpen(false)}
-        onSelect={handleSelectAgent}
-      />
     </div>
   )
 }

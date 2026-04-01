@@ -54,6 +54,7 @@ export function AppRoutes() {
         <Route path="trip" element={<Navigate to={buildDataHref('trip')} replace />} />
         <Route path="attendance" element={<Navigate to={buildDataHref('attendance')} replace />} />
         <Route path="ai" element={withRouteSuspense(<AgentChat />)} />
+        <Route path="ai/:agentId" element={withRouteSuspense(<AgentChat />)} />
         <Route path="settings" element={withRouteSuspense(<Settings />)} />
         <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
       </Route>

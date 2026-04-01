@@ -32,7 +32,9 @@ export function Header({ onMenuClick }: HeaderProps) {
     })
   )
 
-  const pageMeta = PAGE_META[location.pathname] ?? PAGE_META['/']
+  const pageMeta = location.pathname.startsWith('/ai/')
+    ? PAGE_META['/ai']
+    : PAGE_META[location.pathname] ?? PAGE_META['/']
   const userInitial = useMemo(
     () => (user?.name ?? 'U').trim().charAt(0).toUpperCase(),
     [user?.name]

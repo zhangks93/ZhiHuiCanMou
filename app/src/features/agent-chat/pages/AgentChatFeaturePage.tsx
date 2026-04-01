@@ -1,25 +1,31 @@
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
+
 import { ROUTES } from '@/app/config/constants'
 import { getEnabledAgents } from '@/shared/lib/agent'
-import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 import { AgentChatPage } from '../components/AgentChatPage'
+import { AgentDirectoryPage } from './AgentDirectoryPage'
 
 export function AgentChatFeaturePage() {
+  const { agentId } = useParams<{ agentId?: string }>()
+  const navigate = useNavigate()
   const agents = getEnabledAgents()
-  const tabItems = [
-    {
-      key: 'ai',
-      label: 'AI 分析',
-      to: ROUTES.AI_ANALYSIS,
-      active: true,
-    },
-  ]
+
+  if (!agentId) {
+    return <AgentDirectoryPage agents={agents} />
+  }
+
+  const activeAgent = agents.find((agent) => agent.id === agentId)
+
+  if (!activeAgent) {
+    return <Navigate to={ROUTES.AI_ANALYSIS} replace />
+  }
 
   return (
-    <TabbedPageShell tabs={tabItems} contentClassName="min-h-0">
-      <AgentChatPage
-        agents={agents}
-        defaultAgentId={agents[0]?.id}
-      />
-    </TabbedPageShell>
+    <AgentChatPage
+      key={activeAgent.id}
+      agents={[activeAgent]}
+      defaultAgentId={activeAgent.id}
+      onBackToDirectory={() => navigate(ROUTES.AI_ANALYSIS)}
+    />
   )
 }
