@@ -1,6 +1,7 @@
 // Conversation List Component - History sidebar for conversations
 // WeChat-style conversation list with timestamps
 
+import type { ReactNode } from 'react'
 import { Plus, MessageSquare, Trash2 } from 'lucide-react'
 
 import type { Conversation } from '@/shared/lib/agent/types'
@@ -12,6 +13,8 @@ interface ConversationListProps {
   onNew: () => void
   onDelete: (id: string) => void
   className?: string
+  title?: string
+  headerActions?: ReactNode
 }
 
 function formatConversationTime(timestamp: number): string {
@@ -30,11 +33,16 @@ export function ConversationList({
   onNew,
   onDelete,
   className = '',
+  title = '历史对话',
+  headerActions,
 }: ConversationListProps) {
   return (
     <div className={['chat-conversation-list', className].join(' ')}>
-      {/* Header with new conversation button */}
       <div className="chat-conversation-header">
+        <div className="chat-conversation-header-title">{title}</div>
+        <div className="chat-conversation-header-actions">
+          {headerActions}
+        </div>
         <button
           type="button"
           className="chat-new-btn"
@@ -45,7 +53,6 @@ export function ConversationList({
         </button>
       </div>
 
-      {/* Conversation list */}
       <div className="chat-conversation-body">
         {conversations.length === 0 ? (
           <div className="chat-sidebar-empty">还没有历史对话</div>

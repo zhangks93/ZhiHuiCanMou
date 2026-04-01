@@ -25,7 +25,7 @@ function AgentDirectoryCard({ agent }: { agent: AgentDefinition }) {
             agent.icon.type === 'image' ? 'agent-icon-circle' : '',
           ].join(' ')}
         >
-          <AgentIcon icon={agent.icon} size={34} fit="container" />
+          <AgentIcon icon={agent.icon} size={28} fit="container" />
         </div>
       </div>
 
@@ -62,7 +62,6 @@ export function AgentDirectoryPage({ agents }: AgentDirectoryPageProps) {
   return (
     <section className="agent-directory-page">
       <div className="agent-directory-hero">
-
         <div className="agent-directory-toolbar">
           <label className="agent-directory-search">
             <Search size={16} strokeWidth={1.8} />

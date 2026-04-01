@@ -6,6 +6,7 @@ import {
   Send,
   Square,
   Settings,
+  PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
 
@@ -150,6 +151,8 @@ export function AgentChatPage({
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingMsg, setStreamingMsg] = useState<ChatMessage | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [historyCollapsed, setHistoryCollapsed] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -161,6 +164,24 @@ export function AgentChatPage({
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0]
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const handleResize = () => {
+      const desktop = window.innerWidth >= 1024
+      setIsDesktop(desktop)
+      if (desktop) {
+        setSidebarOpen(true)
+      } else {
+        setHistoryCollapsed(false)
+      }
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
     const saved = loadConversations(activeAgentId)
     setConversations(saved)
     if (saved.length > 0) {
@@ -170,8 +191,7 @@ export function AgentChatPage({
       setActiveConversationId(null)
       setMessages([])
     }
-
-    if (window.innerWidth >= 1024) {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
       setSidebarOpen(true)
     }
   }, [activeAgentId])
@@ -419,6 +439,7 @@ export function AgentChatPage({
   }, [])
 
   const displayMessages = streamingMsg ? [...messages, streamingMsg] : messages
+  const showHistorySidebar = !isDesktop || !historyCollapsed
 
   if (!configOk) {
     return (
@@ -427,25 +448,54 @@ export function AgentChatPage({
       </div>
     )
   }
-
-  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024
-
   return (
     <div className="agent-chat-page">
       <aside
         className={[
           'agent-chat-sidebar',
+          historyCollapsed && isDesktop ? 'agent-chat-sidebar-collapsed' : '',
           sidebarOpen ? 'agent-chat-sidebar-open' : '',
         ].join(' ')}
       >
-        <ConversationList
-          conversations={conversations}
-          activeId={activeConversationId}
-          onSelect={handleSelectConversation}
-          onNew={handleNewConversation}
-          onDelete={handleDeleteConversation}
-          className="agent-conversation-list"
-        />
+        {showHistorySidebar ? (
+          <ConversationList
+            conversations={conversations}
+            activeId={activeConversationId}
+            onSelect={handleSelectConversation}
+            onNew={handleNewConversation}
+            onDelete={handleDeleteConversation}
+            className="agent-conversation-list"
+            headerActions={
+              <button
+                type="button"
+                className="chat-sidebar-toggle"
+                onClick={() => {
+                  if (isDesktop) {
+                    setHistoryCollapsed(true)
+                  } else {
+                    setSidebarOpen(false)
+                  }
+                }}
+                title={isDesktop ? '收起历史对话' : '关闭历史对话'}
+                aria-label={isDesktop ? '收起历史对话' : '关闭历史对话'}
+              >
+                <PanelLeftClose size={15} strokeWidth={1.8} />
+              </button>
+            }
+          />
+        ) : (
+          <div className="agent-chat-sidebar-rail">
+            <button
+              type="button"
+              className="chat-sidebar-toggle chat-sidebar-toggle-rail"
+              onClick={() => setHistoryCollapsed(false)}
+              title="展开历史对话"
+              aria-label="展开历史对话"
+            >
+              <PanelLeftOpen size={16} strokeWidth={1.8} />
+            </button>
+          </div>
+        )}
       </aside>
 
       {!isDesktop && sidebarOpen && (

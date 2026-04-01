@@ -1,7 +1,9 @@
 import { createBrowserStore } from '@/shared/storage/createBrowserStore'
 
+export type LLMProvider = 'openai' | 'claude' | 'deepseek' | 'kimi' | 'minimax' | 'glm'
+
 export interface LLMConfig {
-  provider: 'openai' | 'claude' | 'deepseek' | 'kimi' | 'openrouter'
+  provider: LLMProvider
   apiUrl: string
   apiKey: string
   model: string
@@ -20,12 +22,15 @@ interface LLMConfigStore {
 
 const STORAGE_KEY = 'llm_config'
 
+const VALID_PROVIDERS: readonly LLMProvider[] = ['openai', 'claude', 'deepseek', 'kimi', 'minimax', 'glm']
+
 export const DEFAULT_URLS: Record<LLMConfig['provider'], string> = {
   openai: 'https://api.openai.com/v1/chat/completions',
   claude: 'https://api.anthropic.com/v1/messages',
   deepseek: 'https://api.deepseek.com/chat/completions',
   kimi: 'https://api.moonshot.cn/v1/chat/completions',
-  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  minimax: 'https://api.minimaxi.com/v1/chat/completions',
+  glm: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
 }
 
 export const DEFAULT_MODELS: Record<LLMConfig['provider'], string> = {
@@ -33,21 +38,51 @@ export const DEFAULT_MODELS: Record<LLMConfig['provider'], string> = {
   claude: 'claude-sonnet-4-20250514',
   deepseek: 'deepseek-chat',
   kimi: 'moonshot-v1-8k',
-  openrouter: 'openai/gpt-4o-mini',
+  minimax: 'MiniMax-M2.5',
+  glm: 'glm-4.7',
+}
+
+function isProvider(value: unknown): value is LLMProvider {
+  return typeof value === 'string' && VALID_PROVIDERS.includes(value as LLMProvider)
+}
+
+function normalizeProvider(value: unknown): LLMProvider {
+  if (value === 'openrouter') return 'openai'
+  return isProvider(value) ? value : 'openai'
 }
 
 function deserializeStore(raw: string): LLMConfigStore | null {
   const parsed = JSON.parse(raw)
-  if (parsed?.providers) return parsed as LLMConfigStore
+  if (parsed?.providers && typeof parsed.providers === 'object') {
+    const providers: Partial<Record<LLMProvider, ProviderSettings>> = {}
+
+    for (const [rawProvider, rawSettings] of Object.entries(parsed.providers as Record<string, unknown>)) {
+      const provider = normalizeProvider(rawProvider)
+      if (!rawSettings || typeof rawSettings !== 'object') continue
+
+      const settings = rawSettings as Partial<ProviderSettings>
+      providers[provider] = {
+        apiUrl: typeof settings.apiUrl === 'string' && settings.apiUrl.trim() ? settings.apiUrl : DEFAULT_URLS[provider],
+        apiKey: typeof settings.apiKey === 'string' ? settings.apiKey : '',
+        model: typeof settings.model === 'string' && settings.model.trim() ? settings.model : DEFAULT_MODELS[provider],
+      }
+    }
+
+    return {
+      provider: normalizeProvider(parsed.provider),
+      providers,
+    }
+  }
 
   if (parsed?.provider && parsed?.apiKey) {
+    const provider = normalizeProvider(parsed.provider)
     return {
-      provider: parsed.provider,
+      provider,
       providers: {
-        [parsed.provider]: {
-          apiUrl: parsed.apiUrl,
+        [provider]: {
+          apiUrl: typeof parsed.apiUrl === 'string' && parsed.apiUrl.trim() ? parsed.apiUrl : DEFAULT_URLS[provider],
           apiKey: parsed.apiKey,
-          model: parsed.model,
+          model: typeof parsed.model === 'string' && parsed.model.trim() ? parsed.model : DEFAULT_MODELS[provider],
         },
       },
     }

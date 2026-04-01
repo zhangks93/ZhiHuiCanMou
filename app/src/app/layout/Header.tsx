@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Bell, ChevronRight, Menu, Search } from 'lucide-react'
 import { useAuth } from '@/app/hooks/useAuth'
+import { AppBrandMark } from '@/shared/ui/AppBrandMark'
 
 type HeaderProps = {
   onMenuClick?: () => void
@@ -18,7 +19,7 @@ const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   '/attendance': { title: '考勤', subtitle: '出勤统计与明细' },
   '/links': { title: '系统链接', subtitle: '常用入口与资源导航' },
   '/ai': { title: 'AI 分析', subtitle: '智能问答与分析报告' },
-  '/settings': { title: '设置', subtitle: '系统配置与模块管理' },
+  '/settings': { title: '设置', subtitle: '系统参数与 AI 配置' },
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
@@ -63,9 +64,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               <Menu size={18} strokeWidth={1.8} />
             </button>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-body font-semibold text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
-              CM
-            </div>
+            <AppBrandMark size="sm" />
           </div>
 
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -122,7 +121,6 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <div className="max-w-[108px] truncate text-body font-semibold text-[var(--color-text-strong)] [font-family:var(--font-family-body)]">
                   {user?.name ?? '当前用户'}
                 </div>
-                <div className="text-caption text-[var(--color-text-muted)]">个人设置</div>
               </div>
             </Link>
           </div>

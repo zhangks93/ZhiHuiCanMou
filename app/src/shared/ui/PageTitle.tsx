@@ -26,7 +26,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/attendance': { title: '考勤', subtitle: '部门出勤情况与成员明细' },
   '/links': { title: '系统链接', subtitle: '常用系统入口与外部链接' },
   '/ai': { title: 'AI 分析', subtitle: '智能问答、报告与分析' },
-  '/settings': { title: '设置', subtitle: '系统参数与模块配置' },
+  '/settings': { title: '设置', subtitle: '系统参数与 AI 配置' },
   '/login': { title: '登录' },
 }
 

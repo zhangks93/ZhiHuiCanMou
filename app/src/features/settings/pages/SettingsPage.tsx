@@ -1,27 +1,63 @@
 import { useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Settings as SettingsIcon, Bot, Check, Trash2, Plus, AlertTriangle } from 'lucide-react'
-import { buildSettingsHref, ROUTES } from '@/app/config/constants'
-import { useAuth } from '@/app/hooks/useAuth'
+import { useSearchParams } from 'react-router-dom'
+import { AlertTriangle, Check, Trash2 } from 'lucide-react'
+import { buildSettingsHref } from '@/app/config/constants'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 import { loadLLMConfig, saveLLMConfig, clearLLMConfig, loadProviderSettings, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig, type ProviderSettings } from '@/shared/lib/llmConfig'
-import { MODULE_NAV_CONFIG } from '@/app/config/modules'
-import { getEnabledModules, saveEnabledModules } from '@/shared/lib/moduleStorage'
 import { loadThresholdSettings, saveThresholdSettings, resetThresholdSettings, DEFAULT_THRESHOLDS, type ThresholdSettings } from '@/shared/lib/thresholdConfig'
 
+const PROVIDER_OPTIONS = [
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    hint: '如 gpt-4o、gpt-4o-mini 等',
+    keyPlaceholder: 'sk-...',
+  },
+  {
+    id: 'claude',
+    name: 'Claude',
+    hint: '如 claude-sonnet-4-20250514、claude-opus-4-20250514 等',
+    keyPlaceholder: 'sk-ant-...',
+  },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    hint: '如 deepseek-chat、deepseek-reasoner 等',
+    keyPlaceholder: 'sk-...',
+  },
+  {
+    id: 'kimi',
+    name: 'Kimi',
+    hint: '如 moonshot-v1-8k、moonshot-v1-32k、moonshot-v1-128k 等',
+    keyPlaceholder: 'sk-...',
+  },
+  {
+    id: 'minimax',
+    name: 'MiniMax',
+    hint: '如 MiniMax-M2.5 等',
+    keyPlaceholder: 'sk-...',
+  },
+  {
+    id: 'glm',
+    name: 'GLM',
+    hint: '如 glm-4.7、glm-4-plus 等',
+    keyPlaceholder: 'Bearer Token',
+  },
+] as const satisfies Array<{
+  id: LLMConfig['provider']
+  name: string
+  hint: string
+  keyPlaceholder: string
+}>
+
 export function Settings() {
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { signOut } = useAuth()
   const [initialConfig] = useState(() => loadLLMConfig())
   const [provider, setProvider] = useState<LLMConfig['provider']>(initialConfig?.provider ?? 'openai')
   const [apiUrl, setApiUrl] = useState(initialConfig?.apiUrl ?? DEFAULT_URLS[initialConfig?.provider ?? 'openai'])
   const [apiKey, setApiKey] = useState(initialConfig?.apiKey ?? '')
   const [model, setModel] = useState(initialConfig?.model ?? DEFAULT_MODELS[initialConfig?.provider ?? 'openai'])
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
-
-  // Module management state
-  const [enabledModules, setEnabledModules] = useState<string[]>(() => getEnabledModules())
 
   // Threshold settings state
   const [thresholds, setThresholds] = useState<ThresholdSettings>(() => loadThresholdSettings())
@@ -70,18 +106,6 @@ export function Settings() {
     setTimeout(() => setFeedback(null), 2000)
   }
 
-  const toggleModule = (moduleId: string) => {
-    const newEnabled = enabledModules.includes(moduleId)
-      ? enabledModules.filter(id => id !== moduleId)
-      : [...enabledModules, moduleId]
-
-    setEnabledModules(newEnabled)
-    saveEnabledModules(newEnabled)
-
-    setFeedback({ type: 'success', msg: '模块配置已更新' })
-    setTimeout(() => setFeedback(null), 2000)
-  }
-
   const handleSaveThresholds = () => {
     // 验证阈值合法性
     if (tempThresholds.default.yellowThreshold <= tempThresholds.default.redThreshold) {
@@ -116,316 +140,239 @@ export function Settings() {
     setIsEditingThresholds(false)
   }
 
-  const allModules = Object.entries(MODULE_NAV_CONFIG).map(([id, config]) => ({
-    id,
-    label: config.label,
-    section: config.section,
-  }))
-
-  const activeTab = searchParams.get('tab') === 'logout' ? 'logout' : 'settings'
+  const activeTab = searchParams.get('tab') === 'ai-model' ? 'ai-model' : 'thresholds'
   const tabItems = [
-    { key: 'settings', label: '设置', to: buildSettingsHref('settings'), active: activeTab === 'settings' },
-    { key: 'logout', label: '退出登录', to: buildSettingsHref('logout'), active: activeTab === 'logout' },
+    { key: 'thresholds', label: '预警阈值', to: buildSettingsHref('thresholds'), active: activeTab === 'thresholds' },
+    { key: 'ai-model', label: 'AI 模型配置', to: buildSettingsHref('ai-model'), active: activeTab === 'ai-model' },
   ]
-
-  const handleSignOut = async () => {
-    await signOut()
-    navigate(ROUTES.LOGIN)
-  }
 
   return (
     <TabbedPageShell tabs={tabItems}>
-      {activeTab === 'logout' ? (
-        <section className="app-section-card p-6">
-          <div className="max-w-xl space-y-4">
-            <div>
-              <div className="app-section-kicker">Account</div>
-              <h2 className="mt-2 text-title font-semibold text-[var(--color-text-strong)]">退出当前账号</h2>
-              <p className="mt-3 text-body leading-7 text-[var(--color-text-muted)]">
-                退出后将返回登录页。当前设备上的模型配置和本地偏好会保留，重新登录后可继续使用。
-              </p>
-            </div>
-
-            <div className="rounded-[22px] border border-[rgba(220,38,38,0.16)] bg-[rgba(220,38,38,0.05)] p-5">
-              <button type="button" onClick={handleSignOut} className="btn btn-error btn-sm">
-                退出登录
-              </button>
-            </div>
-          </div>
-        </section>
-      ) : (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={18} strokeWidth={1.5} className="text-gray-600" />
-              <h3 className="font-medium text-gray-800">经营数据预警阈值</h3>
-            </div>
-            {!isEditingThresholds && (
-              <button
-                onClick={handleStartEdit}
-                className="text-caption px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
-              >
-                编辑
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {/* 阈值设置 */}
-            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50">
-              <div className="flex items-center justify-between gap-4">
-                <div className="text-body text-gray-600">完成率预警阈值</div>
-                <div className="flex items-center gap-4">
-                  {isEditingThresholds ? (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <label className="text-caption text-gray-600 whitespace-nowrap">黄色预警</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="1"
-                          value={(tempThresholds.default.yellowThreshold * 100).toFixed(0)}
-                          onChange={(e) => {
-                            const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0))
-                            setTempThresholds(prev => ({
-                              ...prev,
-                              default: { ...prev.default, yellowThreshold: val / 100 }
-                            }))
-                          }}
-                          className="input input-bordered input-sm w-16 text-center text-body"
-                        />
-                        <span className="text-body text-gray-600">%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <label className="text-caption text-gray-600 whitespace-nowrap">红色预警</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="1"
-                          value={(tempThresholds.default.redThreshold * 100).toFixed(0)}
-                          onChange={(e) => {
-                            const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0))
-                            setTempThresholds(prev => ({
-                              ...prev,
-                              default: { ...prev.default, redThreshold: val / 100 }
-                            }))
-                          }}
-                          className="input input-bordered input-sm w-16 text-center text-body"
-                        />
-                        <span className="text-body text-gray-600">%</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <span className="text-caption text-gray-500">黄色</span>
-                        <span className="px-2.5 py-1 bg-warning-100 text-warning-700 rounded text-body font-medium">
-                          &lt; {(thresholds.default.yellowThreshold * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-caption text-gray-500">红色</span>
-                        <span className="px-2.5 py-1 bg-error-100 text-error-700 rounded text-body font-medium">
-                          &lt; {(thresholds.default.redThreshold * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
+      {activeTab === 'thresholds' ? (
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={18} strokeWidth={1.5} className="text-gray-600" />
+                <h3 className="font-medium text-gray-800">经营数据预警阈值</h3>
               </div>
-            </div>
-
-            {/* 操作按钮 */}
-            {isEditingThresholds && (
-              <div className="flex items-center gap-3">
+              {!isEditingThresholds && (
                 <button
-                  onClick={handleSaveThresholds}
-                  className="px-4 py-1.5 text-body font-medium rounded-lg bg-primary text-white hover:bg-primary-700 transition-colors shadow-sm flex items-center gap-1.5"
+                  onClick={handleStartEdit}
+                  className="text-caption px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
                 >
-                  <Check size={14} /> 保存
+                  编辑
                 </button>
-                <button
-                  onClick={handleResetThresholds}
-                  className="px-4 py-1.5 text-body font-medium rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center gap-1.5"
-                >
-                  <Trash2 size={14} /> 恢复默认
-                </button>
-                <button
-                  onClick={handleCancelEdit}
-                  className="px-4 py-1.5 text-body font-medium rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
-                >
-                  取消
-                </button>
-              </div>
-            )}
-
-            <div className="text-caption text-gray-500 leading-relaxed pt-2 border-t border-gray-200">
-              <p className="mb-1">预警规则：</p>
-              <ul className="list-disc list-inside space-y-0.5 ml-1">
-                <li>完成率 ≥ 黄色阈值：<span className="text-success-600 font-medium">正常</span></li>
-                <li>红色阈值 ≤ 完成率 &lt; 黄色阈值：<span className="text-warning-600 font-medium">黄色预警</span></li>
-                <li>完成率 &lt; 红色阈值：<span className="text-error-600 font-medium">红色预警</span></li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <SettingsIcon size={18} strokeWidth={1.5} className="text-gray-600" />
-              <h3 className="font-medium text-gray-800">功能模块管理</h3>
-            </div>
-            <div className="text-caption text-gray-500">
-              已启用 <span className="font-semibold text-primary">{enabledModules.length}</span> / {allModules.length}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {allModules.map((module) => {
-              const isEnabled = enabledModules.includes(module.id)
-              return (
-                <button
-                  key={module.id}
-                  onClick={() => toggleModule(module.id)}
-                  className={`flex items-center justify-between p-2 rounded-lg border transition-all text-left ${
-                    isEnabled
-                      ? 'bg-primary/5 border-primary/30 hover:bg-primary/10'
-                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-body font-medium text-gray-700 truncate">{module.label}</div>
-                    <div className="text-caption text-gray-500 mt-0.5">
-                      {module.section === 'workspace' && 'Workspace'}
-                      {module.section === 'data' && 'Data'}
-                      {module.section === 'ai' && '智能体'}
-                    </div>
-                  </div>
-                  <div className={`ml-2 p-1 rounded ${
-                    isEnabled
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-200 text-gray-500'
-                  }`}>
-                    {isEnabled ? <Check size={14} /> : <Plus size={14} />}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          <p className="text-caption text-gray-500 mt-3 pt-3 border-t border-gray-200">
-            点击模块卡片即可启用或禁用，配置会立即生效
-          </p>
-        </div>
-
-        {/* AI Analysis Config */}
-        <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)] lg:col-span-2">
-          <div className="flex items-center gap-2 mb-4">
-            <Bot size={18} strokeWidth={1.5} className="text-gray-600" />
-            <h3 className="font-medium text-gray-800">AI 模型配置</h3>
-          </div>
-
-          <div className="space-y-4 max-w-lg">
-            {/* Provider */}
-            <div>
-              <label className="block text-body text-gray-600 mb-1.5">模型提供商</label>
-              <div className="flex flex-wrap gap-4">
-                {(['openai', 'claude', 'deepseek', 'kimi', 'openrouter'] as const).map((p) => (
-                  <label key={p} className="flex items-center gap-1.5 cursor-pointer text-body">
-                    <input
-                      type="radio"
-                      name="llm-provider"
-                      className="radio radio-sm radio-primary"
-                      checked={provider === p}
-                      onChange={() => handleProviderChange(p)}
-                    />
-                    {p === 'openai' && 'OpenAI'}
-                    {p === 'claude' && 'Claude'}
-                    {p === 'deepseek' && 'DeepSeek'}
-                    {p === 'kimi' && 'Kimi'}
-                    {p === 'openrouter' && 'OpenRouter'}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* API URL */}
-            <div>
-              <label className="block text-body text-gray-600 mb-1.5">API URL</label>
-              <input
-                type="text"
-                className="input input-bordered input-sm w-full font-mono text-caption"
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
-                placeholder={DEFAULT_URLS[provider]}
-              />
-              <p className="text-caption text-gray-400 mt-1">如使用代理，可修改为自定义地址</p>
-            </div>
-
-            {/* Model */}
-            <div>
-              <label className="block text-body text-gray-600 mb-1.5">模型名称</label>
-              <input
-                type="text"
-                className="input input-bordered input-sm w-full font-mono text-caption"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder={DEFAULT_MODELS[provider]}
-              />
-              <p className="text-caption text-gray-400 mt-1">
-                {provider === 'openai' && '如 gpt-4o、gpt-4o-mini 等'}
-                {provider === 'claude' && '如 claude-sonnet-4-20250514、claude-opus-4-20250514 等'}
-                {provider === 'deepseek' && '如 deepseek-chat、deepseek-reasoner 等'}
-                {provider === 'kimi' && '如 moonshot-v1-8k、moonshot-v1-32k、moonshot-v1-128k 等'}
-                {provider === 'openrouter' && '如 openai/gpt-4o-mini、anthropic/claude-sonnet-4 等'}
-              </p>
-            </div>
-
-            {/* API Key */}
-            <div>
-              <label className="block text-body text-gray-600 mb-1.5">API Key</label>
-              <input
-                type="password"
-                className="input input-bordered input-sm w-full font-mono text-caption"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={
-                provider === 'openai' ? 'sk-...' :
-                provider === 'claude' ? 'sk-ant-...' :
-                provider === 'deepseek' ? 'sk-...' :
-                provider === 'kimi' ? 'sk-...' :
-                'sk-or-...'
-              }
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSave}
-                className="px-4 py-1.5 text-body font-medium rounded-lg bg-primary text-white hover:bg-primary-700 transition-colors shadow-sm flex items-center gap-1.5"
-              >
-                <Check size={14} /> 保存
-              </button>
-              <button
-                onClick={handleClear}
-                className="px-4 py-1.5 text-body font-medium rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center gap-1.5"
-              >
-                <Trash2 size={14} /> 清除
-              </button>
-              {feedback && (
-                <span className={`text-body ${feedback.type === 'success' ? 'text-success-700' : 'text-error-700'}`}>
-                  {feedback.msg}
-                </span>
               )}
             </div>
+
+            <div className="space-y-4">
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-body text-gray-600">完成率预警阈值</div>
+                  <div className="flex items-center gap-4">
+                    {isEditingThresholds ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <label className="text-caption text-gray-600 whitespace-nowrap">黄色预警</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={(tempThresholds.default.yellowThreshold * 100).toFixed(0)}
+                            onChange={(e) => {
+                              const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0))
+                              setTempThresholds(prev => ({
+                                ...prev,
+                                default: { ...prev.default, yellowThreshold: val / 100 }
+                              }))
+                            }}
+                            className="input input-bordered input-sm w-16 text-center text-body"
+                          />
+                          <span className="text-body text-gray-600">%</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-caption text-gray-600 whitespace-nowrap">红色预警</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={(tempThresholds.default.redThreshold * 100).toFixed(0)}
+                            onChange={(e) => {
+                              const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0))
+                              setTempThresholds(prev => ({
+                                ...prev,
+                                default: { ...prev.default, redThreshold: val / 100 }
+                              }))
+                            }}
+                            className="input input-bordered input-sm w-16 text-center text-body"
+                          />
+                          <span className="text-body text-gray-600">%</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <span className="text-caption text-gray-500">黄色</span>
+                          <span className="px-2.5 py-1 bg-warning-100 text-warning-700 rounded text-body font-medium">
+                            &lt; {(thresholds.default.yellowThreshold * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-caption text-gray-500">红色</span>
+                          <span className="px-2.5 py-1 bg-error-100 text-error-700 rounded text-body font-medium">
+                            &lt; {(thresholds.default.redThreshold * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {isEditingThresholds && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSaveThresholds}
+                    className="px-4 py-1.5 text-body font-medium rounded-lg bg-primary text-white hover:bg-primary-700 transition-colors shadow-sm flex items-center gap-1.5"
+                  >
+                    <Check size={14} /> 保存
+                  </button>
+                  <button
+                    onClick={handleResetThresholds}
+                    className="px-4 py-1.5 text-body font-medium rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+                  >
+                    <Trash2 size={14} /> 恢复默认
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-4 py-1.5 text-body font-medium rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    取消
+                  </button>
+                  {feedback && (
+                    <span className={`text-body ${feedback.type === 'success' ? 'text-success-700' : 'text-error-700'}`}>
+                      {feedback.msg}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="text-caption text-gray-500 leading-relaxed pt-2 border-t border-gray-200">
+                <p className="mb-1">预警规则：</p>
+                <ul className="list-disc list-inside space-y-0.5 ml-1">
+                  <li>完成率 ≥ 黄色阈值：<span className="text-success-600 font-medium">正常</span></li>
+                  <li>红色阈值 ≤ 完成率 &lt; 黄色阈值：<span className="text-warning-600 font-medium">黄色预警</span></li>
+                  <li>完成率 &lt; 红色阈值：<span className="text-error-600 font-medium">红色预警</span></li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
+
+            <div className="mt-5 max-w-3xl space-y-5">
+              <div>
+                <label className="mb-2 block text-body text-gray-600">模型供应商</label>
+                <div className="flex flex-wrap gap-2">
+                  {PROVIDER_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => handleProviderChange(option.id)}
+                      className={`rounded-full border px-4 py-2 text-body font-medium transition-colors ${
+                        provider === option.id
+                          ? 'border-primary bg-primary text-white shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-primary-300 hover:text-primary'
+                      }`}
+                    >
+                      {option.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(() => {
+                const activeProvider = PROVIDER_OPTIONS.find((option) => option.id === provider) ?? PROVIDER_OPTIONS[0]
+
+                return (
+                  <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="md:col-span-2">
+                        <label htmlFor="llm-api-url" className="mb-1.5 block text-body text-slate-700">
+                          API URL
+                        </label>
+                        <input
+                          id="llm-api-url"
+                          type="text"
+                          className="input input-bordered input-sm h-11 w-full border-slate-200 bg-white font-mono text-caption"
+                          value={apiUrl}
+                          onChange={(e) => setApiUrl(e.target.value)}
+                          placeholder={DEFAULT_URLS[provider]}
+                        />
+                        <p className="mt-1.5 text-caption text-slate-500">
+                          默认地址：{DEFAULT_URLS[provider]}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label htmlFor="llm-model" className="mb-1.5 block text-body text-slate-700">
+                          模型名称
+                        </label>
+                        <input
+                          id="llm-model"
+                          type="text"
+                          className="input input-bordered input-sm h-11 w-full border-slate-200 bg-white font-mono text-caption"
+                          value={model}
+                          onChange={(e) => setModel(e.target.value)}
+                          placeholder={DEFAULT_MODELS[provider]}
+                        />
+                        <p className="mt-1.5 text-caption text-slate-500">{activeProvider.hint}</p>
+                      </div>
+
+                      <div>
+                        <label htmlFor="llm-api-key" className="mb-1.5 block text-body text-slate-700">
+                          API Key
+                        </label>
+                        <input
+                          id="llm-api-key"
+                          type="password"
+                          className="input input-bordered input-sm h-11 w-full border-slate-200 bg-white font-mono text-caption"
+                          value={apiKey}
+                          onChange={(e) => setApiKey(e.target.value)}
+                          placeholder={activeProvider.keyPlaceholder}
+                        />
+                        <p className="mt-1.5 text-caption text-slate-500">
+                          默认模型：{DEFAULT_MODELS[provider]}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={handleSave}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-body font-medium text-white transition-colors hover:bg-primary-700"
+                      >
+                        <Check size={14} /> 保存配置
+                      </button>
+                      <button
+                        onClick={handleClear}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-body font-medium text-slate-600 transition-colors hover:bg-slate-100"
+                      >
+                        <Trash2 size={14} /> 清除配置
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
+
+            </div>
+          </div>
+        </div>
       )}
     </TabbedPageShell>
   )

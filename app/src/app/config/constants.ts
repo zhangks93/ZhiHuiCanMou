@@ -37,7 +37,7 @@ export function buildAgentChatHref(agentId: string) {
   return `${ROUTES.AI_ANALYSIS}/${agentId}`
 }
 
-export function buildSettingsHref(tab: 'settings' | 'logout' = 'settings') {
-  if (tab === 'settings') return ROUTES.SETTINGS
+export function buildSettingsHref(tab: 'thresholds' | 'ai-model' = 'thresholds') {
+  if (tab === 'thresholds') return ROUTES.SETTINGS
   return `${ROUTES.SETTINGS}?tab=${tab}`
 }

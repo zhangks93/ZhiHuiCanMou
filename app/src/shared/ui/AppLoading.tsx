@@ -1,4 +1,6 @@
-﻿type AppLoadingVariant = 'screen' | 'overlay' | 'block' | 'inline'
+import { AppBrandMark } from '@/shared/ui/AppBrandMark'
+
+type AppLoadingVariant = 'screen' | 'overlay' | 'block' | 'inline'
 
 interface AppLoadingProps {
   label?: string
@@ -49,17 +51,7 @@ export function AppLoading({
       )}
 
       <div className={`${VARIANT_CONTENT_CLASS[variant]} ${contentClassName}`.trim()}>
-        {isLarge && (
-          <div className="relative">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-slate-950 text-caption font-semibold tracking-[0.2em] text-white shadow-[0_16px_36px_rgba(15,23,42,0.18)]">
-              CM
-            </div>
-            <div
-              className="absolute -inset-3 rounded-[26px] border border-[rgba(95,127,188,0.14)]"
-              style={{ animation: 'orbit 16s linear infinite' }}
-            />
-          </div>
-        )}
+        {isLarge && <AppBrandMark size="md" ringTone="accent" animated />}
 
         <div
           className={[

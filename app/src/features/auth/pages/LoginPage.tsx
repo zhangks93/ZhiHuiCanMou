@@ -1,7 +1,8 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { env } from '@/app/config/env'
 import { storeAuthState } from '@/shared/lib/auth-storage'
+import { AppBrandMark } from '@/shared/ui/AppBrandMark'
 
 const FEISHU_AUTH_URL = 'https://open.feishu.cn/open-apis/authen/v1/authorize'
 
@@ -142,26 +143,16 @@ export function Login() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-5 py-10">
-      {/* Background */}
       <div className="pointer-events-none fixed inset-0 -z-10 bg-background" />
 
-      {/* Ambient glow orbs */}
       <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
         <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(95,127,188,0.14),transparent_65%)] animate-pulse-glow" />
         <div className="absolute -bottom-16 -left-16 h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.09),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
       </div>
 
       <div className="w-full max-w-[380px] animate-slide-up">
-        {/* Logo + Title */}
         <div className="mb-8 flex flex-col items-center">
-          {/* Logo mark with orbit ring */}
-          <div className="relative">
-            <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-950 text-body font-semibold tracking-[0.2em] text-white shadow-[0_20px_48px_rgba(15,23,42,0.22)]">
-              CM
-            </div>
-            {/* Orbit ring */}
-            <div className="absolute -inset-3 rounded-[30px] border border-[rgba(95,127,188,0.14)]" style={{ animation: 'orbit 20s linear infinite' }} />
-          </div>
+          <AppBrandMark size="lg" ringTone="accent" animated />
 
           <h1 className="mt-6 text-center text-title font-semibold leading-tight text-[var(--color-text-strong)]">
             智汇参谋
@@ -171,12 +162,9 @@ export function Login() {
           </p>
         </div>
 
-        {/* Sign-in card — glass morphism */}
         <div className="relative overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/60 px-6 py-7 shadow-[0_24px_64px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-          {/* Top accent line */}
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(95,127,188,0.24)] to-transparent" />
 
-          {/* Shimmer overlay when loading */}
           {isLoading && (
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(95,127,188,0.05)] to-transparent" style={{ animation: 'shimmer 2s ease-in-out infinite' }} />
@@ -233,12 +221,10 @@ export function Login() {
           </p>
         </div>
 
-        {/* Version tag */}
         <div className="mt-5 text-center text-caption tracking-[0.12em] text-[var(--color-text-muted)]/40">
           CANMOU v1.0
         </div>
 
-        {/* Debug log */}
         {debugInfo.length > 0 && (
           <div className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white/40 p-4 backdrop-blur-lg">
             <div className="mb-2 text-caption font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">

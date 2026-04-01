@@ -1,5 +1,6 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createAuthError, getAuthError, type AuthError } from '@/shared/lib/auth-errors'
+import { AppBrandMark } from '@/shared/ui/AppBrandMark'
 import {
   completeBrowserOAuth,
   completeDesktopOAuth,
@@ -44,7 +45,7 @@ export function AuthCallback() {
 
   const addDebugInfo = (msg: string) => {
     console.log('[Canmou AuthCallback]', msg)
-    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`])
+    setDebugInfo((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`])
   }
 
   useEffect(() => {
@@ -60,7 +61,6 @@ export function AuthCallback() {
       const { accessToken, refreshToken, state, debugDetails } = parseAuthCallbackParams(window.location)
       debugDetails.forEach(addDebugInfo)
 
-      // Validate CSRF state parameter
       const stateError = validateCallbackState(state)
       if (stateError) {
         addDebugInfo('错误: State 验证失败 (可能的 CSRF 攻击)')
@@ -99,7 +99,6 @@ export function AuthCallback() {
       addDebugInfo(`环境: ${isTauri ? 'Tauri' : 'Web'}, ${isMobileDevice ? '移动端' : '桌面端'}`)
 
       if (isTauri && !isMobileDevice) {
-        // 桌面 Tauri：通过事件通知主窗口并关闭弹窗
         try {
           addDebugInfo('桌面模式: 发送事件到主窗口')
           await completeDesktopOAuth(accessToken, refreshToken)
@@ -111,15 +110,14 @@ export function AuthCallback() {
 
           addDebugInfo('事件发送成功，准备关闭窗口')
         } catch (e) {
-          const errorMsg = e instanceof Error ? e.message : String(e)
-          addDebugInfo(`桌面模式错误: ${errorMsg}`)
+          const nextErrorMsg = e instanceof Error ? e.message : String(e)
+          addDebugInfo(`桌面模式错误: ${nextErrorMsg}`)
           if (mounted) {
             setStatus('error')
-            setErrorMsg(errorMsg)
+            setErrorMsg(nextErrorMsg)
           }
         }
       } else {
-        // Web / 移动端：在当前窗口直接 setSession 并返回首页
         addDebugInfo('移动端/Web模式: 直接设置会话')
         const result = await completeBrowserOAuth({
           accessToken,
@@ -147,7 +145,6 @@ export function AuthCallback() {
 
         addDebugInfo(`会话设置成功 (${result.attempts} 次尝试)`)
 
-        // Wait for auth state to propagate by checking getUser()
         addDebugInfo('等待认证状态更新...')
         const authState = await waitForAuthenticatedUser()
         const authStateReady = authState.ready
@@ -168,7 +165,6 @@ export function AuthCallback() {
           setProgress(100)
         }
 
-        // 短暂延迟让用户看到成功提示
         setTimeout(() => {
           addDebugInfo('跳转到首页')
           window.location.hash = '/'
@@ -200,38 +196,23 @@ export function AuthCallback() {
     <div className="relative flex min-h-screen items-center justify-center px-5 py-10">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-background" />
 
-      {/* Ambient glow orbs */}
       <div className="pointer-events-none fixed inset-0 -z-[5] overflow-hidden">
         <div className="absolute -right-20 -top-20 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(95,127,188,0.14),transparent_65%)] animate-pulse-glow" />
         <div className="absolute -bottom-16 -left-16 h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.09),transparent_65%)] animate-pulse-glow [animation-delay:1.2s]" />
       </div>
 
       <div className="w-full max-w-[360px] animate-slide-up">
-        {/* Logo */}
         <div className="mb-8 flex justify-center">
-          <div className="relative">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-slate-950 text-caption font-semibold tracking-[0.2em] text-white shadow-[0_16px_36px_rgba(15,23,42,0.20)]">
-              CM
-            </div>
-            {/* Status-colored ring */}
-            {isInProgress && (
-              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(95,127,188,0.14)]" style={{ animation: 'orbit 12s linear infinite' }} />
-            )}
-            {status === 'success' && (
-              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(15,159,110,0.20)]" />
-            )}
-            {status === 'error' && (
-              <div className="absolute -inset-2.5 rounded-[26px] border border-[rgba(220,38,38,0.14)]" />
-            )}
-          </div>
+          <AppBrandMark
+            size="md"
+            ringTone={isInProgress ? 'accent' : status === 'success' ? 'success' : 'error'}
+            animated={isInProgress}
+          />
         </div>
 
-        {/* Card */}
         <div className="relative overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/60 px-6 py-8 text-center shadow-[0_24px_64px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-          {/* Top accent line */}
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(95,127,188,0.24)] to-transparent" />
 
-          {/* Status indicator */}
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center">
             {isInProgress && (
               <div className="relative">
@@ -262,7 +243,6 @@ export function AuthCallback() {
             {authError?.message || message}
           </p>
 
-          {/* Progress bar */}
           {isInProgress && (
             <div className="mx-auto mt-6 h-[3px] w-full max-w-[200px] overflow-hidden rounded-full bg-[rgba(15,23,42,0.04)]">
               <div
@@ -278,7 +258,6 @@ export function AuthCallback() {
             </div>
           )}
 
-          {/* Error details */}
           {status === 'error' && (
             <div className="mt-5 text-left">
               {authError && (
@@ -306,7 +285,6 @@ export function AuthCallback() {
           )}
         </div>
 
-        {/* Debug info */}
         {debugInfo.length > 0 && (
           <div className="mt-4 rounded-2xl border border-[var(--color-border)] bg-white/40 p-4 backdrop-blur-lg">
             <div className="mb-2 text-caption font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">

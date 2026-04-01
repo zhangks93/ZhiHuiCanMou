@@ -27,8 +27,7 @@ export function Links() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-body font-semibold text-[var(--color-text-strong)]">{link.name}</div>
-                  <div className="mt-1 text-caption text-[var(--color-text-muted)]">点击后进入对应业务系统</div>
-                </div>
+                  </div>
                 <ArrowUpRight
                   size={16}
                   className="shrink-0 text-[var(--color-text-muted)] transition-colors group-hover:text-[var(--color-accent-hover)]"

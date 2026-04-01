@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useEnabledModules } from '@/app/hooks/useEnabledModules'
 import { useAuth } from '@/app/hooks/useAuth'
-import { ROUTES } from '@/app/config/constants'
+import { APP_NAME, ROUTES } from '@/app/config/constants'
+import { AppBrandMark } from '@/shared/ui/AppBrandMark'
 
 interface SidebarProps {
   isOpen: boolean
@@ -40,24 +41,12 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
       >
         <div className="border-b border-[var(--color-border)] px-4 py-4">
           <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name ?? '用户头像'}
-                className="h-11 w-11 rounded-2xl object-cover shadow-[0_12px_24px_rgba(15,23,42,0.12)]"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-body font-semibold text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
-                {userInitial}
-              </div>
-            )}
+            <AppBrandMark size="sm" />
             {!collapsed && (
               <div className="min-w-0">
                 <p className="truncate text-body font-semibold text-[var(--color-text-strong)] [font-family:var(--font-family-body)]">
-                  {user?.name ?? '当前用户'}
+                  {APP_NAME}
                 </p>
-                <p className="truncate text-caption text-[var(--color-text-muted)]">个人工作台</p>
               </div>
             )}
           </div>
@@ -110,6 +99,34 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                 </>
               )}
             </button>
+
+            <Link
+              to={ROUTES.SETTINGS}
+              className={[
+                'mt-3 flex w-full items-center rounded-2xl border border-transparent text-body transition-colors hover:border-[var(--color-border)] hover:bg-[rgba(15,23,42,0.04)] [font-family:var(--font-family-body)]',
+                collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5',
+              ].join(' ')}
+            >
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name ?? '用户头像'}
+                  className="h-10 w-10 rounded-2xl object-cover shadow-[0_12px_24px_rgba(15,23,42,0.12)]"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-body font-semibold text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
+                  {userInitial}
+                </div>
+              )}
+              {!collapsed && (
+                <div className="min-w-0">
+                  <p className="truncate text-body font-semibold text-[var(--color-text-strong)]">
+                    {user?.name ?? '当前用户'}
+                  </p>
+                  </div>
+              )}
+            </Link>
           </div>
         </nav>
       </aside>
