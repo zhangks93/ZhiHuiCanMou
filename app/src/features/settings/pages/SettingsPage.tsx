@@ -267,6 +267,9 @@ export function Settings() {
                   <li>红色阈值 ≤ 完成率 &lt; 黄色阈值：<span className="text-warning-600 font-medium">黄色预警</span></li>
                   <li>完成率 &lt; 红色阈值：<span className="text-error-600 font-medium">红色预警</span></li>
                 </ul>
+                <p className="mt-2">
+                  成本/费用/人数/成本率类指标按“越低越好”折算；利润等目标为负数时，按“亏损收窄或转正更优”折算。
+                </p>
               </div>
             </div>
           </div>

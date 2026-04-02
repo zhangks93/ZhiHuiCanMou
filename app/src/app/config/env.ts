@@ -51,6 +51,14 @@ export const env = {
     /** Enable debug mode (shows detailed logs) */
     enableDebug: getEnvBoolean('VITE_AUTH_ENABLE_DEBUG', false),
   },
+  links: {
+    safety: getEnv('VITE_LINK_SAFETY_URL'),
+    qinghe: getEnv('VITE_LINK_QINGHE_URL'),
+    haiding: getEnv('VITE_LINK_HAIDING_URL'),
+    catering: getEnv('VITE_LINK_CATERING_URL'),
+    crm: getEnv('VITE_LINK_CRM_URL'),
+    guanhai: getEnv('VITE_LINK_GUANHAI_URL'),
+  },
 } as const
 
 export function validateEnv(): void {

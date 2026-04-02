@@ -51,7 +51,10 @@ export function DataHubPage() {
   }
 
   return (
-    <TabbedPageShell tabs={tabItems}>
+    <TabbedPageShell
+      tabs={tabItems}
+      contentClassName={activeTab === 'biz-data' ? 'app-tab-shell__content-biz-data' : undefined}
+    >
       {activeTab === 'biz-data' ? (
         <BizDataPage />
       ) : activeTab === 'opportunity' ? (

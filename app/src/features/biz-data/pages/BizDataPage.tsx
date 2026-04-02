@@ -42,8 +42,8 @@ export function BizDataPage() {
   }, [nodes])
 
   return (
-    <div className="app-page">
-      <section className="space-y-3">
+    <div className="app-page biz-data-page">
+      <section className="space-y-3 min-w-0">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-2 flex-wrap">
             <ReportTypeToggle value={reportType} onChange={setReportType} />
@@ -79,7 +79,7 @@ export function BizDataPage() {
         </div>
       </section>
 
-      <div className="relative">
+      <div className="relative min-w-0">
         {dataLoading ? (
           <div className="biz-content-area">
             <div className="flex items-center justify-center h-64">

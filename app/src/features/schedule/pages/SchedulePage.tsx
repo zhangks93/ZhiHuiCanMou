@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Calendar, Plus, Trash2, FileText, X, Sun, Sunset, Moon } from 'lucide-react'
+import { Calendar, Plus, Trash2, FileText, X, Sun, Sunset, Moon, ChevronDown } from 'lucide-react'
 import { useScheduleData } from '../hooks/useScheduleData'
 import type { ItemType, Period, ScheduleItem } from '../api/scheduleRepository'
 
@@ -13,6 +13,13 @@ const TYPE_COLOR: Record<ItemType, string> = {
   urgent: 'bg-error-100 text-error-700',
 }
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const SCHEDULE_TIME_ZONE = 'Asia/Shanghai'
+const PERIOD_HOUR_OPTIONS: Record<Period, string[]> = {
+  morning: Array.from({ length: 12 }, (_, index) => String(index).padStart(2, '0')),
+  afternoon: Array.from({ length: 6 }, (_, index) => String(index + 12).padStart(2, '0')),
+  evening: Array.from({ length: 6 }, (_, index) => String(index + 18).padStart(2, '0')),
+}
+const MINUTE_OPTIONS = ['00', '15', '30', '45']
 
 function getWeekDates(refDate: Date): Date[] {
   const date = new Date(refDate)
@@ -34,6 +41,141 @@ function isSameDay(left: Date, right: Date) {
   return fmtDate(left) === fmtDate(right)
 }
 
+function derivePeriodFromClock(timeValue: string): Period | null {
+  if (!timeValue) return null
+
+  const [hourValue] = timeValue.split(':')
+  const hour = Number(hourValue)
+  if (Number.isNaN(hour)) return null
+
+  if (hour < 12) return 'morning'
+  if (hour < 18) return 'afternoon'
+  return 'evening'
+}
+
+function parseClockValue(timeValue: string) {
+  if (!timeValue) return { hour: '', minute: '' }
+
+  const [hour = '', minute = ''] = timeValue.split(':')
+  return { hour, minute }
+}
+
+function joinClockValue(hour: string, minute: string) {
+  if (!hour && !minute) return ''
+  if (!hour || !minute) return `${hour}:${minute}`
+  return `${hour}:${minute}`
+}
+
+function isHourIncluded(hour: string, period: Period) {
+  return PERIOD_HOUR_OPTIONS[period].includes(hour)
+}
+
+function alignTimeToPeriod(timeValue: string, period: Period) {
+  if (!timeValue) return ''
+
+  const { hour, minute } = parseClockValue(timeValue)
+  if (!hour || !isHourIncluded(hour, period)) return ''
+
+  return joinClockValue(hour, MINUTE_OPTIONS.includes(minute) ? minute : '00')
+}
+
+function formatTimeValue(timeValue: string | null) {
+  if (!timeValue) return null
+
+  const date = new Date(timeValue)
+  if (Number.isNaN(date.getTime())) return null
+
+  return date.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: SCHEDULE_TIME_ZONE,
+  })
+}
+
+function formatTimeRange(item: ScheduleItem) {
+  const startTime = formatTimeValue(item.start_time)
+  const endTime = formatTimeValue(item.end_time)
+
+  if (startTime && endTime) return `${startTime} - ${endTime}`
+  return startTime || endTime || null
+}
+
+function TimeSelectField({
+  label,
+  period,
+  value,
+  onChange,
+}: {
+  label: string
+  period: Period
+  value: string
+  onChange: (value: string) => void
+}) {
+  const { hour, minute } = parseClockValue(value)
+  const availableHours = PERIOD_HOUR_OPTIONS[period]
+
+  const handleHourChange = (nextHour: string) => {
+    onChange(nextHour ? joinClockValue(nextHour, minute || '00') : '')
+  }
+
+  const handleMinuteChange = (nextMinute: string) => {
+    if (!hour) return
+    onChange(joinClockValue(hour, nextMinute))
+  }
+
+  return (
+    <div className="rounded-[20px] border border-[var(--color-border)] bg-white/72 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-caption font-medium text-[var(--color-text-muted)]">{label}</span>
+        {value ? (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="text-caption text-[var(--color-accent)] transition-colors hover:text-[var(--color-accent-hover)]"
+          >
+            清空
+          </button>
+        ) : null}
+      </div>
+      <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+        <label className="relative block">
+          <select
+            value={hour}
+            onChange={(event) => handleHourChange(event.target.value)}
+            className="h-11 w-full appearance-none rounded-2xl border border-[var(--color-border)] bg-[rgba(255,255,255,0.9)] px-3 pr-8 text-body text-[var(--color-text-strong)] outline-none transition-all focus:border-[rgba(95,127,188,0.32)] focus:ring-4 focus:ring-[rgba(95,127,188,0.08)]"
+          >
+            <option value="">时</option>
+            {availableHours.map((option) => (
+              <option key={option} value={option}>
+                {option} 时
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+        </label>
+        <span className="text-subtitle font-medium text-[var(--color-text-muted)]">:</span>
+        <label className="relative block">
+          <select
+            value={minute}
+            onChange={(event) => handleMinuteChange(event.target.value)}
+            disabled={!hour}
+            className="h-11 w-full appearance-none rounded-2xl border border-[var(--color-border)] bg-[rgba(255,255,255,0.9)] px-3 pr-8 text-body text-[var(--color-text-strong)] outline-none transition-all disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-[var(--color-text-muted)] focus:border-[rgba(95,127,188,0.32)] focus:ring-4 focus:ring-[rgba(95,127,188,0.08)]"
+          >
+            <option value="">分</option>
+            {MINUTE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option} 分
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+        </label>
+      </div>
+    </div>
+  )
+}
+
 function AddModal({
   date,
   onClose,
@@ -47,6 +189,8 @@ function AddModal({
     type: ItemType
     description: string
     location: string
+    startTime: string | null
+    endTime: string | null
   }) => Promise<void>
 }) {
   const [title, setTitle] = useState('')
@@ -54,14 +198,57 @@ function AddModal({
   const [type, setType] = useState<ItemType>('routine')
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
   const [saving, setSaving] = useState(false)
+  const hasPartialTime = Boolean(startTime) !== Boolean(endTime)
+  const hasInvalidRange = Boolean(startTime && endTime) && endTime <= startTime
+  const timeError = hasPartialTime
+    ? '请同时填写开始和结束时间'
+    : hasInvalidRange
+      ? '结束时间需晚于开始时间'
+      : null
+
+  const handlePeriodChange = (nextPeriod: Period) => {
+    setPeriod(nextPeriod)
+    setStartTime((current) => alignTimeToPeriod(current, nextPeriod))
+    setEndTime((current) => alignTimeToPeriod(current, nextPeriod))
+  }
+
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value)
+
+    const nextPeriod = derivePeriodFromClock(value)
+    if (nextPeriod) {
+      setPeriod(nextPeriod)
+      setEndTime((current) => alignTimeToPeriod(current, nextPeriod))
+    }
+  }
+
+  const handleEndTimeChange = (value: string) => {
+    setEndTime(value)
+
+    const nextPeriod = derivePeriodFromClock(value)
+    if (nextPeriod) {
+      setPeriod(nextPeriod)
+      setStartTime((current) => alignTimeToPeriod(current, nextPeriod))
+    }
+  }
 
   const handleSave = async () => {
-    if (!title.trim()) return
+    if (!title.trim() || timeError) return
 
     setSaving(true)
     try {
-      await onSaved({ title, period, type, description, location })
+      await onSaved({
+        title,
+        period,
+        type,
+        description,
+        location,
+        startTime: startTime || null,
+        endTime: endTime || null,
+      })
       onClose()
     } finally {
       setSaving(false)
@@ -81,13 +268,20 @@ function AddModal({
             {(['morning', 'afternoon', 'evening'] as Period[]).map((value) => (
               <button
                 key={value}
-                onClick={() => setPeriod(value)}
+                onClick={() => handlePeriodChange(value)}
                 className={`flex-1 py-1.5 rounded-lg text-caption font-medium transition-colors ${period === value ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >
                 {PERIOD_LABEL[value]}
               </button>
             ))}
           </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <TimeSelectField label="开始时间" period={period} value={startTime} onChange={handleStartTimeChange} />
+            <TimeSelectField label="结束时间" period={period} value={endTime} onChange={handleEndTimeChange} />
+          </div>
+          <p className={`text-caption ${timeError ? 'text-error' : 'text-gray-400'}`}>
+            {timeError || `当前为“${PERIOD_LABEL[period]}”时段，时间选项已联动筛选为 15 分粒度`}
+          </p>
           <div className="flex gap-2">
             {(['meeting', 'business', 'routine', 'urgent'] as ItemType[]).map((value) => (
               <button
@@ -101,7 +295,7 @@ function AddModal({
           </div>
           <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="地点（可选）" className="input input-bordered w-full text-body" />
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="描述（可选）" className="textarea textarea-bordered w-full text-body" rows={2} />
-          <button onClick={handleSave} disabled={saving || !title.trim()} className="btn btn-primary btn-sm w-full">
+          <button onClick={handleSave} disabled={saving || !title.trim() || Boolean(timeError)} className="btn btn-primary btn-sm w-full">
             {saving ? '保存中...' : '添加'}
           </button>
         </div>
@@ -182,11 +376,15 @@ export function SchedulePage() {
     type: ItemType
     description: string
     location: string
+    startTime: string | null
+    endTime: string | null
   }) => {
     await addScheduleItem({
       title: input.title,
       date: selectedDate,
       period: input.period,
+      start_time: input.startTime,
+      end_time: input.endTime,
       type: input.type,
       description: input.description || null,
       location: input.location || null,
@@ -221,7 +419,7 @@ export function SchedulePage() {
               <button onClick={() => setWeekOffset((value) => value + 1)} className="btn btn-ghost btn-xs">›</button>
             </div>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+          <div className="mb-4 grid grid-cols-7 gap-2">
             {weekDates.map((date, index) => {
               const dateString = fmtDate(date)
               const isTodayValue = isSameDay(date, today)
@@ -232,12 +430,12 @@ export function SchedulePage() {
                 <button
                   key={dateString}
                   onClick={() => setSelectedDate(dateString)}
-                  className={`min-w-[48px] py-2 rounded-lg text-center transition-colors flex-shrink-0 relative
+                  className={`relative min-w-0 rounded-xl px-1 py-2 text-center transition-colors
                     ${isSelected ? 'bg-accent text-white shadow-card' : isTodayValue ? 'bg-accent/10 text-accent border border-accent/30' : 'bg-primary-50 text-[var(--color-text)] hover:bg-primary-100 border border-[var(--color-border)]'}`}
                 >
-                  <div className="text-caption opacity-80">{WEEKDAYS[index]}</div>
-                  <div className="text-body font-semibold">{date.getDate()}</div>
-                  {count > 0 && <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full text-caption flex items-center justify-center font-medium ${isSelected ? 'bg-white text-accent' : 'bg-accent text-white'}`}>{count}</div>}
+                  <div className="text-[11px] opacity-80 sm:text-caption">{WEEKDAYS[index]}</div>
+                  <div className="text-body font-semibold leading-5">{date.getDate()}</div>
+                  {count > 0 && <div className={`absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-medium sm:text-caption ${isSelected ? 'bg-white text-accent' : 'bg-accent text-white'}`}>{count}</div>}
                 </button>
               )
             })}
@@ -280,9 +478,9 @@ export function SchedulePage() {
                               {item.type && <span className={`text-caption px-1.5 py-0.5 rounded font-medium ${TYPE_COLOR[item.type]}`}>{TYPE_LABEL[item.type]}</span>}
                               {item.meeting_notes && <FileText size={12} className="text-accent" />}
                             </div>
-                            {(item.description || item.location) && (
+                            {([formatTimeRange(item), item.location, item.description].filter(Boolean).length > 0) && (
                               <div className="text-body text-[var(--color-text-muted)] truncate mt-0.5">
-                                {[item.location, item.description].filter(Boolean).join(' · ')}
+                                {[formatTimeRange(item), item.location, item.description].filter(Boolean).join(' · ')}
                               </div>
                             )}
                           </div>

@@ -3,8 +3,8 @@ import {
   useReactTable,
   getCoreRowModel,
   getExpandedRowModel,
-  flexRender,
   type ColumnDef,
+  type Row,
 } from '@tanstack/react-table'
 import {
   DndContext,
@@ -31,10 +31,12 @@ import { getChildren, buildTreeWithAggregation } from '@/features/biz-data/servi
 import type { LevelVisibility } from './HierarchyLevelFilter'
 import {
   getNodeThresholds,
-  getAlertLevel,
+  getAlertLevelByMetric,
   getAlertColorClass,
   getAlertBgClass,
   getAlertBorderClass,
+  getMetricDisplayCompletionRate,
+  getMetricAlertRuleText,
   subscribeThresholdSettings,
 } from '@/shared/lib/thresholdConfig'
 
@@ -44,6 +46,9 @@ interface TableViewProps {
   selectedMetrics: MetricCategory[]
   showLevels: LevelVisibility
 }
+
+const BUSINESS_UNIT_COLUMN_WIDTH = 288
+const METRIC_GROUP_WIDTH = 300
 
 const HEADER_CONTENT_CLASS =
   'flex min-h-[84px] flex-col justify-center gap-1.5 px-3 py-3'
@@ -92,11 +97,13 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   const completionField = reportType === 'fone' ? 'completion_fone' : 'completion_tuwei'
 
   const [metricOrder, setMetricOrder] = useState<MetricCategory[]>(selectedMetrics)
-  const [thresholdVersion, setThresholdVersion] = useState(0)
-  const leftHeaderRowRef = useRef<HTMLTableRowElement | null>(null)
-  const metricHeaderRowRef = useRef<HTMLTableRowElement | null>(null)
-  const leftRowRefs = useRef<Array<HTMLTableRowElement | null>>([])
-  const metricRowRefs = useRef<Array<HTMLTableRowElement | null>>([])
+  const [, setThresholdVersion] = useState(0)
+  const [bodyMaxHeight, setBodyMaxHeight] = useState<number | null>(null)
+  const tableShellRef = useRef<HTMLDivElement | null>(null)
+  const tableHeaderViewportRef = useRef<HTMLDivElement | null>(null)
+  const tableBodyViewportRef = useRef<HTMLDivElement | null>(null)
+  const tableHorizontalScrollbarRef = useRef<HTMLDivElement | null>(null)
+  const tableVerticalViewportRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     return subscribeThresholdSettings(() => {
@@ -135,100 +142,12 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
     })
   }, [allNodesWithAggregation, showLevels])
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-
-    if (over && active.id !== over.id) {
-      setMetricOrder((items) => {
-        const oldIndex = items.indexOf(active.id as MetricCategory)
-        const newIndex = items.indexOf(over.id as MetricCategory)
-        return arrayMove(items, oldIndex, newIndex)
-      })
-    }
-  }
-
   const columns = useMemo<ColumnDef<EnrichedBizDataNode>[]>(() => [
     {
       id: 'node_name',
       accessorKey: 'node_name',
-      header: '业务单元',
-      cell: ({ row, getValue }) => {
-        const hasChildren = getChildren(row.original, allNodesWithAggregation).length > 0
-        return (
-          <div
-            className="flex items-center gap-1.5"
-            style={{ paddingLeft: `${row.depth * 20}px` }}
-          >
-            {hasChildren ? (
-              <button
-                onClick={row.getToggleExpandedHandler()}
-                className="p-0.5 hover:bg-[rgba(34,197,94,0.08)] rounded-md transition-colors"
-              >
-                {row.getIsExpanded() ? (
-                  <ChevronDown size={14} className="text-[var(--color-text-muted)]" />
-                ) : (
-                  <ChevronRight size={14} className="text-[var(--color-text-muted)]" />
-                )}
-              </button>
-            ) : (
-              <span className="w-[18px]" />
-            )}
-            <span className="font-medium text-[var(--color-text-strong)]">{getValue() as string}</span>
-          </div>
-        )
-      },
-      size: 280,
     },
-    ...metricOrder.flatMap((metric) => [
-      {
-        id: `${metric}_actual`,
-        accessorFn: (row: EnrichedBizDataNode) => row.metrics[metric]?.actual,
-        header: `${METRIC_LABELS[metric]} - 实际`,
-        cell: ({ getValue }: { getValue: () => unknown }) => (
-          <span className="font-medium text-[var(--color-text-strong)]">{fmt(getValue() as number)}</span>
-        ),
-        size: 100,
-      },
-      {
-        id: `${metric}_budget`,
-        accessorFn: (row: EnrichedBizDataNode) => row.metrics[metric]?.[budgetField],
-        header: `${METRIC_LABELS[metric]} - 预算`,
-        cell: ({ getValue }: { getValue: () => unknown }) => (
-          <span className="text-[var(--color-text-muted)]">{fmt(getValue() as number)}</span>
-        ),
-        size: 100,
-      },
-      {
-        id: `${metric}_completion`,
-        accessorFn: (row: EnrichedBizDataNode) => row.metrics[metric]?.[completionField],
-        header: `${METRIC_LABELS[metric]} - 完成率`,
-        cell: ({ getValue }: { getValue: () => unknown }) => {
-          const value = getValue() as number | null
-          const thresholds = getNodeThresholds()
-          const alertLevel = getAlertLevel(value, thresholds)
-          const colorClass = getAlertColorClass(alertLevel)
-          const bgClass = getAlertBgClass(alertLevel)
-          const borderClass = getAlertBorderClass(alertLevel)
-
-          return (
-            <div className={`inline-flex items-center px-2 py-0.5 rounded-lg border ${bgClass} ${borderClass}`}>
-              <span className={`font-semibold ${colorClass}`}>
-                {fmtPct(value)}
-              </span>
-            </div>
-          )
-        },
-        size: 90,
-      },
-    ]),
-  ], [metricOrder, budgetField, completionField, allNodesWithAggregation, thresholdVersion])
+  ], [])
 
   const table = useReactTable({
     data: filteredRootNodes,
@@ -251,71 +170,180 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   })
 
   const visibleRows = table.getRowModel().rows
-  const visibleRowIds = visibleRows.map((row) => row.id).join('|')
+  const totalTableWidth = `${BUSINESS_UNIT_COLUMN_WIDTH + metricOrder.length * METRIC_GROUP_WIDTH}px`
 
-  const syncPairedHeights = useCallback(() => {
-    const resetHeight = (element: HTMLTableRowElement | null) => {
-      if (element) {
-        element.style.height = ''
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      setMetricOrder((items) => {
+        const oldIndex = items.indexOf(active.id as MetricCategory)
+        const newIndex = items.indexOf(over.id as MetricCategory)
+        return arrayMove(items, oldIndex, newIndex)
+      })
+    }
+  }
+
+  const findClippingAncestor = useCallback((element: HTMLElement | null) => {
+    let current = element?.parentElement ?? null
+
+    while (current) {
+      const style = window.getComputedStyle(current)
+      const overflowY = style.overflowY
+      const overflow = style.overflow
+      if (
+        overflowY === 'auto' ||
+        overflowY === 'scroll' ||
+        overflowY === 'hidden' ||
+        overflowY === 'clip' ||
+        overflow === 'hidden' ||
+        overflow === 'clip'
+      ) {
+        return current
       }
+      current = current.parentElement
     }
 
-    resetHeight(leftHeaderRowRef.current)
-    resetHeight(metricHeaderRowRef.current)
-    leftRowRefs.current.forEach(resetHeight)
-    metricRowRefs.current.forEach(resetHeight)
-
-    const syncPair = (left: HTMLTableRowElement | null, right: HTMLTableRowElement | null) => {
-      if (!left || !right) return
-      const height = Math.ceil(Math.max(left.getBoundingClientRect().height, right.getBoundingClientRect().height))
-      const nextHeight = `${height}px`
-      left.style.height = nextHeight
-      right.style.height = nextHeight
-    }
-
-    syncPair(leftHeaderRowRef.current, metricHeaderRowRef.current)
-
-    const rowCount = Math.max(leftRowRefs.current.length, metricRowRefs.current.length)
-    for (let index = 0; index < rowCount; index += 1) {
-      syncPair(leftRowRefs.current[index] ?? null, metricRowRefs.current[index] ?? null)
-    }
+    return null
   }, [])
 
   useLayoutEffect(() => {
-    leftRowRefs.current = leftRowRefs.current.slice(0, visibleRows.length)
-    metricRowRefs.current = metricRowRefs.current.slice(0, visibleRows.length)
-    syncPairedHeights()
-  }, [metricOrder, syncPairedHeights, visibleRowIds, visibleRows.length])
+    const shell = tableShellRef.current
+    const viewport = tableVerticalViewportRef.current
 
-  useEffect(() => {
-    const handleResize = () => {
-      syncPairedHeights()
+    if (!shell || !viewport) return
+
+    const viewportBottomGap = 0
+    const minimumBodyHeight = 240
+
+    const updateBodyMaxHeight = () => {
+      const viewportTop = viewport.getBoundingClientRect().top
+      const clippingAncestor = findClippingAncestor(shell)
+      const clippingAncestorRect = clippingAncestor?.getBoundingClientRect()
+      const clippingAncestorStyle = clippingAncestor ? window.getComputedStyle(clippingAncestor) : null
+      const clippingPaddingBottom = clippingAncestorStyle ? Number.parseFloat(clippingAncestorStyle.paddingBottom) || 0 : 0
+      const availableBottom = clippingAncestorRect
+        ? clippingAncestorRect.bottom - clippingPaddingBottom
+        : window.innerHeight
+      const availableHeight = Math.floor(availableBottom - viewportTop - viewportBottomGap)
+      setBodyMaxHeight(Math.max(minimumBodyHeight, availableHeight))
     }
 
-    window.addEventListener('resize', handleResize)
-
-    if (typeof ResizeObserver === 'undefined') {
-      return () => {
-        window.removeEventListener('resize', handleResize)
+    let frameId: number | null = null
+    const scheduleUpdate = () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId)
       }
+      frameId = requestAnimationFrame(() => {
+        updateBodyMaxHeight()
+      })
     }
 
+    const clippingAncestor = findClippingAncestor(shell)
     const observer = new ResizeObserver(() => {
-      syncPairedHeights()
+      scheduleUpdate()
     })
 
-    const observedElements = [
-      leftHeaderRowRef.current?.closest('table'),
-      metricHeaderRowRef.current?.closest('table'),
-    ].filter((element): element is HTMLTableElement => Boolean(element))
-
-    observedElements.forEach((element) => observer.observe(element))
+    observer.observe(shell)
+    observer.observe(viewport)
+    if (clippingAncestor) {
+      observer.observe(clippingAncestor)
+    }
+    window.addEventListener('resize', scheduleUpdate)
+    clippingAncestor?.addEventListener('scroll', scheduleUpdate, { passive: true })
+    scheduleUpdate()
 
     return () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId)
+      }
       observer.disconnect()
-      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('resize', scheduleUpdate)
+      clippingAncestor?.removeEventListener('scroll', scheduleUpdate)
     }
-  }, [syncPairedHeights])
+  }, [findClippingAncestor, metricOrder.length, showLevels, visibleRows.length])
+
+  useEffect(() => {
+    const headerViewport = tableHeaderViewportRef.current
+    const bodyViewport = tableBodyViewportRef.current
+    const horizontalScrollbar = tableHorizontalScrollbarRef.current
+    const scrollContainers = [headerViewport, bodyViewport, horizontalScrollbar].filter(Boolean) as HTMLDivElement[]
+
+    if (scrollContainers.length < 2) return
+
+    let isSyncing = false
+    let resetFrameId: number | null = null
+
+    const syncScrollLeft = (source: HTMLDivElement) => {
+      if (isSyncing) return
+
+      isSyncing = true
+      const nextScrollLeft = source.scrollLeft
+
+      scrollContainers.forEach((element) => {
+        if (element !== source && element.scrollLeft !== nextScrollLeft) {
+          element.scrollLeft = nextScrollLeft
+        }
+      })
+
+      resetFrameId = window.requestAnimationFrame(() => {
+        isSyncing = false
+      })
+    }
+
+    const listeners = scrollContainers.map((element) => {
+      const handleScroll = () => {
+        syncScrollLeft(element)
+      }
+      element.addEventListener('scroll', handleScroll, { passive: true })
+      return { element, handleScroll }
+    })
+
+    syncScrollLeft(bodyViewport ?? scrollContainers[0])
+
+    return () => {
+      listeners.forEach(({ element, handleScroll }) => {
+        element.removeEventListener('scroll', handleScroll)
+      })
+      if (resetFrameId !== null) {
+        window.cancelAnimationFrame(resetFrameId)
+      }
+    }
+  }, [metricOrder.length])
+
+  const renderBusinessUnitCell = (row: Row<EnrichedBizDataNode>) => {
+    const hasChildren = getChildren(row.original, allNodesWithAggregation).length > 0
+
+    return (
+      <div
+        className="flex items-center gap-1.5"
+        style={{ paddingLeft: `${row.depth * 20}px` }}
+      >
+        {hasChildren ? (
+          <button
+            onClick={row.getToggleExpandedHandler()}
+            className="p-0.5 hover:bg-[rgba(34,197,94,0.08)] rounded-md transition-colors"
+          >
+            {row.getIsExpanded() ? (
+              <ChevronDown size={14} className="text-[var(--color-text-muted)]" />
+            ) : (
+              <ChevronRight size={14} className="text-[var(--color-text-muted)]" />
+            )}
+          </button>
+        ) : (
+          <span className="w-[18px]" />
+        )}
+        <span className="font-medium text-[var(--color-text-strong)]">{row.original.node_name}</span>
+      </div>
+    )
+  }
 
   if (selectedMetrics.length === 0) {
     return (
@@ -328,58 +356,53 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 min-w-0">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <div className="app-table-shell">
-          <div className="flex">
-            <div className="z-20 flex-shrink-0 border-r border-[var(--color-border)] bg-white/72">
-              <table className="app-data-table app-data-table-compact">
-                <thead className="sticky top-0">
-                  <tr ref={leftHeaderRowRef}>
-                    <th className="w-72 !p-0">
+        <div ref={tableShellRef} className="app-table-shell biz-data-table-shell">
+          <div ref={tableHeaderViewportRef} className="biz-data-table__header-viewport">
+            <div className="biz-data-table__scroll-region" style={{ width: totalTableWidth }}>
+              <table
+                className="app-data-table app-data-table-compact biz-data-table__table"
+                style={{ width: totalTableWidth }}
+              >
+                <thead>
+                  <tr>
+                    <th
+                      className="biz-data-table__sticky-header biz-data-table__sticky-column biz-data-table__sticky-corner !p-0"
+                      style={{
+                        width: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                        minWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                        maxWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                      }}
+                    >
                       <div className={`${HEADER_CONTENT_CLASS} items-center`}>
-                        <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">业务单元</span>
+                        <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+                          业务单元
+                        </span>
                         <div className="text-caption font-medium text-transparent">占位</div>
                       </div>
                     </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleRows.map((row, index) => {
-                    const firstCell = row.getVisibleCells()[0]
-                    return (
-                      <tr
-                        key={row.id}
-                        ref={(node) => {
-                          leftRowRefs.current[index] = node
-                        }}
-                      >
-                        <td className="w-72 align-middle">
-                          {flexRender(firstCell.column.columnDef.cell, firstCell.getContext())}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
 
-            <div className="app-table-scroll flex-1">
-              <table className="app-data-table app-data-table-compact">
-                <thead className="sticky top-0">
-                  <tr ref={metricHeaderRowRef}>
                     <SortableContext
                       items={metricOrder}
                       strategy={horizontalListSortingStrategy}
                     >
                       {metricOrder.map((metric) => (
-                        <th key={metric} className="!p-0">
+                        <th
+                          key={metric}
+                          className="biz-data-table__sticky-header !p-0"
+                          style={{
+                            width: `${METRIC_GROUP_WIDTH}px`,
+                            minWidth: `${METRIC_GROUP_WIDTH}px`,
+                            maxWidth: `${METRIC_GROUP_WIDTH}px`,
+                          }}
+                        >
                           <DraggableHeader id={metric}>
-                            <div className="flex min-w-[300px] flex-col gap-1.5">
+                            <div className="flex flex-col gap-1.5">
                               <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-strong)]">
                                 {METRIC_LABELS[metric]}
                               </span>
@@ -395,42 +418,94 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                     </SortableContext>
                   </tr>
                 </thead>
-                <tbody>
-                  {visibleRows.map((row, index) => {
-                    const metricCells = row.getVisibleCells().slice(1)
-                    return (
-                      <tr
-                        key={row.id}
-                        ref={(node) => {
-                          metricRowRefs.current[index] = node
-                        }}
-                      >
+              </table>
+            </div>
+          </div>
+
+          <div
+            ref={tableHorizontalScrollbarRef}
+            className="biz-data-table__horizontal-scrollbar"
+            aria-hidden="true"
+          >
+            <div
+              className="biz-data-table__horizontal-scrollbar-content"
+              style={{ width: totalTableWidth }}
+            />
+          </div>
+
+          <div ref={tableBodyViewportRef} className="biz-data-table__body-viewport">
+            <div className="biz-data-table__scroll-region" style={{ width: totalTableWidth }}>
+              <div
+                ref={tableVerticalViewportRef}
+                className="biz-data-table__vertical-viewport"
+                style={bodyMaxHeight ? { height: `${bodyMaxHeight}px`, maxHeight: `${bodyMaxHeight}px` } : undefined}
+              >
+                <table
+                  className="app-data-table app-data-table-compact biz-data-table__table"
+                  style={{ width: totalTableWidth }}
+                >
+                  <tbody>
+                    {visibleRows.map((row) => (
+                      <tr key={row.id}>
+                        <td
+                          className="biz-data-table__sticky-column biz-data-table__business-cell align-middle"
+                          style={{
+                            width: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                            minWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                            maxWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                          }}
+                        >
+                          {renderBusinessUnitCell(row)}
+                        </td>
+
                         {metricOrder.map((metric) => {
-                          const actualCell = metricCells.find((cell) => cell.column.id === `${metric}_actual`)
-                          const budgetCell = metricCells.find((cell) => cell.column.id === `${metric}_budget`)
-                          const completionCell = metricCells.find((cell) => cell.column.id === `${metric}_completion`)
+                          const actual = row.original.metrics[metric]?.actual ?? null
+                          const budget = row.original.metrics[metric]?.[budgetField] ?? null
+                          const rawCompletionRate = row.original.metrics[metric]?.[completionField] ?? null
+                          const displayCompletionRate = getMetricDisplayCompletionRate(metric, actual, budget, rawCompletionRate)
+                          const thresholds = getNodeThresholds()
+                          const alertLevel = getAlertLevelByMetric(metric, actual, budget, rawCompletionRate, thresholds)
+                          const colorClass = getAlertColorClass(alertLevel)
+                          const bgClass = getAlertBgClass(alertLevel)
+                          const borderClass = getAlertBorderClass(alertLevel)
+                          const helperText = getMetricAlertRuleText(metric, budget)
 
                           return (
-                            <td key={metric} className="border-r border-[rgba(148,163,184,0.08)] last:border-r-0">
-                              <div className="grid h-full min-w-[300px] grid-cols-3 items-center gap-1.5 px-3">
+                            <td
+                              key={metric}
+                              className="border-r border-[rgba(148,163,184,0.08)] last:border-r-0"
+                              style={{
+                                width: `${METRIC_GROUP_WIDTH}px`,
+                                minWidth: `${METRIC_GROUP_WIDTH}px`,
+                                maxWidth: `${METRIC_GROUP_WIDTH}px`,
+                              }}
+                            >
+                              <div className="grid h-full grid-cols-3 items-center gap-1.5 px-3">
                                 <div className="text-right">
-                                  {actualCell && flexRender(actualCell.column.columnDef.cell, actualCell.getContext())}
+                                  <span className="font-medium text-[var(--color-text-strong)]">{fmt(actual)}</span>
                                 </div>
                                 <div className="text-right">
-                                  {budgetCell && flexRender(budgetCell.column.columnDef.cell, budgetCell.getContext())}
+                                  <span className="text-[var(--color-text-muted)]">{fmt(budget)}</span>
                                 </div>
                                 <div className="text-right">
-                                  {completionCell && flexRender(completionCell.column.columnDef.cell, completionCell.getContext())}
+                                  <div
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-lg border ${bgClass} ${borderClass}`}
+                                    title={helperText ?? undefined}
+                                  >
+                                    <span className={`font-semibold ${colorClass}`}>
+                                      {fmtPct(displayCompletionRate)}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </td>
                           )
                         })}
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 # Supabase Migrations
 
-Last updated: 2026-03-28
+Last updated: 2026-04-02
 
 ## Migration History
 
@@ -25,16 +25,16 @@ Last updated: 2026-03-28
 | 20260324103000 | expand_opportunity_ledger_for_funnel_v2 | Add funnel v2 fields for project grouping, stage tracking, progress, and first-year revenue |
 | 20260324153000 | redesign_opportunity_ledger_for_visible_sheets | Archive legacy table, create snapshot/detail tables, and align schema to visible workbook sheets |
 | 20260328120000 | redesign_edu_org_hierarchy_for_flat_levels | Redesign edu_org_hierarchy to match the new mapping workbook headers (level_0, level_1, level_2, node_name) |
+| 20260402110000 | add_schedule_time_range_constraints | Backfill schedule period from timed items and enforce valid time ranges |
 
-## Total Migrations: 19
+## Total Migrations: 20
 
 ## Latest Migration
-**Version**: 20260328120000
-**Name**: redesign_edu_org_hierarchy_for_flat_levels
-**Date**: 2026-03-28
+**Version**: 20260402110000
+**Name**: add_schedule_time_range_constraints
+**Date**: 2026-04-02
 
-This migration redesigns `edu_org_hierarchy` around the new workbook headers:
-- Keeps `node_name` as the unique soft-link field to business data tables
-- Standardizes hierarchy columns to `level_0`, `level_1`, and `level_2`
-- Drops legacy `level_3` and `label` columns
-- Adds indexes for the new hierarchy filter paths
+This migration improves timed schedule support:
+- Backfills `period` for existing rows that already have `start_time`
+- Ensures `start_time` and `end_time` are always filled as a pair
+- Enforces `end_time` to be later than `start_time`

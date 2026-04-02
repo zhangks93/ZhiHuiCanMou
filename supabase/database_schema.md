@@ -1,6 +1,6 @@
 # Supabase Database Schema
 
-Last updated: 2026-03-24
+Last updated: 2026-04-02
 
 ## Tables Overview
 
@@ -21,6 +21,10 @@ Last updated: 2026-03-24
 - `date` (date, nullable): Date of the schedule
 - `period` (text, nullable): Time period (morning, afternoon, evening)
 - `meeting_notes` (text, nullable): Meeting notes
+
+#### Constraints
+- `schedule_items_time_range_pair_check`: `start_time` and `end_time` must both be null or both be filled
+- `schedule_items_time_range_order_check`: `end_time` must be later than `start_time`
 
 ---
 

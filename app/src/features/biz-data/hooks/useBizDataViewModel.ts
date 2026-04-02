@@ -10,7 +10,7 @@ export function useBizDataViewModel() {
   const [periodType, setPeriodType] = useState<'cumulative' | 'monthly'>('cumulative')
   const [availableMonths, setAvailableMonths] = useState<string[]>([])
   const [selectedMonth, setSelectedMonth] = useState<string>('')
-  const [viewMode, setViewMode] = useState<'table' | 'chart'>('chart')
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table')
   const [selectedMetrics, setSelectedMetrics] = useState<MetricCategory[]>([
     'revenue',
     'pretax_profit',
