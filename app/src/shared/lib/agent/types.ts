@@ -74,7 +74,7 @@ export interface FinancialAnalysisSessionContext {
     templateLoaded?: boolean
     templatePath?: string
     chartGuidanceLoaded?: boolean
-    chartOutputMode?: 'fenced_html_code_block'
+    chartOutputMode?: 'structured_chart_spec_json'
   }
   dataContext?: FinancialAnalysisRuntimeDataContext
   lastResolvedAt: number

@@ -1,11 +1,18 @@
-// 带组织层级的经营数据查询 Tool
-// Aligned with features/biz-data/services/bizDataService.ts query patterns
-// Paginated fetch for full result sets (no row cap)
+// 带组织层级的经营数据树查询 Tool
+// Reuses the same aggregation and hierarchy-building path as the business tab table view.
 
 import type { RegisteredTool, ToolDefinition } from '../types'
-import { supabase } from '@/shared/lib/supabase'
-
-const PAGE_SIZE = 1000
+import type { EduBizReport, MetricCategory } from '@/features/biz-data/types'
+import type { NestedBizDataNode } from '@/features/biz-data/services/bizDataService'
+import {
+  aggregateByNode,
+  buildNestedHierarchy,
+  buildNestedSubtree,
+  fetchBizReport,
+  fetchMonthlyPlan,
+  findHierarchyNodeMatches,
+  getNodeKind,
+} from '@/features/biz-data/services/bizDataService'
 
 const METRIC_CATEGORY_ENUM = [
   'revenue',
@@ -35,131 +42,183 @@ const METRIC_CATEGORY_ENUM = [
   'profit_creation',
 ] as const
 
-type MetricCategory = (typeof METRIC_CATEGORY_ENUM)[number]
-
 const METRIC_SET = new Set<string>(METRIC_CATEGORY_ENUM)
 
-function numOrNull(v: unknown): number | null {
-  if (v === null || v === undefined) return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
-}
-
-async function paginatedFetchReport(options: {
-  reportType: string
-  periodType: string
-  period: string
-  metricCategories: string[]
-  nodeNames?: string[]
-  nodeNamePattern?: string
-}) {
-  const { reportType, periodType, period, metricCategories, nodeNames, nodeNamePattern } = options
-  const allData: any[] = []
-  let page = 0
-  let hasMore = true
-
-  while (hasMore) {
-    let query = supabase
-      .from('edu_biz_report')
-      .select(
-        'node_name, metric_category, metric_category_cn, actual_value, budget_value, completion_rate, diff_value, yoy_value, period_yoy, period, report_type, period_type, sort_order, sheet_code',
-      )
-      .eq('report_type', reportType)
-      .eq('period_type', periodType)
-      .eq('period', period)
-      .order('sort_order', { ascending: true })
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-
-    if (nodeNames && nodeNames.length > 0) {
-      query = query.in('node_name', nodeNames)
-    } else if (nodeNamePattern) {
-      query = query.ilike('node_name', `%${nodeNamePattern}%`)
-    }
-
-    if (metricCategories.length === 1) {
-      query = query.eq('metric_category', metricCategories[0])
-    } else {
-      query = query.in('metric_category', metricCategories)
-    }
-
-    const { data: pageData, error } = await query
-    if (error) throw new Error(`经营数据查询失败: ${error.message}`)
-
-    if (pageData && pageData.length > 0) {
-      allData.push(...pageData)
-      hasMore = pageData.length === PAGE_SIZE
-      page += 1
-    } else {
-      hasMore = false
-    }
-  }
-
-  return allData
-}
-
-function validateArgs(args: Record<string, unknown>): { ok: true; values: {
+type QueryWithHierarchyArgs = {
   node_name: string
-  metric_category: string[]
-  report_type: string
-  period_type: string
-  level_0: string
-  level_1: string
-  level_2: string
+  report_type: 'fone' | 'tuwei'
+  period_type: 'cumulative' | 'monthly'
   period: string
-} } | { ok: false; message: string } {
-  const requiredKeys = ['node_name', 'metric_category', 'report_type', 'period_type', 'level_0', 'level_1', 'level_2', 'period'] as const
-  for (const k of requiredKeys) {
-    if (args[k] === undefined || args[k] === null) {
-      return { ok: false, message: `缺少必填参数: ${k}` }
-    }
-  }
+  metric_categories?: MetricCategory[]
+  sheet_codes?: string[]
+  max_depth?: number
+}
 
-  const metric_category = args.metric_category
-  if (!Array.isArray(metric_category) || metric_category.length === 0) {
-    return { ok: false, message: 'metric_category 必须为非空数组，元素为指标英文标识' }
-  }
-  for (const m of metric_category) {
-    if (typeof m !== 'string' || !METRIC_SET.has(m as MetricCategory)) {
-      return { ok: false, message: `metric_category 含非法指标: ${String(m)}，须为工具枚举中的英文标识` }
-    }
-  }
+type MetricSnapshot = {
+  metric: MetricCategory
+  metric_label: string
+  actual: number | null
+  target_value: number | null
+  completion_rate: number | null
+  diff: number | null
+  yoy: number | null
+  monthly_plan?: Record<string, number>
+}
 
+type SerializedTreeNode = {
+  node_name: string
+  node_kind: NestedBizDataNode['node_kind']
+  sort_order: number
+  org_hierarchy: NestedBizDataNode['orgHierarchy']
+  metrics: MetricSnapshot[]
+  children: SerializedTreeNode[]
+  children_truncated?: boolean
+}
+
+function validateArgs(args: Record<string, unknown>):
+  | { ok: true; values: QueryWithHierarchyArgs }
+  | { ok: false; message: string } {
+  const node_name = args.node_name
   const report_type = args.report_type
+  const period_type = args.period_type
+  const period = args.period
+  const metric_categories = args.metric_categories
+  const sheet_codes = args.sheet_codes
+  const max_depth = args.max_depth
+
+  if (typeof node_name !== 'string') {
+    return { ok: false, message: 'node_name 必须为字符串，传空字符串可返回整棵树' }
+  }
+
   if (report_type !== 'fone' && report_type !== 'tuwei') {
     return { ok: false, message: 'report_type 必须为 fone 或 tuwei' }
   }
 
-  const period_type = args.period_type
   if (period_type !== 'cumulative' && period_type !== 'monthly') {
     return { ok: false, message: 'period_type 必须为 cumulative 或 monthly' }
   }
 
-  const node_name = args.node_name
-  const level_0 = args.level_0
-  const level_1 = args.level_1
-  const level_2 = args.level_2
-  const period = args.period
-  if (typeof node_name !== 'string') return { ok: false, message: 'node_name 必须为字符串（可为空字符串表示不按名称过滤）' }
-  if (typeof level_0 !== 'string') return { ok: false, message: 'level_0 必须为字符串' }
-  if (typeof level_1 !== 'string') return { ok: false, message: 'level_1 必须为字符串' }
-  if (typeof level_2 !== 'string') return { ok: false, message: 'level_2 必须为字符串' }
   if (typeof period !== 'string' || period.trim() === '') {
     return { ok: false, message: 'period 必须为非空字符串，且与 Runtime Data Context 中的合法 period 一致' }
+  }
+
+  if (metric_categories !== undefined) {
+    if (!Array.isArray(metric_categories) || metric_categories.length === 0) {
+      return { ok: false, message: 'metric_categories 如传入，必须为非空数组' }
+    }
+
+    for (const metric of metric_categories) {
+      if (typeof metric !== 'string' || !METRIC_SET.has(metric)) {
+        return { ok: false, message: `metric_categories 含非法指标: ${String(metric)}` }
+      }
+    }
+  }
+
+  if (sheet_codes !== undefined) {
+    if (!Array.isArray(sheet_codes) || sheet_codes.some(code => typeof code !== 'string' || code.trim() === '')) {
+      return { ok: false, message: 'sheet_codes 如传入，必须为非空字符串数组' }
+    }
+  }
+
+  if (max_depth !== undefined) {
+    if (typeof max_depth !== 'number' || !Number.isInteger(max_depth) || max_depth < 1 || max_depth > 6) {
+      return { ok: false, message: 'max_depth 如传入，必须是 1-6 的整数' }
+    }
   }
 
   return {
     ok: true,
     values: {
-      node_name: node_name,
-      metric_category: metric_category as string[],
+      node_name,
       report_type,
       period_type,
-      level_0: level_0,
-      level_1: level_1,
-      level_2: level_2,
       period: period.trim(),
+      metric_categories: metric_categories as MetricCategory[] | undefined,
+      sheet_codes: sheet_codes as string[] | undefined,
+      max_depth: max_depth as number | undefined,
     },
   }
+}
+
+function shouldKeepMetric(
+  category: string,
+  selectedMetrics?: MetricCategory[]
+): category is MetricCategory {
+  if (!METRIC_SET.has(category)) return false
+  if (!selectedMetrics || selectedMetrics.length === 0) return true
+  return selectedMetrics.includes(category as MetricCategory)
+}
+
+function buildMetricLabelMap(reports: EduBizReport[]) {
+  const labelMap = new Map<MetricCategory, string>()
+
+  reports.forEach(report => {
+    if (!labelMap.has(report.metric_category)) {
+      labelMap.set(report.metric_category, report.metric_category_cn)
+    }
+  })
+
+  return labelMap
+}
+
+function serializeMetrics(
+  metrics: NestedBizDataNode['metrics'],
+  reportType: QueryWithHierarchyArgs['report_type'],
+  labelMap: Map<MetricCategory, string>,
+  selectedMetrics?: MetricCategory[]
+): MetricSnapshot[] {
+  return Object.entries(metrics)
+    .filter(([category, value]) => !!value && shouldKeepMetric(category, selectedMetrics))
+    .map(([category, value]) => {
+      const metric = value!
+      const target_value = reportType === 'fone' ? metric.budget_fone : metric.budget_tuwei
+      const completion_rate = reportType === 'fone' ? metric.completion_fone : metric.completion_tuwei
+      const diff = reportType === 'fone' ? metric.diff_fone : metric.diff_tuwei
+
+      return {
+        metric: category as MetricCategory,
+        metric_label: labelMap.get(category as MetricCategory) ?? category,
+        actual: metric.actual,
+        target_value,
+        completion_rate,
+        diff,
+        yoy: metric.yoy,
+        monthly_plan: metric.monthly_plan,
+      }
+    })
+    .sort((a, b) => a.metric.localeCompare(b.metric))
+}
+
+function serializeTreeNode(
+  node: NestedBizDataNode,
+  reportType: QueryWithHierarchyArgs['report_type'],
+  labelMap: Map<MetricCategory, string>,
+  selectedMetrics?: MetricCategory[],
+  remainingDepth = Number.POSITIVE_INFINITY
+): SerializedTreeNode {
+  const canExpandChildren = remainingDepth > 1
+  const children = canExpandChildren
+    ? node.children.map(child => serializeTreeNode(child, reportType, labelMap, selectedMetrics, remainingDepth - 1))
+    : []
+
+  return {
+    node_name: node.node_name,
+    node_kind: node.node_kind,
+    sort_order: node.sort_order,
+    org_hierarchy: node.orgHierarchy,
+    metrics: serializeMetrics(node.metrics, reportType, labelMap, selectedMetrics),
+    children,
+    children_truncated: node.children.length > 0 && !canExpandChildren ? true : undefined,
+  }
+}
+
+function countTreeNodes(node: NestedBizDataNode): number {
+  return 1 + node.children.reduce((sum, child) => sum + countTreeNodes(child), 0)
+}
+
+function countTreeLeaves(node: NestedBizDataNode): number {
+  if (node.children.length === 0) return 1
+  return node.children.reduce((sum, child) => sum + countTreeLeaves(child), 0)
 }
 
 export const queryWithHierarchyTool: RegisteredTool = {
@@ -168,23 +227,13 @@ export const queryWithHierarchyTool: RegisteredTool = {
     function: {
       name: 'query_with_hierarchy',
       description:
-        '查询教育后勤经营数据，并附带组织层级信息（level_0/level_1/level_2）。优先用于经营分析主查询。所有参数必填：node_name 可为空字符串表示不按节点名过滤；level_0/level_1/level_2 可为空字符串表示该层不过滤。metric_category 为指标英文标识数组（至少一个），可一次查询多个指标。period 仅支持传入系统提供的合法 period 精确值；累计 period 通常采用右开区间格式，如截至 202602 会存为 <202603。返回全量匹配行（分页拉取、无行数上限），每行含同比（同期期间、同期值、增减额、增长率）。',
+        '完全按经营 tab 页表格的数据口径查询经营数据。输入 report_type、period_type、period、node_name，返回与经营表格同源聚合后的完整树状数据。node_name 传具体组织节点名称时返回该节点及全部子节点；传空字符串时返回整棵树。默认返回全部指标，也可用 metric_categories 和 sheet_codes 缩小范围。',
       parameters: {
         type: 'object',
         properties: {
           node_name: {
             type: 'string',
-            description:
-              '组织节点名称，模糊匹配；传空字符串 "" 表示不按 node_name 过滤（仅受 level_* 与其它条件约束）。',
-          },
-          metric_category: {
-            type: 'array',
-            description: '指标类别（一个或多个英文标识），至少 1 个。例如 ["revenue","pretax_profit"]。',
-            minItems: 1,
-            items: {
-              type: 'string',
-              enum: [...METRIC_CATEGORY_ENUM],
-            },
+            description: '组织节点名称。支持精确匹配和模糊匹配；传空字符串 "" 表示返回整棵组织指标树。',
           },
           report_type: {
             type: 'string',
@@ -193,27 +242,34 @@ export const queryWithHierarchyTool: RegisteredTool = {
           },
           period_type: {
             type: 'string',
-            description: '期间类型：cumulative=累计, monthly=当月',
+            description: '期间类型：cumulative=累计, monthly=单月',
             enum: ['cumulative', 'monthly'],
-          },
-          level_0: {
-            type: 'string',
-            description: '按集团级过滤，如「智汇后勤集团」。空字符串 "" 表示该层不过滤。',
-          },
-          level_1: {
-            type: 'string',
-            description: '按一级组织过滤，如「餐饮中心」。空字符串 "" 表示该层不过滤。',
-          },
-          level_2: {
-            type: 'string',
-            description: '按二级组织过滤，如「广州餐饮」。空字符串 "" 表示该层不过滤。',
           },
           period: {
             type: 'string',
-            description: '期间值。只能使用系统运行时上下文提供的合法 period 精确值；累计口径通常为右开区间，如截至202602对应 <202603。',
+            description: '期间值。只能使用系统运行时上下文提供的合法 period 精确值。',
+          },
+          metric_categories: {
+            type: 'array',
+            description: '可选。只返回指定指标；不传则按经营表格口径返回当前范围内全部指标。',
+            items: {
+              type: 'string',
+              enum: [...METRIC_CATEGORY_ENUM],
+            },
+          },
+          sheet_codes: {
+            type: 'array',
+            description: '可选。按报表 sheet 代码过滤，例如 ["1.1","2.1"]。',
+            items: {
+              type: 'string',
+            },
+          },
+          max_depth: {
+            type: 'number',
+            description: '可选。限制返回树的最大层级深度，1=仅根节点，2=根+下一级。默认会自动控制：整棵树查询默认 2 层，具体节点子树默认 4 层。',
           },
         },
-        required: ['node_name', 'metric_category', 'report_type', 'period_type', 'level_0', 'level_1', 'level_2', 'period'],
+        required: ['node_name', 'report_type', 'period_type', 'period'],
       } as ToolDefinition['function']['parameters'],
     },
   },
@@ -225,130 +281,138 @@ export const queryWithHierarchyTool: RegisteredTool = {
     }
 
     const {
-      node_name: nodeName,
-      metric_category: metricCategories,
-      report_type: reportType,
-      period_type: periodType,
-      level_0: level0Filter,
-      level_1: level1Filter,
-      level_2: level2Filter,
-      period: periodFilter,
+      node_name,
+      report_type,
+      period_type,
+      period,
+      metric_categories,
+      sheet_codes,
+      max_depth,
     } = validated.values
 
-    const level0Active = level0Filter.trim().length > 0
-    const level1Active = level1Filter.trim().length > 0
-    const level2Active = level2Filter.trim().length > 0
+    const effectiveMaxDepth = max_depth ?? (node_name.trim() === '' ? 2 : 4)
 
-    let preFilteredNodes: string[] | undefined
-    if (level0Active || level1Active || level2Active) {
-      let hierQuery = supabase.from('edu_org_hierarchy').select('node_name')
-
-      if (level0Active) hierQuery = hierQuery.ilike('level_0', `%${level0Filter.trim()}%`)
-      if (level1Active) hierQuery = hierQuery.ilike('level_1', `%${level1Filter.trim()}%`)
-      if (level2Active) hierQuery = hierQuery.ilike('level_2', `%${level2Filter.trim()}%`)
-
-      const { data: hierNodes, error: hierErr } = await hierQuery
-      if (hierErr) throw new Error(`组织层级查询失败: ${hierErr.message}`)
-      if (!hierNodes || hierNodes.length === 0) {
-        return JSON.stringify({
-          message: '按组织层级过滤后无匹配节点',
-          filters: { level_0: level0Filter, level_1: level1Filter, level_2: level2Filter },
-        })
-      }
-      preFilteredNodes = hierNodes.map(node => node.node_name)
-    }
-
-    const nodeNamePattern = nodeName.trim().length > 0 ? nodeName.trim() : undefined
-
-    const bizData = await paginatedFetchReport({
-      reportType,
-      periodType,
-      period: periodFilter,
-      metricCategories,
-      nodeNames: preFilteredNodes,
-      nodeNamePattern: !preFilteredNodes ? nodeNamePattern : undefined,
+    const reports = await fetchBizReport({
+      period,
+      periodType: period_type,
+      reportTypes: [report_type],
+      sheetCodes: sheet_codes,
     })
 
-    if (bizData.length === 0) {
+    if (reports.length === 0) {
       return JSON.stringify({
         message: '未找到匹配的经营数据',
         query_echo: {
-          node_name: nodeName,
-          metric_category: metricCategories,
-          report_type: reportType,
-          period_type: periodType,
-          period: periodFilter,
-          level_0: level0Filter,
-          level_1: level1Filter,
-          level_2: level2Filter,
+          node_name,
+          report_type,
+          period_type,
+          period,
+          metric_categories: metric_categories ?? null,
+          sheet_codes: sheet_codes ?? null,
         },
       })
     }
 
-    const nodeNames = [...new Set(bizData.map((row: any) => row.node_name))]
-    const { data: hierData, error: hierError } = await supabase
-      .from('edu_org_hierarchy')
-      .select('node_name, level_0, level_1, level_2')
-      .in('node_name', nodeNames)
+    const monthlyPlans = await fetchMonthlyPlan()
+    const foneReports = report_type === 'fone' ? reports : []
+    const tuweiReports = report_type === 'tuwei' ? reports : []
+    const aggregatedNodes = aggregateByNode(foneReports, tuweiReports, monthlyPlans)
+    const labelMap = buildMetricLabelMap(reports)
 
-    if (hierError) {
-      throw new Error(`组织层级查询失败: ${hierError.message}`)
+    if (node_name.trim() === '') {
+      const fullTree = buildNestedHierarchy(aggregatedNodes)
+
+      return JSON.stringify({
+        summary: {
+          report_type,
+          period_type,
+          period,
+          query_mode: 'full_tree',
+          returned_max_depth: effectiveMaxDepth,
+          matched_node_count: fullTree.length,
+          total_tree_nodes: fullTree.reduce((sum, root) => sum + countTreeNodes(root), 0),
+          total_leaf_nodes: fullTree.reduce((sum, root) => sum + countTreeLeaves(root), 0),
+        },
+        query: {
+          node_name: '',
+          metric_categories: metric_categories ?? null,
+          sheet_codes: sheet_codes ?? null,
+          max_depth: effectiveMaxDepth,
+        },
+        guidance: '同比字段 yoy 已直接返回同期值；如需同比增减额，请直接用 actual - yoy 计算，不要再把月份回退一年重复查询。若需要更深层节点，请在下一次查询中指定 node_name 或提高 max_depth。',
+        tree: fullTree.map(root => serializeTreeNode(root, report_type, labelMap, metric_categories, effectiveMaxDepth)),
+      })
     }
 
-    const hierMap = new Map<string, { level_0: string | null; level_1: string | null; level_2: string | null }>()
-    for (const row of hierData || []) {
-      hierMap.set(row.node_name, { level_0: row.level_0, level_1: row.level_1, level_2: row.level_2 })
+    const matches = findHierarchyNodeMatches(aggregatedNodes, node_name)
+    if (matches.length === 0) {
+      return JSON.stringify({
+        message: '未找到匹配的组织节点',
+        query_echo: {
+          node_name,
+          report_type,
+          period_type,
+          period,
+        },
+      })
+    }
+
+    if (matches.length > 1) {
+      return JSON.stringify({
+        message: '匹配到多个组织节点，请提供更精确的 node_name',
+        query_echo: {
+          node_name,
+          report_type,
+          period_type,
+          period,
+        },
+        candidates: matches.slice(0, 20).map(match => ({
+          node_name: match.node.node_name,
+          node_kind: getNodeKind(match.node),
+          match_type: match.matchType,
+          org_hierarchy: match.node.orgHierarchy,
+        })),
+        guidance: '请先从候选中明确节点，避免在歧义范围上反复查询同一批数据。',
+      })
+    }
+
+    const matched = matches[0]
+    const subtree = buildNestedSubtree(aggregatedNodes, matched.node.node_name)
+
+    if (!subtree) {
+      return JSON.stringify({
+        message: '组织节点已匹配，但构建树状数据失败',
+        query_echo: {
+          node_name,
+          matched_node_name: matched.node.node_name,
+          report_type,
+          period_type,
+          period,
+        },
+      })
     }
 
     return JSON.stringify({
       summary: {
-        returned_count: bizData.length,
-        distinct_nodes: nodeNames.length,
-        fetch_mode: 'paginated_all',
-        report_type: reportType,
-        period_type: periodType,
-        period: periodFilter,
+        report_type,
+        period_type,
+        period,
+        query_mode: 'subtree',
+        returned_max_depth: effectiveMaxDepth,
+        matched_node_name: matched.node.node_name,
+        matched_node_kind: getNodeKind(matched.node),
+        match_type: matched.matchType,
+        total_tree_nodes: countTreeNodes(subtree),
+        total_leaf_nodes: countTreeLeaves(subtree),
       },
-      scope: {
-        node_name: nodeName,
-        level_0: level0Filter,
-        level_1: level1Filter,
-        level_2: level2Filter,
+      query: {
+        node_name,
+        metric_categories: metric_categories ?? null,
+        sheet_codes: sheet_codes ?? null,
+        max_depth: effectiveMaxDepth,
       },
-      rows: bizData.map((row: any) => {
-        const hierarchy = hierMap.get(row.node_name)
-        const actual = numOrNull(row.actual_value)
-        const compareValue = numOrNull(row.yoy_value)
-        let change_amount: number | null = null
-        let change_rate_pct: number | null = null
-        if (actual != null && compareValue != null) {
-          change_amount = actual - compareValue
-          if (compareValue !== 0) {
-            change_rate_pct = (change_amount / Math.abs(compareValue)) * 100
-          }
-        }
-        return {
-          node_name: row.node_name,
-          level_0: hierarchy?.level_0 || null,
-          level_1: hierarchy?.level_1 || null,
-          level_2: hierarchy?.level_2 || null,
-          metric: row.metric_category,
-          metric_label: row.metric_category_cn,
-          actual: row.actual_value,
-          budget: row.budget_value,
-          completion_rate: row.completion_rate,
-          diff: row.diff_value,
-          period: row.period,
-          sheet_code: row.sheet_code,
-          year_over_year: {
-            compare_period: row.period_yoy ?? null,
-            compare_value: row.yoy_value,
-            change_amount,
-            change_rate_pct,
-          },
-        }
-      }),
-      guidance: '如需横向对比，请基于 rows 中的 level_1 或 level_2 继续汇总分析。',
-    }, null, 2)
+      guidance: '同比字段 yoy 已直接返回同期值；如需同比增减额，请直接用 actual - yoy 计算，不要再把月份回退一年重复查询。若当前层级不够，请提高 max_depth 或改查更具体的下级 node_name。',
+      tree: serializeTreeNode(subtree, report_type, labelMap, metric_categories, effectiveMaxDepth),
+    })
   },
 }

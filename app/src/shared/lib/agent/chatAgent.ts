@@ -11,8 +11,54 @@ interface ToolExecutionCacheEntry {
 
 interface ToolExecutionState {
   cache: Map<string, ToolExecutionCacheEntry>
-  lastRoundSignature?: string
-  repeatedRoundCount: number
+  repeatedCachedCoreCallCounts: Map<string, number>
+}
+
+const MAX_TOOL_CALL_DEPTH = 12
+const MAX_CACHED_CORE_CALL_REUSE = 4
+
+function normalizeCoreValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return [...value]
+      .map(item => normalizeCoreValue(item))
+      .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)))
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, val]) => [key, normalizeCoreValue(val)])
+    return Object.fromEntries(entries)
+  }
+
+  return value
+}
+
+function pickCoreArgs(name: string, args: Record<string, unknown>): Record<string, unknown> {
+  const toolSpecificKeys: Record<string, string[]> = {
+    resolve_org_nodes: ['keyword', 'level'],
+    query_with_hierarchy: ['node_name', 'report_type', 'period_type', 'period', 'metric_categories', 'sheet_codes'],
+    query_biz_data: ['node_name', 'metric_category', 'metric_categories', 'report_type', 'period_type', 'period', 'sheet_codes'],
+    query_monthly_plan: ['node_name', 'metric_category', 'month', 'months'],
+    read_file: ['path'],
+  }
+
+  const keys = toolSpecificKeys[name]
+  if (!keys) {
+    return args
+  }
+
+  const pickedEntries = keys
+    .filter(key => key in args && args[key] !== undefined)
+    .map(key => [key, normalizeCoreValue(args[key])])
+
+  return Object.fromEntries(pickedEntries)
+}
+
+interface ParsedToolArguments {
+  args: Record<string, unknown>
+  parseFailed: boolean
+  raw: string
 }
 
 function stableStringify(value: unknown): string {
@@ -28,8 +74,39 @@ function stableStringify(value: unknown): string {
   return `{${entries.map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`).join(',')}}`
 }
 
-function buildToolCallSignature(name: string, args: Record<string, unknown>): string {
-  return `${name}:${stableStringify(args)}`
+function parseToolArguments(rawArguments: string | undefined): ParsedToolArguments {
+  const raw = typeof rawArguments === 'string' ? rawArguments : ''
+  if (!raw.trim()) {
+    return { args: {}, parseFailed: false, raw: '' }
+  }
+
+  try {
+    return {
+      args: JSON.parse(raw) as Record<string, unknown>,
+      parseFailed: false,
+      raw,
+    }
+  } catch {
+    return {
+      args: {},
+      parseFailed: true,
+      raw,
+    }
+  }
+}
+
+function buildToolCallSignature(name: string, parsed: ParsedToolArguments): string {
+  if (parsed.parseFailed) {
+    return `${name}:__raw__:${parsed.raw.trim()}`
+  }
+  return `${name}:${stableStringify(parsed.args)}`
+}
+
+function buildToolCallCoreSignature(name: string, parsed: ParsedToolArguments): string {
+  if (parsed.parseFailed) {
+    return `${name}:__core_raw__:${parsed.raw.trim()}`
+  }
+  return `${name}:${stableStringify(pickCoreArgs(name, parsed.args))}`
 }
 
 export class ChatAgent {
@@ -74,7 +151,7 @@ export class ChatAgent {
     const toolDefs = this.getToolDefinitions()
     const toolExecutionState: ToolExecutionState = {
       cache: new Map(),
-      repeatedRoundCount: 0,
+      repeatedCachedCoreCallCounts: new Map(),
     }
 
     // First LLM call (depth=0)
@@ -88,8 +165,8 @@ export class ChatAgent {
     toolExecutionState: ToolExecutionState,
   ): AsyncGenerator<ChatStreamChunk> {
     // ReAct safety: prevent runaway tool call loops
-    if (depth >= 20) {
-      yield { type: 'text', content: '\n\n> ⚠️ 已达到最大工具调用轮次（20轮），请尝试缩小查询范围或分步提问。' }
+    if (depth >= MAX_TOOL_CALL_DEPTH) {
+      yield { type: 'text', content: `\n\n> ⚠️ 已达到最大工具调用轮次（${MAX_TOOL_CALL_DEPTH}轮），请基于现有结果给出结论，或缩小查询范围后重试。` }
       return
     }
     if (this.config.provider === 'claude') {
@@ -227,40 +304,13 @@ export class ChatAgent {
       { role: 'assistant', tool_calls: assistantToolCalls },
     ]
 
-    const roundSignatures = Array.from(pendingToolCalls.values()).map(tc => {
-      let args: Record<string, unknown> = {}
-      try {
-        args = JSON.parse(tc.arguments)
-      } catch {
-        // ignore parse errors
-      }
-      return buildToolCallSignature(tc.name, args)
-    }).sort()
-    const roundSignature = roundSignatures.join('||')
+    const parsedToolCalls = Array.from(pendingToolCalls.values()).map(tc => ({
+      ...tc,
+      parsed: parseToolArguments(tc.arguments),
+    }))
 
-    if (toolExecutionState.lastRoundSignature === roundSignature) {
-      toolExecutionState.repeatedRoundCount += 1
-    } else {
-      toolExecutionState.lastRoundSignature = roundSignature
-      toolExecutionState.repeatedRoundCount = 0
-    }
-
-    if (toolExecutionState.repeatedRoundCount >= 2) {
-      yield {
-        type: 'text',
-        content:
-          '\n\n> ⚠️ 检测到模型连续重复调用同一组工具，已停止自动重试。请基于现有结果给出结论，或缩小范围后重新查询。',
-      }
-      return
-    }
-
-    for (const tc of pendingToolCalls.values()) {
-      let args: Record<string, unknown> = {}
-      try {
-        args = JSON.parse(tc.arguments)
-      } catch {
-        // ignore parse errors
-      }
+    for (const tc of parsedToolCalls) {
+      const args = tc.parsed.args
 
       const toolCallRecord: ToolCallRecord = {
         id: tc.id,
@@ -271,9 +321,22 @@ export class ChatAgent {
 
       yield { type: 'tool_call', toolCall: toolCallRecord }
 
-      const toolCallSignature = buildToolCallSignature(tc.name, args)
+      const toolCallSignature = buildToolCallSignature(tc.name, tc.parsed)
+      const toolCallCoreSignature = buildToolCallCoreSignature(tc.name, tc.parsed)
       const cachedResult = toolExecutionState.cache.get(toolCallSignature)
       if (cachedResult) {
+        const nextRepeatCount = (toolExecutionState.repeatedCachedCoreCallCounts.get(toolCallCoreSignature) || 0) + 1
+        toolExecutionState.repeatedCachedCoreCallCounts.set(toolCallCoreSignature, nextRepeatCount)
+
+        if (nextRepeatCount >= MAX_CACHED_CORE_CALL_REUSE) {
+          yield {
+            type: 'text',
+            content:
+              `\n\n> ⚠️ 检测到模型连续多次重复请求同一工具的同一组核心参数，且结果已在缓存中，已停止自动重试。报告核对场景可复用缓存结果，但不应无限重复调用同一查询。请直接基于现有数据完成分析，不要继续重复相同请求。`,
+          }
+          return
+        }
+
         toolCallRecord.status = cachedResult.status
         if (cachedResult.status === 'success') {
           toolCallRecord.result = cachedResult.content
@@ -318,6 +381,7 @@ export class ChatAgent {
         toolCallRecord.status = 'success'
         toolCallRecord.result = result
         yield { type: 'tool_result', toolCall: toolCallRecord }
+        toolExecutionState.repeatedCachedCoreCallCounts.delete(toolCallCoreSignature)
         toolExecutionState.cache.set(toolCallSignature, {
           status: 'success',
           content: result,
@@ -333,6 +397,7 @@ export class ChatAgent {
         toolCallRecord.status = 'error'
         toolCallRecord.error = errMsg
         yield { type: 'tool_result', toolCall: toolCallRecord }
+        toolExecutionState.repeatedCachedCoreCallCounts.delete(toolCallCoreSignature)
         toolExecutionState.cache.set(toolCallSignature, {
           status: 'error',
           content: errMsg,
@@ -410,7 +475,6 @@ export class ChatAgent {
     let buffer = ''
     let currentToolUse: { id: string; name: string; input: string } | null = null
     const toolResults: Array<{ id: string; name: string; input: Record<string, unknown>; result: string }> = []
-    const currentRoundSignatures: string[] = []
     let hasToolUse = false
 
     try {
@@ -449,12 +513,8 @@ export class ChatAgent {
               }
             } else if (json.type === 'content_block_stop' && currentToolUse) {
               // Tool call complete, execute it
-              let args: Record<string, unknown> = {}
-              try {
-                args = JSON.parse(currentToolUse.input || '{}')
-              } catch {
-                // ignore
-              }
+              const parsed = parseToolArguments(currentToolUse.input)
+              const args = parsed.args
 
               const toolCallRecord: ToolCallRecord = {
                 id: currentToolUse.id,
@@ -464,11 +524,23 @@ export class ChatAgent {
               }
               yield { type: 'tool_call', toolCall: toolCallRecord }
 
-              const toolCallSignature = buildToolCallSignature(currentToolUse.name, args)
-              currentRoundSignatures.push(toolCallSignature)
+              const toolCallSignature = buildToolCallSignature(currentToolUse.name, parsed)
+              const toolCallCoreSignature = buildToolCallCoreSignature(currentToolUse.name, parsed)
 
               const cachedResult = toolExecutionState.cache.get(toolCallSignature)
               if (cachedResult) {
+                const nextRepeatCount = (toolExecutionState.repeatedCachedCoreCallCounts.get(toolCallCoreSignature) || 0) + 1
+                toolExecutionState.repeatedCachedCoreCallCounts.set(toolCallCoreSignature, nextRepeatCount)
+
+                if (nextRepeatCount >= MAX_CACHED_CORE_CALL_REUSE) {
+                  yield {
+                    type: 'text',
+                    content:
+                      `\n\n> ⚠️ 检测到模型连续多次重复请求同一工具的同一组核心参数，且结果已在缓存中，已停止自动重试。报告核对场景可复用缓存结果，但不应无限重复调用同一查询。请直接基于现有数据完成分析，不要继续重复相同请求。`,
+                  }
+                  return
+                }
+
                 if (cachedResult.status === 'success') {
                   toolCallRecord.status = 'success'
                   toolCallRecord.result = cachedResult.content
@@ -499,6 +571,7 @@ export class ChatAgent {
                   toolCallRecord.status = 'success'
                   toolCallRecord.result = result
                   yield { type: 'tool_result', toolCall: toolCallRecord }
+                  toolExecutionState.repeatedCachedCoreCallCounts.delete(toolCallCoreSignature)
                   toolExecutionState.cache.set(toolCallSignature, {
                     status: 'success',
                     content: result,
@@ -509,6 +582,7 @@ export class ChatAgent {
                   toolCallRecord.status = 'error'
                   toolCallRecord.error = errMsg
                   yield { type: 'tool_result', toolCall: toolCallRecord }
+                  toolExecutionState.repeatedCachedCoreCallCounts.delete(toolCallCoreSignature)
                   toolExecutionState.cache.set(toolCallSignature, {
                     status: 'error',
                     content: errMsg,
@@ -529,23 +603,6 @@ export class ChatAgent {
 
     // If there were tool uses, feed results back to Claude
     if (hasToolUse && toolResults.length > 0) {
-      const roundSignature = [...currentRoundSignatures].sort().join('||')
-      if (toolExecutionState.lastRoundSignature === roundSignature) {
-        toolExecutionState.repeatedRoundCount += 1
-      } else {
-        toolExecutionState.lastRoundSignature = roundSignature
-        toolExecutionState.repeatedRoundCount = 0
-      }
-
-      if (toolExecutionState.repeatedRoundCount >= 2) {
-        yield {
-          type: 'text',
-          content:
-            '\n\n> ⚠️ 检测到模型连续重复调用同一组工具，已停止自动重试。请基于现有结果给出结论，或缩小范围后重新查询。',
-        }
-        return
-      }
-
       const followUpMessages = [
         ...nonSystemMessages,
         {

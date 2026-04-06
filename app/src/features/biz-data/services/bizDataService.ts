@@ -15,6 +15,17 @@ export interface BizDataQueryOptions {
 
 type NodeMetricValue = NonNullable<EnrichedBizDataNode['metrics'][MetricCategory]>
 type NodeKind = 'total' | 'level1' | 'level2' | 'leaf' | 'orphan'
+export type HierarchyNodeKind = NodeKind
+
+export interface NestedBizDataNode {
+  node_name: string
+  sort_order: number
+  node_kind: HierarchyNodeKind
+  hierarchy: EnrichedBizDataNode['hierarchy']
+  orgHierarchy: EnrichedBizDataNode['orgHierarchy']
+  metrics: EnrichedBizDataNode['metrics']
+  children: NestedBizDataNode[]
+}
 
 const EMPTY_HIERARCHY = {
   center_region: null,
@@ -125,6 +136,10 @@ function inferNodeKind(node: EnrichedBizDataNode): NodeKind {
   if (level_1 && node_name === level_1 && !level_2) return 'level1'
   if (level_2 && node_name === level_2) return 'level2'
   return 'leaf'
+}
+
+function normalizeNodeName(value: string): string {
+  return value.trim().toLocaleLowerCase()
 }
 
 function isLeafSourceNode(node: EnrichedBizDataNode): boolean {
@@ -505,6 +520,76 @@ export function buildHierarchyTree(nodes: EnrichedBizDataNode[]): HierarchyTree 
     level2,
     leafNodes,
   }
+}
+
+export function getNodeKind(node: EnrichedBizDataNode): HierarchyNodeKind {
+  return inferNodeKind(node)
+}
+
+function buildNestedNode(
+  node: EnrichedBizDataNode,
+  allNodes: EnrichedBizDataNode[]
+): NestedBizDataNode {
+  const children = getChildren(node, allNodes)
+
+  return {
+    node_name: node.node_name,
+    sort_order: node.sort_order,
+    node_kind: inferNodeKind(node),
+    hierarchy: { ...node.hierarchy },
+    orgHierarchy: { ...node.orgHierarchy },
+    metrics: Object.fromEntries(
+      Object.entries(node.metrics).map(([key, value]) => [key, value ? cloneMetric(value) : value])
+    ),
+    children: children.map(child => buildNestedNode(child, allNodes)),
+  }
+}
+
+export function buildNestedHierarchy(nodes: EnrichedBizDataNode[]): NestedBizDataNode[] {
+  const allNodes = buildTreeWithAggregation(nodes)
+  const roots = allNodes.filter(node => {
+    const kind = inferNodeKind(node)
+    return kind === 'total' || kind === 'orphan'
+  })
+
+  return roots
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(root => buildNestedNode(root, allNodes))
+}
+
+export interface HierarchyNodeMatch {
+  node: EnrichedBizDataNode
+  matchType: 'exact' | 'contains'
+}
+
+export function findHierarchyNodeMatches(
+  nodes: EnrichedBizDataNode[],
+  rawName: string
+): HierarchyNodeMatch[] {
+  const normalizedName = normalizeNodeName(rawName)
+  if (!normalizedName) return []
+
+  const allNodes = buildTreeWithAggregation(nodes)
+  const exactMatches = allNodes.filter(node => normalizeNodeName(node.node_name) === normalizedName)
+  if (exactMatches.length > 0) {
+    return exactMatches.map(node => ({ node, matchType: 'exact' as const }))
+  }
+
+  return allNodes
+    .filter(node => normalizeNodeName(node.node_name).includes(normalizedName))
+    .map(node => ({ node, matchType: 'contains' as const }))
+}
+
+export function buildNestedSubtree(
+  nodes: EnrichedBizDataNode[],
+  rootNodeName: string
+): NestedBizDataNode | null {
+  const allNodes = buildTreeWithAggregation(nodes)
+  const root = allNodes.find(node => node.node_name === rootNodeName)
+
+  if (!root) return null
+
+  return buildNestedNode(root, allNodes)
 }
 
 export function getChildren(parentNode: EnrichedBizDataNode, allNodes: EnrichedBizDataNode[]): EnrichedBizDataNode[] {

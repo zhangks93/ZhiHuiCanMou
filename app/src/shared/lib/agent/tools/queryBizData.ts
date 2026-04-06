@@ -142,7 +142,8 @@ export const queryBizDataTool: RegisteredTool = {
           period: row.period,
           sheet_code: row.sheet_code,
         })),
-      }, null, 2)
+        guidance: '返回结果中的 yoy 已是同期值；如需同比增减额，请直接用 actual - yoy 计算，不要再回退一年单独查询去年同期。',
+      })
     }
 
     // Standard limited query
@@ -190,8 +191,8 @@ export const queryBizDataTool: RegisteredTool = {
         sheet_code: row.sheet_code,
       })),
       guidance: data.length >= limit
-        ? '结果可能已截断，请缩小查询范围或设置 limit=0 分页获取全部。'
-        : '如需层级信息，请改用 query_with_hierarchy。',
-    }, null, 2)
+        ? '结果可能已截断，请缩小查询范围或设置 limit=0 分页获取全部。返回结果中的 yoy 已是同期值，不要再回退一年重复查询。'
+        : '如需层级信息，请改用 query_with_hierarchy。返回结果中的 yoy 已是同期值，不要再回退一年重复查询。',
+    })
   },
 }

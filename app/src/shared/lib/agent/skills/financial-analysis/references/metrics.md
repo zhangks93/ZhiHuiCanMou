@@ -4,10 +4,12 @@
 
 ## query_with_hierarchy 参数说明
 
-**所有参数必填**（`node_name` 与 `level_0` / `level_1` / `level_2` 可传空字符串 `""` 表示该维度不过滤）。
+**必填参数**：`node_name`、`report_type`、`period_type`、`period`
 
-- `node_name`：组织节点名称模糊匹配；空字符串表示不按节点名过滤。首次查询时由 `resolve_org_nodes` 确认后的标准名称可复用。
-- `metric_category`：**字符串数组**，至少一个指标英文名；一次调用可查询多个指标。
+- `node_name`：组织节点名称。优先传 `resolve_org_nodes` 确认后的标准名称。
+  - 传具体节点名称：返回该节点作为根节点的完整子树
+  - 传空字符串 `""`：返回整棵组织树
+- `metric_categories`：可选，**字符串数组**；不传则返回当前范围内全部可用指标。
 - `report_type`：
   - `fone` = 年初预算
   - `tuwei` = 突围考核
@@ -17,13 +19,22 @@
 - `period`：**仅允许**使用 Runtime Data Context 中列出的合法 `period` 精确字符串（与数据库一致）。
   - 月度：`YYYYMM`（如 `202602`）
   - 累计：系统常见存储为右开区间，例如“截至 202602”通常为 `<202603`；不要自行假设 period 生成规则，必须直接使用 Runtime Data Context 中 `cumulative_periods` 里的真实合法值。若“累计至目标月份”的候选值不在 `cumulative_periods` 中，说明该 period 当前不可用。
-- `level_0` / `level_1` / `level_2`：层级过滤；空字符串表示该层不过滤。
+- `sheet_codes`：可选，按报表 sheet 代码过滤。
 
-返回行中含 `year_over_year`（同期期间、同期值、同比增减额、同比增长率%），无行数上限。
-返回行还含：
-- `budget`
+返回主结构为 `tree`，不是平铺 `rows`。每个节点包含：
+- `node_name`
+- `node_kind`
+- `org_hierarchy`
+- `metrics`
+- `children`
+
+每个节点的 `metrics` 中优先使用：
+- `actual`
+- `target_value`
 - `completion_rate`
 - `diff`
+- `yoy`
+- `monthly_plan`
 
 这些字段已返回时，报告中必须直接使用，不能忽略。
 

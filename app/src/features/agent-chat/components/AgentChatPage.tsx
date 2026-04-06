@@ -64,7 +64,7 @@ function buildAgentSystemPrompt(params: {
     agent.systemPrompt,
     buildFinancialAnalysisRuntimeContextBlock(runtimeDataContext),
     buildFinancialAnalysisSessionContextBlock(sessionContext),
-    '## Chart Output Contract\n- If the goal is a report and the data is sufficient, emit charts as fenced `html` code blocks.\n- Do not emit placeholder chart suggestions, chart titles without code, or raw HTML outside code fences.\n- If data is insufficient or inconsistent, skip charts instead of fabricating placeholders.',
+    '## Chart Output Contract\n- In report mode, output charts only as structured chart spec JSON.\n- Do not emit ECharts HTML, raw HTML, or chart placeholder suggestions.\n- If data is insufficient or inconsistent, skip the unsupported chart rather than fabricating it.',
   ].filter(Boolean).join('\n\n')
 }
 
@@ -341,7 +341,6 @@ export function AgentChatPage({
 
     try {
       if (!agentRef.current) throw new Error('AI agent not initialized')
-
       const stream = agentRef.current.chat(nextMessages, systemPrompt)
       for await (const chunk of stream) {
         switch (chunk.type) {
@@ -537,7 +536,7 @@ export function AgentChatPage({
                   key={message.id}
                   message={message}
                   isStreaming={message.streaming}
-                  enableHtmlPreview={activeAgent?.id === 'financial-analysis' && message.role === 'assistant'}
+                  enableHtmlPreview={false}
                   assistantIcon={activeAgent?.icon}
                 />
               ))

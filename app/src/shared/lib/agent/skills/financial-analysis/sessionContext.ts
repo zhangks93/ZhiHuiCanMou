@@ -13,10 +13,6 @@ function normalizeStringArray(value: unknown): string[] | undefined {
   return normalized.length > 0 ? normalized : undefined
 }
 
-function nonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0
-}
-
 function detectIntentGoal(text: string): FinancialAnalysisGoal | undefined {
   if (!text) return undefined
   if (/(报告|汇报|完整报告|月报|markdown\s*报告)/.test(text)) return 'report'
@@ -61,22 +57,20 @@ function deriveScopeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysi
     }
 
     if (toolCall.name === 'query_with_hierarchy' || toolCall.name === 'query_biz_data') {
-      const nodeNames = normalizeStringArray(
-        [typeof toolCall.arguments.node_name === 'string' ? toolCall.arguments.node_name : ''].filter(Boolean)
-      )
+      const nodeNameArg = typeof toolCall.arguments.node_name === 'string'
+        ? toolCall.arguments.node_name.trim()
+        : ''
+      const nodeNames = normalizeStringArray(nodeNameArg ? [nodeNameArg] : [])
+      const previousScope = index > 0 ? deriveScopeFromToolCalls(toolCalls.slice(0, index)) : undefined
 
       return {
-        mode: nonEmptyString(toolCall.arguments.level_2)
-          ? 'level_2'
-          : nonEmptyString(toolCall.arguments.level_1)
-            ? 'level_1'
-            : nodeNames?.length
-              ? 'node_name'
-              : undefined,
+        mode: nodeNames?.length
+          ? 'node_name'
+          : 'all',
         nodeNames,
-        level_0: nonEmptyString(toolCall.arguments.level_0) ? toolCall.arguments.level_0 : undefined,
-        level_1: nonEmptyString(toolCall.arguments.level_1) ? toolCall.arguments.level_1 : undefined,
-        level_2: nonEmptyString(toolCall.arguments.level_2) ? toolCall.arguments.level_2 : undefined,
+        level_0: previousScope?.level_0,
+        level_1: previousScope?.level_1,
+        level_2: previousScope?.level_2,
         confidence: 'high',
       }
     }
@@ -117,7 +111,7 @@ function deriveMetricsFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnaly
 
   for (const toolCall of toolCalls) {
     if (toolCall.status !== 'success') continue
-    const mc = toolCall.arguments.metric_category
+    const mc = toolCall.arguments.metric_categories ?? toolCall.arguments.metric_category
     if (Array.isArray(mc)) {
       for (const m of mc) {
         if (typeof m === 'string') primary.add(m)
@@ -171,7 +165,7 @@ function deriveReportMode(
     chartGuidanceLoaded: previous?.chartGuidanceLoaded || chartGuidanceLoaded,
     chartOutputMode:
       previous?.chartOutputMode || templatePath || previous?.templatePath || chartGuidanceLoaded
-        ? 'fenced_html_code_block'
+        ? 'structured_chart_spec_json'
         : undefined,
   }
 }
@@ -193,6 +187,7 @@ export function buildFinancialAnalysisSessionContextBlock(
   const lines: string[] = ['## Current Session Context']
 
   const scopeParts = [
+    sessionContext.scope?.mode ? `mode=${sessionContext.scope.mode}` : null,
     sessionContext.scope?.level_0 ? `level_0=${sessionContext.scope.level_0}` : null,
     sessionContext.scope?.level_1 ? `level_1=${sessionContext.scope.level_1}` : null,
     sessionContext.scope?.level_2 ? `level_2=${sessionContext.scope.level_2}` : null,
