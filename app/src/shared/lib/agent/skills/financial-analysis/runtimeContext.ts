@@ -35,6 +35,18 @@ let cachedContext: FinancialAnalysisRuntimeDataContext | null = null
 let cachedAt = 0
 let pendingPromise: Promise<FinancialAnalysisRuntimeDataContext> | null = null
 
+function getSchoolYearInfo(): { schoolYear: number; monthIndex: number } {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1 // 1-12
+  // School year starts in July: Jul=month 1, Jun=month 12
+  if (month >= 7) {
+    return { schoolYear: year, monthIndex: month - 6 }
+  } else {
+    return { schoolYear: year - 1, monthIndex: month + 6 }
+  }
+}
+
 function sortPeriodsDesc(values: string[]): string[] {
   return [...values].sort((a, b) => b.localeCompare(a))
 }
@@ -70,11 +82,53 @@ async function fetchMonthlyPlanMonths(): Promise<string[]> {
   return sortPeriodsDesc(months)
 }
 
+async function fetchOrgLevel1(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('edu_org_hierarchy')
+    .select('level_1')
+    .not('level_1', 'is', null)
+
+  if (error) return []
+
+  return Array.from(
+    new Set((data || []).map(row => row.level_1).filter((v): v is string => Boolean(v)))
+  ).sort()
+}
+
+const SHEET_CODE_LABELS: Record<string, string> = {
+  '1.1': '主报表-收入利润(fone)',
+  '1.2': '主报表-收入利润(tuwei)',
+  '2.1': '主报表-人效指标(fone)',
+  '2.2': '主报表-人效指标(tuwei)',
+  '2.3': '主报表-补充指标',
+  '6.1': '成本分析-人力成本明细(fone)',
+  '6.2': '成本分析-人力成本明细(tuwei)',
+  '7.1': '成本分析-费用明细(fone)',
+  '7.2': '成本分析-费用明细(tuwei)',
+}
+
+async function fetchSheetCodes(): Promise<{ code: string; label: string }[]> {
+  const { data, error } = await supabase
+    .from('edu_biz_report')
+    .select('sheet_code')
+    .limit(500)
+
+  if (error) return []
+
+  const codes = Array.from(
+    new Set((data || []).map(row => row.sheet_code).filter((v): v is string => Boolean(v)))
+  ).sort()
+
+  return codes.map(code => ({ code, label: SHEET_CODE_LABELS[code] || code }))
+}
+
 async function buildRuntimeDataContext(): Promise<FinancialAnalysisRuntimeDataContext> {
-  const [monthlyPeriods, cumulativePeriods, monthlyPlanMonths] = await Promise.all([
+  const [monthlyPeriods, cumulativePeriods, monthlyPlanMonths, orgLevel1, sheetCodes] = await Promise.all([
     fetchPeriods('monthly'),
     fetchPeriods('cumulative'),
     fetchMonthlyPlanMonths(),
+    fetchOrgLevel1(),
+    fetchSheetCodes(),
   ])
 
   return {
@@ -85,6 +139,8 @@ async function buildRuntimeDataContext(): Promise<FinancialAnalysisRuntimeDataCo
     monthlyPlanMonths,
     reportTypes: ['fone', 'tuwei'],
     metrics: Object.entries(METRIC_LABELS).map(([key, label]) => ({ key, label })),
+    orgLevel1,
+    sheetCodes,
     fetchedAt: Date.now(),
   }
 }
@@ -116,19 +172,26 @@ export function buildFinancialAnalysisRuntimeContextBlock(
   if (!dataContext) return ''
 
   const metricPreview = dataContext.metrics
-    .slice(0, 12)
     .map(metric => `${metric.key}${metric.label ? `(${metric.label})` : ''}`)
     .join(', ')
 
+  const { schoolYear, monthIndex } = getSchoolYearInfo()
+
   return [
     '## Runtime Data Context',
+    `- current_school_year: ${schoolYear}学年（${schoolYear}年7月-${schoolYear + 1}年6月）`,
+    `- current_month_in_school_year: 第${monthIndex}个月`,
     `- latest_monthly_period: ${dataContext.latestMonthlyPeriod || 'unknown'}`,
     `- latest_cumulative_period: ${dataContext.latestCumulativePeriod || 'unknown'}`,
     `- monthly_periods: ${dataContext.monthlyPeriods.join(', ') || 'none'}`,
     `- cumulative_periods: ${dataContext.cumulativePeriods.join(', ') || 'none'}`,
     `- monthly_plan_months: ${dataContext.monthlyPlanMonths.join(', ') || 'none'}`,
     `- report_types: ${dataContext.reportTypes.join(', ')}`,
+    `- sheet_codes: ${dataContext.sheetCodes.map(item => `${item.code}(${item.label})`).join(', ') || 'none'}`,
+    `- org_level_1: ${dataContext.orgLevel1.join(', ') || 'none'}`,
     `- metrics_preview: ${metricPreview}`,
-    '- guidance: use only listed period/month values; prefer query_with_hierarchy; use read_file only for explicit report requests; in report mode, charts must be fenced `html` code blocks and never placeholder suggestions.',
+    '- data_available: revenue, gross_profit, gross_margin, pretax_profit, pretax_margin, labor_cost with detail breakdown, expense structure, headcount, per_capita_revenue, labor_cost_rate, revenue_creation, profit_creation, budget value, completion_rate, diff, year_over_year, monthly_plan',
+    '- data_not_available: 回款/应收, 合同签约/在手订单, 项目进度, 全年预测, 责任人/完成时点',
+    '- guidance: use only listed period/month values exactly as provided in runtime context; for cumulative queries do not invent next-month periods and do not assume a formula if the runtime list does not contain it. Prefer query_with_hierarchy. In analysis, use returned budget/completion_rate/diff/year_over_year fields explicitly and compute rollups, ratios, MoM/YoY deltas, contribution shares, and other derivable values before writing the report. Bind every completion_rate/diff/year_over_year/judgement to either monthly or cumulative scope explicitly, and split monthly vs cumulative sections when both are discussed. In full analysis/report mode, include both labor cost and available expense details such as catering_expense, material_cost, vehicle_expense, energy_expense, travel_expense, entertainment_expense, and other_expense by default unless the user clearly asks for a narrower scope. In report mode, charts must be fenced `html` code blocks and never placeholder suggestions. When a full chapter lacks data support, skip it with a one-line note instead of outputting empty tables.',
   ].join('\n')
 }

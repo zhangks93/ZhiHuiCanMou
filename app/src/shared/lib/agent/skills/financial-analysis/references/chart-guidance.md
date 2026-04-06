@@ -3,12 +3,17 @@
 在经营分析中，只有当图表比文字或表格更能说明问题时，才绘制图表。
 优先输出 **带 `html` 语言标签的 fenced code block**，代码内容为可复制运行的 HTML + ECharts，而不是只给图表建议或伪代码。
 
+## 与报告模板中「推荐图 N」的关系
+
+`biz-analysis-report.md` 等模板里的「推荐图 1 / 推荐图 2」仅表示**章节结构与占位提示**，便于知道何处适合插图。**最终输出**中，ECharts 的 `title` / 图题必须使用**结论式标题**（见下文「标题要求」），不得把「推荐图 1」当作对外标题。模板用于结构，图表规范用于成稿。
+
 ## 基本原则
 - 先有分析结论，再决定是否画图
 - 一张图尽量只表达一个重点
 - 图表服务于解释，不做装饰
 - 数据不足、口径不一致、只有单点数据时，不强行绘图
 - 如表格更清楚，直接用表格
+- 整个报告图的数量尽量控制在3-6个
 
 ## 输出方式
 需要绘图时，优先输出：
@@ -92,3 +97,113 @@ Agent 可以根据：
 - 是否加入 dataZoom、双轴、排序、Top N、风险分层等设计
 
 原则只有一个：**让图表更有效地支持经营分析结论。**
+
+---
+
+## ECharts 代码模板
+
+以下为常用图表的完整 HTML + ECharts 代码模板，可直接复制并替换数据使用。
+
+### 模板 1：柱折组合图（收入达成 + 达成率）
+
+```html
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head><body>
+<div id="chart" style="width:100%;height:420px;"></div>
+<script>
+var chart = echarts.init(document.getElementById('chart'));
+chart.setOption({
+  title: { text: '收入规模基本达成，但利润转化仍需改善', left: 'center', textStyle: { fontSize: 15 } },
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
+    formatter: function(p) { return p.map(function(i) { return i.seriesName + ': ' + (i.seriesName.indexOf('率') >= 0 ? i.value + '%' : i.value + ' 万元'); }).join('<br>'); }
+  },
+  legend: { bottom: 0 },
+  grid: { left: 60, right: 60, top: 50, bottom: 40 },
+  xAxis: { type: 'category', data: ['营业收入', '毛利', '税前利润'] },
+  yAxis: [
+    { type: 'value', name: '万元', axisLabel: { formatter: '{value}' } },
+    { type: 'value', name: '%', min: 0, max: 120, axisLabel: { formatter: '{value}%' } }
+  ],
+  series: [
+    { name: '实际', type: 'bar', data: [5200, 1800, 620], itemStyle: { color: '#5470c6' } },
+    { name: '年初预算', type: 'bar', data: [5500, 2000, 700], itemStyle: { color: '#91cc75' } },
+    { name: '突围考核', type: 'bar', data: [5800, 2100, 750], itemStyle: { color: '#fac858' } },
+    { name: '预算达成率', type: 'line', yAxisIndex: 1, data: [94.5, 90.0, 88.6], symbol: 'circle', symbolSize: 8, itemStyle: { color: '#ee6666' },
+      label: { show: true, formatter: '{c}%', position: 'top' } }
+  ]
+});
+window.addEventListener('resize', function() { chart.resize(); });
+</script></body></html>
+```
+
+### 模板 2：瀑布图（利润偏差归因）
+
+```html
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head><body>
+<div id="chart" style="width:100%;height:420px;"></div>
+<script>
+var chart = echarts.init(document.getElementById('chart'));
+// 瀑布图通过透明底座 + 实际值柱形实现
+var categories = ['预算利润', '收入影响', '毛利率影响', '人工成本', '其他费用', '实际利润'];
+var base =       [0,         700,        620,          570,        530,        0];
+var values =     [700,       -80,        -50,          -40,        -30,        500];
+var colors = values.map(function(v, i) {
+  if (i === 0 || i === categories.length - 1) return '#5470c6';
+  return v >= 0 ? '#91cc75' : '#ee6666';
+});
+chart.setOption({
+  title: { text: '税前利润偏差主要由毛利率下降和人工成本上升驱动', left: 'center', textStyle: { fontSize: 15 } },
+  tooltip: { trigger: 'axis', formatter: function(p) { var v = p[1]; return v.name + ': ' + (v.value >= 0 ? '+' : '') + v.value + ' 万元'; } },
+  grid: { left: 60, right: 30, top: 50, bottom: 30 },
+  xAxis: { type: 'category', data: categories },
+  yAxis: { type: 'value', name: '万元' },
+  series: [
+    { name: '底座', type: 'bar', stack: 'total', data: base, itemStyle: { color: 'transparent' }, emphasis: { itemStyle: { color: 'transparent' } } },
+    { name: '差异', type: 'bar', stack: 'total', data: values.map(function(v, i) { return { value: Math.abs(v), itemStyle: { color: colors[i] } }; }),
+      label: { show: true, position: 'top', formatter: function(p) { return (values[p.dataIndex] >= 0 ? '+' : '') + values[p.dataIndex]; } }
+    }
+  ]
+});
+window.addEventListener('resize', function() { chart.resize(); });
+</script></body></html>
+```
+
+### 模板 3：堆叠柱形图（分板块收入结构）
+
+```html
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head><body>
+<div id="chart" style="width:100%;height:420px;"></div>
+<script>
+var chart = echarts.init(document.getElementById('chart'));
+chart.setOption({
+  title: { text: '三大区域收入贡献超六成，商业业务增速领先', left: 'center', textStyle: { fontSize: 15 } },
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: function(v) { return v + ' 万元'; } },
+  legend: { bottom: 0 },
+  grid: { left: 60, right: 30, top: 50, bottom: 40 },
+  xAxis: { type: 'category', data: ['8月', '9月', '10月', '11月', '12月', '1月', '2月'] },
+  yAxis: { type: 'value', name: '万元' },
+  series: [
+    { name: '后勤管理中心', type: 'bar', stack: 'total', data: [320, 340, 350, 330, 360, 340, 350], itemStyle: { color: '#5470c6' } },
+    { name: '东部区域', type: 'bar', stack: 'total', data: [180, 190, 200, 195, 210, 200, 205], itemStyle: { color: '#91cc75' } },
+    { name: '北部区域', type: 'bar', stack: 'total', data: [150, 160, 155, 165, 170, 160, 165], itemStyle: { color: '#fac858' } },
+    { name: '西南区域', type: 'bar', stack: 'total', data: [120, 130, 125, 135, 140, 130, 135], itemStyle: { color: '#ee6666' } },
+    { name: '商业业务', type: 'bar', stack: 'total', data: [80, 90, 95, 100, 110, 105, 115], itemStyle: { color: '#73c0de' } }
+  ]
+});
+window.addEventListener('resize', function() { chart.resize(); });
+</script></body></html>
+```
+
+### 使用说明
+- 复制模板后，替换 `data` 数组中的数据为实际查询结果
+- 修改 `title.text` 为结论式标题
+- 根据实际板块/指标调整 `categories`、`series` 等
+- 所有金额单位统一为万元，比率统一为 %

@@ -1,6 +1,6 @@
 import { createBrowserStore } from '@/shared/storage/createBrowserStore'
 
-export type LLMProvider = 'openai' | 'claude' | 'deepseek' | 'kimi' | 'minimax' | 'glm'
+export type LLMProvider = 'openai' | 'claude' | 'deepseek' | 'kimi' | 'minimax' | 'glm' | 'openrouter'
 
 export interface LLMConfig {
   provider: LLMProvider
@@ -22,7 +22,7 @@ interface LLMConfigStore {
 
 const STORAGE_KEY = 'llm_config'
 
-const VALID_PROVIDERS: readonly LLMProvider[] = ['openai', 'claude', 'deepseek', 'kimi', 'minimax', 'glm']
+const VALID_PROVIDERS: readonly LLMProvider[] = ['openai', 'claude', 'deepseek', 'kimi', 'minimax', 'glm', 'openrouter']
 
 export const DEFAULT_URLS: Record<LLMConfig['provider'], string> = {
   openai: 'https://api.openai.com/v1/chat/completions',
@@ -31,6 +31,7 @@ export const DEFAULT_URLS: Record<LLMConfig['provider'], string> = {
   kimi: 'https://api.moonshot.cn/v1/chat/completions',
   minimax: 'https://api.minimaxi.com/v1/chat/completions',
   glm: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
 }
 
 export const DEFAULT_MODELS: Record<LLMConfig['provider'], string> = {
@@ -40,6 +41,7 @@ export const DEFAULT_MODELS: Record<LLMConfig['provider'], string> = {
   kimi: 'moonshot-v1-8k',
   minimax: 'MiniMax-M2.5',
   glm: 'glm-4.7',
+  openrouter: 'google/gemini-2.5-pro-preview',
 }
 
 function isProvider(value: unknown): value is LLMProvider {
@@ -47,7 +49,6 @@ function isProvider(value: unknown): value is LLMProvider {
 }
 
 function normalizeProvider(value: unknown): LLMProvider {
-  if (value === 'openrouter') return 'openai'
   return isProvider(value) ? value : 'openai'
 }
 

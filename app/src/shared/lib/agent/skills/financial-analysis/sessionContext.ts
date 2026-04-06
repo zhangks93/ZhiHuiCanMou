@@ -13,6 +13,10 @@ function normalizeStringArray(value: unknown): string[] | undefined {
   return normalized.length > 0 ? normalized : undefined
 }
 
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
 function detectIntentGoal(text: string): FinancialAnalysisGoal | undefined {
   if (!text) return undefined
   if (/(报告|汇报|完整报告|月报|markdown\s*报告)/.test(text)) return 'report'
@@ -62,17 +66,17 @@ function deriveScopeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysi
       )
 
       return {
-        mode: typeof toolCall.arguments.level_2 === 'string'
+        mode: nonEmptyString(toolCall.arguments.level_2)
           ? 'level_2'
-          : typeof toolCall.arguments.level_1 === 'string'
+          : nonEmptyString(toolCall.arguments.level_1)
             ? 'level_1'
             : nodeNames?.length
               ? 'node_name'
               : undefined,
         nodeNames,
-        level_0: typeof toolCall.arguments.level_0 === 'string' ? toolCall.arguments.level_0 : undefined,
-        level_1: typeof toolCall.arguments.level_1 === 'string' ? toolCall.arguments.level_1 : undefined,
-        level_2: typeof toolCall.arguments.level_2 === 'string' ? toolCall.arguments.level_2 : undefined,
+        level_0: nonEmptyString(toolCall.arguments.level_0) ? toolCall.arguments.level_0 : undefined,
+        level_1: nonEmptyString(toolCall.arguments.level_1) ? toolCall.arguments.level_1 : undefined,
+        level_2: nonEmptyString(toolCall.arguments.level_2) ? toolCall.arguments.level_2 : undefined,
         confidence: 'high',
       }
     }
@@ -113,8 +117,13 @@ function deriveMetricsFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnaly
 
   for (const toolCall of toolCalls) {
     if (toolCall.status !== 'success') continue
-    if (typeof toolCall.arguments.metric_category === 'string') {
-      primary.add(toolCall.arguments.metric_category)
+    const mc = toolCall.arguments.metric_category
+    if (Array.isArray(mc)) {
+      for (const m of mc) {
+        if (typeof m === 'string') primary.add(m)
+      }
+    } else if (typeof mc === 'string') {
+      primary.add(mc)
     }
   }
 

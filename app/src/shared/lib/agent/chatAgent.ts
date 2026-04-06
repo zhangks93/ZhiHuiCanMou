@@ -4,6 +4,34 @@ import type { LLMConfig } from '@/shared/lib/llmConfig'
 import type { ChatMessage, ToolCallRecord, ToolDefinition, RegisteredTool, ChatStreamChunk } from './types'
 import { appFetch } from '@/shared/lib/httpClient'
 
+interface ToolExecutionCacheEntry {
+  status: 'success' | 'error'
+  content: string
+}
+
+interface ToolExecutionState {
+  cache: Map<string, ToolExecutionCacheEntry>
+  lastRoundSignature?: string
+  repeatedRoundCount: number
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value)
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map(item => stableStringify(item)).join(',')}]`
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))
+  return `{${entries.map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`).join(',')}}`
+}
+
+function buildToolCallSignature(name: string, args: Record<string, unknown>): string {
+  return `${name}:${stableStringify(args)}`
+}
+
 export class ChatAgent {
   private config: LLMConfig
   private tools: Map<string, RegisteredTool> = new Map()
@@ -44,15 +72,20 @@ export class ChatAgent {
 
     const apiMessages = this.buildApiMessages(messages, systemPrompt)
     const toolDefs = this.getToolDefinitions()
+    const toolExecutionState: ToolExecutionState = {
+      cache: new Map(),
+      repeatedRoundCount: 0,
+    }
 
     // First LLM call (depth=0)
-    yield* this.callAndProcess(apiMessages, toolDefs, 0)
+    yield* this.callAndProcess(apiMessages, toolDefs, 0, toolExecutionState)
   }
 
   private async *callAndProcess(
     apiMessages: Array<Record<string, unknown>>,
     toolDefs: ToolDefinition[],
     depth: number,
+    toolExecutionState: ToolExecutionState,
   ): AsyncGenerator<ChatStreamChunk> {
     // ReAct safety: prevent runaway tool call loops
     if (depth >= 20) {
@@ -60,9 +93,9 @@ export class ChatAgent {
       return
     }
     if (this.config.provider === 'claude') {
-      yield* this.callClaude(apiMessages, toolDefs, depth)
+      yield* this.callClaude(apiMessages, toolDefs, depth, toolExecutionState)
     } else {
-      yield* this.callOpenAI(apiMessages, toolDefs, depth)
+      yield* this.callOpenAI(apiMessages, toolDefs, depth, toolExecutionState)
     }
   }
 
@@ -72,6 +105,7 @@ export class ChatAgent {
     apiMessages: Array<Record<string, unknown>>,
     toolDefs: ToolDefinition[],
     depth: number,
+    toolExecutionState: ToolExecutionState,
   ): AsyncGenerator<ChatStreamChunk> {
     const body: Record<string, unknown> = {
       model: this.config.model,
@@ -156,7 +190,7 @@ export class ChatAgent {
             // Check finish reason
             if (json.choices?.[0]?.finish_reason === 'tool_calls') {
               // Process accumulated tool calls
-              yield* this.processToolCalls(pendingToolCalls, apiMessages, toolDefs, depth)
+              yield* this.processToolCalls(pendingToolCalls, apiMessages, toolDefs, depth, toolExecutionState)
               return
             }
           } catch {
@@ -170,7 +204,7 @@ export class ChatAgent {
 
     // After stream ends, check if we have pending tool calls (some APIs send finish_reason on last chunk)
     if (pendingToolCalls.size > 0) {
-      yield* this.processToolCalls(pendingToolCalls, apiMessages, toolDefs, depth)
+      yield* this.processToolCalls(pendingToolCalls, apiMessages, toolDefs, depth, toolExecutionState)
     }
   }
 
@@ -179,6 +213,7 @@ export class ChatAgent {
     apiMessages: Array<Record<string, unknown>>,
     toolDefs: ToolDefinition[],
     depth: number,
+    toolExecutionState: ToolExecutionState,
   ): AsyncGenerator<ChatStreamChunk> {
     // Build assistant message with tool_calls for the API
     const assistantToolCalls = Array.from(pendingToolCalls.values()).map(tc => ({
@@ -191,6 +226,33 @@ export class ChatAgent {
       ...apiMessages,
       { role: 'assistant', tool_calls: assistantToolCalls },
     ]
+
+    const roundSignatures = Array.from(pendingToolCalls.values()).map(tc => {
+      let args: Record<string, unknown> = {}
+      try {
+        args = JSON.parse(tc.arguments)
+      } catch {
+        // ignore parse errors
+      }
+      return buildToolCallSignature(tc.name, args)
+    }).sort()
+    const roundSignature = roundSignatures.join('||')
+
+    if (toolExecutionState.lastRoundSignature === roundSignature) {
+      toolExecutionState.repeatedRoundCount += 1
+    } else {
+      toolExecutionState.lastRoundSignature = roundSignature
+      toolExecutionState.repeatedRoundCount = 0
+    }
+
+    if (toolExecutionState.repeatedRoundCount >= 2) {
+      yield {
+        type: 'text',
+        content:
+          '\n\n> ⚠️ 检测到模型连续重复调用同一组工具，已停止自动重试。请基于现有结果给出结论，或缩小范围后重新查询。',
+      }
+      return
+    }
 
     for (const tc of pendingToolCalls.values()) {
       let args: Record<string, unknown> = {}
@@ -209,12 +271,39 @@ export class ChatAgent {
 
       yield { type: 'tool_call', toolCall: toolCallRecord }
 
+      const toolCallSignature = buildToolCallSignature(tc.name, args)
+      const cachedResult = toolExecutionState.cache.get(toolCallSignature)
+      if (cachedResult) {
+        toolCallRecord.status = cachedResult.status
+        if (cachedResult.status === 'success') {
+          toolCallRecord.result = cachedResult.content
+          updatedMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: cachedResult.content,
+          })
+        } else {
+          toolCallRecord.error = cachedResult.content
+          updatedMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: `Error: ${cachedResult.content}`,
+          })
+        }
+        yield { type: 'tool_result', toolCall: toolCallRecord }
+        continue
+      }
+
       // Execute the tool
       const tool = this.tools.get(tc.name)
       if (!tool) {
         toolCallRecord.status = 'error'
         toolCallRecord.error = `未知工具: ${tc.name}`
         yield { type: 'tool_result', toolCall: toolCallRecord }
+        toolExecutionState.cache.set(toolCallSignature, {
+          status: 'error',
+          content: toolCallRecord.error,
+        })
 
         updatedMessages.push({
           role: 'tool',
@@ -229,6 +318,10 @@ export class ChatAgent {
         toolCallRecord.status = 'success'
         toolCallRecord.result = result
         yield { type: 'tool_result', toolCall: toolCallRecord }
+        toolExecutionState.cache.set(toolCallSignature, {
+          status: 'success',
+          content: result,
+        })
 
         updatedMessages.push({
           role: 'tool',
@@ -240,6 +333,10 @@ export class ChatAgent {
         toolCallRecord.status = 'error'
         toolCallRecord.error = errMsg
         yield { type: 'tool_result', toolCall: toolCallRecord }
+        toolExecutionState.cache.set(toolCallSignature, {
+          status: 'error',
+          content: errMsg,
+        })
 
         updatedMessages.push({
           role: 'tool',
@@ -250,7 +347,7 @@ export class ChatAgent {
     }
 
     // Continue the conversation with tool results (ReAct: next Thought after Observation)
-    yield* this.callAndProcess(updatedMessages, toolDefs, depth + 1)
+    yield* this.callAndProcess(updatedMessages, toolDefs, depth + 1, toolExecutionState)
   }
 
   // --- Claude API streaming ---
@@ -259,6 +356,7 @@ export class ChatAgent {
     apiMessages: Array<Record<string, unknown>>,
     toolDefs: ToolDefinition[],
     depth: number,
+    toolExecutionState: ToolExecutionState,
   ): AsyncGenerator<ChatStreamChunk> {
     // Extract system prompt from messages
     const systemMsg = apiMessages.find(m => m.role === 'system')
@@ -312,6 +410,7 @@ export class ChatAgent {
     let buffer = ''
     let currentToolUse: { id: string; name: string; input: string } | null = null
     const toolResults: Array<{ id: string; name: string; input: Record<string, unknown>; result: string }> = []
+    const currentRoundSignatures: string[] = []
     let hasToolUse = false
 
     try {
@@ -365,24 +464,55 @@ export class ChatAgent {
               }
               yield { type: 'tool_call', toolCall: toolCallRecord }
 
+              const toolCallSignature = buildToolCallSignature(currentToolUse.name, args)
+              currentRoundSignatures.push(toolCallSignature)
+
+              const cachedResult = toolExecutionState.cache.get(toolCallSignature)
+              if (cachedResult) {
+                if (cachedResult.status === 'success') {
+                  toolCallRecord.status = 'success'
+                  toolCallRecord.result = cachedResult.content
+                  toolResults.push({ id: currentToolUse.id, name: currentToolUse.name, input: args, result: cachedResult.content })
+                } else {
+                  toolCallRecord.status = 'error'
+                  toolCallRecord.error = cachedResult.content
+                  toolResults.push({ id: currentToolUse.id, name: currentToolUse.name, input: args, result: `Error: ${cachedResult.content}` })
+                }
+                yield { type: 'tool_result', toolCall: toolCallRecord }
+                currentToolUse = null
+                continue
+              }
+
               const tool = this.tools.get(currentToolUse.name)
               if (!tool) {
                 toolCallRecord.status = 'error'
                 toolCallRecord.error = `未知工具: ${currentToolUse.name}`
                 yield { type: 'tool_result', toolCall: toolCallRecord }
-                toolResults.push({ id: currentToolUse.id, name: currentToolUse.name, input: args, result: `Error: unknown tool` })
+                toolExecutionState.cache.set(toolCallSignature, {
+                  status: 'error',
+                  content: toolCallRecord.error,
+                })
+                toolResults.push({ id: currentToolUse.id, name: currentToolUse.name, input: args, result: 'Error: unknown tool' })
               } else {
                 try {
                   const result = await tool.execute(args)
                   toolCallRecord.status = 'success'
                   toolCallRecord.result = result
                   yield { type: 'tool_result', toolCall: toolCallRecord }
+                  toolExecutionState.cache.set(toolCallSignature, {
+                    status: 'success',
+                    content: result,
+                  })
                   toolResults.push({ id: currentToolUse.id, name: currentToolUse.name, input: args, result })
                 } catch (err) {
                   const errMsg = err instanceof Error ? err.message : String(err)
                   toolCallRecord.status = 'error'
                   toolCallRecord.error = errMsg
                   yield { type: 'tool_result', toolCall: toolCallRecord }
+                  toolExecutionState.cache.set(toolCallSignature, {
+                    status: 'error',
+                    content: errMsg,
+                  })
                   toolResults.push({ id: currentToolUse.id, name: currentToolUse.name, input: args, result: `Error: ${errMsg}` })
                 }
               }
@@ -399,6 +529,23 @@ export class ChatAgent {
 
     // If there were tool uses, feed results back to Claude
     if (hasToolUse && toolResults.length > 0) {
+      const roundSignature = [...currentRoundSignatures].sort().join('||')
+      if (toolExecutionState.lastRoundSignature === roundSignature) {
+        toolExecutionState.repeatedRoundCount += 1
+      } else {
+        toolExecutionState.lastRoundSignature = roundSignature
+        toolExecutionState.repeatedRoundCount = 0
+      }
+
+      if (toolExecutionState.repeatedRoundCount >= 2) {
+        yield {
+          type: 'text',
+          content:
+            '\n\n> ⚠️ 检测到模型连续重复调用同一组工具，已停止自动重试。请基于现有结果给出结论，或缩小范围后重新查询。',
+        }
+        return
+      }
+
       const followUpMessages = [
         ...nonSystemMessages,
         {
@@ -425,7 +572,7 @@ export class ChatAgent {
       allMessages.push(...followUpMessages)
 
       // ReAct: next Thought after Observation
-      yield* this.callAndProcess(allMessages, toolDefs, depth + 1)
+      yield* this.callAndProcess(allMessages, toolDefs, depth + 1, toolExecutionState)
     }
   }
 

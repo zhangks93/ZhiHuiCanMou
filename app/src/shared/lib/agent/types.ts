@@ -42,6 +42,8 @@ export interface FinancialAnalysisRuntimeDataContext {
   monthlyPlanMonths: string[]
   reportTypes: string[]
   metrics: FinancialAnalysisRuntimeMetric[]
+  orgLevel1: string[]
+  sheetCodes: { code: string; label: string }[]
   fetchedAt: number
 }
 
@@ -95,7 +97,8 @@ export interface ToolDefinition {
         type: string
         description: string
         enum?: string[]
-        items?: { type: string }
+        items?: { type: string; enum?: string[] }
+        minItems?: number
       }>
       required?: string[]
     }

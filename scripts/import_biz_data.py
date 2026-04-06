@@ -259,18 +259,33 @@ def normalize_period(raw_period, period_type: str) -> str | None:
     """
     统一期间字段格式。
     - monthly: 保持 YYYYMM
-    - cumulative: 统一为 <YYYYMM
+    - cumulative: 统一为 <下月YYYYMM（右开区间）>
     """
     text = str(raw_period or "").strip()
     if not text:
         return None
+
+    exclusive_match = re.search(r"<\s*(20\d{4})", text)
+    if period_type == "cumulative" and exclusive_match:
+        return f"<{exclusive_match.group(1)}"
 
     months = re.findall(r"20\d{4}", text)
     if not months:
         return text
 
     if period_type == "cumulative":
-        return f"<{months[-1]}"
+        last_month = months[-1]
+        year = int(last_month[:4])
+        month = int(last_month[4:])
+        if not 1 <= month <= 12:
+            return f"<{last_month}"
+
+        month += 1
+        if month == 13:
+            year += 1
+            month = 1
+
+        return f"<{year}{month:02d}"
 
     if len(months) == 1:
         return months[0]

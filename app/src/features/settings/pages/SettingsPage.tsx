@@ -43,6 +43,12 @@ const PROVIDER_OPTIONS = [
     hint: '如 glm-4.7、glm-4-plus 等',
     keyPlaceholder: 'Bearer Token',
   },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    hint: '如 google/gemini-2.5-pro-preview、anthropic/claude-sonnet-4 等',
+    keyPlaceholder: 'sk-or-...',
+  },
 ] as const satisfies Array<{
   id: LLMConfig['provider']
   name: string
