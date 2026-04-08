@@ -16,6 +16,11 @@ interface ToolExecutionState {
 
 const MAX_TOOL_CALL_DEPTH = 12
 const MAX_CACHED_CORE_CALL_REUSE = 4
+const MAX_TOOL_RESULT_CHAR_BUDGET = 12000
+const MAX_READ_FILE_CHAR_BUDGET = 8000
+const MAX_QUERY_ROWS_PREVIEW = 24
+const MAX_QUERY_TREE_NODES_PREVIEW = 18
+const MAX_METRICS_PER_NODE_PREVIEW = 8
 
 function normalizeCoreValue(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -109,6 +114,138 @@ function buildToolCallCoreSignature(name: string, parsed: ParsedToolArguments): 
   return `${name}:${stableStringify(pickCoreArgs(name, parsed.args))}`
 }
 
+function buildCachedReuseReminder(name: string, parsed: ParsedToolArguments, repeatCount: number): string {
+  const coreArgs = parsed.parseFailed
+    ? parsed.raw.trim() || '{}'
+    : stableStringify(pickCoreArgs(name, parsed.args))
+
+  const truncatedArgs = coreArgs.length > 240 ? `${coreArgs.slice(0, 240)}...` : coreArgs
+  const severity = repeatCount >= MAX_CACHED_CORE_CALL_REUSE
+    ? '禁止再次调用这组完全相同的参数。'
+    : '请直接复用已有结果继续。'
+
+  return `- ${name} ${truncatedArgs}：该结果已在本轮中返回并从缓存复用 ${repeatCount} 次，${severity}`
+}
+
+function truncateText(content: string, maxChars: number, reason: string): string {
+  if (content.length <= maxChars) return content
+
+  const headChars = Math.max(0, Math.floor(maxChars * 0.7))
+  const tailChars = Math.max(0, maxChars - headChars)
+  const head = content.slice(0, headChars).trimEnd()
+  const tail = content.slice(-tailChars).trimStart()
+
+  return [
+    head,
+    '',
+    `[tool_result_truncated: ${reason}; original_chars=${content.length}; kept_chars=${head.length + tail.length}]`,
+    '',
+    tail,
+  ].join('\n')
+}
+
+function compactQueryRowsResult(content: string): string {
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>
+    if (!Array.isArray(parsed.rows) || parsed.rows.length <= MAX_QUERY_ROWS_PREVIEW) {
+      return content.length <= MAX_TOOL_RESULT_CHAR_BUDGET
+        ? content
+        : truncateText(content, MAX_TOOL_RESULT_CHAR_BUDGET, 'query result exceeded model context budget')
+    }
+
+    return JSON.stringify({
+      ...parsed,
+      rows: parsed.rows.slice(0, MAX_QUERY_ROWS_PREVIEW),
+      rows_truncated: true,
+      original_row_count: parsed.rows.length,
+      tool_result_compacted: true,
+    }, null, 2)
+  } catch {
+    return truncateText(content, MAX_TOOL_RESULT_CHAR_BUDGET, 'query result exceeded model context budget')
+  }
+}
+
+function compactHierarchyNode(node: unknown, remaining: { value: number }): unknown {
+  if (!node || typeof node !== 'object') return node
+  if (remaining.value <= 0) return null
+  remaining.value -= 1
+
+  const nodeRecord = node as Record<string, unknown>
+  const rawMetrics = Array.isArray(nodeRecord.metrics) ? nodeRecord.metrics : []
+  const rawChildren = Array.isArray(nodeRecord.children) ? nodeRecord.children : []
+  const children: unknown[] = []
+
+  for (const child of rawChildren) {
+    if (remaining.value <= 0) break
+    const compacted = compactHierarchyNode(child, remaining)
+    if (compacted !== null) children.push(compacted)
+  }
+
+  return {
+    ...nodeRecord,
+    metrics: rawMetrics.slice(0, MAX_METRICS_PER_NODE_PREVIEW),
+    metrics_truncated: rawMetrics.length > MAX_METRICS_PER_NODE_PREVIEW ? true : nodeRecord.metrics_truncated,
+    children,
+    children_truncated: rawChildren.length > children.length || nodeRecord.children_truncated === true,
+  }
+}
+
+function compactHierarchyResult(content: string): string {
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>
+    const remaining = { value: MAX_QUERY_TREE_NODES_PREVIEW }
+
+    if (Array.isArray(parsed.tree)) {
+      const tree = parsed.tree
+        .map(node => compactHierarchyNode(node, remaining))
+        .filter((node): node is Record<string, unknown> => node !== null && typeof node === 'object')
+
+      return JSON.stringify({
+        ...parsed,
+        tree,
+        tree_truncated: tree.length < parsed.tree.length || remaining.value === 0,
+        tool_result_compacted: true,
+      }, null, 2)
+    }
+
+    if (parsed.tree && typeof parsed.tree === 'object') {
+      const tree = compactHierarchyNode(parsed.tree, remaining)
+      return JSON.stringify({
+        ...parsed,
+        tree,
+        tree_truncated: remaining.value === 0,
+        tool_result_compacted: true,
+      }, null, 2)
+    }
+
+    return content.length <= MAX_TOOL_RESULT_CHAR_BUDGET
+      ? content
+      : truncateText(content, MAX_TOOL_RESULT_CHAR_BUDGET, 'hierarchy result exceeded model context budget')
+  } catch {
+    return truncateText(content, MAX_TOOL_RESULT_CHAR_BUDGET, 'hierarchy result exceeded model context budget')
+  }
+}
+
+function prepareToolResultForModel(name: string, content: string): string {
+  if (!content) return content
+
+  if (name === 'read_file') {
+    return truncateText(content, MAX_READ_FILE_CHAR_BUDGET, 'reference/template content exceeded model context budget')
+  }
+
+  if (name === 'query_with_hierarchy') {
+    return compactHierarchyResult(content)
+  }
+
+  if (name === 'query_biz_data' || name === 'query_monthly_plan' || name === 'resolve_org_nodes') {
+    return compactQueryRowsResult(content)
+  }
+
+  return content.length <= MAX_TOOL_RESULT_CHAR_BUDGET
+    ? content
+    : truncateText(content, MAX_TOOL_RESULT_CHAR_BUDGET, 'tool result exceeded model context budget')
+}
+
 export class ChatAgent {
   private config: LLMConfig
   private tools: Map<string, RegisteredTool> = new Map()
@@ -167,12 +304,40 @@ export class ChatAgent {
     // ReAct safety: prevent runaway tool call loops
     if (depth >= MAX_TOOL_CALL_DEPTH) {
       yield { type: 'text', content: `\n\n> ⚠️ 已达到最大工具调用轮次（${MAX_TOOL_CALL_DEPTH}轮），请基于现有结果给出结论，或缩小查询范围后重试。` }
+      yield* this.finalizeWithoutTools(
+        apiMessages,
+        depth,
+        toolExecutionState,
+        `已达到最大工具调用轮次（${MAX_TOOL_CALL_DEPTH}轮）`
+      )
       return
     }
     if (this.config.provider === 'claude') {
       yield* this.callClaude(apiMessages, toolDefs, depth, toolExecutionState)
     } else {
       yield* this.callOpenAI(apiMessages, toolDefs, depth, toolExecutionState)
+    }
+  }
+
+  private async *finalizeWithoutTools(
+    apiMessages: Array<Record<string, unknown>>,
+    depth: number,
+    toolExecutionState: ToolExecutionState,
+    reason: string,
+  ): AsyncGenerator<ChatStreamChunk> {
+    const finalMessages = [
+      ...apiMessages,
+      {
+        role: 'user',
+        content:
+          `系统要求：${reason}。现在禁止继续调用任何工具。请严格基于已经拿到的数据直接输出最终答复；若证据不足，请明确说明不足，不要再尝试查询。`,
+      },
+    ]
+
+    if (this.config.provider === 'claude') {
+      yield* this.callClaude(finalMessages, [], depth, toolExecutionState)
+    } else {
+      yield* this.callOpenAI(finalMessages, [], depth, toolExecutionState)
     }
   }
 
@@ -303,6 +468,8 @@ export class ChatAgent {
       ...apiMessages,
       { role: 'assistant', tool_calls: assistantToolCalls },
     ]
+    const cacheReuseReminders: string[] = []
+    let shouldForceAnswerWithoutTools = false
 
     const parsedToolCalls = Array.from(pendingToolCalls.values()).map(tc => ({
       ...tc,
@@ -327,14 +494,15 @@ export class ChatAgent {
       if (cachedResult) {
         const nextRepeatCount = (toolExecutionState.repeatedCachedCoreCallCounts.get(toolCallCoreSignature) || 0) + 1
         toolExecutionState.repeatedCachedCoreCallCounts.set(toolCallCoreSignature, nextRepeatCount)
+        cacheReuseReminders.push(buildCachedReuseReminder(tc.name, tc.parsed, nextRepeatCount))
 
         if (nextRepeatCount >= MAX_CACHED_CORE_CALL_REUSE) {
+          shouldForceAnswerWithoutTools = true
           yield {
             type: 'text',
             content:
               `\n\n> ⚠️ 检测到模型连续多次重复请求同一工具的同一组核心参数，且结果已在缓存中，已停止自动重试。报告核对场景可复用缓存结果，但不应无限重复调用同一查询。请直接基于现有数据完成分析，不要继续重复相同请求。`,
           }
-          return
         }
 
         toolCallRecord.status = cachedResult.status
@@ -343,7 +511,7 @@ export class ChatAgent {
           updatedMessages.push({
             role: 'tool',
             tool_call_id: tc.id,
-            content: cachedResult.content,
+            content: prepareToolResultForModel(tc.name, cachedResult.content),
           })
         } else {
           toolCallRecord.error = cachedResult.content
@@ -390,7 +558,7 @@ export class ChatAgent {
         updatedMessages.push({
           role: 'tool',
           tool_call_id: tc.id,
-          content: result,
+          content: prepareToolResultForModel(tc.name, result),
         })
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err)
@@ -409,6 +577,23 @@ export class ChatAgent {
           content: `Error: ${errMsg}`,
         })
       }
+    }
+
+    if (cacheReuseReminders.length > 0) {
+      updatedMessages.push({
+        role: 'user',
+        content: `系统提醒：以下工具结果已经在本轮返回，请不要再次调用完全相同的工具和参数，直接基于已有结果继续分析或写作。\n${cacheReuseReminders.join('\n')}`,
+      })
+    }
+
+    if (shouldForceAnswerWithoutTools) {
+      yield* this.finalizeWithoutTools(
+        updatedMessages,
+        depth + 1,
+        toolExecutionState,
+        '已触发重复工具调用保护'
+      )
+      return
     }
 
     // Continue the conversation with tool results (ReAct: next Thought after Observation)
@@ -475,7 +660,9 @@ export class ChatAgent {
     let buffer = ''
     let currentToolUse: { id: string; name: string; input: string } | null = null
     const toolResults: Array<{ id: string; name: string; input: Record<string, unknown>; result: string }> = []
+    const cacheReuseReminders: string[] = []
     let hasToolUse = false
+    let shouldForceAnswerWithoutTools = false
 
     try {
       while (true) {
@@ -531,20 +718,26 @@ export class ChatAgent {
               if (cachedResult) {
                 const nextRepeatCount = (toolExecutionState.repeatedCachedCoreCallCounts.get(toolCallCoreSignature) || 0) + 1
                 toolExecutionState.repeatedCachedCoreCallCounts.set(toolCallCoreSignature, nextRepeatCount)
+                cacheReuseReminders.push(buildCachedReuseReminder(currentToolUse.name, parsed, nextRepeatCount))
 
                 if (nextRepeatCount >= MAX_CACHED_CORE_CALL_REUSE) {
+                  shouldForceAnswerWithoutTools = true
                   yield {
                     type: 'text',
                     content:
                       `\n\n> ⚠️ 检测到模型连续多次重复请求同一工具的同一组核心参数，且结果已在缓存中，已停止自动重试。报告核对场景可复用缓存结果，但不应无限重复调用同一查询。请直接基于现有数据完成分析，不要继续重复相同请求。`,
                   }
-                  return
                 }
 
                 if (cachedResult.status === 'success') {
                   toolCallRecord.status = 'success'
                   toolCallRecord.result = cachedResult.content
-                  toolResults.push({ id: currentToolUse.id, name: currentToolUse.name, input: args, result: cachedResult.content })
+                  toolResults.push({
+                    id: currentToolUse.id,
+                    name: currentToolUse.name,
+                    input: args,
+                    result: prepareToolResultForModel(currentToolUse.name, cachedResult.content),
+                  })
                 } else {
                   toolCallRecord.status = 'error'
                   toolCallRecord.error = cachedResult.content
@@ -576,7 +769,12 @@ export class ChatAgent {
                     status: 'success',
                     content: result,
                   })
-                  toolResults.push({ id: currentToolUse.id, name: currentToolUse.name, input: args, result })
+                  toolResults.push({
+                    id: currentToolUse.id,
+                    name: currentToolUse.name,
+                    input: args,
+                    result: prepareToolResultForModel(currentToolUse.name, result),
+                  })
                 } catch (err) {
                   const errMsg = err instanceof Error ? err.message : String(err)
                   toolCallRecord.status = 'error'
@@ -624,9 +822,26 @@ export class ChatAgent {
         },
       ]
 
+      if (cacheReuseReminders.length > 0) {
+        followUpMessages.push({
+          role: 'user',
+          content: `系统提醒：以下工具结果已经在本轮返回，请不要再次调用完全相同的工具和参数，直接基于已有结果继续分析或写作。\n${cacheReuseReminders.join('\n')}`,
+        })
+      }
+
       const allMessages: Array<Record<string, unknown>> = []
       if (systemMsg) allMessages.push(systemMsg)
       allMessages.push(...followUpMessages)
+
+      if (shouldForceAnswerWithoutTools) {
+        yield* this.finalizeWithoutTools(
+          allMessages,
+          depth + 1,
+          toolExecutionState,
+          '已触发重复工具调用保护'
+        )
+        return
+      }
 
       // ReAct: next Thought after Observation
       yield* this.callAndProcess(allMessages, toolDefs, depth + 1, toolExecutionState)

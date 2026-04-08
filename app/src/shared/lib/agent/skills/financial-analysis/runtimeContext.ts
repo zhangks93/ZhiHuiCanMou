@@ -51,35 +51,77 @@ function sortPeriodsDesc(values: string[]): string[] {
   return [...values].sort((a, b) => b.localeCompare(a))
 }
 
+async function fetchDistinctValues(
+  table: 'edu_biz_report' | 'edu_biz_monthly_plan',
+  column: 'period' | 'month' | 'sheet_code'
+): Promise<string[]> {
+  const PAGE_SIZE = 1000
+  const values = new Set<string>()
+  let page = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(column)
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+    if (error) throw error
+
+    const pageData = data ?? []
+    pageData.forEach((row: Record<string, unknown>) => {
+      const value = row[column]
+      if (typeof value === 'string' && value) {
+        values.add(value)
+      }
+    })
+
+    hasMore = pageData.length === PAGE_SIZE
+    page += 1
+  }
+
+  return [...values]
+}
+
 async function fetchPeriods(periodType: 'monthly' | 'cumulative'): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('edu_biz_report')
-    .select('period')
-    .eq('period_type', periodType)
-    .limit(500)
+  const PAGE_SIZE = 1000
+  const values = new Set<string>()
+  let page = 0
+  let hasMore = true
 
-  if (error) throw new Error(`加载 ${periodType} 期间失败: ${error.message}`)
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('edu_biz_report')
+      .select('period')
+      .eq('period_type', periodType)
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-  const periods = Array.from(
-    new Set((data || []).map(row => row.period).filter((period): period is string => Boolean(period)))
-  )
+    if (error) throw new Error(`加载 ${periodType} 期间失败: ${error.message}`)
 
-  return sortPeriodsDesc(periods)
+    const pageData = data ?? []
+    pageData.forEach((row: Record<string, unknown>) => {
+      const period = row.period
+      if (typeof period === 'string' && period) {
+        values.add(period)
+      }
+    })
+
+    hasMore = pageData.length === PAGE_SIZE
+    page += 1
+  }
+
+  return sortPeriodsDesc([...values])
 }
 
 async function fetchMonthlyPlanMonths(): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('edu_biz_monthly_plan')
-    .select('month')
-    .limit(200)
-
-  if (error) throw new Error(`加载月度计划月份失败: ${error.message}`)
-
-  const months = Array.from(
-    new Set((data || []).map(row => row.month).filter((month): month is string => Boolean(month)))
-  )
-
-  return sortPeriodsDesc(months)
+  try {
+    return sortPeriodsDesc(await fetchDistinctValues('edu_biz_monthly_plan', 'month'))
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`加载月度计划月份失败: ${error.message}`)
+    }
+    throw error
+  }
 }
 
 async function fetchOrgLevel1(): Promise<string[]> {
@@ -108,16 +150,12 @@ const SHEET_CODE_LABELS: Record<string, string> = {
 }
 
 async function fetchSheetCodes(): Promise<{ code: string; label: string }[]> {
-  const { data, error } = await supabase
-    .from('edu_biz_report')
-    .select('sheet_code')
-    .limit(500)
-
-  if (error) return []
-
-  const codes = Array.from(
-    new Set((data || []).map(row => row.sheet_code).filter((v): v is string => Boolean(v)))
-  ).sort()
+  let codes: string[] = []
+  try {
+    codes = (await fetchDistinctValues('edu_biz_report', 'sheet_code')).sort()
+  } catch {
+    return []
+  }
 
   return codes.map(code => ({ code, label: SHEET_CODE_LABELS[code] || code }))
 }
@@ -192,6 +230,6 @@ export function buildFinancialAnalysisRuntimeContextBlock(
     `- metrics_preview: ${metricPreview}`,
     '- data_available: revenue, gross_profit, gross_margin, pretax_profit, pretax_margin, labor_cost with detail breakdown, expense structure, headcount, per_capita_revenue, labor_cost_rate, revenue_creation, profit_creation, budget value, completion_rate, diff, year_over_year, monthly_plan',
     '- data_not_available: 回款/应收, 合同签约/在手订单, 项目进度, 全年预测, 责任人/完成时点',
-    '- guidance: use only listed period/month values exactly as provided in runtime context; for cumulative queries do not invent next-month periods and do not assume a formula if the runtime list does not contain it. Prefer query_with_hierarchy and treat its returned tree as the primary analysis structure: query a specific node to get its full subtree, or use node_name="" to get the full tree. Analyze parent-child relations directly from tree/children instead of flattening first. In analysis, use returned target_value/completion_rate/diff/yoy fields explicitly and compute rollups, ratios, MoM/YoY deltas, contribution shares, and other derivable values before writing the report. If yoy is already returned, treat it as the prior-period comparison value and do not query the same metric again by moving the month back one year unless yoy is missing and the user explicitly asks for backfill. Do not repeat an identical tool call once a result has already been returned; reuse the existing result and continue analysis. For whole-group analysis, start from the returned top levels and only drill down when a real analysis need remains. Bind every completion_rate/diff/yoy/judgement to either monthly or cumulative scope explicitly, and split monthly vs cumulative sections when both are discussed. In full analysis/report mode, include both labor cost and available expense details such as catering_expense, material_cost, vehicle_expense, energy_expense, travel_expense, entertainment_expense, and other_expense by default unless the user clearly asks for a narrower scope. In report mode, charts must be fenced `html` code blocks and never placeholder suggestions. When a full chapter lacks data support, skip it with a one-line note instead of outputting empty tables.',
+    '- guidance: use only listed period/month values exactly as provided in runtime context; for cumulative queries do not invent next-month periods and do not assume a formula if the runtime list does not contain it. Prefer query_with_hierarchy and treat its returned tree as the primary analysis structure: query a specific node to get its full subtree, or use node_name="" to get the full tree. Analyze parent-child relations directly from tree/children instead of flattening first. In analysis, use returned target_value/completion_rate/diff/yoy fields explicitly and compute rollups, ratios, MoM/YoY deltas, contribution shares, and other derivable values before writing the report. If yoy is already returned, treat it as the prior-period comparison value and do not query the same metric again by moving the month back one year unless yoy is missing and the user explicitly asks for backfill. Do not repeat an identical tool call once a result has already been returned; reuse the existing result and continue analysis. For whole-group analysis, start from the returned top levels and only drill down when a real analysis need remains. Bind every completion_rate/diff/yoy/judgement to either monthly or cumulative scope explicitly, and split monthly vs cumulative sections when both are discussed. In full analysis/report mode, include both labor cost and available expense details such as catering_expense, material_cost, vehicle_expense, energy_expense, travel_expense, entertainment_expense, and other_expense by default unless the user clearly asks for a narrower scope. In report mode, charts must be delivered as structured chart spec JSON, not HTML, and only when the data supports them. When a full chapter lacks data support, skip it with a one-line note instead of outputting empty tables.',
   ].join('\n')
 }

@@ -64,7 +64,7 @@ export interface FinancialAnalysisSessionContext {
   }
   reportType?: 'fone' | 'tuwei'
   intent?: {
-    goal?: 'exception_scan' | 'comparison' | 'report' | 'trend' | 'plan_vs_actual' | 'qa'
+    goal?: 'data_lookup' | 'exception_scan' | 'comparison' | 'report' | 'trend' | 'plan_vs_actual' | 'qa'
   }
   metrics?: {
     primary?: string[]
@@ -73,7 +73,12 @@ export interface FinancialAnalysisSessionContext {
   reportMode?: {
     templateLoaded?: boolean
     templatePath?: string
+    workflowLoaded?: boolean
+    metricsLoaded?: boolean
+    reportGenerationLoaded?: boolean
+    analysisMethodLoaded?: boolean
     chartGuidanceLoaded?: boolean
+    loadedPaths?: string[]
     chartOutputMode?: 'structured_chart_spec_json'
   }
   dataContext?: FinancialAnalysisRuntimeDataContext

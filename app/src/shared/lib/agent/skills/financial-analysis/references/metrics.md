@@ -1,6 +1,15 @@
 # 指标与参数速查
 
-**数据边界**：系统实际可用的指标名与期间值以对话中注入的 **Runtime Data Context**（如 `metrics_preview`、`monthly_periods`、`cumulative_periods`、`monthly_plan_months`）为准。下列清单为常规全集；若某指标或期间不在运行上下文中，以查询结果与工具返回为准，不得编造。报告模板中若出现回款、合同等字段而库中无对应数据，保留章节并标 `【待补】`。
+系统实际可用的指标名与期间值，以 Runtime Data Context 为准；本文件只做参数和常用指标分组速查。
+
+## 轻量取数默认规则
+
+当用户只是问“某部门 / 某期间 / 某指标是多少”时：
+- 优先只查询用户点名指标
+- 未明确 `report_type` 时，默认先查 `fone`
+- 未明确期间类型时，默认先查 `monthly`
+- 若同一次要查多个指标，优先用一次 `metric_categories` 查询完成
+- 若用户要的只是单节点单指标结果，允许直接用 `query_biz_data` 返回更扁平的结果；若还需要层级或子节点结构，再用 `query_with_hierarchy`
 
 ## query_with_hierarchy 参数说明
 
@@ -36,16 +45,15 @@
 - `yoy`
 - `monthly_plan`
 
-这些字段已返回时，报告中必须直接使用，不能忽略。
-
-## query_monthly_plan 参数
-
-- `month`：**仅允许**使用 Runtime Data Context 中 `monthly_plan_months` 所列合法月份精确值（数据来自 `edu_biz_monthly_plan` 表；不同环境可能不同，不以固定区间代替）。
-- `metric_category`：月度计划侧主要为 `revenue`、`pretax_profit`（见工具定义）。
+这些字段已返回时，应优先直接使用。
 
 适用场景：
+- 需要节点子树
+- 需要看父子层级
+- 需要集团整体或某板块结构
+- 需要在同一次查询里拿到一组指标并基于树做聚合
 
-- 用户询问「月度突围计划」、收入目标、税前利润目标等
+若用户只问单节点、少量指标、单期间的数值，`query_biz_data` 也可优先使用。
 
 ## 主报表指标
 
@@ -82,30 +90,3 @@
 - `energy_expense`
 - `travel_expense`
 - `entertainment_expense`
-
-建议：
-
-做人力与费用分析时，不要只看 `labor_cost` 与 `other_expense` 两个指标，优先把可用的人力成本和费用细项一起查询。
-
-完整经营分析 / 月报 / 报告场景下，默认至少覆盖以下费用项：
-- `catering_expense`
-- `material_cost`
-- `vehicle_expense`
-- `energy_expense`
-- `travel_expense`
-- `entertainment_expense`
-- `other_expense`
-
-输出时要求：
-- 当月与累计分开呈现
-- `completion_rate`、`diff`、`year_over_year` 必须标明是当月口径还是累计口径
-
-## 达成状态标签规则
-
-- `< 80%` = 预警
-- `80%` 到 `< 95%` = 待关注
-- `>= 95%` = 达标
-
-注意：
-
-不要停留在标签判断本身，必须补充财务和经营层面的解释。

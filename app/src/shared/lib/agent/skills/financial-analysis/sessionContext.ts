@@ -20,6 +20,9 @@ function detectIntentGoal(text: string): FinancialAnalysisGoal | undefined {
   if (/(对比|比较|拆开看|横向)/.test(text)) return 'comparison'
   if (/(趋势|变化|走势)/.test(text)) return 'trend'
   if (/(计划|突围计划|计划值)/.test(text)) return 'plan_vs_actual'
+  if (/(多少|几点|多少万|多少元|是多少|给我查|帮我查|查询|看下|看一下|看一眼).*(收入|毛利|毛利率|税前利润|税前利润率|人效|人数|人均营收|人力成本|费用|达成率|完成率)/.test(text)) {
+    return 'data_lookup'
+  }
   if (/[?？]|多少|是什么|怎么看|如何|为啥|为什么/.test(text)) return 'qa'
   return undefined
 }
@@ -155,14 +158,38 @@ function deriveReportMode(
       path === '/assets/financial-analysis/biz-analysis-report.md' ||
       path === '/templates/biz-analysis-report.md'
   )
+  const workflowLoaded = readFilePaths.includes('/assets/financial-analysis/references/workflow.md')
+  const metricsLoaded = readFilePaths.includes('/assets/financial-analysis/references/metrics.md')
+  const reportGenerationLoaded = readFilePaths.includes('/assets/financial-analysis/references/report-generation.md')
+  const analysisMethodLoaded = readFilePaths.includes('/assets/financial-analysis/references/analysis-method.md')
   const chartGuidanceLoaded = readFilePaths.includes('/assets/financial-analysis/references/chart-guidance.md')
 
-  if (!templatePath && !chartGuidanceLoaded && !previous) return undefined
+  if (
+    !templatePath &&
+    !workflowLoaded &&
+    !metricsLoaded &&
+    !reportGenerationLoaded &&
+    !analysisMethodLoaded &&
+    !chartGuidanceLoaded &&
+    !previous
+  ) return undefined
+
+  const loadedPaths = Array.from(
+    new Set([
+      ...(previous?.loadedPaths || []),
+      ...readFilePaths,
+    ])
+  ).sort()
 
   return {
     templateLoaded: previous?.templateLoaded || Boolean(templatePath),
     templatePath: templatePath || previous?.templatePath,
+    workflowLoaded: previous?.workflowLoaded || workflowLoaded,
+    metricsLoaded: previous?.metricsLoaded || metricsLoaded,
+    reportGenerationLoaded: previous?.reportGenerationLoaded || reportGenerationLoaded,
+    analysisMethodLoaded: previous?.analysisMethodLoaded || analysisMethodLoaded,
     chartGuidanceLoaded: previous?.chartGuidanceLoaded || chartGuidanceLoaded,
+    loadedPaths,
     chartOutputMode:
       previous?.chartOutputMode || templatePath || previous?.templatePath || chartGuidanceLoaded
         ? 'structured_chart_spec_json'
@@ -212,13 +239,29 @@ export function buildFinancialAnalysisSessionContextBlock(
   if (sessionContext.reportMode?.templateLoaded && sessionContext.reportMode.templatePath) {
     lines.push(`- report_template_loaded: ${sessionContext.reportMode.templatePath}`)
   }
+  if (typeof sessionContext.reportMode?.workflowLoaded === 'boolean') {
+    lines.push(`- workflow_reference_loaded: ${sessionContext.reportMode.workflowLoaded ? 'yes' : 'no'}`)
+  }
+  if (typeof sessionContext.reportMode?.metricsLoaded === 'boolean') {
+    lines.push(`- metrics_reference_loaded: ${sessionContext.reportMode.metricsLoaded ? 'yes' : 'no'}`)
+  }
+  if (typeof sessionContext.reportMode?.reportGenerationLoaded === 'boolean') {
+    lines.push(`- report_generation_reference_loaded: ${sessionContext.reportMode.reportGenerationLoaded ? 'yes' : 'no'}`)
+  }
+  if (typeof sessionContext.reportMode?.analysisMethodLoaded === 'boolean') {
+    lines.push(`- analysis_method_reference_loaded: ${sessionContext.reportMode.analysisMethodLoaded ? 'yes' : 'no'}`)
+  }
   if (sessionContext.reportMode?.chartOutputMode) {
     lines.push(`- chart_output_mode: ${sessionContext.reportMode.chartOutputMode}`)
   }
   if (typeof sessionContext.reportMode?.chartGuidanceLoaded === 'boolean') {
     lines.push(`- chart_guidance_loaded: ${sessionContext.reportMode.chartGuidanceLoaded ? 'yes' : 'no'}`)
   }
+  if (sessionContext.reportMode?.loadedPaths?.length) {
+    lines.push(`- loaded_reference_paths: ${sessionContext.reportMode.loadedPaths.join(', ')}`)
+  }
   lines.push('- note: reuse this context unless the user explicitly changes scope, time, report type, or goal; when scope is already high-confidence and unchanged, do not call resolve_org_nodes again; resolve again only if the user changes the target or the scope is ambiguous.')
+  lines.push('- note: if a reference/template path is already marked as loaded in this session, do not call read_file for the same path again in the same task just to reconfirm rules; reuse the existing content and continue querying, analyzing, or writing.')
 
   return lines.join('\n')
 }

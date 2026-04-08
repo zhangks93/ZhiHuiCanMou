@@ -2,17 +2,17 @@
 读取 25学年经营数据.xlsx 中的多个 sheet 页，解析经营数据并写入 Supabase 数据库。
 
 包含的 sheet 页：
-- 1.1/1.2: fone 版经营数据（累计/月度）
-- 2.1/2.2/2.3: 突围版经营数据（累计/月度）
-- 3: 突围计划分月版
-- 6.1/6.2: 突围版成本分析（累计/月度）
-- 7.1/7.2: fone 版成本分析（累计/月度）
+- 1.1/1.2/1.3: fone 版经营数据（累计/月度）
+- 2.1/2.2/2.3/2.4: 突围版经营数据（累计/月度）
+- 3.1/3.2/3.3: 突围版成本分析（累计/月度）
+- 4.1/4.2/4.3: fone 版成本分析（累计/月度）
+- 5: 突围计划分月版
 
 同时读取组织标签映射表，创建独立的 edu_org_hierarchy 表。
 数据表之间无外键约束，仅通过 node_name 字段关联。
 
 注意：人力成本指标在主报表和成本分析表中都存在，导入时会自动去重，
-优先保留成本分析表（6.x/7.x）中的数据。
+优先保留成本分析表（3.x/4.x）中的数据。
 
 用法: python scripts/import_biz_data.py
 """
@@ -68,6 +68,10 @@ SHEET_CONFIG = {
         "report_type": "fone",
         "period_type": "monthly",
     },
+    "1.3": {
+        "report_type": "fone",
+        "period_type": "monthly",
+    },
     "2.1": {
         "report_type": "tuwei",
         "period_type": "cumulative",
@@ -80,23 +84,35 @@ SHEET_CONFIG = {
         "report_type": "tuwei",
         "period_type": "monthly",
     },
+    "2.4": {
+        "report_type": "tuwei",
+        "period_type": "monthly",
+    },
 }
 
 # 成本分析 Sheet 映射
 COST_SHEET_CONFIG = {
-    "6.1": {
+    "3.1": {
         "report_type": "tuwei",
         "period_type": "cumulative",
     },
-    "6.2": {
+    "3.2": {
         "report_type": "tuwei",
         "period_type": "monthly",
     },
-    "7.1": {
+    "3.3": {
+        "report_type": "tuwei",
+        "period_type": "monthly",
+    },
+    "4.1": {
         "report_type": "fone",
         "period_type": "cumulative",
     },
-    "7.2": {
+    "4.2": {
+        "report_type": "fone",
+        "period_type": "monthly",
+    },
+    "4.3": {
         "report_type": "fone",
         "period_type": "monthly",
     },
@@ -122,8 +138,8 @@ METRIC_CATEGORIES = [
     ("profit_creation",   "一元创利",    77),
 ]
 
-# Sheet 3 指标：营业收入 + 税前利润，各 7 列（6个月 + 合计）
-SHEET3_METRICS = [
+# Sheet 5 指标：营业收入 + 税前利润，各 7 列（6个月 + 合计）
+SHEET5_METRICS = [
     ("revenue",      "营业收入", 2, 8),   # C2-C8
     ("pretax_profit", "税前利润", 9, 15),  # C9-C15
 ]
@@ -293,6 +309,49 @@ def normalize_period(raw_period, period_type: str) -> str | None:
     return text
 
 
+def period_sort_key(period: str | None) -> int:
+    """将期间文本转成可比较的排序值，越大表示期间越新。"""
+    if not period:
+        return -1
+
+    match = re.search(r"20\d{4}", period)
+    if not match:
+        return -1
+
+    return int(match.group(0))
+
+
+def select_sheet_name(wb, sheet_code: str, period_type: str | None = None) -> str | None:
+    """
+    选择与 sheet_code 匹配的 sheet。
+    - 若只有一个匹配项，直接返回
+    - 若有多个匹配项，优先按 Row 3 / Col 2 的期间信息选择最新版本
+    - 若无法比较期间，则回退到最后一个匹配项
+    """
+    matched = [s for s in wb.sheetnames if s.startswith(sheet_code)]
+    if not matched:
+        return None
+    if len(matched) == 1:
+        return matched[0]
+
+    if period_type:
+        ranked = []
+        for sheet_name in matched:
+            ws = wb[sheet_name]
+            period = normalize_period(ws.cell(row=3, column=2).value, period_type)
+            ranked.append((period_sort_key(period), sheet_name))
+
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        best_key, best_sheet = ranked[0]
+        if best_key >= 0:
+            print(f"  检测到多个 sheet 匹配 {sheet_code}，使用期间最新的 [{best_sheet}]")
+            return best_sheet
+
+    best_sheet = matched[-1]
+    print(f"  检测到多个 sheet 匹配 {sheet_code}，回退使用最后一个 [{best_sheet}]")
+    return best_sheet
+
+
 def upsert_batch(table: str, rows: list[dict], batch_size: int = 500):
     """分批写入 Supabase"""
     url = f"{SUPABASE_URL}/rest/v1/{table}"
@@ -319,17 +378,15 @@ def clear_table(table: str):
 
 
 def parse_main_sheets(wb, valid_nodes: set):
-    """解析 sheets 1.1, 1.2, 2.1, 2.2, 2.3，只导入映射表中存在的节点"""
+    """解析经营数据 sheets 1.1-2.4，只导入映射表中存在的节点"""
     all_rows = []
     skipped_nodes = set()
 
     for sheet_code, config in SHEET_CONFIG.items():
-        # 找到匹配的 sheet
-        matched = [s for s in wb.sheetnames if s.startswith(sheet_code)]
-        if not matched:
+        sheet_name = select_sheet_name(wb, sheet_code, config["period_type"])
+        if not sheet_name:
             print(f"  警告: 未找到 sheet {sheet_code}")
             continue
-        sheet_name = matched[0]
         ws = wb[sheet_name]
         print(f"  处理 [{sheet_name}]")
 
@@ -399,13 +456,12 @@ def parse_main_sheets(wb, valid_nodes: set):
     return all_rows
 
 
-def parse_sheet3(wb, valid_nodes: set):
-    """解析 sheet 3（突围计划分月版），只导入映射表中存在的节点"""
-    matched = [s for s in wb.sheetnames if s.startswith("3")]
-    if not matched:
-        print("  警告: 未找到 sheet 3")
+def parse_sheet5(wb, valid_nodes: set):
+    """解析 sheet 5（突围计划分月版），只导入映射表中存在的节点"""
+    sheet_name = select_sheet_name(wb, "5")
+    if not sheet_name:
+        print("  警告: 未找到 sheet 5")
         return []
-    sheet_name = matched[0]
     ws = wb[sheet_name]
     print(f"  处理 [{sheet_name}]")
 
@@ -426,7 +482,7 @@ def parse_sheet3(wb, valid_nodes: set):
             skipped_nodes.add(node_name)
             continue
 
-        for metric_en, metric_cn, start_col, end_col in SHEET3_METRICS:
+        for metric_en, metric_cn, start_col, end_col in SHEET5_METRICS:
             col_idx = start_col
             for month in SHEET3_MONTHS:
                 val = safe_num(ws.cell(row=row_idx, column=col_idx).value)
@@ -454,17 +510,15 @@ def parse_sheet3(wb, valid_nodes: set):
 
 
 def parse_cost_sheets(wb, valid_nodes: set):
-    """解析成本分析 sheets (6.1, 6.2, 7.1, 7.2)，只导入映射表中存在的节点"""
+    """解析成本分析 sheets 3.1-4.3，只导入映射表中存在的节点"""
     all_rows = []
     skipped_nodes = set()
 
     for sheet_code, config in COST_SHEET_CONFIG.items():
-        # 找到匹配的 sheet
-        matched = [s for s in wb.sheetnames if s.startswith(sheet_code)]
-        if not matched:
+        sheet_name = select_sheet_name(wb, sheet_code, config["period_type"])
+        if not sheet_name:
             print(f"  警告: 未找到 sheet {sheet_code}")
             continue
-        sheet_name = matched[0]
         ws = wb[sheet_name]
         print(f"  处理 [{sheet_name}]")
 
@@ -556,12 +610,12 @@ def main():
     print()
 
     # 解析主报表（只导入映射表中存在的节点）
-    print("解析经营数据报表 (1.1-2.3)...")
+    print("解析经营数据报表 (1.1-2.4)...")
     report_rows = parse_main_sheets(wb, valid_nodes)
     print(f"\n共 {len(report_rows)} 条报表数据")
 
-    # 解析成本分析报表 (6.1, 6.2, 7.1, 7.2)
-    print("\n解析成本分析报表 (6.1-7.2)...")
+    # 解析成本分析报表 (3.1-4.3)
+    print("\n解析成本分析报表 (3.1-4.3)...")
     cost_rows = parse_cost_sheets(wb, valid_nodes)
     print(f"共 {len(cost_rows)} 条成本数据")
 
@@ -570,7 +624,7 @@ def main():
     all_report_rows = report_rows + cost_rows
 
     # 去重逻辑：对于相同的 (report_type, period_type, node_name, metric_category)
-    # 如果 metric_category 是 labor_cost，优先保留成本分析表中的数据（来自 6.x/7.x）
+    # 如果 metric_category 是 labor_cost，优先保留成本分析表中的数据（来自 3.x/4.x）
     # 因为成本分析表提供了更详细的人力成本分解
     dedup_key_map = {}
     for row in all_report_rows:
@@ -584,10 +638,9 @@ def main():
             )
 
             if key in dedup_key_map:
-                existing_sheet = dedup_key_map[key]["sheet_code"]
                 current_sheet = row["sheet_code"]
-                # 如果当前是成本分析表（6.x/7.x），替换之前的数据
-                if current_sheet.startswith(("6", "7")):
+                # 如果当前是成本分析表（3.x/4.x），替换之前的数据
+                if current_sheet.startswith(("3", "4")):
                     dedup_key_map[key] = row
                 # 如果已存在的是成本分析表，保持不变（不添加当前行）
             else:
@@ -608,8 +661,8 @@ def main():
     print(f"  去重后: {len(final_report_rows)} 条报表数据 (移除 {removed_count} 条重复)")
 
     # 解析突围计划（只导入映射表中存在的节点）
-    print("\n解析突围计划分月版 (3)...")
-    plan_rows = parse_sheet3(wb, valid_nodes)
+    print("\n解析突围计划分月版 (5)...")
+    plan_rows = parse_sheet5(wb, valid_nodes)
     print(f"共 {len(plan_rows)} 条计划数据")
 
     # 写入 Supabase（先写入层级表，再写入数据表，但无外键约束）

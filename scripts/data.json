@@ -1,174 +1,140 @@
 [
-    {
-      "id": "monthly-revenue-budget-gap",
-      "title": "当月收入仅完成23.07%，线上业务拖累显著",
-      "summary": "展示当月各业务板块收入与年初预算的对比，定位收入缺口主要来源。",
-      "chartType": "bar",
-      "scope": "fone-monthly-202602",
-      "dimension": "node_name",
-      "metrics": ["revenue", "completion_rate"],
-      "unit": "万元",
-      "series": [
-        {
-          "name": "当月实际",
-          "type": "bar",
-          "unit": "万元",
-          "data": [
-            { "label": "线上商城业务", "value": 133.26 },
-            { "label": "线下商超-便利店", "value": 229.32 },
-            { "label": "线下商超-商业街", "value": 21.78 },
-            { "label": "管理部门", "value": 16.64 }
-          ]
-        },
-        {
-          "name": "当月预算",
-          "type": "bar",
-          "unit": "万元",
-          "data": [
-            { "label": "线上商城业务", "value": 1479.78 },
-            { "label": "线下商超-便利店", "value": 233.60 },
-            { "label": "线下商超-商业街", "value": 23.60 },
-            { "label": "管理部门", "value": 1.00 }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cumulative-profit-overrun",
-      "title": "累计利润超额完成458万元，毛利率较预算提升7.84pct",
-      "summary": "展示累计收入、利润与年初预算的对比，反映利润超额完成情况。",
-      "chartType": "combo_bar_line",
-      "scope": "fone-cumulative-<202603",
-      "dimension": "metric_category",
-      "metrics": ["revenue", "gross_profit", "pretax_profit", "completion_rate"],
-      "unit": "万元",
-      "series": [
-        {
-          "name": "累计实际",
-          "type": "bar",
-          "unit": "万元",
-          "data": [
-            { "label": "营业收入", "value": 7588.68 },
-            { "label": "毛利", "value": 2640.32 },
-            { "label": "税前利润", "value": 2462.56 }
-          ]
-        },
-        {
-          "name": "累计预算",
-          "type": "bar",
-          "unit": "万元",
-          "data": [
-            { "label": "营业收入", "value": 8584.27 },
-            { "label": "毛利", "value": 2313.23 },
-            { "label": "税前利润", "value": 2004.50 }
-          ]
-        },
-        {
-          "name": "预算达成率",
-          "type": "line",
-          "unit": "%",
-          "data": [
-            { "label": "营业收入", "value": 88.40 },
-            { "label": "毛利", "value": 114.14 },
-            { "label": "税前利润", "value": 122.85 }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cost-overrun-items",
-      "title": "差旅费、能耗费超支突出，需专项管控",
-      "summary": "展示累计费用项目与预算的对比，定位超支项。",
-      "chartType": "bar",
-      "scope": "fone-cumulative-<202603",
-      "dimension": "expense_type",
-      "metrics": ["labor_cost", "energy_expense", "travel_expense", "other_expense"],
-      "unit": "万元",
-      "series": [
-        {
-          "name": "累计实际",
-          "type": "bar",
-          "unit": "万元",
-          "data": [
-            { "label": "人力成本", "value": 552.05 },
-            { "label": "能耗费", "value": 24.73 },
-            { "label": "差旅费", "value": 12.44 },
-            { "label": "其他支出", "value": 233.16 }
-          ]
-        },
-        {
-          "name": "累计预算",
-          "type": "bar",
-          "unit": "万元",
-          "data": [
-            { "label": "人力成本", "value": 626.55 },
-            { "label": "能耗费", "value": 16.13 },
-            { "label": "差旅费", "value": 4.62 },
-            { "label": "其他支出", "value": 207.33 }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "business-segment-contribution",
-      "title": "线下商超-便利店贡献超半数收入及利润",
-      "summary": "展示累计口径下各业务板块的收入和利润贡献占比。",
-      "chartType": "pie",
-      "scope": "fone-cumulative-<202603",
-      "dimension": "node_name",
-      "metrics": ["revenue", "pretax_profit"],
-      "unit": "万元",
-      "series": [
-        {
-          "name": "收入贡献",
-          "type": "pie",
-          "unit": "万元",
-          "data": [
-            { "label": "线上商城", "value": 1800.16 },
-            { "label": "便利店", "value": 4543.12 },
-            { "label": "商业街", "value": 631.94 },
-            { "label": "管理部门", "value": 613.47 }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "tuwei-cumulative-progress",
-      "title": "突围口径下收入欠目标833万元，利润超额114万元",
-      "summary": "展示突围考核口径下累计收入和利润的完成情况。",
-      "chartType": "combo_bar_line",
-      "scope": "tuwei-cumulative-<202603",
-      "dimension": "metric_category",
-      "metrics": ["revenue", "pretax_profit", "completion_rate"],
-      "unit": "万元",
-      "series": [
-        {
-          "name": "累计实际",
-          "type": "bar",
-          "unit": "万元",
-          "data": [
-            { "label": "营业收入", "value": 1562.17 },
-            { "label": "税前利润", "value": 356.97 }
-          ]
-        },
-        {
-          "name": "累计目标",
-          "type": "bar",
-          "unit": "万元",
-          "data": [
-            { "label": "营业收入", "value": 2395.19 },
-            { "label": "税前利润", "value": 242.71 }
-          ]
-        },
-        {
-          "name": "达成率",
-          "type": "line",
-          "unit": "%",
-          "data": [
-            { "label": "营业收入", "value": 65.22 },
-            { "label": "税前利润", "value": 147.08 }
-          ]
-        }
-      ]
-    }
-  ]
+  {
+    "id": "monthly-gross-profit-budget-gap",
+    "title": "西南区域3月毛利当月预算缺口达247万元，配送业务贡献88.5%",
+    "summary": "展示当月各业务板块毛利实际vs预算对比，定位主要拖累来源。",
+    "chartType": "combo_bar_line",
+    "scope": "fone-monthly-202603",
+    "dimension": "business_segment",
+    "metrics": ["gross_profit", "gross_margin", "completion_rate"],
+    "unit": "万元/%",
+    "series": [
+      {
+        "name": "实际毛利",
+        "type": "bar",
+        "unit": "万元",
+        "data": [
+          { "label": "区域配送业务", "value": 246.24 },
+          { "label": "区域餐饮业务", "value": 68.65 },
+          { "label": "区域商超业务", "value": 69.42 }
+        ]
+      },
+      {
+        "name": "预算毛利",
+        "type": "bar",
+        "unit": "万元",
+        "data": [
+          { "label": "区域配送业务", "value": 464.91 },
+          { "label": "区域餐饮业务", "value": 80.28 },
+          { "label": "区域商超业务", "value": 54.84 }
+        ]
+      },
+      {
+        "name": "预算达成率",
+        "type": "line",
+        "unit": "%",
+        "data": [
+          { "label": "区域配送业务", "value": 53.0 },
+          { "label": "区域餐饮业务", "value": 85.5 },
+          { "label": "区域商超业务", "value": 126.6 }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cumulative-progress-vs-budget",
+    "title": "累计毛利2,171万元，距预算缺口1,024万元，进度落后约15个百分点",
+    "summary": "展示累计口径下各月毛利进度与预算路径的对比，识别趋势性偏离。",
+    "chartType": "line",
+    "scope": "fone-cumulative",
+    "dimension": "month",
+    "metrics": ["gross_profit"],
+    "unit": "万元",
+    "series": [
+      {
+        "name": "累计实际",
+        "type": "line",
+        "unit": "万元",
+        "data": [
+          { "label": "10月", "value": "【待补】" },
+          { "label": "11月", "value": "【待补】" },
+          { "label": "12月", "value": "【待补】" },
+          { "label": "1月", "value": "【待补】" },
+          { "label": "2月", "value": "【待补】" },
+          { "label": "3月", "value": 2171.35 }
+        ]
+      },
+      {
+        "name": "累计预算",
+        "type": "line",
+        "unit": "万元",
+        "data": [
+          { "label": "10月", "value": "【待补】" },
+          { "label": "11月", "value": "【待补】" },
+          { "label": "12月", "value": "【待补】" },
+          { "label": "1月", "value": "【待补】" },
+          { "label": "2月", "value": "【待补】" },
+          { "label": "3月", "value": 3195.88 }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "key-units-cumulative-achievement",
+    "title": "陆良配送、江陵配送累计缺口显著，新拓配送项目零产出是最大风险点",
+    "summary": "展示主要配送单元的累计毛利达成率排序，识别重点拖累项目。",
+    "chartType": "bar",
+    "scope": "fone-cumulative-202603",
+    "dimension": "node_name",
+    "metrics": ["gross_profit", "completion_rate"],
+    "unit": "万元/%",
+    "series": [
+      {
+        "name": "累计毛利",
+        "type": "bar",
+        "unit": "万元",
+        "data": [
+          { "label": "景东配送", "value": 538.80 },
+          { "label": "陆良配送", "value": 332.24 },
+          { "label": "江陵配送", "value": 468.27 },
+          { "label": "新拓配送1", "value": 0 },
+          { "label": "新拓配送2", "value": 0 },
+          { "label": "康铭景东", "value": 200.29 },
+          { "label": "元谋一中", "value": 145.47 }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cost-expense-overrun-risk",
+    "title": "餐饮支出超预算119%是利润未达目标的核心原因，需立即溯源",
+    "summary": "展示当月主要成本费用项目实际vs目标对比，定位超支压力来源。",
+    "chartType": "bar",
+    "scope": "fone-monthly-202603",
+    "dimension": "expense_type",
+    "metrics": ["catering_expense", "energy_expense", "entertainment_expense"],
+    "unit": "万元",
+    "series": [
+      {
+        "name": "实际",
+        "type": "bar",
+        "unit": "万元",
+        "data": [
+          { "label": "餐饮支出", "value": 145.80 },
+          { "label": "能耗费", "value": 6.12 },
+          { "label": "业务招待费", "value": 2.51 }
+        ]
+      },
+      {
+        "name": "预算",
+        "type": "bar",
+        "unit": "万元",
+        "data": [
+          { "label": "餐饮支出", "value": 66.69 },
+          { "label": "能耗费", "value": 10.93 },
+          { "label": "业务招待费", "value": 5.02 }
+        ]
+      }
+    ]
+  }
+]

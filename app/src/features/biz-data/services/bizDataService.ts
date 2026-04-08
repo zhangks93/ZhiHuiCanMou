@@ -27,6 +27,44 @@ export interface NestedBizDataNode {
   children: NestedBizDataNode[]
 }
 
+async function fetchDistinctColumnValues(
+  table: 'edu_biz_report' | 'edu_biz_monthly_plan',
+  column: 'period' | 'month',
+  buildQuery?: (query: any) => any
+): Promise<string[]> {
+  const PAGE_SIZE = 1000
+  const values = new Set<string>()
+  let page = 0
+  let hasMore = true
+
+  while (hasMore) {
+    let query: any = supabase
+      .from(table)
+      .select(column)
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+    if (buildQuery) {
+      query = buildQuery(query)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+
+    const pageData = data ?? []
+    pageData.forEach((row: Record<string, unknown>) => {
+      const value = row[column]
+      if (typeof value === 'string' && value) {
+        values.add(value)
+      }
+    })
+
+    hasMore = pageData.length === PAGE_SIZE
+    page += 1
+  }
+
+  return [...values].sort((a, b) => b.localeCompare(a))
+}
+
 const EMPTY_HIERARCHY = {
   center_region: null,
   business_segment: null,
@@ -329,20 +367,17 @@ export async function fetchAvailableMonths(
   periodType: 'cumulative' | 'monthly',
   reportType: 'fone' | 'tuwei'
 ) {
-  const { data, error } = await supabase
-    .from('edu_biz_report')
-    .select('period')
-    .eq('period_type', periodType)
-    .eq('report_type', reportType)
-    .order('period', { ascending: false })
-    .limit(100)
-
-  if (error) {
+  try {
+    return await fetchDistinctColumnValues('edu_biz_report', 'period', (query) =>
+      query
+        .eq('period_type', periodType)
+        .eq('report_type', reportType)
+        .order('period', { ascending: false })
+    )
+  } catch (error) {
     console.error('Failed to fetch months:', error)
     return []
   }
-
-  return Array.from(new Set(data?.map(item => item.period) ?? []))
 }
 
 export function aggregateByNode(
