@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AlertTriangle, Check, Trash2 } from 'lucide-react'
 import { buildSettingsHref } from '@/app/config/constants'
@@ -64,6 +64,8 @@ export function Settings() {
   const [apiKey, setApiKey] = useState(initialConfig?.apiKey ?? '')
   const [model, setModel] = useState(initialConfig?.model ?? DEFAULT_MODELS[initialConfig?.provider ?? 'openai'])
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimerRef = useRef<number | null>(null)
 
   // Threshold settings state
   const [thresholds, setThresholds] = useState<ThresholdSettings>(() => loadThresholdSettings())
@@ -72,6 +74,25 @@ export function Settings() {
 
   // Cache unsaved form values per provider so switching doesn't lose edits
   const providerCache = useRef<Partial<Record<LLMConfig['provider'], ProviderSettings>>>({})
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current)
+      }
+    }
+  }, [])
+
+  const showToast = (message: string) => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current)
+    }
+    setToast(message)
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null)
+      toastTimerRef.current = null
+    }, 2200)
+  }
 
   const handleProviderChange = (p: LLMConfig['provider']) => {
     // Cache current provider's form values
@@ -98,8 +119,8 @@ export function Settings() {
     }
     saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim() })
 
-    setFeedback({ type: 'success', msg: '已保存' })
-    setTimeout(() => setFeedback(null), 2000)
+    setFeedback(null)
+    showToast('配置保存成功')
   }
 
   const handleClear = () => {
@@ -154,6 +175,16 @@ export function Settings() {
 
   return (
     <TabbedPageShell tabs={tabItems}>
+      {toast && (
+        <div className="pointer-events-none fixed right-4 top-20 z-[70] sm:right-6">
+          <div className="flex min-w-[220px] items-center gap-2 rounded-2xl border border-emerald-100 bg-white/96 px-4 py-3 text-body text-emerald-700 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur-xl animate-fade-in">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <Check size={16} />
+            </span>
+            <span className="font-medium">{toast}</span>
+          </div>
+        </div>
+      )}
       {activeTab === 'thresholds' ? (
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
@@ -366,13 +397,13 @@ export function Settings() {
                         onClick={handleSave}
                         className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-body font-medium text-white transition-colors hover:bg-primary-700"
                       >
-                        <Check size={14} /> 保存配置
+                        <Check size={14} /> 保存
                       </button>
                       <button
                         onClick={handleClear}
                         className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-body font-medium text-slate-600 transition-colors hover:bg-slate-100"
                       >
-                        <Trash2 size={14} /> 清除配置
+                        <Trash2 size={14} /> 清除
                       </button>
                     </div>
                   </div>

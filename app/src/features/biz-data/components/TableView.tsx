@@ -100,10 +100,11 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   const [, setThresholdVersion] = useState(0)
   const [bodyMaxHeight, setBodyMaxHeight] = useState<number | null>(null)
   const tableShellRef = useRef<HTMLDivElement | null>(null)
-  const tableHeaderViewportRef = useRef<HTMLDivElement | null>(null)
-  const tableBodyViewportRef = useRef<HTMLDivElement | null>(null)
+  const tableMetricsHeaderViewportRef = useRef<HTMLDivElement | null>(null)
+  const tableFixedBodyViewportRef = useRef<HTMLDivElement | null>(null)
+  const tableMetricsBodyHorizontalViewportRef = useRef<HTMLDivElement | null>(null)
+  const tableMetricsBodyVerticalViewportRef = useRef<HTMLDivElement | null>(null)
   const tableHorizontalScrollbarRef = useRef<HTMLDivElement | null>(null)
-  const tableVerticalViewportRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     return subscribeThresholdSettings(() => {
@@ -170,7 +171,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   })
 
   const visibleRows = table.getRowModel().rows
-  const totalTableWidth = `${BUSINESS_UNIT_COLUMN_WIDTH + metricOrder.length * METRIC_GROUP_WIDTH}px`
+  const metricsTableWidth = `${metricOrder.length * METRIC_GROUP_WIDTH}px`
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -216,12 +217,12 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
 
   useLayoutEffect(() => {
     const shell = tableShellRef.current
-    const viewport = tableVerticalViewportRef.current
+    const viewport = tableMetricsBodyVerticalViewportRef.current
 
     if (!shell || !viewport) return
 
     const viewportBottomGap = 0
-    const minimumBodyHeight = 240
+    const minimumBodyHeight = 360
 
     const updateBodyMaxHeight = () => {
       const viewportTop = viewport.getBoundingClientRect().top
@@ -271,8 +272,8 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   }, [findClippingAncestor, metricOrder.length, showLevels, visibleRows.length])
 
   useEffect(() => {
-    const headerViewport = tableHeaderViewportRef.current
-    const bodyViewport = tableBodyViewportRef.current
+    const headerViewport = tableMetricsHeaderViewportRef.current
+    const bodyViewport = tableMetricsBodyHorizontalViewportRef.current
     const horizontalScrollbar = tableHorizontalScrollbarRef.current
     const scrollContainers = [headerViewport, bodyViewport, horizontalScrollbar].filter(Boolean) as HTMLDivElement[]
 
@@ -318,6 +319,53 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
     }
   }, [metricOrder.length])
 
+  useEffect(() => {
+    const fixedViewport = tableFixedBodyViewportRef.current
+    const metricsViewport = tableMetricsBodyVerticalViewportRef.current
+    const scrollContainers = [fixedViewport, metricsViewport].filter(Boolean) as HTMLDivElement[]
+
+    if (scrollContainers.length < 2) return
+
+    let isSyncing = false
+    let resetFrameId: number | null = null
+
+    const syncScrollTop = (source: HTMLDivElement) => {
+      if (isSyncing) return
+
+      isSyncing = true
+      const nextScrollTop = source.scrollTop
+
+      scrollContainers.forEach((element) => {
+        if (element !== source && element.scrollTop !== nextScrollTop) {
+          element.scrollTop = nextScrollTop
+        }
+      })
+
+      resetFrameId = window.requestAnimationFrame(() => {
+        isSyncing = false
+      })
+    }
+
+    const listeners = scrollContainers.map((element) => {
+      const handleScroll = () => {
+        syncScrollTop(element)
+      }
+      element.addEventListener('scroll', handleScroll, { passive: true })
+      return { element, handleScroll }
+    })
+
+    syncScrollTop(metricsViewport ?? scrollContainers[0])
+
+    return () => {
+      listeners.forEach(({ element, handleScroll }) => {
+        element.removeEventListener('scroll', handleScroll)
+      })
+      if (resetFrameId !== null) {
+        window.cancelAnimationFrame(resetFrameId)
+      }
+    }
+  }, [visibleRows.length])
+
   const renderBusinessUnitCell = (row: Row<EnrichedBizDataNode>) => {
     const hasChildren = getChildren(row.original, allNodesWithAggregation).length > 0
 
@@ -340,7 +388,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
         ) : (
           <span className="w-[18px]" />
         )}
-        <span className="font-medium text-[var(--color-text-strong)]">{row.original.node_name}</span>
+        <span className="truncate font-medium text-[var(--color-text-strong)]">{row.original.node_name}</span>
       </div>
     )
   }
@@ -356,23 +404,23 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   }
 
   return (
-    <div className="space-y-3 min-w-0">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
         <div ref={tableShellRef} className="app-table-shell biz-data-table-shell">
-          <div ref={tableHeaderViewportRef} className="biz-data-table__header-viewport">
-            <div className="biz-data-table__scroll-region" style={{ width: totalTableWidth }}>
+          <div className="biz-data-table__header-row">
+            <div className="biz-data-table__fixed-column">
               <table
                 className="app-data-table app-data-table-compact biz-data-table__table"
-                style={{ width: totalTableWidth }}
+                style={{ width: `${BUSINESS_UNIT_COLUMN_WIDTH}px` }}
               >
                 <thead>
                   <tr>
                     <th
-                      className="biz-data-table__sticky-header biz-data-table__sticky-column biz-data-table__sticky-corner !p-0"
+                      className="biz-data-table__sticky-header biz-data-table__sticky-corner !p-0"
                       style={{
                         width: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
                         minWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
@@ -386,39 +434,52 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                         <div className="text-caption font-medium text-transparent">占位</div>
                       </div>
                     </th>
-
-                    <SortableContext
-                      items={metricOrder}
-                      strategy={horizontalListSortingStrategy}
-                    >
-                      {metricOrder.map((metric) => (
-                        <th
-                          key={metric}
-                          className="biz-data-table__sticky-header !p-0"
-                          style={{
-                            width: `${METRIC_GROUP_WIDTH}px`,
-                            minWidth: `${METRIC_GROUP_WIDTH}px`,
-                            maxWidth: `${METRIC_GROUP_WIDTH}px`,
-                          }}
-                        >
-                          <DraggableHeader id={metric}>
-                            <div className="flex flex-col gap-1.5">
-                              <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-strong)]">
-                                {METRIC_LABELS[metric]}
-                              </span>
-                              <div className="grid grid-cols-3 gap-1.5 text-caption font-medium text-[var(--color-text-muted)]">
-                                <span className="text-center">实际</span>
-                                <span className="text-center">预算</span>
-                                <span className="text-center">完成率</span>
-                              </div>
-                            </div>
-                          </DraggableHeader>
-                        </th>
-                      ))}
-                    </SortableContext>
                   </tr>
                 </thead>
               </table>
+            </div>
+
+            <div ref={tableMetricsHeaderViewportRef} className="biz-data-table__header-viewport">
+              <div className="biz-data-table__scroll-region" style={{ width: metricsTableWidth }}>
+                <table
+                  className="app-data-table app-data-table-compact biz-data-table__table"
+                  style={{ width: metricsTableWidth }}
+                >
+                  <thead>
+                    <tr>
+                      <SortableContext
+                        items={metricOrder}
+                        strategy={horizontalListSortingStrategy}
+                      >
+                        {metricOrder.map((metric) => (
+                          <th
+                            key={metric}
+                            className="biz-data-table__sticky-header !p-0"
+                            style={{
+                              width: `${METRIC_GROUP_WIDTH}px`,
+                              minWidth: `${METRIC_GROUP_WIDTH}px`,
+                              maxWidth: `${METRIC_GROUP_WIDTH}px`,
+                            }}
+                          >
+                            <DraggableHeader id={metric}>
+                              <div className="flex flex-col gap-1.5">
+                                <span className="text-caption font-semibold uppercase tracking-[0.08em] text-[var(--color-text-strong)]">
+                                  {METRIC_LABELS[metric]}
+                                </span>
+                                <div className="grid grid-cols-3 gap-1.5 text-caption font-medium text-[var(--color-text-muted)]">
+                                  <span className="text-center">实际</span>
+                                  <span className="text-center">预算</span>
+                                  <span className="text-center">完成率</span>
+                                </div>
+                              </div>
+                            </DraggableHeader>
+                          </th>
+                        ))}
+                      </SortableContext>
+                    </tr>
+                  </thead>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -429,35 +490,56 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
           >
             <div
               className="biz-data-table__horizontal-scrollbar-content"
-              style={{ width: totalTableWidth }}
+              style={{ width: metricsTableWidth }}
             />
           </div>
 
-          <div ref={tableBodyViewportRef} className="biz-data-table__body-viewport">
-            <div className="biz-data-table__scroll-region" style={{ width: totalTableWidth }}>
-              <div
-                ref={tableVerticalViewportRef}
-                className="biz-data-table__vertical-viewport"
-                style={bodyMaxHeight ? { height: `${bodyMaxHeight}px`, maxHeight: `${bodyMaxHeight}px` } : undefined}
+          <div className="biz-data-table__body-row">
+            <div
+              ref={tableFixedBodyViewportRef}
+              className="biz-data-table__fixed-body-viewport biz-data-table__vertical-viewport biz-data-table__fixed-column"
+              style={bodyMaxHeight ? { height: `${bodyMaxHeight}px`, maxHeight: `${bodyMaxHeight}px` } : undefined}
+            >
+              <table
+                className="app-data-table app-data-table-compact biz-data-table__table"
+                style={{ width: `${BUSINESS_UNIT_COLUMN_WIDTH}px` }}
               >
+                <tbody>
+                  {visibleRows.map((row) => (
+                    <tr key={row.id}>
+                      <td
+                        className="biz-data-table__business-cell align-middle"
+                        style={{
+                          width: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                          minWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                          maxWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                        }}
+                      >
+                        {renderBusinessUnitCell(row)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              ref={tableMetricsBodyHorizontalViewportRef}
+              className="biz-data-table__body-viewport biz-data-table__metrics-pane"
+            >
+              <div className="biz-data-table__scroll-region" style={{ width: metricsTableWidth }}>
+                <div
+                  ref={tableMetricsBodyVerticalViewportRef}
+                  className="biz-data-table__vertical-viewport"
+                  style={bodyMaxHeight ? { height: `${bodyMaxHeight}px`, maxHeight: `${bodyMaxHeight}px` } : undefined}
+                >
                 <table
                   className="app-data-table app-data-table-compact biz-data-table__table"
-                  style={{ width: totalTableWidth }}
+                  style={{ width: metricsTableWidth }}
                 >
                   <tbody>
                     {visibleRows.map((row) => (
                       <tr key={row.id}>
-                        <td
-                          className="biz-data-table__sticky-column biz-data-table__business-cell align-middle"
-                          style={{
-                            width: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
-                            minWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
-                            maxWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
-                          }}
-                        >
-                          {renderBusinessUnitCell(row)}
-                        </td>
-
                         {metricOrder.map((metric) => {
                           const actual = row.original.metrics[metric]?.actual ?? null
                           const budget = row.original.metrics[metric]?.[budgetField] ?? null
@@ -505,6 +587,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           </div>

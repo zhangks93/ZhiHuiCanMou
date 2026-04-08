@@ -8,7 +8,7 @@ import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 
 const TAB_LABELS = {
   schedule: '日程提醒',
-  links: '系统链接',
+  links: '链接',
 } as const
 
 type WorkspaceTab = keyof typeof TAB_LABELS

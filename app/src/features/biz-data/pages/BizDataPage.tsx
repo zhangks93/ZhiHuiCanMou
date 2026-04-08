@@ -79,7 +79,7 @@ export function BizDataPage() {
         </div>
       </section>
 
-      <div className="relative min-w-0">
+      <div className="relative min-w-0 min-h-0 h-full">
         {dataLoading ? (
           <div className="biz-content-area">
             <div className="flex items-center justify-center h-64">

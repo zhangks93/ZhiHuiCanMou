@@ -17,7 +17,7 @@ const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   '/competitor': { title: '竞对档案', subtitle: '竞争对手信息整理' },
   '/trip': { title: '出差', subtitle: '行程与人员记录' },
   '/attendance': { title: '考勤', subtitle: '出勤统计与明细' },
-  '/links': { title: '系统链接', subtitle: '常用入口与资源导航' },
+  '/links': { title: '链接', subtitle: '系统入口与看板导航' },
   '/ai': { title: 'AI 分析', subtitle: '智能问答与分析报告' },
   '/settings': { title: '设置', subtitle: '系统参数与 AI 配置' },
 }
