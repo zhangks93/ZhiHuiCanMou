@@ -7,12 +7,33 @@ const binName = process.platform === 'win32' ? 'tauri.cmd' : 'tauri'
 const tauriBin = path.join(appRoot, 'node_modules', '.bin', binName)
 const args = process.argv.slice(2)
 
+function getTauriSpawnTarget(cliArgs) {
+  if (process.platform !== 'win32') {
+    return {
+      command: tauriBin,
+      args: cliArgs,
+    }
+  }
+
+  const comspec = process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe'
+  return {
+    command: comspec,
+    args: ['/d', '/s', '/c', `"${tauriBin}"`, ...cliArgs],
+  }
+}
+
 function runCommand(command, commandArgs) {
   return new Promise((resolve) => {
-    const child = spawn(command, commandArgs, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: false,
-    })
+    let child
+    try {
+      child = spawn(command, commandArgs, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: false,
+      })
+    } catch (error) {
+      resolve({ ok: false, stdout: '', stderr: error.message })
+      return
+    }
 
     let stdout = ''
     let stderr = ''
@@ -72,11 +93,18 @@ async function main() {
     process.exit(1)
   }
 
-  const child = spawn(tauriBin, args, {
-    cwd: appRoot,
-    stdio: 'inherit',
-    shell: false,
-  })
+  const tauriCommand = getTauriSpawnTarget(args)
+  let child
+  try {
+    child = spawn(tauriCommand.command, tauriCommand.args, {
+      cwd: appRoot,
+      stdio: 'inherit',
+      shell: false,
+    })
+  } catch (error) {
+    console.error(error.message)
+    process.exit(1)
+  }
 
   child.on('error', (error) => {
     console.error(error.message)
