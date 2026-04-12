@@ -1,8 +1,8 @@
 import { createBrowserStore } from '@/shared/storage/createBrowserStore'
 
 /**
- * Secure token storage utility with encryption and expiry handling
- * Enables offline authentication and session recovery
+ * Auth state storage utility with expiry handling.
+ * Session-bearing values are kept in session storage to reduce persistence.
  */
 
 interface StoredToken {
@@ -33,6 +33,7 @@ const authStateStore = createBrowserStore<AuthState | null>({
 
 const sessionTokenStore = createBrowserStore<StoredToken | null>({
   key: SESSION_KEY,
+  storage: 'session',
   fallback: null,
   deserialize: (raw) => {
     const parsed = JSON.parse(raw)

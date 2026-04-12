@@ -30,7 +30,10 @@ export interface NestedBizDataNode {
 async function fetchDistinctColumnValues(
   table: 'edu_biz_report' | 'edu_biz_monthly_plan',
   column: 'period' | 'month',
-  buildQuery?: (query: any) => any
+  filters?: {
+    periodType?: 'cumulative' | 'monthly'
+    reportType?: 'fone' | 'tuwei'
+  },
 ): Promise<string[]> {
   const PAGE_SIZE = 1000
   const values = new Set<string>()
@@ -38,13 +41,17 @@ async function fetchDistinctColumnValues(
   let hasMore = true
 
   while (hasMore) {
-    let query: any = supabase
+    let query = supabase
       .from(table)
       .select(column)
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-    if (buildQuery) {
-      query = buildQuery(query)
+    if (table === 'edu_biz_report' && filters?.periodType) {
+      query = query.eq('period_type', filters.periodType)
+    }
+
+    if (table === 'edu_biz_report' && filters?.reportType) {
+      query = query.eq('report_type', filters.reportType)
     }
 
     const { data, error } = await query
@@ -293,7 +300,7 @@ export async function fetchBizReport(options: BizDataQueryOptions = {}) {
   } = options
 
   const PAGE_SIZE = 1000
-  let allReportData: any[] = []
+  let allReportData: EduBizReport[] = []
   let page = 0
   let hasMore = true
 
@@ -338,7 +345,7 @@ export async function fetchBizReport(options: BizDataQueryOptions = {}) {
 
 export async function fetchMonthlyPlan() {
   const PAGE_SIZE = 1000
-  let allData: any[] = []
+  let allData: EduBizMonthlyPlan[] = []
   let page = 0
   let hasMore = true
 
@@ -368,17 +375,17 @@ export async function fetchAvailableMonths(
   reportType: 'fone' | 'tuwei'
 ) {
   try {
-    return await fetchDistinctColumnValues('edu_biz_report', 'period', (query) =>
-      query
-        .eq('period_type', periodType)
-        .eq('report_type', reportType)
-        .order('period', { ascending: false })
-    )
+    return await fetchDistinctColumnValues('edu_biz_report', 'period', {
+      periodType,
+      reportType,
+    })
   } catch (error) {
     console.error('Failed to fetch months:', error)
     return []
   }
 }
+
+const aggregatedTreeCache = new WeakMap<EnrichedBizDataNode[], EnrichedBizDataNode[]>()
 
 export function aggregateByNode(
   foneReports: EduBizReport[],
@@ -442,6 +449,11 @@ function buildLeafNodes(nodes: EnrichedBizDataNode[]): EnrichedBizDataNode[] {
 }
 
 export function buildTreeWithAggregation(nodes: EnrichedBizDataNode[]): EnrichedBizDataNode[] {
+  const cached = aggregatedTreeCache.get(nodes)
+  if (cached) {
+    return cached
+  }
+
   const leafNodes = buildLeafNodes(nodes)
 
   if (leafNodes.length === 0) return []
@@ -524,7 +536,9 @@ export function buildTreeWithAggregation(nodes: EnrichedBizDataNode[]): Enriched
     level1Nodes.length > 0 ? level1Nodes : leafNodes
   )
 
-  return [totalNode, ...level1Nodes, ...level2Nodes, ...leafNodes]
+  const aggregatedNodes = [totalNode, ...level1Nodes, ...level2Nodes, ...leafNodes]
+  aggregatedTreeCache.set(nodes, aggregatedNodes)
+  return aggregatedNodes
 }
 
 export interface HierarchyTree {

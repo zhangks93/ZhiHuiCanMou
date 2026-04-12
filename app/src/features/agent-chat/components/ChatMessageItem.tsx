@@ -1,6 +1,6 @@
 import { User } from 'lucide-react'
 
-import type { AgentIcon as AgentIconConfig, ChatMessage } from '@/shared/lib/agent'
+import type { AgentIcon as AgentIconConfig, ChatMessage } from '@/shared/lib/agent/types'
 import { AgentIcon } from './AgentIcon'
 import { ChatMarkdown } from './ChatMarkdown'
 import { ChatProcessPanel } from './ChatProcessPanel'

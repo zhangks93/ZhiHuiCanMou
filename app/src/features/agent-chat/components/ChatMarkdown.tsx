@@ -2,8 +2,6 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Check, Copy, ExternalLink } from 'lucide-react'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 const ECHARTS_CDN_URL = 'https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js'
 const EXTERNAL_SCRIPT_TAG_PATTERN = /<script\b[^>]*\bsrc\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)[^>]*>[\s\S]*?<\/script>/gi
@@ -89,7 +87,7 @@ function buildHtmlPreviewWindowDocument(previewDocument: string) {
     '<iframe id="preview-frame" class="preview-frame" title="图表预览" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>',
     '</div>',
     `<script id="preview-payload" type="application/json">${serializedPreviewDocument}</script>`,
-    '<script>(function () { const frame = document.getElementById("preview-frame"); const payload = document.getElementById("preview-payload"); if (!(frame instanceof HTMLIFrameElement) || !payload) return; const previewDocumentText = JSON.parse(payload.textContent || "\"\""); const previewBlob = new Blob([previewDocumentText], { type: "text/html;charset=utf-8" }); const previewUrl = URL.createObjectURL(previewBlob); frame.addEventListener("load", function handleLoad() { window.setTimeout(function revokePreviewUrl() { URL.revokeObjectURL(previewUrl); }, 60000); }, { once: true }); frame.src = previewUrl; })()</script>',
+    "<script>(function () { const frame = document.getElementById('preview-frame'); const payload = document.getElementById('preview-payload'); if (!(frame instanceof HTMLIFrameElement) || !payload) return; const previewDocumentText = JSON.parse(payload.textContent || '\"\"'); const previewBlob = new Blob([previewDocumentText], { type: 'text/html;charset=utf-8' }); const previewUrl = URL.createObjectURL(previewBlob); frame.addEventListener('load', function handleLoad() { window.setTimeout(function revokePreviewUrl() { URL.revokeObjectURL(previewUrl); }, 60000); }, { once: true }); frame.src = previewUrl; })()</script>",
     '</body>',
     '</html>',
   ].join('\n')
@@ -192,23 +190,9 @@ export function ChatMarkdown({
                     <span>{language}</span>
                     <CopyButton value={code} />
                   </div>
-                  <SyntaxHighlighter
-                    style={oneDark}
-                    language={language}
-                    PreTag="div"
-                    customStyle={{
-                      margin: 0,
-                      padding: '1rem',
-                      borderRadius: 0,
-                      background: 'transparent',
-                      fontFamily: 'var(--font-family-body)',
-                      fontSize: 'var(--font-size-body)',
-                      fontWeight: 400,
-                      lineHeight: 1.7,
-                    }}
-                  >
-                    {code}
-                  </SyntaxHighlighter>
+                  <pre className="m-0 overflow-x-auto bg-slate-950/92 p-4 text-[var(--color-text-on-dark)]">
+                    <code className={`language-${language}`}>{code}</code>
+                  </pre>
                 </div>
               )
             }

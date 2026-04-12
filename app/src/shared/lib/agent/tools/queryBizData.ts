@@ -6,6 +6,21 @@ import { supabase } from '@/shared/lib/supabase'
 
 const PAGE_SIZE = 1000
 
+interface BizDataQueryRow {
+  node_name: string
+  metric_category: string
+  metric_category_cn: string
+  actual_value: number | null
+  budget_value: number | null
+  completion_rate: number | null
+  diff_value: number | null
+  yoy_value: number | null
+  period: string
+  report_type: string
+  period_type: string
+  sheet_code: string
+}
+
 export const queryBizDataTool: RegisteredTool = {
   definition: {
     type: 'function',
@@ -86,7 +101,7 @@ export const queryBizDataTool: RegisteredTool = {
 
     if (fetchAll) {
       // Paginated fetch (same pattern as bizDataService.fetchBizReport)
-      let allData: any[] = []
+      let allData: BizDataQueryRow[] = []
       let page = 0
       let hasMore = true
 

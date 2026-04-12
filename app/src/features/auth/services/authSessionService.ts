@@ -18,18 +18,15 @@ export async function recoverAuthSession(): Promise<{
   const storedToken = getSessionToken()
 
   if (storedToken) {
-    console.log('[Canmou] Found stored session, attempting recovery...')
     const { data: { session }, error } = await supabase.auth.getSession()
 
     if (session && !error) {
-      console.log('[Canmou] Session recovered successfully')
       return {
         user: mapAuthUser(session.user),
         session,
       }
     }
 
-    console.log('[Canmou] Stored session invalid, clearing...')
     clearSessionToken()
     return { user: null, session: null }
   }
@@ -44,8 +41,7 @@ export async function recoverAuthSession(): Promise<{
 export function subscribeToAuthState(
   onChange: (user: AuthUser | null, session: Session | null) => void,
 ): { unsubscribe: () => void } {
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-    console.log('[Canmou AuthContext] Auth state changed:', event, session?.user?.id ? 'User logged in' : 'No user')
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     onChange(mapAuthUser(session?.user ?? null), session)
   })
 
@@ -76,12 +72,8 @@ export function scheduleTokenRefresh(params: {
   const expiresAt = session.expires_at ? session.expires_at * 1000 : Date.now() + expiresIn * 1000
   const timeUntilRefresh = expiresAt - Date.now() - REFRESH_THRESHOLD_MS
 
-  console.log(`[Canmou] Token expires at: ${new Date(expiresAt).toLocaleString()}, time until refresh: ${Math.round(timeUntilRefresh / 1000)}s`)
-
   if (timeUntilRefresh > 0) {
-    console.log(`[Canmou] Scheduling token refresh in ${Math.round(timeUntilRefresh / 1000)}s`)
     refreshTimerRef.current = window.setTimeout(async () => {
-      console.log('[Canmou] Auto-refreshing session...')
       try {
         const { data, error } = await supabase.auth.refreshSession()
         if (error) {
@@ -97,11 +89,9 @@ export function scheduleTokenRefresh(params: {
   }
 
   if (refreshInProgressRef.current) {
-    console.log('[Canmou] Refresh already in progress, skipping...')
     return
   }
 
-  console.log('[Canmou] Token expired, refreshing immediately...')
   refreshInProgressRef.current = true
   supabase.auth.refreshSession()
     .then(({ data, error }) => {

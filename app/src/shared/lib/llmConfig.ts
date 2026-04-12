@@ -11,7 +11,7 @@ export interface LLMConfig {
 
 export interface ProviderSettings {
   apiUrl: string
-  apiKey: string
+  apiKey?: string
   model: string
 }
 
@@ -20,7 +20,13 @@ interface LLMConfigStore {
   providers: Partial<Record<LLMConfig['provider'], ProviderSettings>>
 }
 
+interface LLMSecretStore {
+  provider: LLMConfig['provider']
+  apiKey: string
+}
+
 const STORAGE_KEY = 'llm_config'
+const SECRET_STORAGE_KEY = 'llm_config_session_secret'
 
 const VALID_PROVIDERS: readonly LLMProvider[] = ['openai', 'claude', 'deepseek', 'kimi', 'minimax', 'glm', 'openrouter']
 
@@ -98,6 +104,22 @@ const llmConfigStore = createBrowserStore<LLMConfigStore | null>({
   deserialize: deserializeStore,
 })
 
+const llmSecretStore = createBrowserStore<LLMSecretStore | null>({
+  key: SECRET_STORAGE_KEY,
+  storage: 'session',
+  fallback: null,
+  deserialize: (raw) => {
+    const parsed = JSON.parse(raw)
+    if (!isProvider(parsed?.provider) || typeof parsed?.apiKey !== 'string') {
+      return null
+    }
+    return {
+      provider: parsed.provider,
+      apiKey: parsed.apiKey,
+    }
+  },
+})
+
 /** Read raw store from localStorage, migrating old flat format if needed */
 function loadStore(): LLMConfigStore | null {
   return llmConfigStore.get()
@@ -108,11 +130,16 @@ export function loadLLMConfig(): LLMConfig | null {
   const store = loadStore()
   if (!store) return null
   const settings = store.providers[store.provider]
-  if (!settings?.apiKey) return null
+  if (!settings) return null
+  const sessionSecret = llmSecretStore.get()
+  const apiKey = sessionSecret?.provider === store.provider
+    ? sessionSecret.apiKey
+    : ''
+  if (!apiKey) return null
   return {
     provider: store.provider,
     apiUrl: settings.apiUrl,
-    apiKey: settings.apiKey,
+    apiKey,
     model: settings.model,
   }
 }
@@ -120,7 +147,14 @@ export function loadLLMConfig(): LLMConfig | null {
 /** Load a specific provider's saved settings (used by Settings page) */
 export function loadProviderSettings(provider: LLMConfig['provider']): ProviderSettings | null {
   const store = loadStore()
-  return store?.providers[provider] ?? null
+  const settings = store?.providers[provider]
+  const sessionSecret = llmSecretStore.get()
+  if (!settings) return null
+
+  return {
+    ...settings,
+    apiKey: sessionSecret?.provider === provider ? sessionSecret.apiKey : '',
+  }
 }
 
 /** Save config, preserving other provider's settings */
@@ -129,14 +163,18 @@ export function saveLLMConfig(config: LLMConfig): void {
   store.provider = config.provider
   store.providers[config.provider] = {
     apiUrl: config.apiUrl,
-    apiKey: config.apiKey,
     model: config.model,
   }
   llmConfigStore.set(store)
+  llmSecretStore.set({
+    provider: config.provider,
+    apiKey: config.apiKey,
+  })
 }
 
 export function clearLLMConfig(): void {
   llmConfigStore.remove()
+  llmSecretStore.remove()
 }
 
 export function subscribeLLMConfig(listener: (config: LLMConfig | null) => void): () => void {

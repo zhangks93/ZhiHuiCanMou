@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { ReportTypeToggle } from '../components/ReportTypeToggle'
 import { PeriodTypeToggle } from '../components/PeriodTypeToggle'
@@ -10,6 +10,26 @@ import { ChartView, type DrillDownLevel } from '../components/ChartView'
 import { HierarchyLevelFilter, type LevelVisibility } from '../components/HierarchyLevelFilter'
 import { TableView } from '../components/TableView'
 import { useBizDataViewModel } from '../hooks/useBizDataViewModel'
+import type { EnrichedBizDataNode } from '../types'
+
+function normalizeDrillDownPath(
+  path: DrillDownLevel[],
+  nodes: EnrichedBizDataNode[],
+): DrillDownLevel[] {
+  if (path.length <= 1) {
+    return path
+  }
+
+  const availableNodeNames = new Set(nodes.map((node) => node.node_name))
+  for (let index = 1; index < path.length; index += 1) {
+    const currentNode = path[index]?.node
+    if (!currentNode || !availableNodeNames.has(currentNode.node_name)) {
+      return [{ node: null, label: '全部' }]
+    }
+  }
+
+  return path
+}
 
 export function BizDataPage() {
   const {
@@ -36,10 +56,7 @@ export function BizDataPage() {
     level2: true,
     level3: true,
   })
-
-  useEffect(() => {
-    setDrillDownPath([{ node: null, label: '全部' }])
-  }, [nodes])
+  const effectiveDrillDownPath = useMemo(() => normalizeDrillDownPath(drillDownPath, nodes), [drillDownPath, nodes])
 
   return (
     <div className="app-page biz-data-page">
@@ -66,7 +83,7 @@ export function BizDataPage() {
             <HierarchyLevelFilter value={showLevels} onChange={setShowLevels} />
           ) : (
             <ChartHierarchyBreadcrumb
-              items={drillDownPath.map(({ label }) => ({ label }))}
+              items={effectiveDrillDownPath.map(({ label }) => ({ label }))}
               onSelect={(index) => setDrillDownPath((prev) => prev.slice(0, index + 1))}
             />
           )}
@@ -107,14 +124,14 @@ export function BizDataPage() {
             showLevels={showLevels}
           />
         ) : (
-          <ChartView
-            nodes={nodes}
-            reportType={reportType}
-            selectedMetrics={selectedMetrics}
-            drillDownPath={drillDownPath}
-            onDrillDownPathChange={setDrillDownPath}
-          />
-        )}
+            <ChartView
+              nodes={nodes}
+              reportType={reportType}
+              selectedMetrics={selectedMetrics}
+              drillDownPath={effectiveDrillDownPath}
+              onDrillDownPathChange={setDrillDownPath}
+            />
+          )}
       </div>
     </div>
   )

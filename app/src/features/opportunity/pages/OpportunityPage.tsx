@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
@@ -13,8 +13,6 @@ import { AppLoading } from '@/shared/ui/AppLoading'
 import { AppPagination } from '@/shared/ui/AppPagination'
 import { useOpportunityData } from '../hooks/useOpportunityData'
 import type { OpportunityLedger } from '../types'
-
-// ─── Stage config ────────────────────────────────────────────────────────────
 
 type StageCode = string
 
@@ -72,16 +70,10 @@ const STAGE_STYLE: Record<StageCode, { bg: string; text: string; dot: string; ba
   },
 }
 
-// ─── Formatters ──────────────────────────────────────────────────────────────
-
 function formatDate(value: string | null): string {
   if (!value) return '-'
   return value.slice(0, 10)
 }
-
-// ─── Funnel Stage Bar ────────────────────────────────────────────────────────
-
-// ─── Filter Select ──────────────────────────────────────────────────────────
 
 interface SelectProps {
   value: string
@@ -109,8 +101,6 @@ function FilterSelect({ value, onChange, options }: SelectProps) {
   )
 }
 
-// ─── Stage Badge ─────────────────────────────────────────────────────────────
-
 function StageBadge({ stageCode, stageLabel }: { stageCode: string; stageLabel: string }) {
   const style = STAGE_STYLE[stageCode] ?? STAGE_STYLE.lead
   const Icon = style.icon
@@ -121,8 +111,6 @@ function StageBadge({ stageCode, stageLabel }: { stageCode: string; stageLabel: 
     </span>
   )
 }
-
-// ─── Desktop Table ───────────────────────────────────────────────────────────
 
 interface TableProps {
   rows: OpportunityLedger[]
@@ -172,116 +160,113 @@ function DesktopTable({ rows, onSort, sortCol, sortDir }: TableProps) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
-            return (
-              <tr key={row.id}>
-                <td>
-                  <span className="app-cell-muted whitespace-nowrap">
-                    {row.project_group ?? '-'}
-                  </span>
-                </td>
-                <td>
-                  <div className="max-w-[320px]">
-                    <div className="app-cell-strong line-clamp-2 font-medium leading-snug">
-                      {row.project_name}
-                    </div>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>
+                <span className="app-cell-muted whitespace-nowrap">
+                  {row.project_group ?? '-'}
+                </span>
+              </td>
+              <td>
+                <div className="max-w-[320px]">
+                  <div className="app-cell-strong line-clamp-2 font-medium leading-snug">
+                    {row.project_name}
                   </div>
-                </td>
-                <td>
-                  <StageBadge stageCode={row.stage_code} stageLabel={row.stage_label} />
-                </td>
-                <td>
-                  <div className="app-cell-muted max-w-[360px] line-clamp-2 leading-relaxed">
-                    {row.progress_note ?? '-'}
-                  </div>
-                </td>
-                <td>
-                  <span className="app-cell-muted app-cell-numeric whitespace-nowrap">{formatDate(row.target_date)}</span>
-                </td>
-                <td className="text-right">
-                  <span className="app-cell-strong app-cell-numeric whitespace-nowrap font-semibold">
-                    {row.first_year_revenue != null ? `${row.first_year_revenue}万/年` : '-'}
-                  </span>
-                </td>
-              </tr>
-            )
-          })}
+                </div>
+              </td>
+              <td>
+                <StageBadge stageCode={row.stage_code} stageLabel={row.stage_label} />
+              </td>
+              <td>
+                <div className="app-cell-muted max-w-[360px] line-clamp-2 leading-relaxed">
+                  {row.progress_note ?? '-'}
+                </div>
+              </td>
+              <td>
+                <span className="app-cell-muted app-cell-numeric whitespace-nowrap">{formatDate(row.target_date)}</span>
+              </td>
+              <td className="text-right">
+                <span className="app-cell-strong app-cell-numeric whitespace-nowrap font-semibold">
+                  {row.first_year_revenue != null ? `${row.first_year_revenue}万/年` : '-'}
+                </span>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
   )
 }
 
-// ─── Mobile Cards ────────────────────────────────────────────────────────────
-
-interface MobileCardsProps {
-  rows: OpportunityLedger[]
-}
-
-function MobileCards({ rows }: MobileCardsProps) {
+function MobileCards({ rows }: { rows: OpportunityLedger[] }) {
   return (
     <div className="lg:hidden space-y-2 px-4 py-3">
-      {rows.map((row) => {
-        return (
-          <div
-            key={row.id}
-            className="rounded-xl border border-[rgba(148,163,184,0.10)] bg-white/90 p-4 transition-all duration-160"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="line-clamp-2 text-caption font-semibold text-[var(--color-text-strong)] leading-snug">
-                  {row.project_name}
-                </div>
-                <div className="mt-1.5 flex items-center gap-2">
-                  {row.project_group && (
-                    <span className="text-caption text-[var(--color-text-muted)]">{row.project_group}</span>
-                  )}
-                  <span className="text-caption text-[var(--color-text-muted)]">{formatDate(row.target_date)}</span>
-                  {row.first_year_revenue != null && (
-                    <span className="text-caption font-semibold text-[var(--color-text-strong)]">{row.first_year_revenue}万/年</span>
-                  )}
-                </div>
+      {rows.map((row) => (
+        <div
+          key={row.id}
+          className="rounded-xl border border-[rgba(148,163,184,0.10)] bg-white/90 p-4 transition-all duration-160"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="line-clamp-2 text-caption font-semibold text-[var(--color-text-strong)] leading-snug">
+                {row.project_name}
               </div>
-              <StageBadge stageCode={row.stage_code} stageLabel={row.stage_label} />
+              <div className="mt-1.5 flex items-center gap-2">
+                {row.project_group && (
+                  <span className="text-caption text-[var(--color-text-muted)]">{row.project_group}</span>
+                )}
+                <span className="text-caption text-[var(--color-text-muted)]">{formatDate(row.target_date)}</span>
+                {row.first_year_revenue != null && (
+                  <span className="text-caption font-semibold text-[var(--color-text-strong)]">{row.first_year_revenue}万/年</span>
+                )}
+              </div>
             </div>
-
-            <div className="mt-3 rounded-lg bg-[rgba(15,23,42,0.03)] p-3">
-              <p className="text-caption leading-relaxed text-[var(--color-text-muted)] whitespace-pre-line">
-                {row.progress_note ?? '暂无进度说明'}
-              </p>
-              {row.first_year_revenue_raw && (
-                <div className="mt-2 text-caption text-[var(--color-text-muted)]">
-                  原始值：{row.first_year_revenue_raw}
-                </div>
-              )}
-            </div>
+            <StageBadge stageCode={row.stage_code} stageLabel={row.stage_label} />
           </div>
-        )
-      })}
+
+          <div className="mt-3 rounded-lg bg-[rgba(15,23,42,0.03)] p-3">
+            <p className="text-caption leading-relaxed text-[var(--color-text-muted)] whitespace-pre-line">
+              {row.progress_note ?? '暂无进度说明'}
+            </p>
+            {row.first_year_revenue_raw && (
+              <div className="mt-2 text-caption text-[var(--color-text-muted)]">
+                原始值：{row.first_year_revenue_raw}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
-// ─── Pagination ──────────────────────────────────────────────────────────────
-
 const PAGE_SIZE = 10
-
-// ─── Page ────────────────────────────────────────────────────────────────────
 
 export function OpportunityPage() {
   const { allData, loading } = useOpportunityData()
 
-  // Filters
   const [filterGroup, setFilterGroup] = useState('all')
   const [filterStage, setFilterStage] = useState('all')
   const [searchText, setSearchText] = useState('')
-
-  // UI state
   const [sortCol, setSortCol] = useState('first_year_revenue')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
 
-  // Derived: group & stage filter options
+  const updateFilterGroup = (value: string) => {
+    setFilterGroup(value)
+    setPage(1)
+  }
+
+  const updateFilterStage = (value: string) => {
+    setFilterStage(value)
+    setPage(1)
+  }
+
+  const updateSearchText = (value: string) => {
+    setSearchText(value)
+    setPage(1)
+  }
+
   const groupOptions = useMemo(() => {
     const groups = [...new Set(allData.map((r) => r.project_group).filter(Boolean))] as string[]
     return [{ value: 'all', label: '全部分组' }, ...groups.map((g) => ({ value: g, label: g }))]
@@ -295,7 +280,6 @@ export function OpportunityPage() {
     })),
   ]
 
-  // Filtered & sorted data
   const filtered = useMemo(() => {
     let rows = allData.filter((r) => {
       if (filterGroup !== 'all' && r.project_group !== filterGroup) return false
@@ -333,10 +317,6 @@ export function OpportunityPage() {
     return rows
   }, [allData, filterGroup, filterStage, searchText, sortCol, sortDir])
 
-  // Reset to page 1 whenever filters or sort change
-  useEffect(() => { setPage(1) }, [filterGroup, filterStage, searchText, sortCol, sortDir])
-
-  // Paginated slice
   const paginated = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return filtered.slice(start, start + PAGE_SIZE)
@@ -349,6 +329,7 @@ export function OpportunityPage() {
       setSortCol(col)
       setSortDir('desc')
     }
+    setPage(1)
   }
 
   const hasActiveFilter = filterGroup !== 'all' || filterStage !== 'all' || searchText !== ''
@@ -358,16 +339,15 @@ export function OpportunityPage() {
       <div className="flex flex-wrap items-center gap-2">
         <FilterSelect
           value={filterGroup}
-          onChange={setFilterGroup}
+          onChange={updateFilterGroup}
           options={groupOptions}
         />
         <FilterSelect
           value={filterStage}
-          onChange={setFilterStage}
+          onChange={updateFilterStage}
           options={stageOptions}
         />
 
-        {/* Search */}
         <div className="relative flex-1 min-w-[160px] max-w-[240px]">
           <Search
             size={12}
@@ -377,12 +357,12 @@ export function OpportunityPage() {
             type="text"
             placeholder="搜索项目名称..."
             value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+            onChange={(e) => updateSearchText(e.target.value)}
             className="app-filter-control app-filter-search-input"
           />
           {searchText && (
             <button
-              onClick={() => setSearchText('')}
+              onClick={() => updateSearchText('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-strong)]"
             >
               <X size={11} />
@@ -394,9 +374,9 @@ export function OpportunityPage() {
           <button
             className="app-filter-control app-filter-action"
             onClick={() => {
-              setFilterGroup('all')
-              setFilterStage('all')
-              setSearchText('')
+              updateFilterGroup('all')
+              updateFilterStage('all')
+              updateSearchText('')
             }}
           >
             <X size={11} />
@@ -405,7 +385,6 @@ export function OpportunityPage() {
         )}
       </div>
 
-      {/* Data table */}
       <div className="app-table-shell">
         {loading ? (
           <AppLoading label="加载商机数据..." variant="block" />
@@ -419,9 +398,7 @@ export function OpportunityPage() {
               sortCol={sortCol}
               sortDir={sortDir}
             />
-            <MobileCards
-              rows={paginated}
-            />
+            <MobileCards rows={paginated} />
             <AppPagination
               page={page}
               total={filtered.length}

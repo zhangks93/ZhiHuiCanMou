@@ -1,7 +1,7 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 
 import { ROUTES } from '@/app/config/constants'
-import { getEnabledAgents } from '@/shared/lib/agent'
+import { getEnabledAgents } from '@/shared/lib/agent/registry'
 import { AgentChatPage } from '../components/AgentChatPage'
 import { AgentDirectoryPage } from './AgentDirectoryPage'
 

@@ -103,7 +103,7 @@ export function Settings() {
     const saved = cached || loadProviderSettings(p)
     if (saved) {
       setApiUrl(saved.apiUrl)
-      setApiKey(saved.apiKey)
+      setApiKey(saved.apiKey ?? '')
       setModel(saved.model)
     } else {
       setApiUrl(DEFAULT_URLS[p])

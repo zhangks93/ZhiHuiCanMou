@@ -6,6 +6,15 @@ import { supabase } from '@/shared/lib/supabase'
 
 const PAGE_SIZE = 1000
 
+interface MonthlyPlanQueryRow {
+  node_name: string
+  metric_category: string
+  metric_category_cn: string
+  month: string
+  plan_value: number | null
+  sort_order: number
+}
+
 export const queryMonthlyPlanTool: RegisteredTool = {
   definition: {
     type: 'function',
@@ -60,7 +69,7 @@ export const queryMonthlyPlanTool: RegisteredTool = {
         : undefined
 
     // Paginated fetch (same pattern as bizDataService.fetchMonthlyPlan)
-    let allData: any[] = []
+    let allData: MonthlyPlanQueryRow[] = []
     let page = 0
     let hasMore = true
 
@@ -108,7 +117,7 @@ export const queryMonthlyPlanTool: RegisteredTool = {
         .limit(100)
 
       const availableMonths = Array.from(
-        new Set((monthData || []).map((row: any) => row.month).filter((value: any): value is string => Boolean(value)))
+        new Set((monthData || []).map((row) => row.month).filter((value): value is string => Boolean(value)))
       ).sort((a: string, b: string) => b.localeCompare(a))
 
       return JSON.stringify({
@@ -133,7 +142,7 @@ export const queryMonthlyPlanTool: RegisteredTool = {
       scope: {
         node_name: nodeName || null,
       },
-      rows: allData.map((row: any) => ({
+      rows: allData.map((row) => ({
         node_name: row.node_name,
         metric: row.metric_category,
         metric_label: row.metric_category_cn,

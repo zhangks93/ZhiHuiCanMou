@@ -44,9 +44,9 @@ function parseUrlParams(url: string): Record<string, string> {
 export function parseAuthCallbackParams(location: Location): ParsedAuthCallbackParams {
   const fullUrl = location.href
   const debugDetails = [
-    `完整URL: ${fullUrl}`,
-    `Hash: ${location.hash}`,
-    `Search: ${location.search}`,
+    `回调路径: ${location.pathname || '/'}`,
+    `Hash 长度: ${location.hash.length}`,
+    `Search 长度: ${location.search.length}`,
   ]
 
   const hashParams = parseHashParams(location.hash)
@@ -54,7 +54,7 @@ export function parseAuthCallbackParams(location: Location): ParsedAuthCallbackP
   const searchParams = parseUrlParams(location.search)
   const params = { ...urlParams, ...searchParams, ...hashParams }
 
-  debugDetails.push(`解析参数: ${JSON.stringify(params)}`)
+  debugDetails.push(`已解析 access_token=${params.access_token ? 'yes' : 'no'}, refresh_token=${params.refresh_token ? 'yes' : 'no'}, state=${params.state ? 'yes' : 'no'}`)
 
   return {
     accessToken: params.access_token ?? null,

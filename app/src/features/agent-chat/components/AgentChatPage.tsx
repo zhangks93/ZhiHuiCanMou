@@ -2,6 +2,7 @@
 // Combines agent selector, conversation list, and chat interface
 
 import { useState, useEffect, useRef, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Send,
   Square,
@@ -19,7 +20,10 @@ import type {
 } from '@/shared/lib/agent/types'
 import { loadConversations, saveConversations, createConversation, deleteConversation } from '@/shared/lib/agent/conversationStore'
 import { buildConversationMemoryBlock, compactConversation, getRecentMessagesForPrompt } from '@/shared/lib/agent/conversationMemory'
+import { buildSettingsHref } from '@/app/config/constants'
 import { loadLLMConfig } from '@/shared/lib/llmConfig'
+import type { ChatAgent } from '@/shared/lib/agent/chatAgent'
+import { loadAgentRuntimeModules } from '@/shared/lib/agent/runtimeLoader'
 import { useAgentConfig } from '@/features/agent-chat/hooks/useAgentConfig'
 import {
   buildFinancialAnalysisRuntimeContextBlock,
@@ -133,9 +137,9 @@ function ConfigPrompt() {
             前往设置页填写 API Key 和模型名称
           </p>
         </div>
-        <a href="/settings" className="btn btn-primary btn-sm">
+        <Link to={buildSettingsHref('ai-model')} className="btn btn-primary btn-sm">
           前往设置
-        </a>
+        </Link>
       </div>
     </div>
   )
@@ -161,7 +165,9 @@ export function AgentChatPage({
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const shouldAutoScrollRef = useRef(true)
-  const agentRef = useRef<InstanceType<typeof import('@/shared/lib/agent').ChatAgent> | null>(null)
+  const agentRef = useRef<Pick<ChatAgent, 'abort' | 'chat' | 'updateConfig'> | null>(null)
+  const streamFrameRef = useRef<number | null>(null)
+  const activeSendRunRef = useRef(0)
   const { configOk } = useAgentConfig(agentRef)
 
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0]
@@ -217,6 +223,51 @@ export function AgentChatPage({
     setConversations(nextConversations)
     saveConversations(nextConversations, activeAgentId)
   }, [activeAgentId])
+
+  const flushStreamingMessage = useCallback((assistantMessage: ChatMessage) => {
+    if (streamFrameRef.current !== null) {
+      return
+    }
+
+    streamFrameRef.current = window.requestAnimationFrame(() => {
+      streamFrameRef.current = null
+      setStreamingMsg({ ...assistantMessage })
+    })
+  }, [])
+
+  const ensureAgentReady = useCallback(async () => {
+    const config = loadLLMConfig()
+    if (!config) return null
+
+    const existingAgent = agentRef.current
+    if (existingAgent) {
+      existingAgent.updateConfig(config)
+      return existingAgent
+    }
+
+    const { ChatAgent, tools } = await loadAgentRuntimeModules()
+
+    const readyAgent = agentRef.current
+    if (readyAgent) {
+      readyAgent.updateConfig(config)
+      return readyAgent
+    }
+
+    const agent = new ChatAgent(config)
+    tools.forEach((tool) => agent.registerTool(tool))
+    agentRef.current = agent
+    return agent
+  }, [])
+
+  useEffect(() => {
+    if (!configOk) return
+    void ensureAgentReady().catch(() => {})
+  }, [configOk, ensureAgentReady])
+
+  useEffect(() => {
+    if (activeAgent?.id !== 'financial-analysis') return
+    void getFinancialAnalysisRuntimeDataContext().catch(() => {})
+  }, [activeAgent?.id])
 
   const handleNewConversation = useCallback(() => {
     const conversation = createConversation()
@@ -278,8 +329,8 @@ export function AgentChatPage({
     const text = input.trim()
     if (!text || isStreaming || !activeAgent) return
 
-    const { ChatAgent } = await import('@/shared/lib/agent')
-    const { queryBizDataTool, queryWithHierarchyTool, queryMonthlyPlanTool, resolveOrgNodesTool, readFileTool } = await import('@/shared/lib/agent')
+    const sendRunId = activeSendRunRef.current + 1
+    activeSendRunRef.current = sendRunId
 
     let conversationId = activeConversationId
     let nextConversations = conversations
@@ -292,15 +343,6 @@ export function AgentChatPage({
     }
 
     const currentConversation = nextConversations.find(conversation => conversation.id === conversationId)
-    const runtimeDataContext = activeAgent.id === 'financial-analysis'
-      ? await getFinancialAnalysisRuntimeDataContext()
-      : undefined
-    const systemPrompt = buildAgentSystemPrompt({
-      agent: activeAgent,
-      conversation: currentConversation,
-      runtimeDataContext,
-      latestUserQuery: text,
-    })
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -318,19 +360,6 @@ export function AgentChatPage({
       textareaRef.current.style.height = 'auto'
     }
 
-    if (!agentRef.current) {
-      const config = loadLLMConfig()
-      if (config) {
-        const agent = new ChatAgent(config)
-        agent.registerTool(resolveOrgNodesTool)
-        agent.registerTool(queryWithHierarchyTool)
-        agent.registerTool(queryMonthlyPlanTool)
-        agent.registerTool(queryBizDataTool)
-        agent.registerTool(readFileTool)
-        agentRef.current = agent
-      }
-    }
-
     setIsStreaming(true)
     const assistantMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -343,7 +372,27 @@ export function AgentChatPage({
     }
     setStreamingMsg({ ...assistantMessage })
 
+    let runtimeDataContext: FinancialAnalysisRuntimeDataContext | undefined
+
     try {
+      ;[runtimeDataContext] = await Promise.all([
+        activeAgent.id === 'financial-analysis'
+          ? getFinancialAnalysisRuntimeDataContext()
+          : Promise.resolve<FinancialAnalysisRuntimeDataContext | undefined>(undefined),
+        ensureAgentReady(),
+      ])
+
+      if (activeSendRunRef.current !== sendRunId) {
+        throw new DOMException('Send aborted', 'AbortError')
+      }
+
+      const systemPrompt = buildAgentSystemPrompt({
+        agent: activeAgent,
+        conversation: currentConversation,
+        runtimeDataContext,
+        latestUserQuery: text,
+      })
+
       if (!agentRef.current) throw new Error('AI agent not initialized')
       const promptMessages = getRecentMessagesForPrompt(
         currentConversation?.id === conversationId
@@ -368,7 +417,7 @@ export function AgentChatPage({
             )
             break
         }
-        setStreamingMsg({ ...assistantMessage })
+        flushStreamingMessage(assistantMessage)
       }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
@@ -378,10 +427,18 @@ export function AgentChatPage({
       }
     }
 
+    if (activeSendRunRef.current !== sendRunId) {
+      return
+    }
+
     assistantMessage.streaming = false
     if (!assistantMessage.thinking) delete assistantMessage.thinking
     if (!assistantMessage.toolCalls?.length) delete assistantMessage.toolCalls
 
+    if (streamFrameRef.current !== null) {
+      window.cancelAnimationFrame(streamFrameRef.current)
+      streamFrameRef.current = null
+    }
     setStreamingMsg(null)
     setIsStreaming(false)
 
@@ -414,9 +471,10 @@ export function AgentChatPage({
       })
     })
     persist(updatedConversations)
-  }, [activeAgent, activeConversationId, conversations, input, isStreaming, messages, persist])
+  }, [activeAgent, activeConversationId, conversations, ensureAgentReady, flushStreamingMessage, input, isStreaming, messages, persist])
 
   const handleAbort = useCallback(() => {
+    activeSendRunRef.current += 1
     agentRef.current?.abort()
   }, [])
 
@@ -448,6 +506,14 @@ export function AgentChatPage({
 
   const displayMessages = streamingMsg ? [...messages, streamingMsg] : messages
   const showHistorySidebar = !isDesktop || !historyCollapsed
+
+  useEffect(() => {
+    return () => {
+      if (streamFrameRef.current !== null) {
+        window.cancelAnimationFrame(streamFrameRef.current)
+      }
+    }
+  }, [])
 
   if (!configOk) {
     return (

@@ -1,7 +1,7 @@
-use tauri::{Manager, Emitter};
-use tauri_plugin_deep_link::DeepLinkExt;
-use std::time::{Duration, SystemTime};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime};
+use tauri::{Emitter, Manager};
+use tauri_plugin_deep_link::DeepLinkExt;
 
 // Track deep link attempts for retry logic
 struct DeepLinkState {
@@ -70,52 +70,56 @@ pub fn run() {
 }
 
 fn handle_deep_link(handle: &tauri::AppHandle, url: &str, state: Arc<Mutex<DeepLinkState>>) {
-    println!("[Canmou] Processing deep link: {}", url);
-
     // 处理认证回调
     if url.starts_with("canmou://auth-callback") {
-        println!("[Canmou] Auth callback detected");
-
         // Record attempt
         if let Ok(mut state_guard) = state.lock() {
             state_guard.record_attempt();
-            println!("[Canmou] Deep link attempt #{}", state_guard.retry_count);
         }
 
-        // 解析 URL 参数（支持 # 和 ? 两种格式）
-        let params = if let Some(fragment) = url.split('#').nth(1) {
-            fragment.to_string()
-        } else if let Some(query) = url.split('?').nth(1) {
-            query.split('#').next().unwrap_or("").to_string()
-        } else {
-            String::new()
-        };
-
-        println!("[Canmou] Auth params: {}", params);
+        let params = extract_auth_params(url);
 
         // Validate params
         if params.is_empty() {
             eprintln!("[Canmou] ERROR: No auth parameters found in deep link");
-            emit_deep_link_error(handle, "DEEP_LINK_FAILED", "No authentication parameters in deep link");
+            emit_deep_link_error(
+                handle,
+                "DEEP_LINK_FAILED",
+                "No authentication parameters in deep link",
+            );
             return;
         }
 
         // Check for required tokens
-        if !params.contains("access_token") || !params.contains("refresh_token") {
+        if !has_required_auth_tokens(&params) {
             eprintln!("[Canmou] ERROR: Missing required tokens in deep link");
-            emit_deep_link_error(handle, "MISSING_TOKENS", "Missing access_token or refresh_token");
+            emit_deep_link_error(
+                handle,
+                "MISSING_TOKENS",
+                "Missing access_token or refresh_token",
+            );
             return;
         }
 
         // 获取主窗口并导航到认证回调页面
         match handle.get_webview_window("main") {
             Some(window) => {
-                let js_code = format!("window.location.hash = '/auth-callback#{}'", params);
-                println!("[Canmou] Executing navigation: {}", js_code);
+                let target_hash = format!("/auth-callback#{}", params);
+                let serialized_hash = match serde_json::to_string(&target_hash) {
+                    Ok(value) => value,
+                    Err(error) => {
+                        emit_deep_link_error(
+                            handle,
+                            "DEEP_LINK_FAILED",
+                            &format!("Failed to encode navigation target: {}", error),
+                        );
+                        return;
+                    }
+                };
+                let js_code = format!("window.location.hash = {}", serialized_hash);
 
                 match window.eval(&js_code) {
                     Ok(_) => {
-                        println!("[Canmou] Navigation successful");
                         // Reset retry count on success
                         if let Ok(mut state_guard) = state.lock() {
                             state_guard.reset();
@@ -136,18 +140,20 @@ fn handle_deep_link(handle: &tauri::AppHandle, url: &str, state: Arc<Mutex<DeepL
                         };
 
                         if should_retry {
-                            println!("[Canmou] Scheduling retry...");
                             let handle_clone = handle.clone();
                             let url_clone = url.to_string();
                             let state_clone = state.clone();
 
                             std::thread::spawn(move || {
                                 std::thread::sleep(Duration::from_secs(2));
-                                println!("[Canmou] Retrying deep link...");
                                 handle_deep_link(&handle_clone, &url_clone, state_clone);
                             });
                         } else {
-                            emit_deep_link_error(handle, "DEEP_LINK_FAILED", &format!("Navigation failed: {}", e));
+                            emit_deep_link_error(
+                                handle,
+                                "DEEP_LINK_FAILED",
+                                &format!("Navigation failed: {}", e),
+                            );
                         }
                     }
                 }
@@ -158,6 +164,27 @@ fn handle_deep_link(handle: &tauri::AppHandle, url: &str, state: Arc<Mutex<DeepL
             }
         }
     }
+}
+
+fn extract_auth_params(url: &str) -> String {
+    if let Some(fragment) = url.split('#').nth(1) {
+        return fragment.to_string();
+    }
+
+    if let Some(query) = url.split('?').nth(1) {
+        return query.split('#').next().unwrap_or("").to_string();
+    }
+
+    String::new()
+}
+
+fn has_required_auth_tokens(params: &str) -> bool {
+    let query_pairs = params
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    query_pairs.contains_key("access_token") && query_pairs.contains_key("refresh_token")
 }
 
 fn emit_deep_link_error(handle: &tauri::AppHandle, code: &str, message: &str) {

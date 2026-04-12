@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="智汇参谋 - 数字秘书，让员工向 AI 汇报工作。统一汇报入口、AI 智能汇总、多层级权限、插件式模块，助力企业管理更高效">
   <title>智汇参谋 Canmou — 数字秘书 · 员工向 AI 汇报工作</title>
+  <link rel="icon" type="image/png" href="./logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
@@ -110,6 +111,22 @@
     }
 
     .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    .logo img {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      object-fit: cover;
+      box-shadow: 0 16px 32px rgba(2, 6, 23, 0.34);
+    }
+
+    .logo span {
       font-family: 'Syne', sans-serif;
       font-size: 1.2rem;
       font-weight: 700;
@@ -117,7 +134,7 @@
       color: var(--text-primary);
     }
 
-    .logo span {
+    .logo span strong {
       background: var(--gradient-accent);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -980,7 +997,10 @@
 
   <header>
     <nav class="container">
-      <div class="logo">智汇<span>参谋</span></div>
+      <div class="logo">
+        <img src="./logo.png" alt="智汇参谋 Logo">
+        <span>智汇<strong>参谋</strong></span>
+      </div>
       <div class="nav-links">
         <span class="status-badge">系统在线</span>
         <a href="#features">功能</a>
