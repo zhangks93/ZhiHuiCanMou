@@ -35,6 +35,15 @@ export {
   deleteConversation,
   getStorageKey,
 } from './conversationStore'
+export {
+  buildConversationMemoryBlock,
+  compactConversation,
+  getRecentMessagesForPrompt,
+} from './conversationMemory'
+export {
+  loadArtifactPayloads,
+  getArtifactPayloadById,
+} from './artifactStore'
 
 // Types
 export type {
@@ -43,6 +52,10 @@ export type {
   ToolDefinition,
   RegisteredTool,
   Conversation,
+  ConversationMemory,
+  ConversationArtifact,
+  ArtifactPayloadRecord,
+  ConversationTaskState,
   ConversationContext,
   FinancialAnalysisSessionContext,
   FinancialAnalysisRuntimeDataContext,

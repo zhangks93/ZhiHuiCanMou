@@ -1,5 +1,6 @@
 import type { Conversation } from './types'
 import { createBrowserStore } from '@/shared/storage/createBrowserStore'
+import { externalizeConversationArtifacts, saveArtifactPayloads } from './artifactStore'
 
 const LEGACY_STORAGE_KEY = 'agent_conversations'
 const MAX_CONVERSATIONS = 50
@@ -7,6 +8,12 @@ const MAX_CONVERSATIONS = 50
 function normalizeConversations(conversations: Conversation[]): Conversation[] {
   return conversations.map((conversation) => ({
     ...conversation,
+    memory: conversation.memory?.version === 1
+      ? {
+          ...conversation.memory,
+          artifacts: Array.isArray(conversation.memory.artifacts) ? conversation.memory.artifacts : [],
+        }
+      : { version: 1, artifacts: [] },
     context: conversation.context?.version === 1 ? conversation.context : { version: 1 },
   }))
 }
@@ -52,7 +59,9 @@ export function loadConversations(agentId: string): Conversation[] {
  */
 export function saveConversations(conversations: Conversation[], agentId: string): void {
   const trimmed = normalizeConversations(conversations.slice(0, MAX_CONVERSATIONS))
-  getConversationStore(agentId).set(trimmed)
+  const { sanitizedConversations, payloadRecords } = externalizeConversationArtifacts(trimmed)
+  saveArtifactPayloads(agentId, payloadRecords)
+  getConversationStore(agentId).set(sanitizedConversations)
 }
 
 /**
@@ -63,6 +72,10 @@ export function createConversation(): Conversation {
     id: crypto.randomUUID(),
     title: '新对话',
     messages: [],
+    memory: {
+      version: 1,
+      artifacts: [],
+    },
     context: {
       version: 1,
     },

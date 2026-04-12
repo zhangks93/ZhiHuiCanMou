@@ -27,6 +27,7 @@ export interface ToolCallRecord {
   status: 'calling' | 'success' | 'error'
   result?: string
   error?: string
+  artifactId?: string
 }
 
 export interface FinancialAnalysisRuntimeMetric {
@@ -85,6 +86,41 @@ export interface FinancialAnalysisSessionContext {
   lastResolvedAt: number
 }
 
+export interface ConversationTaskState {
+  currentTask?: string
+  latestAssistantSummary?: string
+  loadedReferences?: string[]
+  lastToolNames?: string[]
+}
+
+export interface ConversationArtifact {
+  id: string
+  toolName: string
+  title: string
+  summary: string
+  payload?: string
+  payloadRef?: string
+  createdAt: number
+  sourceMessageId: string
+}
+
+export interface ArtifactPayloadRecord {
+  id: string
+  artifactId: string
+  conversationId: string
+  payload: string
+  toolName: string
+  createdAt: number
+}
+
+export interface ConversationMemory {
+  version: 1
+  rollingSummary?: string
+  taskState?: ConversationTaskState
+  artifacts?: ConversationArtifact[]
+  lastCompactedAt?: number
+}
+
 export interface ConversationContext {
   version: 1
   financialAnalysis?: FinancialAnalysisSessionContext
@@ -124,6 +160,7 @@ export interface Conversation {
   id: string
   title: string
   messages: ChatMessage[]
+  memory?: ConversationMemory
   context?: ConversationContext
   createdAt: number
   updatedAt: number

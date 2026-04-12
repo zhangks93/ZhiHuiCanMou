@@ -46,6 +46,11 @@ function ToolCallItem({ toolCall }: { toolCall: ToolCallRecord }) {
               <pre>{toolCall.result}</pre>
             </div>
           )}
+          {toolCall.artifactId && (
+            <div className="text-caption text-[var(--color-text-muted)]">
+              已归档结果：{toolCall.artifactId}
+            </div>
+          )}
           {toolCall.error && <div className="text-error text-caption">{toolCall.error}</div>}
         </div>
       )}

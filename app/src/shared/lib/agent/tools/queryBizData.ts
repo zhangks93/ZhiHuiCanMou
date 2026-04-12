@@ -17,7 +17,7 @@ export const queryBizDataTool: RegisteredTool = {
         properties: {
           node_name: {
             type: 'string',
-            description: '组织节点名称，如"餐饮中心""物业中心""教育后勤集团"等。留空则查询所有节点。',
+            description: '组织节点名称，如"东部区域""智汇后勤集团"等。留空则查询所有节点。',
           },
           metric_category: {
             type: 'string',

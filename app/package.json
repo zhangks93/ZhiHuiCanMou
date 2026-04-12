@@ -8,14 +8,14 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "tauri:android:init": "tauri android init",
-    "tauri:android:dev": "tauri android dev",
-    "tauri:android:build": "tauri android build --apk",
-    "build:exe": "tauri build",
-    "build:apk": "tauri android build --apk"
+    "tauri": "node ../scripts/run-tauri.mjs",
+    "tauri:dev": "node ../scripts/run-tauri.mjs dev",
+    "tauri:build": "node ../scripts/run-tauri.mjs build",
+    "tauri:android:init": "node ../scripts/run-tauri.mjs android init",
+    "tauri:android:dev": "node ../scripts/run-tauri.mjs android dev",
+    "tauri:android:build": "node ../scripts/run-tauri.mjs android build --apk",
+    "build:exe": "node ../scripts/run-tauri.mjs build",
+    "build:apk": "node ../scripts/run-tauri.mjs android build --apk"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

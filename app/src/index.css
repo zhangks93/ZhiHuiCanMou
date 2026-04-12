@@ -1050,6 +1050,13 @@
   background: rgba(255, 255, 255, 0.94);
 }
 
+.biz-data-table__business-cell-content {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 0.375rem;
+}
+
 .app-cell-strong {
   color: var(--color-text-strong);
 }

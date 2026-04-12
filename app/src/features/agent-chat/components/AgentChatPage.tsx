@@ -18,6 +18,7 @@ import type {
   FinancialAnalysisSessionContext,
 } from '@/shared/lib/agent/types'
 import { loadConversations, saveConversations, createConversation, deleteConversation } from '@/shared/lib/agent/conversationStore'
+import { buildConversationMemoryBlock, compactConversation, getRecentMessagesForPrompt } from '@/shared/lib/agent/conversationMemory'
 import { loadLLMConfig } from '@/shared/lib/llmConfig'
 import { useAgentConfig } from '@/features/agent-chat/hooks/useAgentConfig'
 import {
@@ -52,8 +53,9 @@ function buildAgentSystemPrompt(params: {
   agent: AgentDefinition
   conversation?: Conversation
   runtimeDataContext?: FinancialAnalysisRuntimeDataContext
+  latestUserQuery?: string
 }): string {
-  const { agent, conversation, runtimeDataContext } = params
+  const { agent, conversation, runtimeDataContext, latestUserQuery } = params
 
   if (agent.id !== 'financial-analysis') {
     return agent.systemPrompt
@@ -64,6 +66,7 @@ function buildAgentSystemPrompt(params: {
     agent.systemPrompt,
     buildFinancialAnalysisRuntimeContextBlock(runtimeDataContext),
     buildFinancialAnalysisSessionContextBlock(sessionContext),
+    buildConversationMemoryBlock(conversation?.memory, latestUserQuery),
     '## Chart Output Contract\n- In report mode, output charts only as structured chart spec JSON.\n- Do not emit ECharts HTML, raw HTML, or chart placeholder suggestions.\n- If data is insufficient or inconsistent, skip the unsupported chart rather than fabricating it.',
   ].filter(Boolean).join('\n\n')
 }
@@ -296,6 +299,7 @@ export function AgentChatPage({
       agent: activeAgent,
       conversation: currentConversation,
       runtimeDataContext,
+      latestUserQuery: text,
     })
 
     const userMessage: ChatMessage = {
@@ -341,7 +345,12 @@ export function AgentChatPage({
 
     try {
       if (!agentRef.current) throw new Error('AI agent not initialized')
-      const stream = agentRef.current.chat(nextMessages, systemPrompt)
+      const promptMessages = getRecentMessagesForPrompt(
+        currentConversation?.id === conversationId
+          ? [...(currentConversation?.messages || []), userMessage]
+          : nextMessages
+      )
+      const stream = agentRef.current.chat(promptMessages, systemPrompt)
       for await (const chunk of stream) {
         switch (chunk.type) {
           case 'text':
@@ -391,7 +400,7 @@ export function AgentChatPage({
           })
         : conversation.context?.financialAnalysis
 
-      return {
+      return compactConversation({
         ...conversation,
         title,
         messages: finalMessages,
@@ -402,7 +411,7 @@ export function AgentChatPage({
             }
           : conversation.context,
         updatedAt: Date.now(),
-      }
+      })
     })
     persist(updatedConversations)
   }, [activeAgent, activeConversationId, conversations, input, isStreaming, messages, persist])

@@ -99,12 +99,15 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   const [metricOrder, setMetricOrder] = useState<MetricCategory[]>(selectedMetrics)
   const [, setThresholdVersion] = useState(0)
   const [bodyMaxHeight, setBodyMaxHeight] = useState<number | null>(null)
+  const [rowHeights, setRowHeights] = useState<Record<string, number>>({})
   const tableShellRef = useRef<HTMLDivElement | null>(null)
   const tableMetricsHeaderViewportRef = useRef<HTMLDivElement | null>(null)
   const tableFixedBodyViewportRef = useRef<HTMLDivElement | null>(null)
   const tableMetricsBodyHorizontalViewportRef = useRef<HTMLDivElement | null>(null)
   const tableMetricsBodyVerticalViewportRef = useRef<HTMLDivElement | null>(null)
   const tableHorizontalScrollbarRef = useRef<HTMLDivElement | null>(null)
+  const fixedRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
+  const metricsRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
 
   useEffect(() => {
     return subscribeThresholdSettings(() => {
@@ -115,6 +118,24 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   useEffect(() => {
     setMetricOrder(selectedMetrics)
   }, [selectedMetrics])
+
+  const setFixedRowRef = useCallback((rowId: string, node: HTMLTableRowElement | null) => {
+    if (node) {
+      fixedRowRefs.current[rowId] = node
+      return
+    }
+
+    delete fixedRowRefs.current[rowId]
+  }, [])
+
+  const setMetricsRowRef = useCallback((rowId: string, node: HTMLTableRowElement | null) => {
+    if (node) {
+      metricsRowRefs.current[rowId] = node
+      return
+    }
+
+    delete metricsRowRefs.current[rowId]
+  }, [])
 
   const allNodesWithAggregation = useMemo(() => {
     return buildTreeWithAggregation(nodes)
@@ -366,12 +387,89 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
     }
   }, [visibleRows.length])
 
+  useLayoutEffect(() => {
+    const rowIds = visibleRows.map((row) => row.id)
+
+    if (rowIds.length === 0) {
+      setRowHeights((current) => (Object.keys(current).length === 0 ? current : {}))
+      return
+    }
+
+    let frameId: number | null = null
+
+    const updateRowHeights = () => {
+      const nextHeights: Record<string, number> = {}
+
+      rowIds.forEach((rowId) => {
+        const fixedHeight = fixedRowRefs.current[rowId]?.getBoundingClientRect().height ?? 0
+        const metricsHeight = metricsRowRefs.current[rowId]?.getBoundingClientRect().height ?? 0
+        const nextHeight = Math.ceil(Math.max(fixedHeight, metricsHeight))
+
+        if (nextHeight > 0) {
+          nextHeights[rowId] = nextHeight
+        }
+      })
+
+      setRowHeights((current) => {
+        const currentKeys = Object.keys(current)
+        const nextKeys = Object.keys(nextHeights)
+
+        if (currentKeys.length !== nextKeys.length) {
+          return nextHeights
+        }
+
+        for (const rowId of nextKeys) {
+          if (current[rowId] !== nextHeights[rowId]) {
+            return nextHeights
+          }
+        }
+
+        return current
+      })
+    }
+
+    const scheduleUpdate = () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId)
+      }
+
+      frameId = requestAnimationFrame(updateRowHeights)
+    }
+
+    const observer = new ResizeObserver(() => {
+      scheduleUpdate()
+    })
+
+    rowIds.forEach((rowId) => {
+      const fixedRow = fixedRowRefs.current[rowId]
+      const metricsRow = metricsRowRefs.current[rowId]
+
+      if (fixedRow) {
+        observer.observe(fixedRow)
+      }
+
+      if (metricsRow) {
+        observer.observe(metricsRow)
+      }
+    })
+
+    scheduleUpdate()
+
+    return () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId)
+      }
+
+      observer.disconnect()
+    }
+  }, [visibleRows, metricOrder.length, reportType])
+
   const renderBusinessUnitCell = (row: Row<EnrichedBizDataNode>) => {
     const hasChildren = getChildren(row.original, allNodesWithAggregation).length > 0
 
     return (
       <div
-        className="flex items-center gap-1.5"
+        className="biz-data-table__business-cell-content"
         style={{ paddingLeft: `${row.depth * 20}px` }}
       >
         {hasChildren ? (
@@ -506,10 +604,17 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
               >
                 <tbody>
                   {visibleRows.map((row) => (
-                    <tr key={row.id}>
+                    <tr
+                      key={row.id}
+                      ref={(node) => {
+                        setFixedRowRef(row.id, node)
+                      }}
+                      style={rowHeights[row.id] ? { height: `${rowHeights[row.id]}px` } : undefined}
+                    >
                       <td
                         className="biz-data-table__business-cell align-middle"
                         style={{
+                          height: rowHeights[row.id] ? `${rowHeights[row.id]}px` : undefined,
                           width: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
                           minWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
                           maxWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
@@ -539,7 +644,13 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                 >
                   <tbody>
                     {visibleRows.map((row) => (
-                      <tr key={row.id}>
+                      <tr
+                        key={row.id}
+                        ref={(node) => {
+                          setMetricsRowRef(row.id, node)
+                        }}
+                        style={rowHeights[row.id] ? { height: `${rowHeights[row.id]}px` } : undefined}
+                      >
                         {metricOrder.map((metric) => {
                           const actual = row.original.metrics[metric]?.actual ?? null
                           const budget = row.original.metrics[metric]?.[budgetField] ?? null
@@ -557,6 +668,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                               key={metric}
                               className="border-r border-[rgba(148,163,184,0.08)] last:border-r-0"
                               style={{
+                                height: rowHeights[row.id] ? `${rowHeights[row.id]}px` : undefined,
                                 width: `${METRIC_GROUP_WIDTH}px`,
                                 minWidth: `${METRIC_GROUP_WIDTH}px`,
                                 maxWidth: `${METRIC_GROUP_WIDTH}px`,

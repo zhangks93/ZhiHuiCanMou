@@ -20,7 +20,28 @@ const MAX_TOOL_RESULT_CHAR_BUDGET = 12000
 const MAX_READ_FILE_CHAR_BUDGET = 8000
 const MAX_QUERY_ROWS_PREVIEW = 24
 const MAX_QUERY_TREE_NODES_PREVIEW = 18
-const MAX_METRICS_PER_NODE_PREVIEW = 8
+const MAX_METRICS_PER_NODE_PREVIEW = 14
+
+const HIERARCHY_CORE_METRICS = [
+  'revenue',
+  'gross_profit',
+  'gross_margin',
+  'pretax_profit',
+  'pretax_margin',
+  'labor_cost',
+  'headcount',
+  'per_capita_revenue',
+  'labor_cost_rate',
+  'revenue_creation',
+  'profit_creation',
+  'salary',
+  'social_insurance',
+  'housing_fund',
+] as const
+
+const HIERARCHY_CORE_METRIC_PRIORITY = new Map<string, number>(
+  HIERARCHY_CORE_METRICS.map((metric, index) => [metric, index])
+)
 
 function normalizeCoreValue(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -165,6 +186,48 @@ function compactQueryRowsResult(content: string): string {
   }
 }
 
+function compactHierarchyMetrics(metrics: unknown[]): {
+  metrics: unknown[]
+  metricsTruncated: boolean
+  nonCoreMetricsTruncated: boolean
+} {
+  if (metrics.length <= MAX_METRICS_PER_NODE_PREVIEW) {
+    return {
+      metrics,
+      metricsTruncated: false,
+      nonCoreMetricsTruncated: false,
+    }
+  }
+
+  const sortedMetrics = [...metrics].sort((a, b) => {
+    const metricA = a && typeof a === 'object' ? (a as Record<string, unknown>).metric : undefined
+    const metricB = b && typeof b === 'object' ? (b as Record<string, unknown>).metric : undefined
+    const priorityA = typeof metricA === 'string' ? HIERARCHY_CORE_METRIC_PRIORITY.get(metricA) : undefined
+    const priorityB = typeof metricB === 'string' ? HIERARCHY_CORE_METRIC_PRIORITY.get(metricB) : undefined
+
+    if (priorityA !== undefined && priorityB !== undefined) return priorityA - priorityB
+    if (priorityA !== undefined) return -1
+    if (priorityB !== undefined) return 1
+
+    return stableStringify(a).localeCompare(stableStringify(b))
+  })
+
+  const keptMetrics = sortedMetrics.slice(0, MAX_METRICS_PER_NODE_PREVIEW)
+  const truncatedMetrics = sortedMetrics.slice(MAX_METRICS_PER_NODE_PREVIEW)
+  const nonCoreMetricsTruncated = truncatedMetrics.every(metric => {
+    const metricKey = metric && typeof metric === 'object'
+      ? (metric as Record<string, unknown>).metric
+      : undefined
+    return typeof metricKey !== 'string' || !HIERARCHY_CORE_METRIC_PRIORITY.has(metricKey)
+  })
+
+  return {
+    metrics: keptMetrics,
+    metricsTruncated: !nonCoreMetricsTruncated,
+    nonCoreMetricsTruncated,
+  }
+}
+
 function compactHierarchyNode(node: unknown, remaining: { value: number }): unknown {
   if (!node || typeof node !== 'object') return node
   if (remaining.value <= 0) return null
@@ -174,6 +237,7 @@ function compactHierarchyNode(node: unknown, remaining: { value: number }): unkn
   const rawMetrics = Array.isArray(nodeRecord.metrics) ? nodeRecord.metrics : []
   const rawChildren = Array.isArray(nodeRecord.children) ? nodeRecord.children : []
   const children: unknown[] = []
+  const compactedMetrics = compactHierarchyMetrics(rawMetrics)
 
   for (const child of rawChildren) {
     if (remaining.value <= 0) break
@@ -183,8 +247,9 @@ function compactHierarchyNode(node: unknown, remaining: { value: number }): unkn
 
   return {
     ...nodeRecord,
-    metrics: rawMetrics.slice(0, MAX_METRICS_PER_NODE_PREVIEW),
-    metrics_truncated: rawMetrics.length > MAX_METRICS_PER_NODE_PREVIEW ? true : nodeRecord.metrics_truncated,
+    metrics: compactedMetrics.metrics,
+    metrics_truncated: compactedMetrics.metricsTruncated ? true : nodeRecord.metrics_truncated,
+    non_core_metrics_truncated: compactedMetrics.nonCoreMetricsTruncated ? true : undefined,
     children,
     children_truncated: rawChildren.length > children.length || nodeRecord.children_truncated === true,
   }
@@ -507,11 +572,12 @@ export class ChatAgent {
 
         toolCallRecord.status = cachedResult.status
         if (cachedResult.status === 'success') {
-          toolCallRecord.result = cachedResult.content
+          const preparedResult = prepareToolResultForModel(tc.name, cachedResult.content)
+          toolCallRecord.result = preparedResult
           updatedMessages.push({
             role: 'tool',
             tool_call_id: tc.id,
-            content: prepareToolResultForModel(tc.name, cachedResult.content),
+            content: preparedResult,
           })
         } else {
           toolCallRecord.error = cachedResult.content
@@ -546,8 +612,9 @@ export class ChatAgent {
 
       try {
         const result = await tool.execute(args)
+        const preparedResult = prepareToolResultForModel(tc.name, result)
         toolCallRecord.status = 'success'
-        toolCallRecord.result = result
+        toolCallRecord.result = preparedResult
         yield { type: 'tool_result', toolCall: toolCallRecord }
         toolExecutionState.repeatedCachedCoreCallCounts.delete(toolCallCoreSignature)
         toolExecutionState.cache.set(toolCallSignature, {
@@ -558,7 +625,7 @@ export class ChatAgent {
         updatedMessages.push({
           role: 'tool',
           tool_call_id: tc.id,
-          content: prepareToolResultForModel(tc.name, result),
+          content: preparedResult,
         })
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err)
@@ -730,13 +797,14 @@ export class ChatAgent {
                 }
 
                 if (cachedResult.status === 'success') {
+                  const preparedResult = prepareToolResultForModel(currentToolUse.name, cachedResult.content)
                   toolCallRecord.status = 'success'
-                  toolCallRecord.result = cachedResult.content
+                  toolCallRecord.result = preparedResult
                   toolResults.push({
                     id: currentToolUse.id,
                     name: currentToolUse.name,
                     input: args,
-                    result: prepareToolResultForModel(currentToolUse.name, cachedResult.content),
+                    result: preparedResult,
                   })
                 } else {
                   toolCallRecord.status = 'error'
@@ -761,8 +829,9 @@ export class ChatAgent {
               } else {
                 try {
                   const result = await tool.execute(args)
+                  const preparedResult = prepareToolResultForModel(currentToolUse.name, result)
                   toolCallRecord.status = 'success'
-                  toolCallRecord.result = result
+                  toolCallRecord.result = preparedResult
                   yield { type: 'tool_result', toolCall: toolCallRecord }
                   toolExecutionState.repeatedCachedCoreCallCounts.delete(toolCallCoreSignature)
                   toolExecutionState.cache.set(toolCallSignature, {
@@ -773,7 +842,7 @@ export class ChatAgent {
                     id: currentToolUse.id,
                     name: currentToolUse.name,
                     input: args,
-                    result: prepareToolResultForModel(currentToolUse.name, result),
+                    result: preparedResult,
                   })
                 } catch (err) {
                   const errMsg = err instanceof Error ? err.message : String(err)
