@@ -10,6 +10,7 @@ import { ChartView, type DrillDownLevel } from '../components/ChartView'
 import { HierarchyLevelFilter, type LevelVisibility } from '../components/HierarchyLevelFilter'
 import { TableView } from '../components/TableView'
 import { useBizDataViewModel } from '../hooks/useBizDataViewModel'
+import { buildTreeWithAggregation } from '../services/bizDataService'
 import type { EnrichedBizDataNode } from '../types'
 
 function normalizeDrillDownPath(
@@ -20,10 +21,18 @@ function normalizeDrillDownPath(
     return path
   }
 
-  const availableNodeNames = new Set(nodes.map((node) => node.node_name))
+  const aggregatedNodes = buildTreeWithAggregation(nodes)
+  const hasMatchingNode = (target: EnrichedBizDataNode) =>
+    aggregatedNodes.some((node) => (
+      node.node_name === target.node_name
+      && node.orgHierarchy.level_0 === target.orgHierarchy.level_0
+      && node.orgHierarchy.level_1 === target.orgHierarchy.level_1
+      && node.orgHierarchy.level_2 === target.orgHierarchy.level_2
+    ))
+
   for (let index = 1; index < path.length; index += 1) {
     const currentNode = path[index]?.node
-    if (!currentNode || !availableNodeNames.has(currentNode.node_name)) {
+    if (!currentNode || !hasMatchingNode(currentNode)) {
       return [{ node: null, label: '全部' }]
     }
   }
