@@ -256,8 +256,8 @@ function AddModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5" onClick={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 sm:items-center" onClick={onClose}>
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-[22px] bg-white p-5 shadow-xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-medium text-[var(--color-text-strong)]">添加日程 · {date}</h3>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={16} /></button>
@@ -327,8 +327,8 @@ function NotesModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-5" onClick={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 sm:items-center" onClick={onClose}>
+      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-[22px] bg-white p-5 shadow-xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-medium text-[var(--color-text-strong)] flex items-center gap-2">
             <FileText size={16} className="text-accent" />会议纪要 · {item.title}
@@ -404,16 +404,16 @@ export function SchedulePage() {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="app-table-shell p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
               <Calendar size={18} strokeWidth={1.5} className="text-accent" />
               <h3 className="font-medium text-[var(--color-text-strong)]">
                 {refDate.getFullYear()}年{refDate.getMonth() + 1}月
               </h3>
             </div>
-            <div className="flex gap-1">
+            <div className="flex w-full gap-1 sm:w-auto">
               <button onClick={() => setWeekOffset((value) => value - 1)} className="btn btn-ghost btn-xs">‹</button>
               <button onClick={() => { setWeekOffset(0); setSelectedDate(fmtDate(today)) }} className="btn btn-ghost btn-xs text-caption">今天</button>
               <button onClick={() => setWeekOffset((value) => value + 1)} className="btn btn-ghost btn-xs">›</button>
@@ -446,7 +446,7 @@ export function SchedulePage() {
         </section>
 
         <section className="app-table-shell p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-medium text-[var(--color-text-strong)]">
               {selectedDate} 日程
             </h3>

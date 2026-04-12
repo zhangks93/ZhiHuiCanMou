@@ -42,19 +42,19 @@ export function MetricSelector({
   }
 
   return (
-    <div className="relative inline-block" ref={dropdownRef} style={{ zIndex: isOpen ? 9999 : 'auto' }}>
+    <div className="relative inline-block max-w-full" ref={dropdownRef} style={{ zIndex: isOpen ? 9999 : 'auto' }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-caption font-medium bg-[rgba(15,23,42,0.06)] text-[var(--color-text)] hover:bg-[rgba(15,23,42,0.1)] transition-colors"
+        className="inline-flex max-w-full items-center gap-1.5 h-8 px-3 rounded-full text-caption font-medium bg-[rgba(15,23,42,0.06)] text-[var(--color-text)] hover:bg-[rgba(15,23,42,0.1)] transition-colors"
       >
-        <span>
+        <span className="truncate">
           指标 {selectedMetrics.length}/{maxSelection}
         </span>
         <ChevronDown size={14} className={`transition-transform text-[var(--color-text-muted)] ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-2 w-64 rounded-xl border border-[var(--color-border)] bg-white/96 shadow-[0_20px_50px_rgba(15,23,42,0.15)] backdrop-blur-xl" style={{ zIndex: 9999 }}>
+        <div className="absolute left-0 mt-2 w-[min(16rem,calc(100vw-2rem))] rounded-xl border border-[var(--color-border)] bg-white/96 shadow-[0_20px_50px_rgba(15,23,42,0.15)] backdrop-blur-xl" style={{ zIndex: 9999 }}>
           <div className="px-3 py-2 border-b border-[var(--color-border)]">
             <p className="text-caption text-[var(--color-text-muted)]">
               最多选择 {maxSelection} 个指标

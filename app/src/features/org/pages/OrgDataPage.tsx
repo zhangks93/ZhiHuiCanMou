@@ -250,16 +250,16 @@ export function OrgDataPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-3">
         <section className="overflow-hidden rounded-[22px] border border-[var(--color-border)] bg-white/86 backdrop-blur-xl shadow-[0_24px_64px_rgba(15,23,42,0.10)] xl:col-span-2">
-          <div className="flex items-center justify-between border-b border-[var(--color-border)] bg-white/40 px-4 py-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] bg-white/40 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
               <Building2 size={16} className="text-gray-600" />
               <h3 className="font-medium text-gray-800">组织架构树</h3>
             </div>
-            <div className="flex gap-2 text-caption">
+            <div className="flex w-full flex-wrap gap-2 text-caption sm:w-auto">
               <button
                 type="button"
                 onClick={expandAll}
@@ -276,8 +276,8 @@ export function OrgDataPage() {
               </button>
             </div>
           </div>
-          <div className="max-h-[620px] overflow-auto p-4">
-            <div className="mb-3 flex items-center justify-end gap-3 text-caption text-gray-500">
+          <div className="max-h-[70vh] overflow-auto p-4 lg:max-h-[620px]">
+            <div className="mb-3 flex flex-wrap items-center justify-end gap-3 text-caption text-gray-500">
               <span className="inline-flex items-center gap-1">
                 <span className="h-2 w-2 rounded bg-sky-300" />
                 直属人数

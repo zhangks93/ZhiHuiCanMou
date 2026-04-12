@@ -37,6 +37,44 @@ function StatCard({ icon: Icon, label, value, color = 'blue' }: {
   )
 }
 
+function MemberAttendanceCard({ member }: {
+  member: {
+    id: string
+    member_name: string
+    employee_no: string | null
+    job_title: string | null
+    expected_days: number
+    actual_days: number
+    rate: number
+    leave_days: number
+    late_times: number
+    early_leave_times: number
+    absent_days: number
+  }
+}) {
+  return (
+    <div className="rounded-2xl border border-[rgba(148,163,184,0.12)] bg-white/92 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-medium text-[var(--color-text-strong)]">{member.member_name}</div>
+          <div className="mt-1 text-caption text-[var(--color-text-muted)]">
+            {[member.employee_no, member.job_title].filter(Boolean).join(' · ') || '暂无岗位信息'}
+          </div>
+        </div>
+        <RateBadge rate={member.rate} />
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">应出勤 {member.expected_days.toFixed(1)}</div>
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">实出勤 {member.actual_days.toFixed(1)}</div>
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">请假 {member.leave_days.toFixed(1)}</div>
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到/早退 {member.late_times + member.early_leave_times}</div>
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到 {member.late_times}</div>
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">旷工 {member.absent_days.toFixed(1)}</div>
+      </div>
+    </div>
+  )
+}
+
 export function AttendancePage() {
   const {
     summaries,
@@ -102,7 +140,66 @@ export function AttendancePage() {
             </select>
           )}
         </div>
-        <div className="app-table-scroll">
+        <div className="lg:hidden space-y-3 px-3 py-3">
+          {summaries.map((summary) => (
+            <div
+              key={summary.department_id}
+              className="rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4"
+            >
+              <button
+                type="button"
+                className="flex w-full items-start justify-between gap-3 text-left"
+                onClick={() => void toggleDepartment(summary.department_id)}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 font-medium text-[var(--color-text-strong)]">
+                    {expandedDept === summary.department_id ? (
+                      <ChevronDown size={16} className="text-[var(--color-text-muted)]" />
+                    ) : (
+                      <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
+                    )}
+                    <span className="truncate">{summary.department_name}</span>
+                  </div>
+                  <div className="mt-1 text-caption text-[var(--color-text-muted)]">
+                    {summary.parent_name || '无上级部门'}
+                  </div>
+                </div>
+                <RateBadge rate={summary.rate} />
+              </button>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
+                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">人数 {summary.employee_count}</div>
+                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">应出勤 {summary.total_expected.toFixed(1)}</div>
+                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">实出勤 {summary.total_actual.toFixed(1)}</div>
+                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">请假 {summary.total_leave.toFixed(1)}</div>
+                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到/早退 {summary.total_late + summary.total_early}</div>
+                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">旷工 {summary.total_absent.toFixed(1)}</div>
+              </div>
+
+              {expandedDept === summary.department_id && (
+                <div className="mt-3 rounded-2xl bg-[rgba(15,23,42,0.03)] p-3">
+                  {loadingMembers ? (
+                    <div className="py-4 text-center text-[var(--color-text-muted)]">加载中...</div>
+                  ) : memberRecords.length > 0 ? (
+                    <div className="space-y-2">
+                      {memberRecords.map((member) => (
+                        <MemberAttendanceCard key={member.id} member={member} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center text-[var(--color-text-muted)]">暂无成员记录</div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          {summaries.length === 0 && !loading && (
+            <div className="py-8 text-center text-[var(--color-text-muted)]">
+              暂无考勤数据
+            </div>
+          )}
+        </div>
+        <div className="app-table-scroll hidden lg:block">
           <table className="app-data-table">
             <thead>
               <tr>

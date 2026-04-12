@@ -6,8 +6,8 @@ export function BottomNav() {
   const { topLevelNav } = useEnabledModules()
 
   return (
-    <>
-      <nav className="fixed inset-x-4 bottom-4 z-30 rounded-[26px] border border-[var(--color-border)] bg-white/92 px-2 py-2 shadow-[0_18px_48px_rgba(15,23,42,0.12)] backdrop-blur-xl lg:hidden safe-area-inset-bottom">
+    <div className="sticky bottom-0 z-30 px-3 pb-3 pt-2 sm:px-4 lg:hidden">
+      <nav className="rounded-[26px] border border-[var(--color-border)] bg-white/92 px-2 py-2 shadow-[0_18px_48px_rgba(15,23,42,0.12)] backdrop-blur-xl safe-area-inset-bottom">
         <div className="grid grid-cols-4 gap-1">
           {topLevelNav.map((item) => (
             <NavLink
@@ -35,6 +35,6 @@ export function BottomNav() {
           ))}
         </div>
       </nav>
-    </>
+    </div>
   )
 }

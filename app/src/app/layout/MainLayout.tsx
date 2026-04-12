@@ -17,7 +17,7 @@ export function MainLayout() {
 
       <main
         className={[
-          'relative h-screen overflow-hidden px-4 pb-24 pt-4 transition-[padding] duration-200 ease-out md:px-5 lg:pr-6 lg:pb-4 lg:pt-4 xl:pr-8',
+          'relative min-h-0 flex-1 px-3 pb-3 pt-3 transition-[padding] duration-200 ease-out sm:px-4 md:px-5 lg:h-screen lg:overflow-hidden lg:pr-6 lg:pb-4 lg:pt-4 xl:pr-8',
           sidebarCollapsed ? 'lg:pl-[104px]' : 'lg:pl-[220px]',
         ].join(' ')}
       >

@@ -34,6 +34,44 @@ function calculateDays(start: string, end: string) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
+function TripMobileCard({ trip, compact = false }: { trip: BusinessTrip; compact?: boolean }) {
+  const detailRows = [
+    { label: '部门', value: trip.department || '-' },
+    { label: '客户', value: trip.customer_name || '-' },
+    { label: compact ? '出发' : '出发时间', value: compact ? formatDate(trip.start_time) : formatDateTime(trip.start_time) },
+    { label: compact ? '返回' : '返回时间', value: compact ? formatDate(trip.end_time) : formatDateTime(trip.end_time) },
+  ]
+
+  return (
+    <div className="rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-medium text-[var(--color-text-strong)]">{trip.employee_name}</div>
+          <div className="mt-1 text-caption text-[var(--color-text-muted)]">
+            {trip.opportunity_name || '未关联商机'}
+          </div>
+        </div>
+        <div className="rounded-full bg-[rgba(15,23,42,0.06)] px-2.5 py-1 text-caption font-medium text-[var(--color-text-muted)]">
+          {calculateDays(trip.start_time, trip.end_time)} 天
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
+        {detailRows.map((item) => (
+          <div key={item.label} className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2">
+            <div className="text-[var(--color-text-muted)]">{item.label}</div>
+            <div className="mt-1 text-[var(--color-text-strong)]">{item.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 rounded-xl bg-[rgba(15,23,42,0.03)] px-3 py-2.5 text-caption leading-relaxed text-[var(--color-text-muted)]">
+        {trip.reason || '暂无事由'}
+      </div>
+    </div>
+  )
+}
+
 export function TripPage() {
   const { trips, ongoingTrips, loading } = useTripData()
   const [sorting, setSorting] = useState<SortingState>([])
@@ -163,7 +201,12 @@ export function TripPage() {
               </div>
               <span className="text-caption bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{ongoingTrips.length}人</span>
             </div>
-            <div className="app-table-scroll">
+            <div className="space-y-2 lg:hidden">
+              {ongoingTrips.map((trip) => (
+                <TripMobileCard key={trip.id} trip={trip} compact />
+              ))}
+            </div>
+            <div className="app-table-scroll hidden lg:block">
               <table className="app-data-table">
                 <thead>
                   {ongoingTable.getHeaderGroups().map((headerGroup) => (
@@ -207,7 +250,18 @@ export function TripPage() {
               className="input input-sm w-full max-w-[260px]"
             />
           </div>
-          <div className="app-table-scroll">
+          <div className="space-y-2 px-3 py-3 lg:hidden">
+            {table.getRowModel().rows.length === 0 ? (
+              <div className="text-center py-8 text-[var(--color-text-muted)]">
+                暂无出差记录
+              </div>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <TripMobileCard key={row.id} trip={row.original} />
+              ))
+            )}
+          </div>
+          <div className="app-table-scroll hidden lg:block">
             <table className="app-data-table">
               <thead>
                 {table.getHeaderGroups().map((headerGroup) => (

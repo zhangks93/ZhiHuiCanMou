@@ -49,6 +49,7 @@ interface TableViewProps {
 
 const BUSINESS_UNIT_COLUMN_WIDTH = 288
 const METRIC_GROUP_WIDTH = 300
+const MOBILE_BREAKPOINT = 768
 
 const HEADER_CONTENT_CLASS =
   'flex min-h-[84px] flex-col justify-center gap-1.5 px-3 py-3'
@@ -99,6 +100,10 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   const [metricOrder, setMetricOrder] = useState<MetricCategory[]>(selectedMetrics)
   const [, setThresholdVersion] = useState(0)
   const [bodyMaxHeight, setBodyMaxHeight] = useState<number | null>(null)
+  const [isCompactLayout, setIsCompactLayout] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth <= MOBILE_BREAKPOINT
+  })
   const [rowHeights, setRowHeights] = useState<Record<string, number>>({})
   const tableShellRef = useRef<HTMLDivElement | null>(null)
   const tableMetricsHeaderViewportRef = useRef<HTMLDivElement | null>(null)
@@ -118,6 +123,18 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   useEffect(() => {
     setMetricOrder(selectedMetrics)
   }, [selectedMetrics])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const updateViewportMode = () => {
+      setIsCompactLayout(window.innerWidth <= MOBILE_BREAKPOINT)
+    }
+
+    updateViewportMode()
+    window.addEventListener('resize', updateViewportMode)
+    return () => window.removeEventListener('resize', updateViewportMode)
+  }, [])
 
   const setFixedRowRef = useCallback((rowId: string, node: HTMLTableRowElement | null) => {
     if (node) {
@@ -192,7 +209,9 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   })
 
   const visibleRows = table.getRowModel().rows
-  const metricsTableWidth = `${metricOrder.length * METRIC_GROUP_WIDTH}px`
+  const businessUnitColumnWidth = isCompactLayout ? 232 : BUSINESS_UNIT_COLUMN_WIDTH
+  const metricGroupWidth = isCompactLayout ? 228 : METRIC_GROUP_WIDTH
+  const metricsTableWidth = `${metricOrder.length * metricGroupWidth}px`
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -243,7 +262,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
     if (!shell || !viewport) return
 
     const viewportBottomGap = 0
-    const minimumBodyHeight = 360
+    const minimumBodyHeight = isCompactLayout ? 280 : 360
 
     const updateBodyMaxHeight = () => {
       const viewportTop = viewport.getBoundingClientRect().top
@@ -290,7 +309,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
       window.removeEventListener('resize', scheduleUpdate)
       clippingAncestor?.removeEventListener('scroll', scheduleUpdate)
     }
-  }, [findClippingAncestor, metricOrder.length, showLevels, visibleRows.length])
+  }, [findClippingAncestor, isCompactLayout, metricOrder.length, showLevels, visibleRows.length])
 
   useEffect(() => {
     const headerViewport = tableMetricsHeaderViewportRef.current
@@ -509,20 +528,21 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
         onDragEnd={handleDragEnd}
       >
         <div ref={tableShellRef} className="app-table-shell biz-data-table-shell">
+          <div className="biz-data-table__mobile-hint">左右滑动查看完整指标</div>
           <div className="biz-data-table__header-row">
             <div className="biz-data-table__fixed-column">
               <table
                 className="app-data-table app-data-table-compact biz-data-table__table"
-                style={{ width: `${BUSINESS_UNIT_COLUMN_WIDTH}px` }}
+                style={{ width: `${businessUnitColumnWidth}px` }}
               >
                 <thead>
                   <tr>
                     <th
                       className="biz-data-table__sticky-header biz-data-table__sticky-corner !p-0"
                       style={{
-                        width: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
-                        minWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
-                        maxWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                        width: `${businessUnitColumnWidth}px`,
+                        minWidth: `${businessUnitColumnWidth}px`,
+                        maxWidth: `${businessUnitColumnWidth}px`,
                       }}
                     >
                       <div className={`${HEADER_CONTENT_CLASS} items-center`}>
@@ -554,9 +574,9 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                             key={metric}
                             className="biz-data-table__sticky-header !p-0"
                             style={{
-                              width: `${METRIC_GROUP_WIDTH}px`,
-                              minWidth: `${METRIC_GROUP_WIDTH}px`,
-                              maxWidth: `${METRIC_GROUP_WIDTH}px`,
+                              width: `${metricGroupWidth}px`,
+                              minWidth: `${metricGroupWidth}px`,
+                              maxWidth: `${metricGroupWidth}px`,
                             }}
                           >
                             <DraggableHeader id={metric}>
@@ -600,7 +620,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
             >
               <table
                 className="app-data-table app-data-table-compact biz-data-table__table"
-                style={{ width: `${BUSINESS_UNIT_COLUMN_WIDTH}px` }}
+                style={{ width: `${businessUnitColumnWidth}px` }}
               >
                 <tbody>
                   {visibleRows.map((row) => (
@@ -615,9 +635,9 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                         className="biz-data-table__business-cell align-middle"
                         style={{
                           height: rowHeights[row.id] ? `${rowHeights[row.id]}px` : undefined,
-                          width: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
-                          minWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
-                          maxWidth: `${BUSINESS_UNIT_COLUMN_WIDTH}px`,
+                          width: `${businessUnitColumnWidth}px`,
+                          minWidth: `${businessUnitColumnWidth}px`,
+                          maxWidth: `${businessUnitColumnWidth}px`,
                         }}
                       >
                         {renderBusinessUnitCell(row)}
@@ -669,9 +689,9 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
                               className="border-r border-[rgba(148,163,184,0.08)] last:border-r-0"
                               style={{
                                 height: rowHeights[row.id] ? `${rowHeights[row.id]}px` : undefined,
-                                width: `${METRIC_GROUP_WIDTH}px`,
-                                minWidth: `${METRIC_GROUP_WIDTH}px`,
-                                maxWidth: `${METRIC_GROUP_WIDTH}px`,
+                                width: `${metricGroupWidth}px`,
+                                minWidth: `${metricGroupWidth}px`,
+                                maxWidth: `${metricGroupWidth}px`,
                               }}
                             >
                               <div className="grid h-full grid-cols-3 items-center gap-1.5 px-3">

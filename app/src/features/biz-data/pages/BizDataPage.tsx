@@ -71,13 +71,13 @@ export function BizDataPage() {
     <div className="app-page biz-data-page">
       <section className="space-y-3 min-w-0">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex min-w-0 items-center gap-2 flex-wrap">
             <ReportTypeToggle value={reportType} onChange={setReportType} />
             <PeriodTypeToggle value={periodType} onChange={setPeriodType} />
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
           </div>
           {availableMonths.length > 0 && (
-            <div className="xl:ml-auto">
+            <div className="w-full xl:ml-auto xl:w-auto">
               <MonthSelector
                 value={selectedMonth}
                 options={availableMonths}
@@ -87,7 +87,7 @@ export function BizDataPage() {
           )}
         </div>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:flex-wrap">
+        <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:flex-wrap">
           {viewMode === 'table' ? (
             <HierarchyLevelFilter value={showLevels} onChange={setShowLevels} />
           ) : (
