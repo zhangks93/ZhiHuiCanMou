@@ -7,21 +7,6 @@ const binName = process.platform === 'win32' ? 'tauri.cmd' : 'tauri'
 const tauriBin = path.join(appRoot, 'node_modules', '.bin', binName)
 const args = process.argv.slice(2)
 
-function getTauriSpawnTarget(cliArgs) {
-  if (process.platform !== 'win32') {
-    return {
-      command: tauriBin,
-      args: cliArgs,
-    }
-  }
-
-  const comspec = process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe'
-  return {
-    command: comspec,
-    args: ['/d', '/s', '/c', `"${tauriBin}"`, ...cliArgs],
-  }
-}
-
 function runCommand(command, commandArgs) {
   return new Promise((resolve) => {
     let child
@@ -93,13 +78,12 @@ async function main() {
     process.exit(1)
   }
 
-  const tauriCommand = getTauriSpawnTarget(args)
   let child
   try {
-    child = spawn(tauriCommand.command, tauriCommand.args, {
+    child = spawn(tauriBin, args, {
       cwd: appRoot,
       stdio: 'inherit',
-      shell: false,
+      shell: process.platform === 'win32',
     })
   } catch (error) {
     console.error(error.message)
