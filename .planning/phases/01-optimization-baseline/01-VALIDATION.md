@@ -48,8 +48,10 @@ created: 2026-04-12
 
 ## Wave 0 Requirements
 
-- [ ] Define target automated test stack for later phases in the baseline report
-- [ ] Identify the first auth and agent runtime scenarios that need regression coverage
+- [ ] Add auth callback parser tests covering hash, query, and mixed callback URL shapes
+- [ ] Add session recovery and session refresh tests covering valid, invalid, and expired states
+- [ ] Add agent runtime tests covering compaction, repeated-tool reuse protection, and max tool-call depth behavior
+- [ ] Add data transformation tests covering `aggregateByNode` and `buildTreeWithAggregation`
 
 ---
 
