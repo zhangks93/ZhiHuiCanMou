@@ -56,3 +56,5 @@ export interface DepartmentMemberChange {
   latest_snapshot_at: string | null
   previous_snapshot_at: string | null
 }
+
+export type OrgDirectoryDataSource = 'snapshot' | 'live'

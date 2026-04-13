@@ -54,6 +54,16 @@ function flattenTree(nodes: DeptNode[]): DeptNode[] {
   return list
 }
 
+function buildTotalMemberMap(nodes: DeptNode[]) {
+  const totals = new Map<string, number>()
+  const visit = (node: DeptNode) => {
+    totals.set(node.department_id, node.totalMembers)
+    node.children.forEach(visit)
+  }
+  nodes.forEach(visit)
+  return totals
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return '暂无'
 
@@ -149,12 +159,18 @@ function OrgTreeNode({
 }
 
 export function OrgDataPage() {
-  const { departments, members, snapshotRuns, departmentChanges, loading } = useOrgDirectoryData()
+  const { departments, members, snapshotRuns, previousSnapshotDepartments, departmentChanges, dataSource, loading } =
+    useOrgDirectoryData()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedId, setSelectedId] = useState('')
 
   const tree = useMemo(() => buildTree(departments, members), [departments, members])
+  const previousSnapshotTree = useMemo(
+    () => buildTree(previousSnapshotDepartments, []),
+    [previousSnapshotDepartments],
+  )
   const allNodes = useMemo(() => flattenTree(tree), [tree])
+  const previousTotalMemberMap = useMemo(() => buildTotalMemberMap(previousSnapshotTree), [previousSnapshotTree])
   const nodeMap = useMemo(() => new Map(allNodes.map(node => [node.department_id, node])), [allNodes])
   const departmentMap = useMemo(
     () => new Map(departments.map(dept => [dept.department_id, dept])),
@@ -177,29 +193,17 @@ export function OrgDataPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allNodes.length])
 
-  const stats = useMemo(() => {
-    const totalMembers = members.length
-    const deptCount = departments.length
-    const rootCount = tree.length
-    const averagePerDept = deptCount > 0 ? totalMembers / deptCount : 0
-    const activeDeptCount = allNodes.filter(node => node.member_count > 0).length
-    const largestDept = allNodes.reduce<DeptNode | null>((max, node) => {
-      if (!max || node.totalMembers > max.totalMembers) return node
-      return max
-    }, null)
-    return { totalMembers, deptCount, rootCount, averagePerDept, activeDeptCount, largestDept }
-  }, [allNodes, departments, members, tree.length])
-
   const selectedNode = selectedId ? nodeMap.get(selectedId) : null
   const selectedParent = selectedNode?.parent_id ? departmentMap.get(selectedNode.parent_id) : null
   const selectedChange = getSelectedChange(departmentChanges, selectedNode?.department_id)
-  const selectedRatio =
-    selectedNode && stats.totalMembers > 0
-      ? (selectedNode.totalMembers / stats.totalMembers) * 100
-      : 0
 
   const latestSnapshot = snapshotRuns[0] ?? null
   const previousSnapshot = snapshotRuns[1] ?? null
+  const overallTotalMembers = latestSnapshot?.member_count ?? members.length
+  const selectedRatio =
+    selectedNode && overallTotalMembers > 0
+      ? (selectedNode.totalMembers / overallTotalMembers) * 100
+      : 0
   const changedDepartments = departmentChanges.filter(change => change.member_count_change !== 0 || change.change_type !== 'unchanged')
   const netMemberChange = latestSnapshot && previousSnapshot ? latestSnapshot.member_count - previousSnapshot.member_count : 0
   const growthLeaders = [...changedDepartments]
@@ -211,11 +215,8 @@ export function OrgDataPage() {
     .sort((a, b) => a.member_count_change - b.member_count_change)
     .slice(0, 5)
 
-  const rankedDepartments = [...allNodes]
-    .filter(node => node.totalMembers > 0)
-    .sort((a, b) => b.totalMembers - a.totalMembers)
-    .slice(0, 8)
-  const maxRankCount = rankedDepartments[0]?.totalMembers ?? 1
+  const selectedPreviousTotalMembers = selectedNode ? (previousTotalMemberMap.get(selectedNode.department_id) ?? 0) : 0
+  const selectedTotalMemberChange = selectedNode ? selectedNode.totalMembers - selectedPreviousTotalMembers : 0
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
@@ -336,6 +337,9 @@ export function OrgDataPage() {
               {latestSnapshot ? `最新快照：${formatDateTime(latestSnapshot.snapshot_at)}` : '暂无历史快照'}
               {previousSnapshot ? ` · 上次快照：${formatDateTime(previousSnapshot.snapshot_at)}` : ''}
             </p>
+            <p className="mt-1 text-caption text-gray-500">
+              {dataSource === 'snapshot' ? '组织树已按最近一次历史快照展示。' : '当前未命中历史快照，组织树展示当前同步数据。'}
+            </p>
 
             {changedDepartments.length > 0 && (
               <div className="mt-4 space-y-4">
@@ -418,19 +422,19 @@ export function OrgDataPage() {
                     </div>
                     <div className="mt-2 flex items-center justify-between">
                       <span className="text-body text-gray-600">
-                        {selectedChange.previous_member_count} → {selectedChange.current_member_count}
+                        {selectedPreviousTotalMembers} → {selectedNode.totalMembers}
                       </span>
                       <span
                         className={`text-body font-semibold tabular-nums ${
-                          selectedChange.member_count_change > 0
+                          selectedTotalMemberChange > 0
                             ? 'text-emerald-600'
-                            : selectedChange.member_count_change < 0
+                            : selectedTotalMemberChange < 0
                               ? 'text-rose-600'
                               : 'text-gray-700'
                         }`}
                       >
-                        {selectedChange.member_count_change > 0 ? '+' : ''}
-                        {selectedChange.member_count_change}
+                        {selectedTotalMemberChange > 0 ? '+' : ''}
+                        {selectedTotalMemberChange}
                       </span>
                     </div>
                   </div>
@@ -449,38 +453,6 @@ export function OrgDataPage() {
                 </div>
               </div>
             )}
-          </section>
-
-          <section className="rounded-[22px] border border-[var(--color-border)] bg-white/86 backdrop-blur-xl p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
-            <div className="mb-4 flex items-center gap-2">
-              <Users size={16} className="text-gray-600" />
-              <h3 className="font-medium text-gray-800">部门规模排行</h3>
-            </div>
-            <div className="space-y-2">
-              {rankedDepartments.map((dept, index) => (
-                <div key={dept.department_id} className="flex items-center gap-3">
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-caption font-medium ${
-                      index < 3 ? 'bg-accent text-white' : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-0.5 flex justify-between text-body">
-                      <span className="truncate text-gray-700">{dept.name}</span>
-                      <span className="ml-2 shrink-0 text-gray-500 tabular-nums">{dept.totalMembers}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-gray-100">
-                      <div
-                        className="h-1.5 rounded-full bg-accent/70"
-                        style={{ width: `${(dept.totalMembers / maxRankCount) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </section>
         </div>
       </div>
