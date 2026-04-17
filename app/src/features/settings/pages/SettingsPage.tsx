@@ -112,19 +112,29 @@ export function Settings() {
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!apiKey.trim()) {
       setFeedback({ type: 'error', msg: '请输入 API Key' })
       return
     }
-    saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim() })
+    try {
+      await saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim() })
+    } catch {
+      setFeedback({ type: 'error', msg: '配置保存失败' })
+      return
+    }
 
     setFeedback(null)
     showToast('配置保存成功')
   }
 
-  const handleClear = () => {
-    clearLLMConfig()
+  const handleClear = async () => {
+    try {
+      await clearLLMConfig()
+    } catch {
+      setFeedback({ type: 'error', msg: '清除失败' })
+      return
+    }
     setProvider('openai')
     setApiUrl(DEFAULT_URLS.openai)
     setApiKey('')
@@ -133,14 +143,19 @@ export function Settings() {
     setTimeout(() => setFeedback(null), 2000)
   }
 
-  const handleSaveThresholds = () => {
+  const handleSaveThresholds = async () => {
     // 验证阈值合法性
     if (tempThresholds.default.yellowThreshold <= tempThresholds.default.redThreshold) {
       setFeedback({ type: 'error', msg: '黄色预警阈值必须大于红色预警阈值' })
       return
     }
 
-    saveThresholdSettings(tempThresholds)
+    try {
+      await saveThresholdSettings(tempThresholds)
+    } catch {
+      setFeedback({ type: 'error', msg: '预警阈值保存失败' })
+      return
+    }
     setThresholds(tempThresholds)
     setIsEditingThresholds(false)
 
@@ -148,8 +163,13 @@ export function Settings() {
     setTimeout(() => setFeedback(null), 2000)
   }
 
-  const handleResetThresholds = () => {
-    resetThresholdSettings()
+  const handleResetThresholds = async () => {
+    try {
+      await resetThresholdSettings()
+    } catch {
+      setFeedback({ type: 'error', msg: '恢复默认失败' })
+      return
+    }
     setThresholds(DEFAULT_THRESHOLDS)
     setTempThresholds(DEFAULT_THRESHOLDS)
     setIsEditingThresholds(false)
@@ -220,7 +240,7 @@ export function Settings() {
                             value={(tempThresholds.default.yellowThreshold * 100).toFixed(0)}
                             onChange={(e) => {
                               const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0))
-                              setTempThresholds(prev => ({
+                              setTempThresholds((prev: ThresholdSettings) => ({
                                 ...prev,
                                 default: { ...prev.default, yellowThreshold: val / 100 }
                               }))
@@ -239,7 +259,7 @@ export function Settings() {
                             value={(tempThresholds.default.redThreshold * 100).toFixed(0)}
                             onChange={(e) => {
                               const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0))
-                              setTempThresholds(prev => ({
+                              setTempThresholds((prev: ThresholdSettings) => ({
                                 ...prev,
                                 default: { ...prev.default, redThreshold: val / 100 }
                               }))

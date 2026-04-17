@@ -1,5 +1,4 @@
-import { supabase } from '@/shared/lib/supabase'
-import type { Tables, TablesInsert, TablesUpdate } from '@/shared/lib/database.types'
+import { invokeTauri } from '@/shared/lib/tauri'
 
 export type Period = 'morning' | 'afternoon' | 'evening'
 export type ItemType = 'meeting' | 'business' | 'routine' | 'urgent'
@@ -30,8 +29,6 @@ export interface ScheduleItemDraft {
   type: ItemType
   location: string | null
 }
-
-type ScheduleRow = Tables<'schedule_items'>
 
 function isPeriod(value: string | null): value is Period {
   return value === 'morning' || value === 'afternoon' || value === 'evening'
@@ -83,7 +80,7 @@ function compareScheduleItems(left: ScheduleItem, right: ScheduleItem) {
   return left.created_at.localeCompare(right.created_at)
 }
 
-function normalizeScheduleItem(row: ScheduleRow): ScheduleItem {
+function normalizeScheduleItem(row: ScheduleItem): ScheduleItem {
   return {
     id: row.id,
     title: row.title,
@@ -100,22 +97,16 @@ function normalizeScheduleItem(row: ScheduleRow): ScheduleItem {
 }
 
 export async function fetchScheduleItemsByRange(startDate: string, endDate: string) {
-  const { data, error } = await supabase
-    .from('schedule_items')
-    .select('*')
-    .gte('date', startDate)
-    .lte('date', endDate)
-    .order('date')
-    .order('period')
-    .order('start_time', { ascending: true, nullsFirst: false })
-
-  if (error) throw error
+  const data = await invokeTauri<ScheduleItem[]>('schedule_list_by_range', {
+    startDate,
+    endDate,
+  })
 
   return (data ?? []).map(normalizeScheduleItem).sort(compareScheduleItems)
 }
 
 export async function createScheduleItem(input: ScheduleItemDraft) {
-  const payload: TablesInsert<'schedule_items'> = {
+  const payload = {
     title: input.title.trim(),
     description: input.description || null,
     date: input.date,
@@ -126,28 +117,16 @@ export async function createScheduleItem(input: ScheduleItemDraft) {
     location: input.location || null,
   }
 
-  const { error } = await supabase.from('schedule_items').insert(payload)
-  if (error) throw error
+  await invokeTauri<ScheduleItem>('schedule_create', { draft: payload })
 }
 
 export async function updateScheduleMeetingNotes(itemId: string, meetingNotes: string) {
-  const payload: TablesUpdate<'schedule_items'> = {
-    meeting_notes: meetingNotes || null,
-  }
-
-  const { error } = await supabase
-    .from('schedule_items')
-    .update(payload)
-    .eq('id', itemId)
-
-  if (error) throw error
+  await invokeTauri('schedule_update_meeting_notes', {
+    itemId,
+    meetingNotes,
+  })
 }
 
 export async function removeScheduleItem(itemId: string) {
-  const { error } = await supabase
-    .from('schedule_items')
-    .delete()
-    .eq('id', itemId)
-
-  if (error) throw error
+  await invokeTauri('schedule_delete', { itemId })
 }

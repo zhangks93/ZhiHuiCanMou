@@ -1,16 +1,18 @@
-import { createBrowserStore } from '@/shared/storage/createBrowserStore'
+import {
+  DEFAULT_THRESHOLDS,
+  getSettingsSnapshot,
+  resetStoredThresholdSettings,
+  saveStoredThresholdSettings,
+  subscribeSettingsSnapshot,
+  type ThresholdConfig,
+  type ThresholdSettings,
+} from '@/shared/lib/settingsStore'
 import type { MetricCategory } from '@/shared/lib/supabase'
 
+export { DEFAULT_THRESHOLDS }
+export type { ThresholdConfig, ThresholdSettings } from '@/shared/lib/settingsStore'
+
 // 预警阈值配置管理
-
-export interface ThresholdConfig {
-  yellowThreshold: number  // 黄色预警阈值 (0-1)
-  redThreshold: number     // 红色预警阈值 (0-1)
-}
-
-export interface ThresholdSettings {
-  default: ThresholdConfig      // 默认阈值（适用于所有经营数据）
-}
 
 const LOWER_IS_BETTER_METRICS = new Set<MetricCategory>([
   'catering_expense',
@@ -31,35 +33,10 @@ const LOWER_IS_BETTER_METRICS = new Set<MetricCategory>([
   'labor_cost_rate',
 ])
 
-const STORAGE_KEY = 'biz_data_threshold_settings'
-
-// 默认阈值配置
-export const DEFAULT_THRESHOLDS: ThresholdSettings = {
-  default: {
-    yellowThreshold: 0.80,  // 80%
-    redThreshold: 0.70,     // 70%
-  },
-}
-
-const thresholdSettingsStore = createBrowserStore<ThresholdSettings>({
-  key: STORAGE_KEY,
-  fallback: DEFAULT_THRESHOLDS,
-  deserialize: (raw) => {
-    const parsed = JSON.parse(raw)
-    if (
-      parsed?.default?.yellowThreshold != null &&
-      parsed?.default?.redThreshold != null
-    ) {
-      return parsed as ThresholdSettings
-    }
-    return null
-  },
-})
-
 // 加载阈值配置
 export function loadThresholdSettings(): ThresholdSettings {
   try {
-    return thresholdSettingsStore.get()
+    return getSettingsSnapshot().thresholds
   } catch (error) {
     console.error('[ThresholdConfig] Failed to load settings:', error)
   }
@@ -67,23 +44,24 @@ export function loadThresholdSettings(): ThresholdSettings {
 }
 
 // 保存阈值配置
-export function saveThresholdSettings(settings: ThresholdSettings): void {
+export async function saveThresholdSettings(settings: ThresholdSettings): Promise<void> {
   try {
-    thresholdSettingsStore.set(settings)
+    await saveStoredThresholdSettings(settings)
   } catch (error) {
     console.error('[ThresholdConfig] Failed to save settings:', error)
+    throw error
   }
 }
 
 // 重置为默认阈值
-export function resetThresholdSettings(): void {
-  saveThresholdSettings(DEFAULT_THRESHOLDS)
+export async function resetThresholdSettings(): Promise<void> {
+  await resetStoredThresholdSettings()
 }
 
 export function subscribeThresholdSettings(
   listener: (settings: ThresholdSettings) => void,
 ): () => void {
-  return thresholdSettingsStore.subscribe(listener)
+  return subscribeSettingsSnapshot((snapshot) => listener(snapshot.thresholds))
 }
 
 // 获取节点的预警阈值（统一使用默认阈值）

@@ -1,45 +1,28 @@
-import { createBrowserStore } from '@/shared/storage/createBrowserStore'
-
-const ENABLED_MODULES_KEY = 'canmou_enabled_modules'
-
-const DEFAULT_ENABLED_MODULES = [
-  'schedule',
-  'org-data',
-  'biz-data',
-  'opportunity',
-  'competitor',
-  'trip',
-  'attendance',
-  'links',
-  'ai',
-]
-
-const enabledModulesStore = createBrowserStore<string[]>({
-  key: ENABLED_MODULES_KEY,
-  fallback: () => [...DEFAULT_ENABLED_MODULES],
-  deserialize: (raw) => {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : null
-  },
-})
+import {
+  DEFAULT_ENABLED_MODULES,
+  getSettingsSnapshot,
+  saveStoredEnabledModules,
+  subscribeSettingsSnapshot,
+} from '@/shared/lib/settingsStore'
 
 export function getEnabledModules(): string[] {
   try {
-    return enabledModulesStore.get()
+    return getSettingsSnapshot().enabledModules
   } catch (e) {
     console.error('Failed to load enabled modules:', e)
   }
   return [...DEFAULT_ENABLED_MODULES]
 }
 
-export function saveEnabledModules(moduleIds: string[]): void {
+export async function saveEnabledModules(moduleIds: string[]): Promise<void> {
   try {
-    enabledModulesStore.set(moduleIds)
+    await saveStoredEnabledModules(moduleIds)
   } catch (e) {
     console.error('Failed to save enabled modules:', e)
+    throw e
   }
 }
 
 export function subscribeEnabledModules(listener: (moduleIds: string[]) => void): () => void {
-  return enabledModulesStore.subscribe(listener)
+  return subscribeSettingsSnapshot((snapshot) => listener(snapshot.enabledModules))
 }

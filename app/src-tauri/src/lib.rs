@@ -1,7 +1,12 @@
+mod schedule_store;
+mod settings_store;
+
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
+use schedule_store::{ScheduleItem, ScheduleItemDraft, ScheduleStore};
+use settings_store::{SettingsStore, StoredLlmSettings, StoredSettingsSnapshot, ThresholdSettings};
 
 // Track deep link attempts for retry logic
 struct DeepLinkState {
@@ -42,6 +47,13 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(move |app| {
+            let schedule_store =
+                ScheduleStore::initialize(&app.handle()).map_err(std::io::Error::other)?;
+            app.manage(schedule_store);
+            let settings_store =
+                SettingsStore::initialize(&app.handle()).map_err(std::io::Error::other)?;
+            app.manage(settings_store);
+
             // 检查应用启动时是否通过 deep link 打开
             if let Ok(Some(urls)) = app.deep_link().get_current() {
                 println!("[Canmou] App started with deep link: {:?}", urls);
@@ -65,8 +77,107 @@ pub fn run() {
 
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            schedule_list_by_range,
+            schedule_create,
+            schedule_update_meeting_notes,
+            schedule_delete,
+            settings_get_all,
+            settings_save_llm_config,
+            settings_clear_llm_config,
+            settings_save_threshold_settings,
+            settings_reset_threshold_settings,
+            settings_get_enabled_modules,
+            settings_save_enabled_modules,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+fn schedule_list_by_range(
+    store: tauri::State<'_, ScheduleStore>,
+    start_date: String,
+    end_date: String,
+) -> Result<Vec<ScheduleItem>, String> {
+    store.list_by_range(&start_date, &end_date)
+}
+
+#[tauri::command]
+fn schedule_create(
+    store: tauri::State<'_, ScheduleStore>,
+    draft: ScheduleItemDraft,
+) -> Result<ScheduleItem, String> {
+    store.create(draft)
+}
+
+#[tauri::command]
+fn schedule_update_meeting_notes(
+    store: tauri::State<'_, ScheduleStore>,
+    item_id: String,
+    meeting_notes: String,
+) -> Result<(), String> {
+    store.update_meeting_notes(&item_id, &meeting_notes)
+}
+
+#[tauri::command]
+fn schedule_delete(
+    store: tauri::State<'_, ScheduleStore>,
+    item_id: String,
+) -> Result<(), String> {
+    store.delete(&item_id)
+}
+
+#[tauri::command]
+fn settings_get_all(
+    store: tauri::State<'_, SettingsStore>,
+) -> Result<StoredSettingsSnapshot, String> {
+    store.get_all()
+}
+
+#[tauri::command]
+fn settings_save_llm_config(
+    store: tauri::State<'_, SettingsStore>,
+    settings: StoredLlmSettings,
+) -> Result<(), String> {
+    store.save_llm_settings(settings)
+}
+
+#[tauri::command]
+fn settings_clear_llm_config(
+    store: tauri::State<'_, SettingsStore>,
+) -> Result<(), String> {
+    store.clear_llm_settings()
+}
+
+#[tauri::command]
+fn settings_save_threshold_settings(
+    store: tauri::State<'_, SettingsStore>,
+    settings: ThresholdSettings,
+) -> Result<(), String> {
+    store.save_threshold_settings(settings)
+}
+
+#[tauri::command]
+fn settings_reset_threshold_settings(
+    store: tauri::State<'_, SettingsStore>,
+) -> Result<(), String> {
+    store.reset_threshold_settings()
+}
+
+#[tauri::command]
+fn settings_get_enabled_modules(
+    store: tauri::State<'_, SettingsStore>,
+) -> Result<Option<Vec<String>>, String> {
+    store.get_enabled_modules()
+}
+
+#[tauri::command]
+fn settings_save_enabled_modules(
+    store: tauri::State<'_, SettingsStore>,
+    module_ids: Vec<String>,
+) -> Result<(), String> {
+    store.save_enabled_modules(module_ids)
 }
 
 fn handle_deep_link(handle: &tauri::AppHandle, url: &str, state: Arc<Mutex<DeepLinkState>>) {

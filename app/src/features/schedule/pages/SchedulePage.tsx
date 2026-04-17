@@ -368,7 +368,7 @@ export function SchedulePage() {
   const weekDates = useMemo(() => getWeekDates(refDate), [refDate])
   const startDate = fmtDate(weekDates[0])
   const endDate = fmtDate(weekDates[6])
-  const { items, loading, addScheduleItem, saveMeetingNotes, deleteScheduleItem } = useScheduleData(startDate, endDate)
+  const { items, loading, error, addScheduleItem, saveMeetingNotes, deleteScheduleItem } = useScheduleData(startDate, endDate)
 
   const handleCreate = async (input: {
     title: string
@@ -452,6 +452,12 @@ export function SchedulePage() {
             </h3>
             <span className="text-caption text-gray-400">{loading ? '加载中...' : `${dayItems.length} 项`}</span>
           </div>
+
+          {error ? (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
+              {error}
+            </div>
+          ) : null}
 
           {dayItems.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
