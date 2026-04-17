@@ -1,9 +1,18 @@
-import type { Conversation } from './types'
-import { createBrowserStore } from '@/shared/storage/createBrowserStore'
-import { externalizeConversationArtifacts, saveArtifactPayloads } from './artifactStore'
+import { invokeTauri, isTauriRuntime } from '@/shared/lib/tauri'
+import { externalizeConversationArtifacts } from './artifactStore'
+import type { ArtifactPayloadRecord, Conversation } from './types'
 
-const LEGACY_STORAGE_KEY = 'agent_conversations'
 const MAX_CONVERSATIONS = 50
+
+interface ConversationWire {
+  id: string
+  title: string
+  messages: Conversation['messages']
+  memory?: Conversation['memory']
+  context?: Conversation['context']
+  createdAt: number
+  updatedAt: number
+}
 
 function normalizeConversations(conversations: Conversation[]): Conversation[] {
   return conversations.map((conversation) => ({
@@ -18,55 +27,64 @@ function normalizeConversations(conversations: Conversation[]): Conversation[] {
   }))
 }
 
-/**
- * Get storage key for a specific agent
- */
-export function getStorageKey(agentId: string): string {
-  return `agent_conversations_${agentId}`
+function toConversationWire(conversations: Conversation[]): ConversationWire[] {
+  return conversations.map((conversation) => ({
+    id: conversation.id,
+    title: conversation.title,
+    messages: conversation.messages,
+    memory: conversation.memory,
+    context: conversation.context,
+    createdAt: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+  }))
 }
 
-function getConversationStore(agentId: string) {
-  return createBrowserStore<Conversation[]>({
-    key: getStorageKey(agentId),
-    fallback: [],
-    deserialize: (raw) => {
-      const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? normalizeConversations(parsed as Conversation[]) : null
-    },
+function normalizePayloadRecords(payloadRecords: ArtifactPayloadRecord[]): ArtifactPayloadRecord[] {
+  return payloadRecords.map((record) => ({
+    id: record.id,
+    artifactId: record.artifactId,
+    conversationId: record.conversationId,
+    payload: record.payload,
+    toolName: record.toolName,
+    createdAt: record.createdAt,
+  }))
+}
+
+export async function loadConversations(agentId: string): Promise<Conversation[]> {
+  if (!isTauriRuntime()) {
+    return []
+  }
+
+  const conversations = await invokeTauri<ConversationWire[]>('agent_chat_list_conversations', { agentId })
+  return normalizeConversations(Array.isArray(conversations) ? conversations as Conversation[] : [])
+}
+
+export async function saveConversations(conversations: Conversation[], agentId: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error('智能体对话持久化仅支持本地客户端，请在 Tauri 应用中使用。')
+  }
+
+  const trimmed = normalizeConversations(conversations.slice(0, MAX_CONVERSATIONS))
+  const { sanitizedConversations, payloadRecords } = externalizeConversationArtifacts(trimmed)
+
+  await invokeTauri('agent_chat_save_conversations', {
+    agentId,
+    conversations: toConversationWire(sanitizedConversations),
+    payloadRecords: normalizePayloadRecords(payloadRecords),
   })
 }
 
-/**
- * Load conversations for a specific agent
- */
-export function loadConversations(agentId: string): Conversation[] {
-  try {
-    const stored = getConversationStore(agentId).get()
-    if (stored.length > 0) return stored
-
-    // Migration: Check for legacy conversations
-    if (agentId === 'financial-analysis') {
-      return migrateLegacyConversations()
-    }
-    return []
-  } catch {
-    return []
+export async function deletePersistedConversation(agentId: string, conversationId: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error('智能体对话持久化仅支持本地客户端，请在 Tauri 应用中使用。')
   }
+
+  await invokeTauri('agent_chat_delete_conversation', {
+    agentId,
+    conversationId,
+  })
 }
 
-/**
- * Save conversations for a specific agent
- */
-export function saveConversations(conversations: Conversation[], agentId: string): void {
-  const trimmed = normalizeConversations(conversations.slice(0, MAX_CONVERSATIONS))
-  const { sanitizedConversations, payloadRecords } = externalizeConversationArtifacts(trimmed)
-  saveArtifactPayloads(agentId, payloadRecords)
-  getConversationStore(agentId).set(sanitizedConversations)
-}
-
-/**
- * Create a new empty conversation
- */
 export function createConversation(): Conversation {
   return {
     id: crypto.randomUUID(),
@@ -84,59 +102,14 @@ export function createConversation(): Conversation {
   }
 }
 
-/**
- * Delete a conversation by ID
- */
 export function deleteConversation(conversations: Conversation[], id: string): Conversation[] {
   return conversations.filter((conversation) => conversation.id !== id)
 }
 
-/**
- * Migrate legacy conversations to the new per-agent storage
- */
-function migrateLegacyConversations(): Conversation[] {
-  try {
-    const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY)
-    if (!legacyRaw) return []
-
-    const legacyConversations: Conversation[] = normalizeConversations(JSON.parse(legacyRaw) as Conversation[])
-    if (!Array.isArray(legacyConversations) || legacyConversations.length === 0) {
-      // Clear legacy and return empty
-      localStorage.removeItem(LEGACY_STORAGE_KEY)
-      return []
-    }
-
-    // Migrate to financial-analysis agent storage
-    getConversationStore('financial-analysis').set(legacyConversations)
-    // Clear legacy storage
-    localStorage.removeItem(LEGACY_STORAGE_KEY)
-
-    console.log(`[Agent] Migrated ${legacyConversations.length} legacy conversations to financial-analysis`)
-    return legacyConversations
-  } catch {
-    return []
-  }
-}
-
-export function subscribeConversations(
-  agentId: string,
-  listener: (conversations: Conversation[]) => void,
-): () => void {
-  return getConversationStore(agentId).subscribe(listener)
-}
-
-/**
- * Legacy load function - redirects to financial-analysis agent
- * @deprecated Use loadConversations(agentId) instead
- */
-export function loadConversationsLegacy(): Conversation[] {
+export async function loadConversationsLegacy(): Promise<Conversation[]> {
   return loadConversations('financial-analysis')
 }
 
-/**
- * Legacy save function - redirects to financial-analysis agent
- * @deprecated Use saveConversations(conversations, agentId) instead
- */
-export function saveConversationsLegacy(conversations: Conversation[]): void {
-  saveConversations(conversations, 'financial-analysis')
+export async function saveConversationsLegacy(conversations: Conversation[]): Promise<void> {
+  await saveConversations(conversations, 'financial-analysis')
 }

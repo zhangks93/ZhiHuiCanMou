@@ -1,32 +1,5 @@
-import { createBrowserStore } from '@/shared/storage/createBrowserStore'
+import { invokeTauri, isTauriRuntime } from '@/shared/lib/tauri'
 import type { ArtifactPayloadRecord, Conversation } from './types'
-
-function getArtifactStorageKey(agentId: string): string {
-  return `agent_artifact_payloads_${agentId}`
-}
-
-function getArtifactStore(agentId: string) {
-  return createBrowserStore<ArtifactPayloadRecord[]>({
-    key: getArtifactStorageKey(agentId),
-    fallback: [],
-    deserialize: (raw) => {
-      const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? parsed as ArtifactPayloadRecord[] : null
-    },
-  })
-}
-
-export function loadArtifactPayloads(agentId: string): ArtifactPayloadRecord[] {
-  try {
-    return getArtifactStore(agentId).get()
-  } catch {
-    return []
-  }
-}
-
-export function getArtifactPayloadById(agentId: string, artifactId: string): ArtifactPayloadRecord | undefined {
-  return loadArtifactPayloads(agentId).find((record) => record.artifactId === artifactId)
-}
 
 export function externalizeConversationArtifacts(
   conversations: Conversation[],
@@ -78,6 +51,18 @@ export function externalizeConversationArtifacts(
   }
 }
 
-export function saveArtifactPayloads(agentId: string, payloadRecords: ArtifactPayloadRecord[]): void {
-  getArtifactStore(agentId).set(payloadRecords)
+export async function getArtifactPayloadById(
+  agentId: string,
+  artifactId: string,
+): Promise<ArtifactPayloadRecord | undefined> {
+  if (!isTauriRuntime()) {
+    return undefined
+  }
+
+  const record = await invokeTauri<ArtifactPayloadRecord | null>('agent_chat_get_artifact_payload', {
+    agentId,
+    artifactId,
+  })
+
+  return record ?? undefined
 }

@@ -31,9 +31,9 @@ export { resolveTools, getAvailableToolNames } from './tools/toolRegistry'
 export {
   loadConversations,
   saveConversations,
+  deletePersistedConversation,
   createConversation,
   deleteConversation,
-  getStorageKey,
 } from './conversationStore'
 export {
   buildConversationMemoryBlock,
@@ -41,7 +41,6 @@ export {
   getRecentMessagesForPrompt,
 } from './conversationMemory'
 export {
-  loadArtifactPayloads,
   getArtifactPayloadById,
 } from './artifactStore'
 

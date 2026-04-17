@@ -1,12 +1,14 @@
+mod agent_chat_store;
 mod schedule_store;
 mod settings_store;
 
+use agent_chat_store::{AgentChatStore, StoredArtifactPayloadRecord, StoredConversation};
+use schedule_store::{ScheduleItem, ScheduleItemDraft, ScheduleStore};
+use settings_store::{SettingsStore, StoredLlmSettings, StoredSettingsSnapshot, ThresholdSettings};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
-use schedule_store::{ScheduleItem, ScheduleItemDraft, ScheduleStore};
-use settings_store::{SettingsStore, StoredLlmSettings, StoredSettingsSnapshot, ThresholdSettings};
 
 // Track deep link attempts for retry logic
 struct DeepLinkState {
@@ -47,6 +49,9 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(move |app| {
+            let agent_chat_store =
+                AgentChatStore::initialize(&app.handle()).map_err(std::io::Error::other)?;
+            app.manage(agent_chat_store);
             let schedule_store =
                 ScheduleStore::initialize(&app.handle()).map_err(std::io::Error::other)?;
             app.manage(schedule_store);
@@ -78,6 +83,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            agent_chat_list_conversations,
+            agent_chat_save_conversations,
+            agent_chat_delete_conversation,
+            agent_chat_get_artifact_payload,
             schedule_list_by_range,
             schedule_create,
             schedule_update_meeting_notes,
@@ -92,6 +101,42 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+fn agent_chat_list_conversations(
+    store: tauri::State<'_, AgentChatStore>,
+    agent_id: String,
+) -> Result<Vec<StoredConversation>, String> {
+    store.list_conversations(&agent_id)
+}
+
+#[tauri::command]
+fn agent_chat_save_conversations(
+    store: tauri::State<'_, AgentChatStore>,
+    agent_id: String,
+    conversations: Vec<StoredConversation>,
+    payload_records: Vec<StoredArtifactPayloadRecord>,
+) -> Result<(), String> {
+    store.save_conversations(&agent_id, conversations, payload_records)
+}
+
+#[tauri::command]
+fn agent_chat_delete_conversation(
+    store: tauri::State<'_, AgentChatStore>,
+    agent_id: String,
+    conversation_id: String,
+) -> Result<(), String> {
+    store.delete_conversation(&agent_id, &conversation_id)
+}
+
+#[tauri::command]
+fn agent_chat_get_artifact_payload(
+    store: tauri::State<'_, AgentChatStore>,
+    agent_id: String,
+    artifact_id: String,
+) -> Result<Option<StoredArtifactPayloadRecord>, String> {
+    store.get_artifact_payload(&agent_id, &artifact_id)
 }
 
 #[tauri::command]
@@ -121,10 +166,7 @@ fn schedule_update_meeting_notes(
 }
 
 #[tauri::command]
-fn schedule_delete(
-    store: tauri::State<'_, ScheduleStore>,
-    item_id: String,
-) -> Result<(), String> {
+fn schedule_delete(store: tauri::State<'_, ScheduleStore>, item_id: String) -> Result<(), String> {
     store.delete(&item_id)
 }
 
@@ -144,9 +186,7 @@ fn settings_save_llm_config(
 }
 
 #[tauri::command]
-fn settings_clear_llm_config(
-    store: tauri::State<'_, SettingsStore>,
-) -> Result<(), String> {
+fn settings_clear_llm_config(store: tauri::State<'_, SettingsStore>) -> Result<(), String> {
     store.clear_llm_settings()
 }
 
@@ -159,9 +199,7 @@ fn settings_save_threshold_settings(
 }
 
 #[tauri::command]
-fn settings_reset_threshold_settings(
-    store: tauri::State<'_, SettingsStore>,
-) -> Result<(), String> {
+fn settings_reset_threshold_settings(store: tauri::State<'_, SettingsStore>) -> Result<(), String> {
     store.reset_threshold_settings()
 }
 

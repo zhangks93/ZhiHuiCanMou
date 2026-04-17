@@ -22,6 +22,7 @@ import { loadConversations, saveConversations, createConversation, deleteConvers
 import { buildConversationMemoryBlock, compactConversation, getRecentMessagesForPrompt } from '@/shared/lib/agent/conversationMemory'
 import { buildSettingsHref } from '@/app/config/constants'
 import { loadLLMConfig } from '@/shared/lib/llmConfig'
+import { isTauriRuntime } from '@/shared/lib/tauri'
 import type { ChatAgent } from '@/shared/lib/agent/chatAgent'
 import { loadAgentRuntimeModules } from '@/shared/lib/agent/runtimeLoader'
 import { useAgentConfig } from '@/features/agent-chat/hooks/useAgentConfig'
@@ -145,6 +146,22 @@ function ConfigPrompt() {
   )
 }
 
+function RuntimePrompt({ message }: { message: string }) {
+  return (
+    <div className="flex flex-1 items-center justify-center px-4">
+      <div className="chat-config-card">
+        <Settings size={28} className="text-[var(--color-text-muted)]" />
+        <div className="space-y-1.5 text-center">
+          <h2 className="text-body font-semibold text-[var(--color-text-strong)]">当前环境不支持智能体历史持久化</h2>
+          <p className="text-caption leading-6 text-[var(--color-text-muted)]">
+            {message}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function AgentChatPage({
   agents,
   defaultAgentId,
@@ -160,6 +177,8 @@ export function AgentChatPage({
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [historyCollapsed, setHistoryCollapsed] = useState(false)
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024)
+  const [isHydrating, setIsHydrating] = useState(true)
+  const [persistenceError, setPersistenceError] = useState<string | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -171,6 +190,7 @@ export function AgentChatPage({
   const { configOk } = useAgentConfig(agentRef)
 
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0]
+  const tauriRuntime = isTauriRuntime()
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -191,17 +211,40 @@ export function AgentChatPage({
   }, [])
 
   useEffect(() => {
-    const saved = loadConversations(activeAgentId)
-    setConversations(saved)
-    if (saved.length > 0) {
-      setActiveConversationId(saved[0].id)
-      setMessages(saved[0].messages)
-    } else {
+    let cancelled = false
+
+    const hydrateConversations = async () => {
+      setIsHydrating(true)
+      setPersistenceError(null)
+      setConversations([])
       setActiveConversationId(null)
       setMessages([])
+
+      try {
+        const saved = await loadConversations(activeAgentId)
+        if (cancelled) return
+
+        setConversations(saved)
+        if (saved.length > 0) {
+          setActiveConversationId(saved[0].id)
+          setMessages(saved[0].messages)
+        }
+      } catch (error) {
+        if (cancelled) return
+        setPersistenceError((error as Error).message || '加载历史对话失败')
+      } finally {
+        if (cancelled) return
+        setIsHydrating(false)
+        if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+          setSidebarOpen(true)
+        }
+      }
     }
-    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-      setSidebarOpen(true)
+
+    void hydrateConversations()
+
+    return () => {
+      cancelled = true
     }
   }, [activeAgentId])
 
@@ -219,9 +262,10 @@ export function AgentChatPage({
     shouldAutoScrollRef.current = distanceFromBottom < 120
   }, [])
 
-  const persist = useCallback((nextConversations: Conversation[]) => {
+  const persist = useCallback(async (nextConversations: Conversation[]) => {
     setConversations(nextConversations)
-    saveConversations(nextConversations, activeAgentId)
+    setPersistenceError(null)
+    await saveConversations(nextConversations, activeAgentId)
   }, [activeAgentId])
 
   const flushStreamingMessage = useCallback((assistantMessage: ChatMessage) => {
@@ -269,20 +313,20 @@ export function AgentChatPage({
     void getFinancialAnalysisRuntimeDataContext().catch(() => {})
   }, [activeAgent?.id])
 
-  const handleNewConversation = useCallback(() => {
+  const handleNewConversation = useCallback(async () => {
     const conversation = createConversation()
     const nextConversations = [conversation, ...conversations]
-    persist(nextConversations)
     setActiveConversationId(conversation.id)
     setMessages([])
     shouldAutoScrollRef.current = true
+    await persist(nextConversations)
     if (window.innerWidth < 1024) {
       setSidebarOpen(false)
     }
     textareaRef.current?.focus()
   }, [conversations, persist])
 
-  const handleSelectConversation = useCallback((id: string) => {
+  const handleSelectConversation = useCallback(async (id: string) => {
     if (isStreaming) return
 
     if (activeConversationId && messages.length > 0) {
@@ -296,7 +340,7 @@ export function AgentChatPage({
         }
         return c
       })
-      persist(updated)
+      await persist(updated)
     }
 
     const conversation = conversations.find(item => item.id === id)
@@ -310,10 +354,9 @@ export function AgentChatPage({
     }
   }, [conversations, activeConversationId, messages, isStreaming, persist])
 
-  const handleDeleteConversation = useCallback((id: string) => {
+  const handleDeleteConversation = useCallback(async (id: string) => {
     if (isStreaming) return
     const nextConversations = deleteConversation(conversations, id)
-    persist(nextConversations)
     if (activeConversationId === id) {
       if (nextConversations.length > 0) {
         setActiveConversationId(nextConversations[0].id)
@@ -323,6 +366,7 @@ export function AgentChatPage({
         setMessages([])
       }
     }
+    await persist(nextConversations)
   }, [conversations, activeConversationId, isStreaming, persist])
 
   const handleSend = useCallback(async () => {
@@ -338,8 +382,13 @@ export function AgentChatPage({
       const conversation = createConversation()
       nextConversations = [conversation, ...conversations]
       conversationId = conversation.id
-      persist(nextConversations)
-      setActiveConversationId(conversationId)
+      try {
+        await persist(nextConversations)
+        setActiveConversationId(conversationId)
+      } catch (error) {
+        setPersistenceError((error as Error).message || '创建对话失败')
+        return
+      }
     }
 
     const currentConversation = nextConversations.find(conversation => conversation.id === conversationId)
@@ -470,7 +519,11 @@ export function AgentChatPage({
         updatedAt: Date.now(),
       })
     })
-    persist(updatedConversations)
+    try {
+      await persist(updatedConversations)
+    } catch (error) {
+      setPersistenceError((error as Error).message || '保存对话失败')
+    }
   }, [activeAgent, activeConversationId, conversations, ensureAgentReady, flushStreamingMessage, input, isStreaming, messages, persist])
 
   const handleAbort = useCallback(() => {
@@ -522,6 +575,15 @@ export function AgentChatPage({
       </div>
     )
   }
+
+  if (!tauriRuntime) {
+    return (
+      <div className="flex h-full">
+        <RuntimePrompt message="智能体对话历史已改为仅在本地客户端通过 SQLite 持久化，请在 Tauri 应用中使用。" />
+      </div>
+    )
+  }
+
   return (
     <div className="agent-chat-page">
       <aside
@@ -535,9 +597,21 @@ export function AgentChatPage({
           <ConversationList
             conversations={conversations}
             activeId={activeConversationId}
-            onSelect={handleSelectConversation}
-            onNew={handleNewConversation}
-            onDelete={handleDeleteConversation}
+            onSelect={(id) => {
+              void handleSelectConversation(id).catch((error) => {
+                setPersistenceError((error as Error).message || '切换历史对话失败')
+              })
+            }}
+            onNew={() => {
+              void handleNewConversation().catch((error) => {
+                setPersistenceError((error as Error).message || '新建历史对话失败')
+              })
+            }}
+            onDelete={(id) => {
+              void handleDeleteConversation(id).catch((error) => {
+                setPersistenceError((error as Error).message || '删除历史对话失败')
+              })
+            }}
             className="agent-conversation-list"
             headerActions={
               <button
@@ -603,7 +677,21 @@ export function AgentChatPage({
           onScroll={handleMessagesScroll}
         >
           <div className="chat-messages-inner">
-            {displayMessages.length === 0 && activeAgent ? (
+            {persistenceError ? (
+              <div className="flex min-h-full items-center justify-center px-4 py-12">
+                <div className="chat-config-card">
+                  <Settings size={24} className="text-[var(--color-text-muted)]" />
+                  <div className="space-y-1.5 text-center">
+                    <h2 className="text-body font-semibold text-[var(--color-text-strong)]">对话存储异常</h2>
+                    <p className="text-caption leading-6 text-[var(--color-text-muted)]">{persistenceError}</p>
+                  </div>
+                </div>
+              </div>
+            ) : isHydrating ? (
+              <div className="flex min-h-full items-center justify-center px-4 py-12 text-caption text-[var(--color-text-muted)]">
+                正在加载历史对话...
+              </div>
+            ) : displayMessages.length === 0 && activeAgent ? (
               <AgentEmptyState agent={activeAgent} onPrompt={handlePrompt} />
             ) : (
               displayMessages.map(message => (
@@ -630,7 +718,7 @@ export function AgentChatPage({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               rows={1}
-              disabled={isStreaming}
+              disabled={isStreaming || isHydrating}
             />
             <div className="chat-composer-footer">
               {isStreaming ? (
@@ -647,7 +735,7 @@ export function AgentChatPage({
                   type="button"
                   className="btn btn-primary btn-xs btn-square"
                   onClick={() => void handleSend()}
-                  disabled={!input.trim()}
+                  disabled={!input.trim() || isHydrating || Boolean(persistenceError)}
                   title="发送"
                 >
                   <Send size={13} />
