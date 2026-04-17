@@ -14,6 +14,18 @@ interface ConversationWire {
   updatedAt: number
 }
 
+function toConversationWire(conversation: Conversation): ConversationWire {
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    messages: conversation.messages,
+    memory: conversation.memory,
+    context: conversation.context,
+    createdAt: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+  }
+}
+
 function normalizeConversations(conversations: Conversation[]): Conversation[] {
   return conversations.map((conversation) => ({
     ...conversation,
@@ -24,18 +36,6 @@ function normalizeConversations(conversations: Conversation[]): Conversation[] {
         }
       : { version: 1, artifacts: [] },
     context: conversation.context?.version === 1 ? conversation.context : { version: 1 },
-  }))
-}
-
-function toConversationWire(conversations: Conversation[]): ConversationWire[] {
-  return conversations.map((conversation) => ({
-    id: conversation.id,
-    title: conversation.title,
-    messages: conversation.messages,
-    memory: conversation.memory,
-    context: conversation.context,
-    createdAt: conversation.createdAt,
-    updatedAt: conversation.updatedAt,
   }))
 }
 
@@ -61,7 +61,7 @@ export async function loadConversations(agentId: string): Promise<Conversation[]
 
 export async function saveConversations(conversations: Conversation[], agentId: string): Promise<void> {
   if (!isTauriRuntime()) {
-    throw new Error('智能体对话持久化仅支持本地客户端，请在 Tauri 应用中使用。')
+    throw new Error('智能体对话持久化仅支持本地客户端，请在桌面端使用。')
   }
 
   const trimmed = normalizeConversations(conversations.slice(0, MAX_CONVERSATIONS))
@@ -69,14 +69,40 @@ export async function saveConversations(conversations: Conversation[], agentId: 
 
   await invokeTauri('agent_chat_save_conversations', {
     agentId,
-    conversations: toConversationWire(sanitizedConversations),
+    conversations: sanitizedConversations.map(toConversationWire),
     payloadRecords: normalizePayloadRecords(payloadRecords),
+  })
+}
+
+export async function upsertConversation(conversation: Conversation, agentId: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error('智能体对话持久化仅支持本地客户端，请在桌面端使用。')
+  }
+
+  const normalizedConversation = normalizeConversations([conversation])[0]
+  const { sanitizedConversations, payloadRecords } = externalizeConversationArtifacts([normalizedConversation])
+
+  await invokeTauri('agent_chat_upsert_conversation', {
+    agentId,
+    conversation: toConversationWire(sanitizedConversations[0]),
+    payloadRecords: normalizePayloadRecords(payloadRecords),
+  })
+}
+
+export async function prunePersistedConversations(agentId: string, keepConversationIds: string[]): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error('智能体对话持久化仅支持本地客户端，请在桌面端使用。')
+  }
+
+  await invokeTauri('agent_chat_prune_conversations', {
+    agentId,
+    keepConversationIds,
   })
 }
 
 export async function deletePersistedConversation(agentId: string, conversationId: string): Promise<void> {
   if (!isTauriRuntime()) {
-    throw new Error('智能体对话持久化仅支持本地客户端，请在 Tauri 应用中使用。')
+    throw new Error('智能体对话持久化仅支持本地客户端，请在桌面端使用。')
   }
 
   await invokeTauri('agent_chat_delete_conversation', {

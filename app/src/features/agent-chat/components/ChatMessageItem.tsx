@@ -1,9 +1,26 @@
+import { lazy, Suspense } from 'react'
 import { User } from 'lucide-react'
 
 import type { AgentIcon as AgentIconConfig, ChatMessage } from '@/shared/lib/agent/types'
 import { AgentIcon } from './AgentIcon'
-import { ChatMarkdown } from './ChatMarkdown'
-import { ChatProcessPanel } from './ChatProcessPanel'
+
+const ChatMarkdown = lazy(() => import('./ChatMarkdown').then((module) => ({ default: module.ChatMarkdown })))
+const ChatProcessPanel = lazy(() => import('./ChatProcessPanel').then((module) => ({ default: module.ChatProcessPanel })))
+
+const RICH_TEXT_PATTERN = /```|`[^`\n]+`|\[[^\]]+\]\([^)]+\)|(^|\n)\s{0,3}(#{1,6}\s|[-*+]\s|\d+\.\s|>\s)|(^|\n)\|.+\|/m
+const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i
+
+function shouldRenderMarkdown(content: string, enableHtmlPreview: boolean) {
+  if (!content.trim()) {
+    return false
+  }
+
+  if (RICH_TEXT_PATTERN.test(content)) {
+    return true
+  }
+
+  return enableHtmlPreview && HTML_TAG_PATTERN.test(content)
+}
 
 export function ChatMessageItem({
   message,
@@ -17,6 +34,10 @@ export function ChatMessageItem({
   assistantIcon?: AgentIconConfig
 }) {
   const isUser = message.role === 'user'
+  const hasProcessDetails = Boolean(message.thinking?.trim() || message.toolCalls?.length)
+  const shouldUseMarkdown = !isUser && message.content
+    ? shouldRenderMarkdown(message.content, enableHtmlPreview)
+    : false
 
   return (
     <article className={`chat-message-row ${isUser ? 'chat-message-row-user' : ''}`}>
@@ -31,11 +52,19 @@ export function ChatMessageItem({
       </div>
       <div className={`chat-message-shell ${isUser ? 'chat-message-shell-user' : 'chat-message-shell-assistant'}`}>
         <div className={`chat-message-card ${isUser ? 'chat-message-card-user' : 'chat-message-card-assistant'}`}>
-          {!isUser && (
-            <ChatProcessPanel thinking={message.thinking} toolCalls={message.toolCalls} />
+          {hasProcessDetails && (
+            <Suspense fallback={null}>
+              <ChatProcessPanel thinking={message.thinking} toolCalls={message.toolCalls} />
+            </Suspense>
           )}
           {message.content ? (
-            <ChatMarkdown content={message.content} enableHtmlPreview={enableHtmlPreview} />
+            isUser || !shouldUseMarkdown ? (
+              <div className="whitespace-pre-wrap break-words">{message.content}</div>
+            ) : (
+              <Suspense fallback={<div className="whitespace-pre-wrap break-words">{message.content}</div>}>
+                <ChatMarkdown content={message.content} enableHtmlPreview={enableHtmlPreview} />
+              </Suspense>
+            )
           ) : isStreaming && !message.thinking && !message.toolCalls?.length ? (
             <span className="chat-streaming-placeholder" />
           ) : null}

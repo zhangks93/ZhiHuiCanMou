@@ -27,6 +27,11 @@ export interface NestedBizDataNode {
   children: NestedBizDataNode[]
 }
 
+export interface HierarchyChildrenIndex {
+  getChildren: (node: EnrichedBizDataNode) => EnrichedBizDataNode[]
+  hasChildren: (node: EnrichedBizDataNode) => boolean
+}
+
 async function fetchDistinctColumnValues(
   table: 'edu_biz_report' | 'edu_biz_monthly_plan',
   column: 'period' | 'month',
@@ -573,6 +578,98 @@ export function buildHierarchyTree(nodes: EnrichedBizDataNode[]): HierarchyTree 
 
 export function getNodeKind(node: EnrichedBizDataNode): HierarchyNodeKind {
   return inferNodeKind(node)
+}
+
+function buildNodeLookupKey(node: EnrichedBizDataNode): string {
+  return [
+    inferNodeKind(node),
+    node.node_name,
+    node.orgHierarchy.level_0 ?? '',
+    node.orgHierarchy.level_1 ?? '',
+    node.orgHierarchy.level_2 ?? '',
+  ].join('|||')
+}
+
+export function buildHierarchyChildrenIndex(allNodes: EnrichedBizDataNode[]): HierarchyChildrenIndex {
+  const childrenByNodeKey = new Map<string, EnrichedBizDataNode[]>()
+  const level1Children = new Map<string, EnrichedBizDataNode[]>()
+  const level2Children = new Map<string, EnrichedBizDataNode[]>()
+  const level1Nodes: EnrichedBizDataNode[] = []
+  const totalNodes: EnrichedBizDataNode[] = []
+
+  for (const node of allNodes) {
+    const kind = inferNodeKind(node)
+
+    if (kind === 'total') {
+      totalNodes.push(node)
+      continue
+    }
+
+    if (kind === 'level1') {
+      level1Nodes.push(node)
+      continue
+    }
+
+    if (kind === 'level2') {
+      const level1 = node.orgHierarchy.level_1
+      if (!level1) continue
+      const children = level1Children.get(level1) ?? []
+      children.push(node)
+      level1Children.set(level1, children)
+      continue
+    }
+
+    if (kind !== 'leaf') {
+      continue
+    }
+
+    const { level_1, level_2 } = node.orgHierarchy
+    if (!level_1) continue
+
+    if (!level_2) {
+      const children = level1Children.get(level_1) ?? []
+      children.push(node)
+      level1Children.set(level_1, children)
+      continue
+    }
+
+    const key = `${level_1}|||${level_2}`
+    const children = level2Children.get(key) ?? []
+    children.push(node)
+    level2Children.set(key, children)
+  }
+
+  const sortNodes = (nodes: EnrichedBizDataNode[]) =>
+    nodes.slice().sort((left, right) => left.sort_order - right.sort_order)
+
+  const sortedLevel1Nodes = sortNodes(level1Nodes)
+  totalNodes.forEach((node) => {
+    childrenByNodeKey.set(buildNodeLookupKey(node), sortedLevel1Nodes)
+  })
+
+  level1Nodes.forEach((node) => {
+    const level1 = node.orgHierarchy.level_1
+    if (!level1) return
+    const children = level1Children.get(level1) ?? []
+    childrenByNodeKey.set(buildNodeLookupKey(node), sortNodes(children))
+  })
+
+  allNodes.forEach((node) => {
+    if (inferNodeKind(node) !== 'level2') return
+    const { level_1, level_2 } = node.orgHierarchy
+    if (!level_1 || !level_2) return
+    const children = level2Children.get(`${level_1}|||${level_2}`) ?? []
+    childrenByNodeKey.set(buildNodeLookupKey(node), sortNodes(children))
+  })
+
+  return {
+    getChildren(node) {
+      return childrenByNodeKey.get(buildNodeLookupKey(node)) ?? []
+    },
+    hasChildren(node) {
+      return (childrenByNodeKey.get(buildNodeLookupKey(node))?.length ?? 0) > 0
+    },
+  }
 }
 
 function buildNestedNode(

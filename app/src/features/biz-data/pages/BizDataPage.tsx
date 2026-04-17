@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { ReportTypeToggle } from '../components/ReportTypeToggle'
 import { PeriodTypeToggle } from '../components/PeriodTypeToggle'
@@ -6,12 +6,14 @@ import { MonthSelector } from '../components/MonthSelector'
 import { ViewModeToggle } from '../components/ViewModeToggle'
 import { MetricSelector } from '../components/MetricSelector'
 import { ChartHierarchyBreadcrumb } from '../components/ChartHierarchyBreadcrumb'
-import { ChartView, type DrillDownLevel } from '../components/ChartView'
+import type { DrillDownLevel } from '../components/ChartView'
 import { HierarchyLevelFilter, type LevelVisibility } from '../components/HierarchyLevelFilter'
 import { TableView } from '../components/TableView'
 import { useBizDataViewModel } from '../hooks/useBizDataViewModel'
 import { buildTreeWithAggregation } from '../services/bizDataService'
 import type { EnrichedBizDataNode } from '../types'
+
+const ChartView = lazy(() => import('../components/ChartView').then((module) => ({ default: module.ChartView })))
 
 function normalizeDrillDownPath(
   path: DrillDownLevel[],
@@ -66,6 +68,13 @@ export function BizDataPage() {
     level3: true,
   })
   const effectiveDrillDownPath = useMemo(() => normalizeDrillDownPath(drillDownPath, nodes), [drillDownPath, nodes])
+  const chartViewFallback = (
+    <div className="biz-content-area">
+      <div className="flex items-center justify-center h-[460px]">
+        <div className="text-caption text-[var(--color-text-muted)]">图表加载中...</div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="app-page biz-data-page">
@@ -133,6 +142,7 @@ export function BizDataPage() {
             showLevels={showLevels}
           />
         ) : (
+          <Suspense fallback={chartViewFallback}>
             <ChartView
               nodes={nodes}
               reportType={reportType}
@@ -140,7 +150,8 @@ export function BizDataPage() {
               drillDownPath={effectiveDrillDownPath}
               onDrillDownPathChange={setDrillDownPath}
             />
-          )}
+          </Suspense>
+        )}
       </div>
     </div>
   )

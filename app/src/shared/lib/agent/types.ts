@@ -186,8 +186,8 @@ export interface AgentDefinition {
   icon: AgentIcon
   /** System prompt for this agent */
   systemPrompt: string
-  /** List of tool definitions available to this agent */
-  tools: RegisteredTool[]
+  /** Tool names declared by the skill; runtime modules resolve/register implementations lazily */
+  tools: string[]
   /** Quick prompt suggestions shown in empty state */
   quickPrompts: string[]
   /** Accent color for the agent (CSS variable or hex) */

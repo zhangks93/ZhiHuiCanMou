@@ -27,7 +27,7 @@ import { ChevronRight, ChevronDown, GripVertical } from 'lucide-react'
 import { METRIC_LABELS } from '@/shared/lib/constants'
 import { fmt, fmtPct } from '@/shared/lib/format'
 import type { EnrichedBizDataNode, MetricCategory } from '@/features/biz-data/types'
-import { getChildren, buildTreeWithAggregation } from '@/features/biz-data/services/bizDataService'
+import { buildHierarchyChildrenIndex, buildTreeWithAggregation } from '@/features/biz-data/services/bizDataService'
 import type { LevelVisibility } from './HierarchyLevelFilter'
 import {
   getNodeThresholds,
@@ -158,6 +158,10 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
     return buildTreeWithAggregation(nodes)
   }, [nodes])
 
+  const childrenIndex = useMemo(() => {
+    return buildHierarchyChildrenIndex(allNodesWithAggregation)
+  }, [allNodesWithAggregation])
+
   const getNodeLevel = (node: EnrichedBizDataNode): 0 | 1 | 2 | 3 | null => {
     const { level_0, level_1, level_2 } = node.orgHierarchy
     const { node_name } = node
@@ -194,7 +198,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     getSubRows: (row) => {
-      const children = getChildren(row, allNodesWithAggregation)
+      const children = childrenIndex.getChildren(row)
       return children.filter((child) => {
         const level = getNodeLevel(child)
         if (level === 1) return showLevels.level1
@@ -484,7 +488,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
   }, [visibleRows, metricOrder.length, reportType])
 
   const renderBusinessUnitCell = (row: Row<EnrichedBizDataNode>) => {
-    const hasChildren = getChildren(row.original, allNodesWithAggregation).length > 0
+    const hasChildren = childrenIndex.hasChildren(row.original)
 
     return (
       <div

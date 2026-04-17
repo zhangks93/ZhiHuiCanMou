@@ -64,7 +64,7 @@ export interface ModuleNavConfig {
 
 export const MODULE_NAV_CONFIG: Record<string, Omit<ModuleNavConfig, 'id'>> = {
   schedule: {
-    label: '日程提醒',
+    label: '日程',
     routePath: '/schedule',
     section: 'workspace',
     icon: Calendar,

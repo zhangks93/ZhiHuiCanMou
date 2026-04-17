@@ -11,7 +11,7 @@ export function isTauriRuntime() {
 
 export async function invokeTauri<T>(command: string, args?: Record<string, unknown>) {
   if (!isTauriRuntime()) {
-    throw new Error('日程功能仅支持本地客户端，请在 Tauri 应用中使用。')
+    throw new Error('日程功能仅支持本地客户端，请在桌面端使用。')
   }
 
   const { invoke } = await import('@tauri-apps/api/core')

@@ -17,7 +17,7 @@ interface PageTitleProps {
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/': { title: '首页', subtitle: '工作台模块入口' },
-  '/schedule': { title: '日程提醒', subtitle: '查看当天安排与后续提醒' },
+  '/schedule': { title: '日程', subtitle: '查看当天安排与后续提醒' },
   '/org-data': { title: '人员', subtitle: '组织与人员基础信息' },
   '/biz-data': { title: '经营', subtitle: '经营分析与结构化对比' },
   '/opportunity': { title: '商机', subtitle: '跟踪项目机会与阶段进展' },

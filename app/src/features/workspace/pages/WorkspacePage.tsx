@@ -7,7 +7,7 @@ import { SchedulePage } from '@/features/schedule'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 
 const TAB_LABELS = {
-  schedule: '日程提醒',
+  schedule: '日程',
   links: '链接',
 } as const
 

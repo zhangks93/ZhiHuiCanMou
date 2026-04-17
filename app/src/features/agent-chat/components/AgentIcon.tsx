@@ -41,6 +41,8 @@ export function AgentIcon({
         alt=""
         className={className}
         aria-hidden="true"
+        loading="lazy"
+        decoding="async"
         draggable={false}
         style={{ ...imageStyle, borderRadius: 'inherit', display: 'block' }}
       />

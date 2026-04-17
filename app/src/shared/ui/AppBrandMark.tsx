@@ -10,21 +10,24 @@ interface AppBrandMarkProps {
   animated?: boolean
 }
 
-const SIZE_CLASS: Record<BrandMarkSize, { shell: string; ring: string; image: string }> = {
+const SIZE_CLASS: Record<BrandMarkSize, { shell: string; ring: string; image: string; pixels: number }> = {
   sm: {
     shell: 'h-11 w-11 rounded-2xl',
     ring: '-inset-2 rounded-[22px]',
     image: 'h-11 w-11',
+    pixels: 44,
   },
   md: {
     shell: 'h-14 w-14 rounded-[18px]',
     ring: '-inset-2.5 rounded-[26px]',
     image: 'h-14 w-14',
+    pixels: 56,
   },
   lg: {
     shell: 'h-16 w-16 rounded-[22px]',
     ring: '-inset-3 rounded-[30px]',
     image: 'h-16 w-16',
+    pixels: 64,
   },
 }
 
@@ -49,6 +52,9 @@ export function AppBrandMark({
           src={logoUrl}
           alt="智汇参谋 Logo"
           className={`relative z-10 object-cover ${preset.image}`}
+          width={preset.pixels}
+          height={preset.pixels}
+          decoding="async"
           draggable={false}
         />
       </div>

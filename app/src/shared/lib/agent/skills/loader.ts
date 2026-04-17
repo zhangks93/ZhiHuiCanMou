@@ -1,7 +1,6 @@
 // Skill Loader — converts skill.json + prompt.md + assets into AgentDefinition
 
 import type { AgentDefinition, AgentIcon } from '../types'
-import { resolveTools } from '../tools'
 import { registerAssets } from './assetRegistry'
 
 /** Shape of a skill.json file */
@@ -51,7 +50,7 @@ export function loadSkill(
     tagline: config.tagline,
     icon,
     systemPrompt,
-    tools: resolveTools(config.tools),
+    tools: [...config.tools],
     quickPrompts: config.quickPrompts,
     color: config.color,
     enabled: config.enabled ?? true,

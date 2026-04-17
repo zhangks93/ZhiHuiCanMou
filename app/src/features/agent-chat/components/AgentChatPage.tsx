@@ -1,6 +1,3 @@
-// AgentChatPage - Unified agent chat page
-// Combines agent selector, conversation list, and chat interface
-
 import { useState, useEffect, useRef, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -13,26 +10,26 @@ import {
 
 import type {
   AgentDefinition,
-  ChatMessage,
   Conversation,
   FinancialAnalysisRuntimeDataContext,
   FinancialAnalysisSessionContext,
 } from '@/shared/lib/agent/types'
-import { loadConversations, saveConversations, createConversation, deleteConversation } from '@/shared/lib/agent/conversationStore'
-import { buildConversationMemoryBlock, compactConversation, getRecentMessagesForPrompt } from '@/shared/lib/agent/conversationMemory'
+import { createConversation, deleteConversation } from '@/shared/lib/agent/conversationStore'
+import { buildConversationMemoryBlock } from '@/shared/lib/agent/conversationMemory'
 import { buildSettingsHref } from '@/app/config/constants'
 import { loadLLMConfig } from '@/shared/lib/llmConfig'
 import { isTauriRuntime } from '@/shared/lib/tauri'
 import type { ChatAgent } from '@/shared/lib/agent/chatAgent'
 import { loadAgentRuntimeModules } from '@/shared/lib/agent/runtimeLoader'
 import { useAgentConfig } from '@/features/agent-chat/hooks/useAgentConfig'
+import { useConversationPersistence } from '@/features/agent-chat/hooks/useConversationPersistence'
+import { useChatStreaming } from '@/features/agent-chat/hooks/useChatStreaming'
 import {
   buildFinancialAnalysisRuntimeContextBlock,
   getFinancialAnalysisRuntimeDataContext,
 } from '@/shared/lib/agent/skills/financial-analysis/runtimeContext'
 import {
   buildFinancialAnalysisSessionContextBlock,
-  updateFinancialAnalysisSessionContext,
 } from '@/shared/lib/agent/skills/financial-analysis/sessionContext'
 import { ChatHeader } from './ChatHeader'
 import { ConversationList } from './ConversationList'
@@ -43,11 +40,6 @@ interface AgentChatPageProps {
   agents: AgentDefinition[]
   defaultAgentId?: string
   onBackToDirectory?: () => void
-}
-
-function generateTitle(text: string): string {
-  const clean = text.replace(/\s+/g, ' ').trim()
-  return clean.length > 24 ? `${clean.slice(0, 24)}...` : clean
 }
 
 function getFinancialAnalysisContext(conversation?: Conversation): FinancialAnalysisSessionContext | undefined {
@@ -168,26 +160,29 @@ export function AgentChatPage({
   onBackToDirectory,
 }: AgentChatPageProps) {
   const activeAgentId = defaultAgentId || agents[0]?.id || 'financial-analysis'
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [streamingMsg, setStreamingMsg] = useState<ChatMessage | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [historyCollapsed, setHistoryCollapsed] = useState(false)
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024)
-  const [isHydrating, setIsHydrating] = useState(true)
-  const [persistenceError, setPersistenceError] = useState<string | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const shouldAutoScrollRef = useRef(true)
   const agentRef = useRef<Pick<ChatAgent, 'abort' | 'chat' | 'updateConfig'> | null>(null)
-  const streamFrameRef = useRef<number | null>(null)
-  const activeSendRunRef = useRef(0)
   const { configOk } = useAgentConfig(agentRef)
+  const {
+    conversations,
+    activeConversationId,
+    messages,
+    isHydrating,
+    persistenceError,
+    setActiveConversationId,
+    setMessages,
+    setPersistenceError,
+    syncConversationPersistence,
+    deleteConversationPersistence,
+  } = useConversationPersistence({ agentId: activeAgentId })
 
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0]
   const tauriRuntime = isTauriRuntime()
@@ -211,72 +206,17 @@ export function AgentChatPage({
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-
-    const hydrateConversations = async () => {
-      setIsHydrating(true)
-      setPersistenceError(null)
-      setConversations([])
-      setActiveConversationId(null)
-      setMessages([])
-
-      try {
-        const saved = await loadConversations(activeAgentId)
-        if (cancelled) return
-
-        setConversations(saved)
-        if (saved.length > 0) {
-          setActiveConversationId(saved[0].id)
-          setMessages(saved[0].messages)
-        }
-      } catch (error) {
-        if (cancelled) return
-        setPersistenceError((error as Error).message || '加载历史对话失败')
-      } finally {
-        if (cancelled) return
-        setIsHydrating(false)
-        if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-          setSidebarOpen(true)
-        }
-      }
+    if (isHydrating) return
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setSidebarOpen(true)
     }
-
-    void hydrateConversations()
-
-    return () => {
-      cancelled = true
-    }
-  }, [activeAgentId])
-
-  useEffect(() => {
-    if (shouldAutoScrollRef.current) {
-      const behavior = messages.length > 0 ? 'smooth' : 'auto'
-      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
-    }
-  }, [messages, streamingMsg])
+  }, [isHydrating])
 
   const handleMessagesScroll = useCallback(() => {
     const container = messagesContainerRef.current
     if (!container) return
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
     shouldAutoScrollRef.current = distanceFromBottom < 120
-  }, [])
-
-  const persist = useCallback(async (nextConversations: Conversation[]) => {
-    setConversations(nextConversations)
-    setPersistenceError(null)
-    await saveConversations(nextConversations, activeAgentId)
-  }, [activeAgentId])
-
-  const flushStreamingMessage = useCallback((assistantMessage: ChatMessage) => {
-    if (streamFrameRef.current !== null) {
-      return
-    }
-
-    streamFrameRef.current = window.requestAnimationFrame(() => {
-      streamFrameRef.current = null
-      setStreamingMsg({ ...assistantMessage })
-    })
   }, [])
 
   const ensureAgentReady = useCallback(async () => {
@@ -313,18 +253,41 @@ export function AgentChatPage({
     void getFinancialAnalysisRuntimeDataContext().catch(() => {})
   }, [activeAgent?.id])
 
+  const { isStreaming, streamingMsg, handleSend, handleAbort } = useChatStreaming({
+    activeAgent,
+    activeConversationId,
+    conversations,
+    messages,
+    input,
+    setInput,
+    setMessages,
+    setActiveConversationId,
+    setPersistenceError,
+    ensureAgentReady,
+    buildSystemPrompt: buildAgentSystemPrompt,
+    syncConversationPersistence,
+    textareaRef,
+  })
+
+  useEffect(() => {
+    if (shouldAutoScrollRef.current) {
+      const behavior = messages.length > 0 ? 'smooth' : 'auto'
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+    }
+  }, [messages, streamingMsg])
+
   const handleNewConversation = useCallback(async () => {
     const conversation = createConversation()
     const nextConversations = [conversation, ...conversations]
     setActiveConversationId(conversation.id)
     setMessages([])
     shouldAutoScrollRef.current = true
-    await persist(nextConversations)
+    await syncConversationPersistence(nextConversations, conversation)
     if (window.innerWidth < 1024) {
       setSidebarOpen(false)
     }
     textareaRef.current?.focus()
-  }, [conversations, persist])
+  }, [conversations, syncConversationPersistence])
 
   const handleSelectConversation = useCallback(async (id: string) => {
     if (isStreaming) return
@@ -340,7 +303,8 @@ export function AgentChatPage({
         }
         return c
       })
-      await persist(updated)
+      const activeConversation = updated.find((conversation) => conversation.id === activeConversationId)
+      await syncConversationPersistence(updated, activeConversation)
     }
 
     const conversation = conversations.find(item => item.id === id)
@@ -352,7 +316,7 @@ export function AgentChatPage({
     if (window.innerWidth < 1024) {
       setSidebarOpen(false)
     }
-  }, [conversations, activeConversationId, messages, isStreaming, persist])
+  }, [conversations, activeConversationId, messages, isStreaming, syncConversationPersistence])
 
   const handleDeleteConversation = useCallback(async (id: string) => {
     if (isStreaming) return
@@ -366,170 +330,8 @@ export function AgentChatPage({
         setMessages([])
       }
     }
-    await persist(nextConversations)
-  }, [conversations, activeConversationId, isStreaming, persist])
-
-  const handleSend = useCallback(async () => {
-    const text = input.trim()
-    if (!text || isStreaming || !activeAgent) return
-
-    const sendRunId = activeSendRunRef.current + 1
-    activeSendRunRef.current = sendRunId
-
-    let conversationId = activeConversationId
-    let nextConversations = conversations
-    if (!conversationId) {
-      const conversation = createConversation()
-      nextConversations = [conversation, ...conversations]
-      conversationId = conversation.id
-      try {
-        await persist(nextConversations)
-        setActiveConversationId(conversationId)
-      } catch (error) {
-        setPersistenceError((error as Error).message || '创建对话失败')
-        return
-      }
-    }
-
-    const currentConversation = nextConversations.find(conversation => conversation.id === conversationId)
-
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: text,
-      timestamp: Date.now(),
-    }
-
-    const nextMessages = [...messages, userMessage]
-    setMessages(nextMessages)
-    setInput('')
-    shouldAutoScrollRef.current = true
-
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
-
-    setIsStreaming(true)
-    const assistantMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      streaming: true,
-      thinking: '',
-      toolCalls: [],
-    }
-    setStreamingMsg({ ...assistantMessage })
-
-    let runtimeDataContext: FinancialAnalysisRuntimeDataContext | undefined
-
-    try {
-      ;[runtimeDataContext] = await Promise.all([
-        activeAgent.id === 'financial-analysis'
-          ? getFinancialAnalysisRuntimeDataContext()
-          : Promise.resolve<FinancialAnalysisRuntimeDataContext | undefined>(undefined),
-        ensureAgentReady(),
-      ])
-
-      if (activeSendRunRef.current !== sendRunId) {
-        throw new DOMException('Send aborted', 'AbortError')
-      }
-
-      const systemPrompt = buildAgentSystemPrompt({
-        agent: activeAgent,
-        conversation: currentConversation,
-        runtimeDataContext,
-        latestUserQuery: text,
-      })
-
-      if (!agentRef.current) throw new Error('AI agent not initialized')
-      const promptMessages = getRecentMessagesForPrompt(
-        currentConversation?.id === conversationId
-          ? [...(currentConversation?.messages || []), userMessage]
-          : nextMessages
-      )
-      const stream = agentRef.current.chat(promptMessages, systemPrompt)
-      for await (const chunk of stream) {
-        switch (chunk.type) {
-          case 'text':
-            assistantMessage.content += chunk.content
-            break
-          case 'thinking':
-            assistantMessage.thinking = `${assistantMessage.thinking || ''}${chunk.content}`
-            break
-          case 'tool_call':
-            assistantMessage.toolCalls = [...(assistantMessage.toolCalls || []), chunk.toolCall]
-            break
-          case 'tool_result':
-            assistantMessage.toolCalls = (assistantMessage.toolCalls || []).map(tc =>
-              tc.id === chunk.toolCall.id ? chunk.toolCall : tc
-            )
-            break
-        }
-        flushStreamingMessage(assistantMessage)
-      }
-    } catch (error) {
-      if ((error as Error).name !== 'AbortError') {
-        assistantMessage.content += assistantMessage.content
-          ? `\n\n---\n**错误**：${(error as Error).message}`
-          : `**错误**：${(error as Error).message}`
-      }
-    }
-
-    if (activeSendRunRef.current !== sendRunId) {
-      return
-    }
-
-    assistantMessage.streaming = false
-    if (!assistantMessage.thinking) delete assistantMessage.thinking
-    if (!assistantMessage.toolCalls?.length) delete assistantMessage.toolCalls
-
-    if (streamFrameRef.current !== null) {
-      window.cancelAnimationFrame(streamFrameRef.current)
-      streamFrameRef.current = null
-    }
-    setStreamingMsg(null)
-    setIsStreaming(false)
-
-    const finalMessages = [...nextMessages, assistantMessage]
-    setMessages(finalMessages)
-
-    const updatedConversations = nextConversations.map(conversation => {
-      if (conversation.id !== conversationId) return conversation
-      const title = conversation.title === '新对话' ? generateTitle(text) : conversation.title
-      const financialAnalysisContext = activeAgent.id === 'financial-analysis'
-        ? updateFinancialAnalysisSessionContext({
-            previous: conversation.context?.financialAnalysis,
-            userMessage,
-            assistantMessage,
-            runtimeDataContext,
-          })
-        : conversation.context?.financialAnalysis
-
-      return compactConversation({
-        ...conversation,
-        title,
-        messages: finalMessages,
-        context: activeAgent.id === 'financial-analysis'
-          ? {
-              version: 1 as const,
-              financialAnalysis: financialAnalysisContext,
-            }
-          : conversation.context,
-        updatedAt: Date.now(),
-      })
-    })
-    try {
-      await persist(updatedConversations)
-    } catch (error) {
-      setPersistenceError((error as Error).message || '保存对话失败')
-    }
-  }, [activeAgent, activeConversationId, conversations, ensureAgentReady, flushStreamingMessage, input, isStreaming, messages, persist])
-
-  const handleAbort = useCallback(() => {
-    activeSendRunRef.current += 1
-    agentRef.current?.abort()
-  }, [])
+    await deleteConversationPersistence(id, nextConversations)
+  }, [conversations, activeConversationId, isStreaming, deleteConversationPersistence, setActiveConversationId, setMessages])
 
   const handleKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -560,14 +362,6 @@ export function AgentChatPage({
   const displayMessages = streamingMsg ? [...messages, streamingMsg] : messages
   const showHistorySidebar = !isDesktop || !historyCollapsed
 
-  useEffect(() => {
-    return () => {
-      if (streamFrameRef.current !== null) {
-        window.cancelAnimationFrame(streamFrameRef.current)
-      }
-    }
-  }, [])
-
   if (!configOk) {
     return (
       <div className="flex h-full">
@@ -579,7 +373,7 @@ export function AgentChatPage({
   if (!tauriRuntime) {
     return (
       <div className="flex h-full">
-        <RuntimePrompt message="智能体对话历史已改为仅在本地客户端通过 SQLite 持久化，请在 Tauri 应用中使用。" />
+        <RuntimePrompt message="智能体对话历史已改为仅在本地客户端通过 SQLite 持久化，请在桌面端使用。" />
       </div>
     )
   }
@@ -725,7 +519,7 @@ export function AgentChatPage({
                 <button
                   type="button"
                   className="btn btn-error btn-xs btn-square"
-                  onClick={handleAbort}
+                  onClick={() => handleAbort(agentRef)}
                   title="停止生成"
                 >
                   <Square size={13} />
