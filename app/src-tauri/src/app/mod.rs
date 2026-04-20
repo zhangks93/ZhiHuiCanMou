@@ -45,6 +45,8 @@ pub fn run() {
             commands::schedule::schedule_update_meeting_notes,
             commands::schedule::schedule_delete,
             commands::schedule::schedule_import_feishu_calendar,
+            commands::schedule::schedule_export_transfer_payload,
+            commands::schedule::schedule_import_transfer_payload,
             commands::settings::settings_get_all,
             commands::settings::settings_save_llm_config,
             commands::settings::settings_clear_llm_config,

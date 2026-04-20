@@ -1,4 +1,7 @@
-use crate::features::schedule::model::{ScheduleImportResult, ScheduleItem, ScheduleItemDraft};
+use crate::features::schedule::model::{
+    ScheduleImportResult, ScheduleItem, ScheduleItemDraft, ScheduleTransferItem,
+    ScheduleTransferPayload, ScheduleTransferSender,
+};
 use crate::features::schedule::{repository::ScheduleRepository, schema};
 use crate::infra::error::{AppError, AppResult};
 use crate::infra::sqlite::AppDatabase;
@@ -21,6 +24,39 @@ impl ScheduleService {
     pub fn list_by_range(&self, start_date: &str, end_date: &str) -> AppResult<Vec<ScheduleItem>> {
         let connection = self.database.open_connection()?;
         ScheduleRepository::list_by_range(&connection, start_date, end_date)
+    }
+
+    pub fn export_transfer_payload(
+        &self,
+        item_ids: &[String],
+        sender_user_id: &str,
+        sender_name: &str,
+    ) -> AppResult<ScheduleTransferPayload> {
+        if item_ids.is_empty() {
+            return Err(AppError::message(
+                "At least one schedule item is required to export a transfer payload",
+            ));
+        }
+
+        let connection = self.database.open_connection()?;
+        let items = ScheduleRepository::list_by_ids(&connection, item_ids)?;
+
+        if items.len() != item_ids.len() {
+            return Err(AppError::message(
+                "Some schedule items could not be found for transfer export",
+            ));
+        }
+
+        Ok(ScheduleTransferPayload {
+            transfer_version: 1,
+            module: "schedule".to_string(),
+            exported_at: Utc::now().to_rfc3339(),
+            sender: ScheduleTransferSender {
+                user_id: sender_user_id.trim().to_string(),
+                name: sender_name.trim().to_string(),
+            },
+            items: items.into_iter().map(map_transfer_item).collect(),
+        })
     }
 
     pub fn create(&self, draft: ScheduleItemDraft) -> AppResult<ScheduleItem> {
@@ -96,55 +132,31 @@ impl ScheduleService {
         }
 
         let rows = parse_feishu_workbook(bytes)?;
-        let mut seen_keys = HashSet::new();
-        let mut imported_dates = HashSet::new();
-        let mut inserted_count = 0usize;
-        let mut overwritten_count = 0usize;
+        let mut connection = self.database.open_connection()?;
+        let transaction = connection.transaction()?;
+        let result = import_schedule_items(&transaction, rows.into_iter().map(|row| row.item))?;
+
+        transaction.commit()?;
+        Ok(result)
+    }
+
+    pub fn import_transfer_payload(
+        &self,
+        payload: ScheduleTransferPayload,
+    ) -> AppResult<ScheduleImportResult> {
+        validate_transfer_payload(&payload)?;
+
+        let imported_items = payload
+            .items
+            .into_iter()
+            .map(schedule_item_from_transfer)
+            .collect::<AppResult<Vec<_>>>()?;
 
         let mut connection = self.database.open_connection()?;
         let transaction = connection.transaction()?;
-
-        for row in rows {
-            let Some(start_time) = row.item.start_time.as_deref() else {
-                return Err(AppError::message(format!(
-                    "Feishu schedule row is missing start_time: {}",
-                    row.item.title
-                )));
-            };
-            let Some(end_time) = row.item.end_time.as_deref() else {
-                return Err(AppError::message(format!(
-                    "Feishu schedule row is missing end_time: {}",
-                    row.item.title
-                )));
-            };
-
-            let conflict_key = format!("{}|{}|{}", row.item.date, start_time, end_time);
-            if !seen_keys.insert(conflict_key.clone()) {
-                return Err(AppError::message(format!(
-                    "Duplicate schedules found in workbook for time slot: {conflict_key}"
-                )));
-            }
-
-            imported_dates.insert(row.item.date.clone());
-            upsert_imported_item(
-                &transaction,
-                row.item,
-                &mut inserted_count,
-                &mut overwritten_count,
-            )?;
-        }
-
+        let result = import_schedule_items(&transaction, imported_items.into_iter())?;
         transaction.commit()?;
-
-        let mut imported_dates = imported_dates.into_iter().collect::<Vec<_>>();
-        imported_dates.sort();
-
-        Ok(ScheduleImportResult {
-            inserted_count,
-            overwritten_count,
-            skipped_count: 0,
-            imported_dates,
-        })
+        Ok(result)
     }
 
     pub fn ensure_schema(&self) -> AppResult<()> {
@@ -230,6 +242,131 @@ fn generate_schedule_id() -> String {
 #[derive(Debug)]
 struct FeishuScheduleImportRow {
     item: ScheduleItem,
+}
+
+fn map_transfer_item(item: ScheduleItem) -> ScheduleTransferItem {
+    ScheduleTransferItem {
+        source_item_id: item.id,
+        title: item.title,
+        description: item.description,
+        date: item.date,
+        period: item.period,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        item_type: item.item_type,
+        location: item.location,
+        created_at: item.created_at,
+    }
+}
+
+fn validate_transfer_payload(payload: &ScheduleTransferPayload) -> AppResult<()> {
+    if payload.transfer_version != 1 {
+        return Err(AppError::message(format!(
+            "Unsupported schedule transfer version: {}",
+            payload.transfer_version
+        )));
+    }
+
+    if payload.module != "schedule" {
+        return Err(AppError::message(format!(
+            "Unsupported transfer module: {}",
+            payload.module
+        )));
+    }
+
+    if payload.sender.user_id.trim().is_empty() || payload.sender.name.trim().is_empty() {
+        return Err(AppError::message(
+            "Schedule transfer sender information is required",
+        ));
+    }
+
+    if payload.items.is_empty() {
+        return Err(AppError::message(
+            "Schedule transfer payload must include at least one item",
+        ));
+    }
+
+    Ok(())
+}
+
+fn schedule_item_from_transfer(item: ScheduleTransferItem) -> AppResult<ScheduleItem> {
+    let imported_item = ScheduleItem {
+        id: generate_schedule_id(),
+        title: item.title.trim().to_string(),
+        description: item.description.and_then(normalize_optional_text),
+        date: item.date,
+        period: item.period,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        item_type: item.item_type.and_then(normalize_optional_text),
+        location: item.location.and_then(normalize_optional_text),
+        meeting_notes: None,
+        created_at: item.created_at,
+    };
+
+    if imported_item.title.is_empty() {
+        return Err(AppError::message(
+            "Imported schedule transfer item title is required",
+        ));
+    }
+
+    validate_schedule_item_fields(
+        &imported_item.date,
+        &imported_item.period,
+        imported_item.item_type.as_deref(),
+        imported_item.start_time.as_deref(),
+        imported_item.end_time.as_deref(),
+    )?;
+
+    Ok(imported_item)
+}
+
+fn import_schedule_items<I>(
+    transaction: &Transaction<'_>,
+    items: I,
+) -> AppResult<ScheduleImportResult>
+where
+    I: IntoIterator<Item = ScheduleItem>,
+{
+    let mut seen_keys = HashSet::new();
+    let mut imported_dates = HashSet::new();
+    let mut inserted_count = 0usize;
+    let mut overwritten_count = 0usize;
+
+    for item in items {
+        let Some(start_time) = item.start_time.as_deref() else {
+            return Err(AppError::message(format!(
+                "Imported schedule row is missing start_time: {}",
+                item.title
+            )));
+        };
+        let Some(end_time) = item.end_time.as_deref() else {
+            return Err(AppError::message(format!(
+                "Imported schedule row is missing end_time: {}",
+                item.title
+            )));
+        };
+
+        let conflict_key = format!("{}|{}|{}", item.date, start_time, end_time);
+        if !seen_keys.insert(conflict_key.clone()) {
+            return Err(AppError::message(format!(
+                "Duplicate schedules found in payload for time slot: {conflict_key}"
+            )));
+        }
+
+        imported_dates.insert(item.date.clone());
+        upsert_imported_item(transaction, item, &mut inserted_count, &mut overwritten_count)?;
+    }
+
+    let mut imported_dates = imported_dates.into_iter().collect::<Vec<_>>();
+    imported_dates.sort();
+
+    Ok(ScheduleImportResult {
+        inserted_count,
+        overwritten_count,
+        skipped_count: 0,
+        imported_dates,
+    })
 }
 
 fn upsert_imported_item(
@@ -480,4 +617,101 @@ fn normalize_feishu_text(value: Option<String>) -> Option<String> {
 
 fn first_non_empty(values: Vec<Option<String>>) -> Option<String> {
     values.into_iter().flatten().find(|value| !value.trim().is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn seed_schedule(
+        connection: &Connection,
+        id: &str,
+        title: &str,
+        meeting_notes: Option<&str>,
+    ) -> AppResult<()> {
+        ScheduleRepository::insert(
+            connection,
+            &ScheduleItem {
+                id: id.to_string(),
+                title: title.to_string(),
+                description: Some("旧描述".to_string()),
+                date: "2026-04-20".to_string(),
+                period: "morning".to_string(),
+                start_time: Some("2026-04-20T09:00:00+08:00".to_string()),
+                end_time: Some("2026-04-20T10:00:00+08:00".to_string()),
+                item_type: Some("meeting".to_string()),
+                location: Some("旧地点".to_string()),
+                meeting_notes: meeting_notes.map(|value| value.to_string()),
+                created_at: "2026-04-20T08:00:00+08:00".to_string(),
+            },
+        )
+    }
+
+    #[test]
+    fn import_transfer_items_overwrites_core_fields_but_keeps_notes() {
+        let mut connection = Connection::open_in_memory().expect("open memory db");
+        schema::ensure(&connection).expect("ensure schema");
+        seed_schedule(&connection, "existing-1", "旧标题", Some("保留纪要")).expect("seed schedule");
+
+        let transaction = connection.transaction().expect("begin transaction");
+        let result = import_schedule_items(
+            &transaction,
+            vec![ScheduleItem {
+                id: "incoming-1".to_string(),
+                title: "新标题".to_string(),
+                description: Some("新描述".to_string()),
+                date: "2026-04-20".to_string(),
+                period: "morning".to_string(),
+                start_time: Some("2026-04-20T09:00:00+08:00".to_string()),
+                end_time: Some("2026-04-20T10:00:00+08:00".to_string()),
+                item_type: Some("business".to_string()),
+                location: Some("新地点".to_string()),
+                meeting_notes: None,
+                created_at: "2026-04-20T09:30:00+08:00".to_string(),
+            }]
+            .into_iter(),
+        )
+        .expect("import items");
+        transaction.commit().expect("commit transaction");
+
+        assert_eq!(result.inserted_count, 0);
+        assert_eq!(result.overwritten_count, 1);
+
+        let items = ScheduleRepository::list_by_range(&connection, "2026-04-20", "2026-04-20")
+            .expect("list items");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].title, "新标题");
+        assert_eq!(items[0].description.as_deref(), Some("新描述"));
+        assert_eq!(items[0].location.as_deref(), Some("新地点"));
+        assert_eq!(items[0].meeting_notes.as_deref(), Some("保留纪要"));
+    }
+
+    #[test]
+    fn schedule_transfer_payload_requires_supported_module() {
+        let error = validate_transfer_payload(&ScheduleTransferPayload {
+            transfer_version: 1,
+            module: "trip".to_string(),
+            exported_at: "2026-04-20T09:30:00+08:00".to_string(),
+            sender: ScheduleTransferSender {
+                user_id: "user-1".to_string(),
+                name: "发送人".to_string(),
+            },
+            items: vec![ScheduleTransferItem {
+                source_item_id: "item-1".to_string(),
+                title: "例会".to_string(),
+                description: None,
+                date: "2026-04-20".to_string(),
+                period: "morning".to_string(),
+                start_time: Some("2026-04-20T09:00:00+08:00".to_string()),
+                end_time: Some("2026-04-20T10:00:00+08:00".to_string()),
+                item_type: Some("meeting".to_string()),
+                location: None,
+                created_at: "2026-04-20T09:30:00+08:00".to_string(),
+            }],
+        })
+        .expect_err("validate module mismatch");
+
+        assert!(error.to_string().contains("Unsupported transfer module"));
+    }
 }

@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   createScheduleItem,
+  exportScheduleTransferPayload,
   fetchScheduleItemsByRange,
   importFeishuScheduleWorkbook,
+  importScheduleTransferPayload,
   removeScheduleItem,
   updateScheduleMeetingNotes,
+  type ScheduleImportResult,
   type ScheduleItem,
   type ScheduleItemDraft,
+  type ScheduleTransferPayload,
 } from '../api/scheduleRepository'
 
 export function useScheduleData(startDate: string, endDate: string) {
@@ -101,6 +105,30 @@ export function useScheduleData(startDate: string, endDate: string) {
     }
   }, [reload])
 
+  const buildTransferPayload = useCallback(async (
+    itemIds: string[],
+    senderUserId: string,
+    senderName: string,
+  ) => {
+    try {
+      return await exportScheduleTransferPayload(itemIds, senderUserId, senderName)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '日程分享导出失败，请稍后重试。')
+      throw error
+    }
+  }, [])
+
+  const importTransferPayload = useCallback(async (payload: ScheduleTransferPayload): Promise<ScheduleImportResult> => {
+    try {
+      const result = await importScheduleTransferPayload(payload)
+      await reload(true)
+      return result
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '共享日程导入失败，请稍后重试。')
+      throw error
+    }
+  }, [reload])
+
   return {
     items,
     loading,
@@ -109,5 +137,7 @@ export function useScheduleData(startDate: string, endDate: string) {
     saveMeetingNotes,
     deleteScheduleItem,
     importScheduleWorkbook,
+    buildTransferPayload,
+    importTransferPayload,
   }
 }

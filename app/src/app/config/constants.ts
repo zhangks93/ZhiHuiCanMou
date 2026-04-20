@@ -22,7 +22,7 @@ export const ROUTES = {
   SETTINGS: '/settings',
 } as const
 
-export function buildWorkspaceHref(tab?: 'schedule' | 'links') {
+export function buildWorkspaceHref(tab?: 'schedule' | 'inbox' | 'links') {
   if (!tab) return ROUTES.HOME
   return `${ROUTES.HOME}?tab=${tab}`
 }

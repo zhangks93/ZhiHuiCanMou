@@ -37,6 +37,32 @@ export interface ScheduleImportResult {
   imported_dates: string[]
 }
 
+export interface ScheduleTransferSender {
+  user_id: string
+  name: string
+}
+
+export interface ScheduleTransferItem {
+  source_item_id: string
+  title: string
+  description: string | null
+  date: string
+  period: Period
+  start_time: string | null
+  end_time: string | null
+  type: ItemType | null
+  location: string | null
+  created_at: string
+}
+
+export interface ScheduleTransferPayload {
+  transfer_version: number
+  module: 'schedule'
+  exported_at: string
+  sender: ScheduleTransferSender
+  items: ScheduleTransferItem[]
+}
+
 function isPeriod(value: string | null): value is Period {
   return value === 'morning' || value === 'afternoon' || value === 'evening'
 }
@@ -142,5 +168,23 @@ export async function importFeishuScheduleWorkbook(fileName: string, bytes: numb
   return invokeTauri<ScheduleImportResult>('schedule_import_feishu_calendar', {
     fileName,
     bytes,
+  })
+}
+
+export async function exportScheduleTransferPayload(
+  itemIds: string[],
+  senderUserId: string,
+  senderName: string,
+) {
+  return invokeTauri<ScheduleTransferPayload>('schedule_export_transfer_payload', {
+    itemIds,
+    senderUserId,
+    senderName,
+  })
+}
+
+export async function importScheduleTransferPayload(payload: ScheduleTransferPayload) {
+  return invokeTauri<ScheduleImportResult>('schedule_import_transfer_payload', {
+    payload,
   })
 }

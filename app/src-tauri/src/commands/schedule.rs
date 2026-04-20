@@ -1,5 +1,6 @@
 use crate::features::schedule::{
     ScheduleImportResult, ScheduleItem, ScheduleItemDraft, ScheduleService,
+    ScheduleTransferPayload,
 };
 
 #[tauri::command]
@@ -62,6 +63,34 @@ pub async fn schedule_import_feishu_calendar(
 ) -> Result<ScheduleImportResult, String> {
     let service = service.inner().clone();
     tauri::async_runtime::spawn_blocking(move || service.import_feishu_calendar(&file_name, bytes))
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn schedule_export_transfer_payload(
+    service: tauri::State<'_, ScheduleService>,
+    item_ids: Vec<String>,
+    sender_user_id: String,
+    sender_name: String,
+) -> Result<ScheduleTransferPayload, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        service.export_transfer_payload(&item_ids, &sender_user_id, &sender_name)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn schedule_import_transfer_payload(
+    service: tauri::State<'_, ScheduleService>,
+    payload: ScheduleTransferPayload,
+) -> Result<ScheduleImportResult, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.import_transfer_payload(payload))
         .await
         .map_err(|error| error.to_string())?
         .map_err(Into::into)

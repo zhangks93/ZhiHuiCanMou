@@ -3,11 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { buildWorkspaceHref } from '@/app/config/constants'
 import { useEnabledModules } from '@/app/hooks/useEnabledModules'
 import { LinksPage } from '@/features/links'
-import { SchedulePage } from '@/features/schedule'
+import { ScheduleInboxPage, SchedulePage } from '@/features/schedule'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 
 const TAB_LABELS = {
   schedule: '日程',
+  inbox: '收件箱',
   links: '链接',
 } as const
 
@@ -21,7 +22,10 @@ export function WorkspacePage() {
   const tabs = useMemo(() => {
     const availableTabs: WorkspaceTab[] = []
 
-    if (enabledModuleIds.includes('schedule')) availableTabs.push('schedule')
+    if (enabledModuleIds.includes('schedule')) {
+      availableTabs.push('schedule')
+      availableTabs.push('inbox')
+    }
     if (enabledModuleIds.includes('links')) availableTabs.push('links')
 
     return availableTabs
@@ -47,6 +51,8 @@ export function WorkspacePage() {
     <TabbedPageShell tabs={tabItems}>
       {activeTab === 'schedule' ? (
         <SchedulePage />
+      ) : activeTab === 'inbox' ? (
+        <ScheduleInboxPage />
       ) : activeTab === 'links' ? (
         <LinksPage />
       ) : (

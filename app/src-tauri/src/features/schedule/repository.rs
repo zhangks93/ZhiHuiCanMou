@@ -1,10 +1,50 @@
 use crate::features::schedule::model::ScheduleItem;
 use crate::infra::error::{AppError, AppResult};
-use rusqlite::{params, Connection};
+use rusqlite::{params, params_from_iter, Connection};
 
 pub struct ScheduleRepository;
 
 impl ScheduleRepository {
+    pub fn list_by_ids(connection: &Connection, item_ids: &[String]) -> AppResult<Vec<ScheduleItem>> {
+        if item_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let placeholders = vec!["?"; item_ids.len()].join(", ");
+        let sql = format!(
+            r#"
+            select
+              id,
+              title,
+              description,
+              date,
+              period,
+              start_time,
+              end_time,
+              type,
+              location,
+              meeting_notes,
+              created_at
+            from schedule_items
+            where id in ({placeholders})
+            order by
+              date asc,
+              case period
+                when 'morning' then 0
+                when 'afternoon' then 1
+                when 'evening' then 2
+                else 3
+              end asc,
+              start_time asc nulls last,
+              created_at asc
+            "#
+        );
+
+        let mut statement = connection.prepare(&sql)?;
+        let rows = statement.query_map(params_from_iter(item_ids.iter()), map_schedule_item)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(AppError::from)
+    }
+
     pub fn list_by_range(
         connection: &Connection,
         start_date: &str,
@@ -39,21 +79,7 @@ impl ScheduleRepository {
             "#,
         )?;
 
-        let rows = statement.query_map(params![start_date, end_date], |row| {
-            Ok(ScheduleItem {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                description: row.get(2)?,
-                date: row.get(3)?,
-                period: row.get(4)?,
-                start_time: row.get(5)?,
-                end_time: row.get(6)?,
-                item_type: row.get(7)?,
-                location: row.get(8)?,
-                meeting_notes: row.get(9)?,
-                created_at: row.get(10)?,
-            })
-        })?;
+        let rows = statement.query_map(params![start_date, end_date], map_schedule_item)?;
 
         rows.collect::<Result<Vec<_>, _>>().map_err(AppError::from)
     }
@@ -124,19 +150,7 @@ impl ScheduleRepository {
             return Ok(None);
         };
 
-        Ok(Some(ScheduleItem {
-            id: row.get(0)?,
-            title: row.get(1)?,
-            description: row.get(2)?,
-            date: row.get(3)?,
-            period: row.get(4)?,
-            start_time: row.get(5)?,
-            end_time: row.get(6)?,
-            item_type: row.get(7)?,
-            location: row.get(8)?,
-            meeting_notes: row.get(9)?,
-            created_at: row.get(10)?,
-        }))
+        Ok(Some(map_schedule_item(row)?))
     }
 
     pub fn update_core_fields(connection: &Connection, item: &ScheduleItem) -> AppResult<()> {
@@ -188,4 +202,20 @@ impl ScheduleRepository {
             connection.execute("delete from schedule_items where id = ?1", params![item_id])?;
         Ok(affected > 0)
     }
+}
+
+fn map_schedule_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<ScheduleItem> {
+    Ok(ScheduleItem {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        description: row.get(2)?,
+        date: row.get(3)?,
+        period: row.get(4)?,
+        start_time: row.get(5)?,
+        end_time: row.get(6)?,
+        item_type: row.get(7)?,
+        location: row.get(8)?,
+        meeting_notes: row.get(9)?,
+        created_at: row.get(10)?,
+    })
 }
