@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   createScheduleItem,
   fetchScheduleItemsByRange,
+  importFeishuScheduleWorkbook,
   removeScheduleItem,
   updateScheduleMeetingNotes,
   type ScheduleItem,
@@ -89,6 +90,17 @@ export function useScheduleData(startDate: string, endDate: string) {
     }
   }, [reload])
 
+  const importScheduleWorkbook = useCallback(async (fileName: string, bytes: number[]) => {
+    try {
+      const result = await importFeishuScheduleWorkbook(fileName, bytes)
+      await reload(true)
+      return result
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '飞书日程导入失败，请稍后重试。')
+      throw error
+    }
+  }, [reload])
+
   return {
     items,
     loading,
@@ -96,5 +108,6 @@ export function useScheduleData(startDate: string, endDate: string) {
     addScheduleItem,
     saveMeetingNotes,
     deleteScheduleItem,
+    importScheduleWorkbook,
   }
 }

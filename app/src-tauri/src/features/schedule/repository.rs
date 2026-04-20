@@ -93,6 +93,83 @@ impl ScheduleRepository {
         Ok(())
     }
 
+    pub fn find_by_time_slot(
+        connection: &Connection,
+        date: &str,
+        start_time: &str,
+        end_time: &str,
+    ) -> AppResult<Option<ScheduleItem>> {
+        let mut statement = connection.prepare(
+            r#"
+            select
+              id,
+              title,
+              description,
+              date,
+              period,
+              start_time,
+              end_time,
+              type,
+              location,
+              meeting_notes,
+              created_at
+            from schedule_items
+            where date = ?1 and start_time = ?2 and end_time = ?3
+            limit 1
+            "#,
+        )?;
+
+        let mut rows = statement.query(params![date, start_time, end_time])?;
+        let Some(row) = rows.next()? else {
+            return Ok(None);
+        };
+
+        Ok(Some(ScheduleItem {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            description: row.get(2)?,
+            date: row.get(3)?,
+            period: row.get(4)?,
+            start_time: row.get(5)?,
+            end_time: row.get(6)?,
+            item_type: row.get(7)?,
+            location: row.get(8)?,
+            meeting_notes: row.get(9)?,
+            created_at: row.get(10)?,
+        }))
+    }
+
+    pub fn update_core_fields(connection: &Connection, item: &ScheduleItem) -> AppResult<()> {
+        connection.execute(
+            r#"
+            update schedule_items
+            set
+              title = ?2,
+              description = ?3,
+              date = ?4,
+              period = ?5,
+              start_time = ?6,
+              end_time = ?7,
+              type = ?8,
+              location = ?9
+            where id = ?1
+            "#,
+            params![
+                &item.id,
+                &item.title,
+                &item.description,
+                &item.date,
+                &item.period,
+                &item.start_time,
+                &item.end_time,
+                &item.item_type,
+                &item.location,
+            ],
+        )?;
+
+        Ok(())
+    }
+
     pub fn update_meeting_notes(
         connection: &Connection,
         item_id: &str,

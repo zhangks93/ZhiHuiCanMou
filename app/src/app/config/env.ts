@@ -21,6 +21,16 @@ function getEnvBoolean(key: string, defaultValue: boolean): boolean {
   return String(value).toLowerCase() === 'true'
 }
 
+const defaultLinks = {
+  safety: 'https://saas.hailiangedu.com/',
+  qinghe: 'https://lms.hailiangedu.com/logistics-saas-center/',
+  haiding: 'https://machining.hailiangedu.com/',
+  catering: 'https://i.hailiangedu.com/login?sysCode=catering-admin',
+  crm: 'https://www.fxiaoke.com/',
+  guanhai:
+    'https://hailiang.feishu.cn/base/HdVSbRRs3ahb1fsxId6cpyEunSg?table=tblxumeOS2l72YkL&view=vewjPpI3IC',
+} as const
+
 export const env = {
   supabase: {
     url: getEnv('VITE_SUPABASE_URL'),
@@ -52,12 +62,14 @@ export const env = {
     enableDebug: getEnvBoolean('VITE_AUTH_ENABLE_DEBUG', false),
   },
   links: {
-    safety: getEnv('VITE_LINK_SAFETY_URL'),
-    qinghe: getEnv('VITE_LINK_QINGHE_URL'),
-    haiding: getEnv('VITE_LINK_HAIDING_URL'),
-    catering: getEnv('VITE_LINK_CATERING_URL'),
-    crm: getEnv('VITE_LINK_CRM_URL'),
-    guanhai: getEnv('VITE_LINK_GUANHAI_URL'),
+    // Keep system entry links available in packaged builds even if the packager
+    // did not load a local .env file. Environment values still override defaults.
+    safety: getEnv('VITE_LINK_SAFETY_URL', defaultLinks.safety),
+    qinghe: getEnv('VITE_LINK_QINGHE_URL', defaultLinks.qinghe),
+    haiding: getEnv('VITE_LINK_HAIDING_URL', defaultLinks.haiding),
+    catering: getEnv('VITE_LINK_CATERING_URL', defaultLinks.catering),
+    crm: getEnv('VITE_LINK_CRM_URL', defaultLinks.crm),
+    guanhai: getEnv('VITE_LINK_GUANHAI_URL', defaultLinks.guanhai),
   },
 } as const
 

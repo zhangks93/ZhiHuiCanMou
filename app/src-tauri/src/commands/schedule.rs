@@ -1,4 +1,6 @@
-use crate::features::schedule::{ScheduleItem, ScheduleItemDraft, ScheduleService};
+use crate::features::schedule::{
+    ScheduleImportResult, ScheduleItem, ScheduleItemDraft, ScheduleService,
+};
 
 #[tauri::command]
 pub async fn schedule_list_by_range(
@@ -47,6 +49,19 @@ pub async fn schedule_delete(
 ) -> Result<(), String> {
     let service = service.inner().clone();
     tauri::async_runtime::spawn_blocking(move || service.delete(&item_id))
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn schedule_import_feishu_calendar(
+    service: tauri::State<'_, ScheduleService>,
+    file_name: String,
+    bytes: Vec<u8>,
+) -> Result<ScheduleImportResult, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.import_feishu_calendar(&file_name, bytes))
         .await
         .map_err(|error| error.to_string())?
         .map_err(Into::into)

@@ -30,6 +30,13 @@ export interface ScheduleItemDraft {
   location: string | null
 }
 
+export interface ScheduleImportResult {
+  inserted_count: number
+  overwritten_count: number
+  skipped_count: number
+  imported_dates: string[]
+}
+
 function isPeriod(value: string | null): value is Period {
   return value === 'morning' || value === 'afternoon' || value === 'evening'
 }
@@ -129,4 +136,11 @@ export async function updateScheduleMeetingNotes(itemId: string, meetingNotes: s
 
 export async function removeScheduleItem(itemId: string) {
   await invokeTauri('schedule_delete', { itemId })
+}
+
+export async function importFeishuScheduleWorkbook(fileName: string, bytes: number[]) {
+  return invokeTauri<ScheduleImportResult>('schedule_import_feishu_calendar', {
+    fileName,
+    bytes,
+  })
 }

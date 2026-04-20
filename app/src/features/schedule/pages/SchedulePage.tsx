@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Calendar, Plus, Trash2, FileText, X, Sun, Sunset, Moon, ChevronDown } from 'lucide-react'
+import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { Calendar, Plus, Trash2, FileText, X, Sun, Sunset, Moon, ChevronDown, Upload } from 'lucide-react'
 import { useScheduleData } from '../hooks/useScheduleData'
-import type { ItemType, Period, ScheduleItem } from '../api/scheduleRepository'
+import type { ItemType, Period, ScheduleImportResult, ScheduleItem } from '../api/scheduleRepository'
 
 const PERIOD_LABEL: Record<Period, string> = { morning: '上午', afternoon: '下午', evening: '晚上' }
 const PERIOD_ICON: Record<Period, typeof Sun> = { morning: Sun, afternoon: Sunset, evening: Moon }
@@ -358,6 +358,9 @@ export function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState(fmtDate(today))
   const [showAdd, setShowAdd] = useState(false)
   const [notesItem, setNotesItem] = useState<ScheduleItem | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<ScheduleImportResult | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const refDate = useMemo(() => {
     const date = new Date(today)
@@ -368,7 +371,7 @@ export function SchedulePage() {
   const weekDates = useMemo(() => getWeekDates(refDate), [refDate])
   const startDate = fmtDate(weekDates[0])
   const endDate = fmtDate(weekDates[6])
-  const { items, loading, error, addScheduleItem, saveMeetingNotes, deleteScheduleItem } = useScheduleData(startDate, endDate)
+  const { items, loading, error, addScheduleItem, saveMeetingNotes, deleteScheduleItem, importScheduleWorkbook } = useScheduleData(startDate, endDate)
 
   const handleCreate = async (input: {
     title: string
@@ -401,6 +404,34 @@ export function SchedulePage() {
 
   const dayCounts = new Map<string, number>()
   items.forEach((item) => dayCounts.set(item.date, (dayCounts.get(item.date) || 0) + 1))
+
+  const handleImportClick = () => {
+    setImportResult(null)
+    fileInputRef.current?.click()
+  }
+
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+      window.alert('请选择飞书导出的 .xlsx 日历文件。')
+      return
+    }
+
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const buffer = await file.arrayBuffer()
+      const result = await importScheduleWorkbook(file.name, Array.from(new Uint8Array(buffer)))
+      setImportResult(result)
+    } catch (error) {
+      console.error('[Schedule] Import failed:', error)
+    } finally {
+      setImporting(false)
+    }
+  }
 
   return (
     <>
@@ -443,6 +474,16 @@ export function SchedulePage() {
           <button onClick={() => setShowAdd(true)} className="btn btn-primary btn-sm w-full gap-1.5">
             <Plus size={14} /> 添加日程
           </button>
+          <button onClick={handleImportClick} disabled={importing} className="btn btn-ghost btn-sm mt-2 w-full gap-1.5 border border-[var(--color-border)]">
+            <Upload size={14} /> {importing ? '导入中...' : '导入飞书日程'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="hidden"
+            onChange={(event) => void handleImportFile(event)}
+          />
         </section>
 
         <section className="app-table-shell p-5">
@@ -456,6 +497,12 @@ export function SchedulePage() {
           {error ? (
             <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
               {error}
+            </div>
+          ) : null}
+
+          {importResult ? (
+            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-body text-emerald-800">
+              已导入 {importResult.inserted_count} 条，覆盖 {importResult.overwritten_count} 条。
             </div>
           ) : null}
 

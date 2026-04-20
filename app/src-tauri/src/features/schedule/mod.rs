@@ -3,5 +3,5 @@ mod repository;
 mod schema;
 mod service;
 
-pub use model::{ScheduleItem, ScheduleItemDraft};
+pub use model::{ScheduleImportResult, ScheduleItem, ScheduleItemDraft};
 pub use service::ScheduleService;

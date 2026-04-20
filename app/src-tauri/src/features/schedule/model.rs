@@ -28,3 +28,11 @@ pub struct ScheduleItemDraft {
     pub item_type: Option<String>,
     pub location: Option<String>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct ScheduleImportResult {
+    pub inserted_count: usize,
+    pub overwritten_count: usize,
+    pub skipped_count: usize,
+    pub imported_dates: Vec<String>,
+}
