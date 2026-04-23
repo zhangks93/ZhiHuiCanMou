@@ -1,9 +1,8 @@
 """
-Import visible sheets from the workbook into Supabase.
+Import visible sheets from the latest opportunity workbook into Supabase.
 
-Target tables:
-1. opportunity_ledger_snapshots
-2. opportunity_ledger
+Target table:
+1. opportunity_snapshot_items
 
 Dependencies:
   pip install pandas openpyxl httpx
@@ -39,47 +38,33 @@ DEFAULT_XLSX_PATH = (
     Path(__file__).resolve().parent.parent
     / "docs"
     / "data"
-    / "\u0032\u0030\u0032\u0035\u5b66\u5e74\u5546\u673a\u9879\u76ee\u53f0\u8d26 (2).xlsx"
+    / "2025学年商机项目台账.xlsx"
 )
 
-YEAR_BOUNDARY_MONTH = 3
-SCHEMA_VERSION = "visible_v1"
+TABLE_NAME = "opportunity_snapshot_items"
 
-COL_PROJECT_GROUP = "\u9879\u76ee\u5206\u7ec4"
-COL_PROJECT_NAME = "\u9879\u76ee\u540d\u79f0"
-COL_STAGE_LABEL = "\u63a8\u8fdb\u9636\u6bb5"
-COL_PROGRESS_NOTE = "\u63a8\u8fdb\u8fdb\u5ea6"
-COL_TARGET_DATE = "\u9884\u8ba1\u5b8c\u6210\u65f6\u95f4"
-COL_FIRST_YEAR_REVENUE = "\u9884\u671f\u9996\u5e74\u8425\u6536\u989d"
-
-STAGE_CODE_MAP = {
-    "\u7ebf\u7d22": "lead",
-    "\u5546\u673a": "opportunity",
-    "\u5185\u90e8\u6295\u51b3": "internal_approval",
-    "\u5ba2\u6237\u6295\u51b3": "customer_approval",
-    "\u7b7e\u7ea6": "contracted",
-}
+COL_REGION = "区域"
+COL_OPPORTUNITY_ATTRIBUTE = "商机属性"
+COL_ACQUISITION_CHANNEL = "获取途径"
+COL_PROJECT_NAME = "项目名称"
+COL_STAGE_LABEL = "推进阶段"
+COL_REFERRER = "推荐人"
+COL_MARKET_OWNER = "负责市场人员"
+COL_PROGRESS_NOTE = "推进进度"
+COL_EXPECTED_FINISH_DATE = "预计完成时间"
+COL_FIRST_YEAR_REVENUE = "预期首年营收额"
 
 
 @dataclass(slots=True)
-class SnapshotPayload:
-    sheet_name: str
-    sheet_index: int
+class SheetImport:
     snapshot_date: str
-    source_file_name: str
-    source_file_path: str
-    row_count: int
+    rows: list[dict[str, Any]]
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import opportunity ledger workbook into Supabase.")
     parser.add_argument("--xlsx", default=str(DEFAULT_XLSX_PATH), help="Path to the workbook.")
     parser.add_argument("--dry-run", action="store_true", help="Parse only. Do not write to Supabase.")
-    parser.add_argument(
-        "--keep-existing",
-        action="store_true",
-        help="Keep existing snapshots instead of deleting all snapshots before import.",
-    )
     return parser.parse_args()
 
 
@@ -105,34 +90,37 @@ def clean_text(value: Any) -> str | None:
     return text
 
 
-def parse_snapshot_date(sheet_name: str) -> str:
+def infer_academic_start_year(xlsx_path: Path) -> int:
+    match = re.search(r"(\d{4})学年", xlsx_path.name)
+    if match:
+        return int(match.group(1))
+    raise ValueError(f"Cannot infer academic start year from workbook name: {xlsx_path.name}")
+
+
+def parse_snapshot_date(sheet_name: str, xlsx_path: Path) -> str:
     if not re.fullmatch(r"\d{4}", sheet_name):
         raise ValueError(f"Cannot parse snapshot date from sheet name: {sheet_name}")
 
     month = int(sheet_name[:2])
     day = int(sheet_name[2:])
-    year = 2025 if month >= YEAR_BOUNDARY_MONTH else 2026
+    start_year = infer_academic_start_year(xlsx_path)
+    year = start_year if month >= 9 else start_year + 1
     return f"{year}-{month:02d}-{day:02d}"
 
 
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     renamed: dict[str, str] = {}
-    unnamed_index = 0
     for col in df.columns:
-        name = str(col).strip()
-        if name.startswith("Unnamed:") or name == "":
-            unnamed_index += 1
-            renamed[col] = COL_PROJECT_GROUP if unnamed_index == 1 else f"unnamed_{unnamed_index}"
-        else:
-            renamed[col] = name
+        renamed[col] = str(col).strip()
     return df.rename(columns=renamed)
 
 
 def find_header_row(xls: pd.ExcelFile, sheet_name: str) -> int:
     raw = pd.read_excel(xls, sheet_name=sheet_name, header=None)
+    required = {COL_PROJECT_NAME, COL_STAGE_LABEL, COL_PROGRESS_NOTE}
     for index in range(min(10, len(raw))):
         row_values = {str(v).strip() for v in raw.iloc[index] if not is_nan(v)}
-        if {COL_PROJECT_NAME, COL_STAGE_LABEL}.issubset(row_values):
+        if required.issubset(row_values):
             return index
     return 0
 
@@ -180,83 +168,58 @@ def get_visible_sheet_names(xlsx_path: Path) -> list[str]:
         workbook.close()
 
 
-def build_snapshot_payload(
-    xlsx_path: Path,
-    sheet_name: str,
-    sheet_index: int,
-    row_count: int,
-) -> SnapshotPayload:
-    return SnapshotPayload(
-        sheet_name=sheet_name,
-        sheet_index=sheet_index,
-        snapshot_date=parse_snapshot_date(sheet_name),
-        source_file_name=xlsx_path.name,
-        source_file_path=str(xlsx_path),
-        row_count=row_count,
-    )
-
-
 def read_visible_sheet(
     xls: pd.ExcelFile,
     xlsx_path: Path,
     sheet_name: str,
-    sheet_index: int,
-) -> tuple[SnapshotPayload, list[dict[str, Any]]]:
+) -> tuple[str, SheetImport]:
     header_row = find_header_row(xls, sheet_name)
     df = pd.read_excel(xls, sheet_name=sheet_name, header=header_row)
     df = normalize_columns(df)
 
     required_columns = {
-        COL_PROJECT_GROUP,
+        COL_REGION,
+        COL_OPPORTUNITY_ATTRIBUTE,
+        COL_ACQUISITION_CHANNEL,
         COL_PROJECT_NAME,
         COL_STAGE_LABEL,
+        COL_REFERRER,
+        COL_MARKET_OWNER,
         COL_PROGRESS_NOTE,
-        COL_TARGET_DATE,
+        COL_EXPECTED_FINISH_DATE,
         COL_FIRST_YEAR_REVENUE,
     }
     missing = required_columns.difference(df.columns)
     if missing:
         raise ValueError(f"Sheet [{sheet_name}] is missing columns: {sorted(missing)}")
 
-    df[COL_PROJECT_GROUP] = df[COL_PROJECT_GROUP].ffill()
+    df[COL_REGION] = df[COL_REGION].ffill()
 
+    snapshot_date = parse_snapshot_date(sheet_name, xlsx_path)
     records: list[dict[str, Any]] = []
-    snapshot_date = parse_snapshot_date(sheet_name)
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         project_name = clean_text(row.get(COL_PROJECT_NAME))
         stage_label = clean_text(row.get(COL_STAGE_LABEL))
         if not project_name or not stage_label:
             continue
 
-        row_number = header_row + index + 2
-        target_raw = clean_text(row.get(COL_TARGET_DATE))
-        revenue_raw = clean_text(row.get(COL_FIRST_YEAR_REVENUE))
-
         records.append(
             {
                 "snapshot_date": snapshot_date,
-                "sheet_name": sheet_name,
-                "row_number": int(row_number),
-                "project_group": clean_text(row.get(COL_PROJECT_GROUP)),
+                "region": clean_text(row.get(COL_REGION)),
+                "opportunity_attribute": clean_text(row.get(COL_OPPORTUNITY_ATTRIBUTE)),
+                "acquisition_channel": clean_text(row.get(COL_ACQUISITION_CHANNEL)),
                 "project_name": project_name.replace("\n", ""),
-                "stage_code": STAGE_CODE_MAP.get(stage_label, "unknown"),
                 "stage_label": stage_label,
+                "referrer": clean_text(row.get(COL_REFERRER)),
+                "market_owner": clean_text(row.get(COL_MARKET_OWNER)),
                 "progress_note": clean_text(row.get(COL_PROGRESS_NOTE)),
-                "target_date": parse_excel_date(row.get(COL_TARGET_DATE)),
-                "target_date_raw": target_raw,
+                "expected_finish_date": parse_excel_date(row.get(COL_EXPECTED_FINISH_DATE)),
                 "first_year_revenue": parse_amount(row.get(COL_FIRST_YEAR_REVENUE)),
-                "first_year_revenue_raw": revenue_raw,
-                "schema_version": SCHEMA_VERSION,
             }
         )
 
-    snapshot = build_snapshot_payload(
-        xlsx_path=xlsx_path,
-        sheet_name=sheet_name,
-        sheet_index=sheet_index,
-        row_count=len(records),
-    )
-    return snapshot, records
+    return sheet_name, SheetImport(snapshot_date=snapshot_date, rows=records)
 
 
 def post_json(
@@ -271,18 +234,19 @@ def post_json(
     return data if isinstance(data, list) else [data]
 
 
-def delete_all_snapshots(client: httpx.Client, headers: dict[str, str]) -> None:
+def delete_snapshot_rows(
+    client: httpx.Client,
+    headers: dict[str, str],
+    snapshot_date: str,
+) -> None:
     response = client.delete(
-        f"{SUPABASE_URL}/rest/v1/opportunity_ledger_snapshots?id=not.is.null",
+        f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?snapshot_date=eq.{snapshot_date}",
         headers=headers,
     )
     response.raise_for_status()
 
 
-def import_to_supabase(
-    snapshots_with_rows: list[tuple[SnapshotPayload, list[dict[str, Any]]]],
-    keep_existing: bool,
-) -> None:
+def import_to_supabase(imports: list[SheetImport]) -> None:
     require_env()
 
     headers = {
@@ -291,45 +255,24 @@ def import_to_supabase(
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
-
-    snapshot_url = f"{SUPABASE_URL}/rest/v1/opportunity_ledger_snapshots"
-    ledger_url = f"{SUPABASE_URL}/rest/v1/opportunity_ledger"
+    ledger_url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}"
 
     with httpx.Client(timeout=30) as client:
-        if not keep_existing:
-            print("[1/3] Deleting existing snapshots...")
-            delete_all_snapshots(client, headers)
-            print("  Cleared opportunity_ledger_snapshots and cascaded detail rows.")
-        else:
-            print("[1/3] Keeping existing snapshots.")
-
-        print("[2/3] Writing snapshots and detail rows...")
+        print(f"[1/2] Replacing snapshot rows in {TABLE_NAME}...")
         inserted_rows = 0
-        for snapshot, rows in snapshots_with_rows:
-            snapshot_payload = {
-                "sheet_name": snapshot.sheet_name,
-                "sheet_index": snapshot.sheet_index,
-                "snapshot_date": snapshot.snapshot_date,
-                "source_file_name": snapshot.source_file_name,
-                "source_file_path": snapshot.source_file_path,
-                "row_count": snapshot.row_count,
-            }
-            created_snapshot = post_json(client, snapshot_url, headers, snapshot_payload)[0]
-            snapshot_id = created_snapshot["id"]
-
-            ledger_rows = [{**row, "snapshot_id": snapshot_id} for row in rows]
+        for sheet_import in imports:
+            delete_snapshot_rows(client, headers, sheet_import.snapshot_date)
             batch_size = 100
-            for offset in range(0, len(ledger_rows), batch_size):
-                batch = ledger_rows[offset : offset + batch_size]
+            for offset in range(0, len(sheet_import.rows), batch_size):
+                batch = sheet_import.rows[offset : offset + batch_size]
                 result = post_json(client, ledger_url, headers, batch)
                 inserted_rows += len(result)
 
             print(
-                f"  Imported sheet [{snapshot.sheet_name}] "
-                f"for snapshot {snapshot.snapshot_date}: {len(rows)} rows"
+                f"  Replaced snapshot {sheet_import.snapshot_date}: {len(sheet_import.rows)} rows"
             )
 
-        print(f"[3/3] Done. Inserted {inserted_rows} detail rows.")
+        print(f"[2/2] Done. inserted_rows={inserted_rows}.")
 
 
 def main() -> None:
@@ -344,30 +287,30 @@ def main() -> None:
 
     xls = pd.ExcelFile(xlsx_path)
     try:
-        snapshots_with_rows: list[tuple[SnapshotPayload, list[dict[str, Any]]]] = []
+        imports: list[SheetImport] = []
         total_rows = 0
-        for sheet_index, sheet_name in enumerate(visible_sheets, start=1):
-            snapshot, rows = read_visible_sheet(xls, xlsx_path, sheet_name, sheet_index)
-            snapshots_with_rows.append((snapshot, rows))
-            total_rows += len(rows)
+        for sheet_name in visible_sheets:
+            parsed_sheet_name, sheet_import = read_visible_sheet(xls, xlsx_path, sheet_name)
+            imports.append(sheet_import)
+            total_rows += len(sheet_import.rows)
             print(
-                f"  Sheet [{sheet_name}] -> {len(rows)} rows, "
-                f"snapshot date {snapshot.snapshot_date}"
+                f"  Sheet [{parsed_sheet_name}] -> {len(sheet_import.rows)} rows, "
+                f"snapshot date {sheet_import.snapshot_date}"
             )
     finally:
         xls.close()
 
-    if not snapshots_with_rows:
+    if not imports:
         print("No visible sheets to import.")
         return
 
-    print(f"Prepared {len(snapshots_with_rows)} snapshots and {total_rows} rows.")
+    print(f"Prepared {len(imports)} sheets and {total_rows} rows.")
 
     if args.dry_run:
         print("Dry run complete. No data written.")
         return
 
-    import_to_supabase(snapshots_with_rows, keep_existing=args.keep_existing)
+    import_to_supabase(imports)
 
 
 if __name__ == "__main__":

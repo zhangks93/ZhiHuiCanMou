@@ -1,6 +1,6 @@
 # Supabase Database Schema
 
-Last updated: 2026-04-02
+Last updated: 2026-04-23
 
 ## Tables Overview
 
@@ -92,7 +92,34 @@ Last updated: 2026-04-02
 
 ---
 
-### 4. edu_logistics_biz_data
+### 4. opportunity_ledger_v2
+**Purpose**: Store row-level opportunity entries from the new workbook using only Excel fields plus snapshot metadata
+**RLS Enabled**: Yes
+**Row Count**: dynamic
+
+#### Columns
+- `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
+- `snapshot_date` (date): Snapshot date parsed from the sheet name using academic-year rules
+- `sheet_name` (text): Source sheet name, such as `0423`
+- `row_number` (integer): Original Excel row number in the source sheet
+- `region` (text, nullable): 区域
+- `opportunity_attribute` (text, nullable): 商机属性
+- `acquisition_channel` (text, nullable): 获取途径
+- `project_name` (text): 项目名称
+- `stage_label` (text): Original 推进阶段 value
+- `referrer` (text, nullable): 推荐人
+- `market_owner` (text, nullable): 负责市场人员
+- `progress_note` (text, nullable): 推进进度
+- `expected_finish_date` (date, nullable): Parsed 预计完成时间
+- `first_year_revenue` (text, nullable): Original 预期首年营收额 text from Excel
+
+#### Notes
+- The import script upserts by `snapshot_date + sheet_name + row_number`.
+- The table is intentionally simplified to keep only snapshot metadata and fields present in the Excel sheet.
+
+---
+
+### 5. edu_logistics_biz_data
 **Purpose**: Education logistics 2025 business data (cumulative)
 **RLS Enabled**: No
 **Row Count**: 116
@@ -193,7 +220,7 @@ Last updated: 2026-04-02
 
 ---
 
-### 4. business_trips
+### 6. business_trips
 **Purpose**: Track business trip records
 **RLS Enabled**: No
 **Row Count**: 44
@@ -211,7 +238,7 @@ Last updated: 2026-04-02
 
 ---
 
-### 5. feishu_departments
+### 7. feishu_departments
 **Purpose**: Store Feishu (Lark) department information
 **RLS Enabled**: Yes
 **Row Count**: 242
@@ -233,7 +260,7 @@ Last updated: 2026-04-02
 
 ---
 
-### 6. feishu_members
+### 8. feishu_members
 **Purpose**: Store Feishu (Lark) member information
 **RLS Enabled**: Yes
 **Row Count**: 891
@@ -261,7 +288,7 @@ Last updated: 2026-04-02
 
 ---
 
-### 7. attendance_records
+### 9. attendance_records
 **Purpose**: Attendance records linked to Feishu members and departments
 **RLS Enabled**: Yes
 **Row Count**: 369
@@ -286,7 +313,7 @@ Last updated: 2026-04-02
 
 ---
 
-### 8. edu_biz_report
+### 10. edu_biz_report
 **Purpose**: 25学年经营数据报表（fone年初定稿版 / 突围版），涵盖 sheets 1.1/1.2/2.1/2.2/2.3 + 成本分析 6.1/6.2/7.1/7.2
 **RLS Enabled**: No
 **Row Count**: 11,477
@@ -340,7 +367,7 @@ Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table
 
 ---
 
-### 9. edu_biz_monthly_plan
+### 11. edu_biz_monthly_plan
 **Purpose**: 25学年1-6月突围计划分月版，涵盖 sheet 3
 **RLS Enabled**: No
 **Row Count**: 1,498
@@ -370,7 +397,7 @@ Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table
 
 ---
 
-### 10. edu_org_hierarchy
+### 12. edu_org_hierarchy
 **Purpose**: 组织层级映射表 - 定义业务单元的组织层级结构
 **RLS Enabled**: No
 **Row Count**: 153
@@ -432,6 +459,7 @@ edu_biz_monthly_plan (1,498 rows)   ← 突围计划分月版 (sheet 3)
 
 Tables with RLS enabled:
 - `opportunity_ledger`
+- `opportunity_ledger_v2`
 - `feishu_departments`
 - `feishu_members`
 - `attendance_records`

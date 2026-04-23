@@ -1,6 +1,6 @@
 # Supabase Migrations
 
-Last updated: 2026-04-02
+Last updated: 2026-04-23
 
 ## Migration History
 
@@ -26,15 +26,18 @@ Last updated: 2026-04-02
 | 20260324153000 | redesign_opportunity_ledger_for_visible_sheets | Archive legacy table, create snapshot/detail tables, and align schema to visible workbook sheets |
 | 20260328120000 | redesign_edu_org_hierarchy_for_flat_levels | Redesign edu_org_hierarchy to match the new mapping workbook headers (level_0, level_1, level_2, node_name) |
 | 20260402110000 | add_schedule_time_range_constraints | Backfill schedule period from timed items and enforce valid time ranges |
+| 20260423113000 | create_opportunity_ledger_v2 | Create a simplified opportunity ledger table for the new workbook structure |
+| 20260423123000 | simplify_opportunity_ledger_v2 | Drop non-essential derived/import fields and keep only Excel fields plus snapshot metadata |
 
-## Total Migrations: 20
+## Total Migrations: 22
 
 ## Latest Migration
-**Version**: 20260402110000
-**Name**: add_schedule_time_range_constraints
-**Date**: 2026-04-02
+**Version**: 20260423123000
+**Name**: simplify_opportunity_ledger_v2
+**Date**: 2026-04-23
 
-This migration improves timed schedule support:
-- Backfills `period` for existing rows that already have `start_time`
-- Ensures `start_time` and `end_time` are always filled as a pair
-- Enforces `end_time` to be later than `start_time`
+This migration reshapes `opportunity_ledger_v2` into a simplified snapshot table:
+- Aligns columns to the `2025学年商机项目台账_new.xlsx` structure
+- Keeps only Excel fields plus `snapshot_date / sheet_name / row_number`
+- Converts `first_year_revenue` to text to preserve the original Excel content
+- Keeps the previous `opportunity_ledger` tables untouched for backward compatibility

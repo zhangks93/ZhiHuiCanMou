@@ -2,7 +2,7 @@
 飞书通讯录同步脚本
 
 功能:
-1. 每次同步都刷新当前态表: feishu_departments / feishu_members
+1. 每次同步都刷新当前态表: feishu_departments / feishu_members / profiles
 2. 当本次同步时间距离上次已保存快照 >= 7 天时，额外写入历史快照:
    - feishu_sync_runs
    - feishu_department_snapshots
@@ -33,6 +33,8 @@ SNAPSHOT_INTERVAL = timedelta(days=7)
 REQUEST_TIMEOUT = 30
 UPSERT_BATCH_SIZE = 100
 SNAPSHOT_BATCH_SIZE = 200
+AUTH_USERS_PAGE_SIZE = 1000
+DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001"
 
 
 def utc_now() -> datetime:
@@ -211,6 +213,37 @@ def rest_insert(base_url: str, headers: dict, table: str, rows: list[dict]) -> l
     resp.raise_for_status()
     data = resp.json()
     return data if isinstance(data, list) else []
+
+
+def list_auth_users(supabase_url: str, service_role_key: str) -> list[dict]:
+    users: list[dict] = []
+    page = 1
+
+    while True:
+        resp = httpx.get(
+            f"{supabase_url}/auth/v1/admin/users",
+            headers={
+                "apikey": service_role_key,
+                "Authorization": f"Bearer {service_role_key}",
+            },
+            params={"page": page, "per_page": AUTH_USERS_PAGE_SIZE},
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+
+        data = resp.json()
+        page_users = data.get("users", []) if isinstance(data, dict) else []
+        if not isinstance(page_users, list) or not page_users:
+            break
+
+        users.extend(page_users)
+        print(f"  [OK] auth users page {page}: {len(page_users)}")
+
+        if len(page_users) < AUTH_USERS_PAGE_SIZE:
+            break
+        page += 1
+
+    return users
 
 
 def fetch_departments(token: str, root_dept_id: str) -> list[dict]:
@@ -421,6 +454,99 @@ def build_member_rows(members: list[dict], dept_column: str) -> list[dict]:
             }
         )
     return rows
+
+
+def build_auth_user_indexes(auth_users: list[dict]) -> tuple[dict[str, dict], dict[str, dict]]:
+    by_open_id: dict[str, dict] = {}
+    by_email: dict[str, dict] = {}
+
+    for user in auth_users:
+        user_id = user.get("id")
+        if not isinstance(user_id, str) or not user_id:
+            continue
+
+        email = user.get("email")
+        if isinstance(email, str) and email:
+            by_email[email.strip().lower()] = user
+
+        metadata = user.get("user_metadata")
+        if isinstance(metadata, dict):
+            open_id = metadata.get("feishu_open_id")
+            if isinstance(open_id, str) and open_id:
+                by_open_id[open_id] = user
+
+    return by_open_id, by_email
+
+
+def build_profile_rows(members: list[dict], auth_users: list[dict]) -> list[dict]:
+    auth_users_by_open_id, auth_users_by_email = build_auth_user_indexes(auth_users)
+    rows: list[dict] = []
+    synced_auth_user_ids: set[str] = set()
+    unmatched_members = 0
+
+    for member in members:
+        open_id = member.get("open_id")
+        if not isinstance(open_id, str) or not open_id:
+            continue
+
+        email = member.get("email")
+        email_value = email.strip().lower() if isinstance(email, str) and email else None
+
+        auth_user = auth_users_by_open_id.get(open_id)
+        if auth_user is None and email_value:
+            auth_user = auth_users_by_email.get(email_value)
+
+        if auth_user is None:
+            unmatched_members += 1
+            continue
+
+        auth_user_id = auth_user.get("id")
+        if not isinstance(auth_user_id, str) or not auth_user_id or auth_user_id in synced_auth_user_ids:
+            continue
+        synced_auth_user_ids.add(auth_user_id)
+
+        avatar = member.get("avatar", {})
+        avatar_url = None
+        if isinstance(avatar, dict):
+            avatar_url = avatar.get("avatar_origin") or avatar.get("avatar_240") or avatar.get("avatar_72")
+
+        rows.append(
+            {
+                "id": auth_user_id,
+                "feishu_open_id": open_id,
+                "name": member.get("name", ""),
+                "avatar_url": avatar_url,
+                "org_id": DEFAULT_ORG_ID,
+                "updated_at": to_iso(utc_now()),
+            }
+        )
+
+    print(
+        f"  [OK] profiles prepared: {len(rows)} matched auth users, "
+        f"{unmatched_members} members skipped (no auth user)"
+    )
+    return rows
+
+
+def upsert_profiles(base_url: str, headers: dict, supabase_url: str, service_role_key: str, members: list[dict]):
+    auth_users = list_auth_users(supabase_url, service_role_key)
+    profile_rows = build_profile_rows(members, auth_users)
+
+    if not profile_rows:
+        print("无可同步 profiles 数据（未匹配到 Supabase auth 用户）")
+        return
+
+    for batch in chunked(profile_rows, UPSERT_BATCH_SIZE):
+        resp = httpx.post(
+            f"{base_url}/profiles",
+            headers={**headers, "Prefer": "return=representation,resolution=merge-duplicates"},
+            json=batch,
+            timeout=REQUEST_TIMEOUT,
+        )
+        if resp.status_code in (200, 201):
+            print(f"  [OK] profiles upsert {len(batch)}")
+        else:
+            print(f"  [FAIL] profiles upsert: {resp.status_code} {resp.text[:300]}")
 
 
 def upsert_members(base_url: str, headers: dict, members: list[dict]):
@@ -677,6 +803,7 @@ def sync(root_dept_id: str = "0"):
     print("── 写入当前态 Supabase ──")
     upsert_departments(sb_base, sb_headers, departments, dept_member_counts)
     upsert_members(sb_base, sb_headers, unique_members)
+    upsert_profiles(sb_base, sb_headers, supabase_url, supabase_key, unique_members)
 
     current_time = utc_now()
     latest_snapshot_run = get_latest_snapshot_run(sb_base, sb_headers)

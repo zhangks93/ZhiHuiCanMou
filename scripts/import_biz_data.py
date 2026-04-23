@@ -2,10 +2,10 @@
 读取 25学年经营数据.xlsx 中的多个 sheet 页，解析经营数据并写入 Supabase 数据库。
 
 包含的 sheet 页：
-- 1.1/1.2/1.3: fone 版经营数据（累计/月度）
-- 2.1/2.2/2.3/2.4: 突围版经营数据（累计/月度）
-- 3.1/3.2/3.3: 突围版成本分析（累计/月度）
-- 4.1/4.2/4.3: fone 版成本分析（累计/月度）
+- 1.x: fone 版经营数据（累计/月度）
+- 2.x: 突围版经营数据（累计/月度）
+- 3.x: 突围版成本分析（累计/月度）
+- 4.x: fone 版成本分析（累计/月度）
 - 5: 突围计划分月版
 
 同时读取组织标签映射表，创建独立的 edu_org_hierarchy 表。
@@ -58,64 +58,15 @@ HEADERS = {
     "Prefer": "return=minimal",
 }
 
-# ─── Sheet 映射 ──────────────────────────────────────────
-SHEET_CONFIG = {
-    "1.1": {
-        "report_type": "fone",
-        "period_type": "cumulative",
-    },
-    "1.2": {
-        "report_type": "fone",
-        "period_type": "monthly",
-    },
-    "1.3": {
-        "report_type": "fone",
-        "period_type": "monthly",
-    },
-    "2.1": {
-        "report_type": "tuwei",
-        "period_type": "cumulative",
-    },
-    "2.2": {
-        "report_type": "tuwei",
-        "period_type": "monthly",
-    },
-    "2.3": {
-        "report_type": "tuwei",
-        "period_type": "monthly",
-    },
-    "2.4": {
-        "report_type": "tuwei",
-        "period_type": "monthly",
-    },
+# ─── Sheet 类型映射（按主编号）────────────────────────────
+MAIN_SHEET_REPORT_TYPES = {
+    "1": "fone",
+    "2": "tuwei",
 }
 
-# 成本分析 Sheet 映射
-COST_SHEET_CONFIG = {
-    "3.1": {
-        "report_type": "tuwei",
-        "period_type": "cumulative",
-    },
-    "3.2": {
-        "report_type": "tuwei",
-        "period_type": "monthly",
-    },
-    "3.3": {
-        "report_type": "tuwei",
-        "period_type": "monthly",
-    },
-    "4.1": {
-        "report_type": "fone",
-        "period_type": "cumulative",
-    },
-    "4.2": {
-        "report_type": "fone",
-        "period_type": "monthly",
-    },
-    "4.3": {
-        "report_type": "fone",
-        "period_type": "monthly",
-    },
+COST_SHEET_REPORT_TYPES = {
+    "3": "tuwei",
+    "4": "fone",
 }
 
 # 16 个指标大类，每类占 5 列（从 C2 开始）
@@ -271,7 +222,43 @@ def safe_num(v):
         return None
 
 
-def normalize_period(raw_period, period_type: str) -> str | None:
+def detect_period_type(raw_period) -> str | None:
+    """
+    根据期间单元格内容识别期间类型。
+    - <202604: cumulative
+    - 202603: monthly
+    - 202601-202603 / 202601~202603: cumulative
+    """
+    text = str(raw_period or "").strip()
+    if not text:
+        return None
+
+    if re.search(r"<\s*20\d{4}", text):
+        return "cumulative"
+
+    months = re.findall(r"20\d{4}", text)
+    if len(months) >= 2:
+        return "cumulative"
+    if len(months) == 1:
+        return "monthly"
+
+    return None
+
+
+def detect_sheet_period_type(ws) -> str:
+    """
+    优先根据期间列自动识别 sheet 的期间类型。
+    若 B3/C3 都无法识别，则回退为 monthly，避免整张表中断。
+    """
+    for col in (2, 3):
+        detected = detect_period_type(ws.cell(row=3, column=col).value)
+        if detected:
+            return detected
+
+    return "monthly"
+
+
+def normalize_period(raw_period, period_type: str | None = None) -> str | None:
     """
     统一期间字段格式。
     - monthly: 保持 YYYYMM
@@ -280,6 +267,10 @@ def normalize_period(raw_period, period_type: str) -> str | None:
     text = str(raw_period or "").strip()
     if not text:
         return None
+
+    period_type = period_type or detect_period_type(text)
+    if not period_type:
+        return text
 
     exclusive_match = re.search(r"<\s*(20\d{4})", text)
     if period_type == "cumulative" and exclusive_match:
@@ -321,7 +312,23 @@ def period_sort_key(period: str | None) -> int:
     return int(match.group(0))
 
 
-def select_sheet_name(wb, sheet_code: str, period_type: str | None = None) -> str | None:
+def extract_sheet_code(sheet_name: str) -> str | None:
+    """从 sheet 名开头提取编号，如 1.4、2.5、5。"""
+    match = re.match(r"^\s*(\d+(?:\.\d+)?)", str(sheet_name or "").strip())
+    if not match:
+        return None
+    return match.group(1)
+
+
+def sheet_code_sort_key(sheet_code: str) -> tuple[int, int]:
+    """按编号排序，支持 1.4、2.5、5。"""
+    parts = str(sheet_code).split(".", 1)
+    major = int(parts[0])
+    minor = int(parts[1]) if len(parts) > 1 else 0
+    return (major, minor)
+
+
+def select_sheet_name(wb, sheet_code: str) -> str | None:
     """
     选择与 sheet_code 匹配的 sheet。
     - 若只有一个匹配项，直接返回
@@ -334,22 +341,39 @@ def select_sheet_name(wb, sheet_code: str, period_type: str | None = None) -> st
     if len(matched) == 1:
         return matched[0]
 
-    if period_type:
-        ranked = []
-        for sheet_name in matched:
-            ws = wb[sheet_name]
-            period = normalize_period(ws.cell(row=3, column=2).value, period_type)
-            ranked.append((period_sort_key(period), sheet_name))
+    ranked = []
+    for sheet_name in matched:
+        ws = wb[sheet_name]
+        period_type = detect_sheet_period_type(ws)
+        period = normalize_period(ws.cell(row=3, column=2).value, period_type)
+        ranked.append((period_sort_key(period), sheet_name))
 
-        ranked.sort(key=lambda item: item[0], reverse=True)
-        best_key, best_sheet = ranked[0]
-        if best_key >= 0:
-            print(f"  检测到多个 sheet 匹配 {sheet_code}，使用期间最新的 [{best_sheet}]")
-            return best_sheet
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    best_key, best_sheet = ranked[0]
+    if best_key >= 0:
+        print(f"  检测到多个 sheet 匹配 {sheet_code}，使用期间最新的 [{best_sheet}]")
+        return best_sheet
 
     best_sheet = matched[-1]
     print(f"  检测到多个 sheet 匹配 {sheet_code}，回退使用最后一个 [{best_sheet}]")
     return best_sheet
+
+
+def discover_sheet_codes(wb, allowed_major_codes: set[str]) -> list[str]:
+    """
+    扫描 workbook 中所有 sheet，提取允许的编号，并去重排序。
+    如果同一编号存在多个版本，仅返回一次，后续由 select_sheet_name 选最新版本。
+    """
+    discovered = set()
+    for sheet_name in wb.sheetnames:
+        sheet_code = extract_sheet_code(sheet_name)
+        if not sheet_code:
+            continue
+        major_code = sheet_code.split(".", 1)[0]
+        if major_code in allowed_major_codes:
+            discovered.add(sheet_code)
+
+    return sorted(discovered, key=sheet_code_sort_key)
 
 
 def upsert_batch(table: str, rows: list[dict], batch_size: int = 500):
@@ -378,12 +402,21 @@ def clear_table(table: str):
 
 
 def parse_main_sheets(wb, valid_nodes: set):
-    """解析经营数据 sheets 1.1-2.4，只导入映射表中存在的节点"""
+    """解析经营数据 sheets 1.x-2.x，只导入映射表中存在的节点"""
     all_rows = []
     skipped_nodes = set()
+    sheet_codes = discover_sheet_codes(wb, set(MAIN_SHEET_REPORT_TYPES))
+    if not sheet_codes:
+        print("  警告: 未找到经营数据 sheet（1.x/2.x）")
+        return []
 
-    for sheet_code, config in SHEET_CONFIG.items():
-        sheet_name = select_sheet_name(wb, sheet_code, config["period_type"])
+    for sheet_code in sheet_codes:
+        major_code = sheet_code.split(".", 1)[0]
+        report_type = MAIN_SHEET_REPORT_TYPES.get(major_code)
+        if not report_type:
+            continue
+
+        sheet_name = select_sheet_name(wb, sheet_code)
         if not sheet_name:
             print(f"  警告: 未找到 sheet {sheet_code}")
             continue
@@ -391,8 +424,9 @@ def parse_main_sheets(wb, valid_nodes: set):
         print(f"  处理 [{sheet_name}]")
 
         # 读取期间信息 (Row 3)
-        period = normalize_period(ws.cell(row=3, column=2).value, config["period_type"])
-        period_yoy = normalize_period(ws.cell(row=3, column=3).value, config["period_type"])
+        period_type = detect_sheet_period_type(ws)
+        period = normalize_period(ws.cell(row=3, column=2).value, period_type)
+        period_yoy = normalize_period(ws.cell(row=3, column=3).value, period_type)
 
         sheet_rows = 0
         for row_idx in range(DATA_ROW_START, DATA_ROW_END + 1):
@@ -428,8 +462,8 @@ def parse_main_sheets(wb, valid_nodes: set):
 
                 row_data = {
                     "sheet_code": sheet_code,
-                    "report_type": config["report_type"],
-                    "period_type": config["period_type"],
+                    "report_type": report_type,
+                    "period_type": period_type,
                     "period": period,
                     "period_yoy": period_yoy,
                     "node_name": node_name,
@@ -510,12 +544,21 @@ def parse_sheet5(wb, valid_nodes: set):
 
 
 def parse_cost_sheets(wb, valid_nodes: set):
-    """解析成本分析 sheets 3.1-4.3，只导入映射表中存在的节点"""
+    """解析成本分析 sheets 3.x-4.x，只导入映射表中存在的节点"""
     all_rows = []
     skipped_nodes = set()
+    sheet_codes = discover_sheet_codes(wb, set(COST_SHEET_REPORT_TYPES))
+    if not sheet_codes:
+        print("  警告: 未找到成本分析 sheet（3.x/4.x）")
+        return []
 
-    for sheet_code, config in COST_SHEET_CONFIG.items():
-        sheet_name = select_sheet_name(wb, sheet_code, config["period_type"])
+    for sheet_code in sheet_codes:
+        major_code = sheet_code.split(".", 1)[0]
+        report_type = COST_SHEET_REPORT_TYPES.get(major_code)
+        if not report_type:
+            continue
+
+        sheet_name = select_sheet_name(wb, sheet_code)
         if not sheet_name:
             print(f"  警告: 未找到 sheet {sheet_code}")
             continue
@@ -523,8 +566,9 @@ def parse_cost_sheets(wb, valid_nodes: set):
         print(f"  处理 [{sheet_name}]")
 
         # 读取期间信息 (Row 3)
-        period = normalize_period(ws.cell(row=3, column=2).value, config["period_type"])
-        period_yoy = normalize_period(ws.cell(row=3, column=3).value, config["period_type"])
+        period_type = detect_sheet_period_type(ws)
+        period = normalize_period(ws.cell(row=3, column=2).value, period_type)
+        period_yoy = normalize_period(ws.cell(row=3, column=3).value, period_type)
 
         sheet_rows = 0
         for row_idx in range(DATA_ROW_START, DATA_ROW_END + 1):
@@ -553,8 +597,8 @@ def parse_cost_sheets(wb, valid_nodes: set):
 
                 row_data = {
                     "sheet_code": sheet_code,
-                    "report_type": config["report_type"],
-                    "period_type": config["period_type"],
+                    "report_type": report_type,
+                    "period_type": period_type,
                     "period": period,
                     "period_yoy": period_yoy,
                     "node_name": node_name,
@@ -610,12 +654,12 @@ def main():
     print()
 
     # 解析主报表（只导入映射表中存在的节点）
-    print("解析经营数据报表 (1.1-2.4)...")
+    print("解析经营数据报表 (1.x-2.x)...")
     report_rows = parse_main_sheets(wb, valid_nodes)
     print(f"\n共 {len(report_rows)} 条报表数据")
 
-    # 解析成本分析报表 (3.1-4.3)
-    print("\n解析成本分析报表 (3.1-4.3)...")
+    # 解析成本分析报表 (3.x-4.x)
+    print("\n解析成本分析报表 (3.x-4.x)...")
     cost_rows = parse_cost_sheets(wb, valid_nodes)
     print(f"共 {len(cost_rows)} 条成本数据")
 

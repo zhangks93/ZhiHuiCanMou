@@ -929,6 +929,45 @@
   background: rgba(255, 255, 255, 0.9);
 }
 
+.opportunity-table-shell {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(255, 255, 255, 0.32);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(14px);
+}
+
+.opportunity-table-toolbar {
+  padding: 1rem 1.4rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(248, 251, 255, 0.08));
+}
+
+.opportunity-table-scroll {
+  padding: 0 1.15rem 0.6rem;
+}
+
+.opportunity-data-table thead tr {
+  background: rgba(95, 127, 188, 0.045);
+}
+
+.opportunity-data-table th,
+.opportunity-data-table td {
+  background: transparent;
+}
+
+.opportunity-data-table th:first-child,
+.opportunity-data-table td:first-child {
+  padding-left: 1.35rem;
+}
+
+.opportunity-data-table th:last-child,
+.opportunity-data-table td:last-child {
+  padding-right: 1.35rem;
+}
+
+.opportunity-data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 .biz-data-table__header-row,
 .biz-data-table__body-row {
   display: flex;

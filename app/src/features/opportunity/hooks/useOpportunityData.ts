@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react'
-import { fetchOpportunityLedger } from '../api/opportunityRepository'
-import type { OpportunityLedger } from '../types'
+import { fetchOpportunitySnapshotDates, fetchOpportunitySnapshotItems } from '../api/opportunityRepository'
+import type { OpportunitySnapshotItem } from '../types'
 
 export function useOpportunityData() {
-  const [allData, setAllData] = useState<OpportunityLedger[]>([])
+  const [rows, setRows] = useState<OpportunitySnapshotItem[]>([])
+  const [snapshotDates, setSnapshotDates] = useState<string[]>([])
+  const [selectedSnapshotDate, setSelectedSnapshotDate] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true)
-        setAllData(await fetchOpportunityLedger())
+        const dates = await fetchOpportunitySnapshotDates()
+        setSnapshotDates(dates)
+        setSelectedSnapshotDate((current) => current || dates[0] || '')
       } finally {
         setLoading(false)
       }
@@ -19,8 +23,40 @@ export function useOpportunityData() {
     void loadData()
   }, [])
 
+  useEffect(() => {
+    if (!selectedSnapshotDate) {
+      setRows([])
+      return
+    }
+
+    let cancelled = false
+
+    async function loadSnapshotRows() {
+      try {
+        setLoading(true)
+        const nextRows = await fetchOpportunitySnapshotItems(selectedSnapshotDate)
+        if (!cancelled) {
+          setRows(nextRows)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadSnapshotRows()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedSnapshotDate])
+
   return {
-    allData,
+    rows,
+    snapshotDates,
+    selectedSnapshotDate,
+    setSelectedSnapshotDate,
     loading,
   }
 }

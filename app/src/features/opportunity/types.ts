@@ -1,19 +1,14 @@
-export interface OpportunityLedger {
+export interface OpportunitySnapshotItem {
   id: string
-  snapshot_id: string
   snapshot_date: string
-  sheet_name: string
-  row_number: number
-  schema_version: string
-  project_group: string | null
+  region: string | null
+  opportunity_attribute: string | null
+  acquisition_channel: string | null
   project_name: string
-  stage_code: string
   stage_label: string
+  referrer: string | null
+  market_owner: string | null
   progress_note: string | null
-  target_date: string | null
-  target_date_raw: string | null
+  expected_finish_date: string | null
   first_year_revenue: number | null
-  first_year_revenue_raw: string | null
-  created_at: string
-  updated_at: string
 }

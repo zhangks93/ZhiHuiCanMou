@@ -266,6 +266,132 @@ export type Database = {
         }
         Relationships: []
       }
+      opportunity_ledger_v2: {
+        Row: {
+          acquisition_channel: string | null
+          created_at: string
+          expected_finish_date: string | null
+          expected_finish_date_raw: string | null
+          first_year_revenue: number | null
+          first_year_revenue_raw: string | null
+          id: string
+          import_batch_id: string
+          imported_at: string
+          market_owner: string | null
+          opportunity_attribute: string | null
+          progress_note: string | null
+          project_name: string
+          referrer: string | null
+          region: string | null
+          row_number: number
+          schema_version: string
+          sheet_name: string
+          snapshot_date: string
+          source_file_name: string
+          source_file_path: string | null
+          stage_code: string
+          stage_label: string
+          updated_at: string
+        }
+        Insert: {
+          acquisition_channel?: string | null
+          created_at?: string
+          expected_finish_date?: string | null
+          expected_finish_date_raw?: string | null
+          first_year_revenue?: number | null
+          first_year_revenue_raw?: string | null
+          id?: string
+          import_batch_id: string
+          imported_at?: string
+          market_owner?: string | null
+          opportunity_attribute?: string | null
+          progress_note?: string | null
+          project_name: string
+          referrer?: string | null
+          region?: string | null
+          row_number: number
+          schema_version?: string
+          sheet_name: string
+          snapshot_date: string
+          source_file_name: string
+          source_file_path?: string | null
+          stage_code: string
+          stage_label: string
+          updated_at?: string
+        }
+        Update: {
+          acquisition_channel?: string | null
+          created_at?: string
+          expected_finish_date?: string | null
+          expected_finish_date_raw?: string | null
+          first_year_revenue?: number | null
+          first_year_revenue_raw?: string | null
+          id?: string
+          import_batch_id?: string
+          imported_at?: string
+          market_owner?: string | null
+          opportunity_attribute?: string | null
+          progress_note?: string | null
+          project_name?: string
+          referrer?: string | null
+          region?: string | null
+          row_number?: number
+          schema_version?: string
+          sheet_name?: string
+          snapshot_date?: string
+          source_file_name?: string
+          source_file_path?: string | null
+          stage_code?: string
+          stage_label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      opportunity_snapshot_items: {
+        Row: {
+          acquisition_channel: string | null
+          expected_finish_date: string | null
+          first_year_revenue: number | null
+          id: string
+          market_owner: string | null
+          opportunity_attribute: string | null
+          progress_note: string | null
+          project_name: string
+          referrer: string | null
+          region: string | null
+          snapshot_date: string
+          stage_label: string
+        }
+        Insert: {
+          acquisition_channel?: string | null
+          expected_finish_date?: string | null
+          first_year_revenue?: number | null
+          id?: string
+          market_owner?: string | null
+          opportunity_attribute?: string | null
+          progress_note?: string | null
+          project_name: string
+          referrer?: string | null
+          region?: string | null
+          snapshot_date: string
+          stage_label: string
+        }
+        Update: {
+          acquisition_channel?: string | null
+          expected_finish_date?: string | null
+          first_year_revenue?: number | null
+          id?: string
+          market_owner?: string | null
+          opportunity_attribute?: string | null
+          progress_note?: string | null
+          project_name?: string
+          referrer?: string | null
+          region?: string | null
+          snapshot_date?: string
+          stage_label?: string
+        }
+        Relationships: []
+      }
       schedule_items: {
         Row: {
           created_at: string | null
