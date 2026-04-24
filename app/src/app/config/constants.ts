@@ -12,6 +12,7 @@ export const ROUTES = {
   DATA: '/data',
   SCHEDULE: '/schedule',
   ORG_DATA: '/org-data',
+  PLANNING: '/planning',
   BIZ_DATA: '/biz-data',
   OPPORTUNITY: '/opportunity',
   COMPETITOR: '/competitor',
@@ -28,7 +29,7 @@ export function buildWorkspaceHref(tab?: 'schedule' | 'inbox' | 'links') {
 }
 
 export function buildDataHref(
-  tab: 'org-data' | 'biz-data' | 'competitor' | 'opportunity' | 'trip' | 'attendance' = 'org-data',
+  tab: 'org-data' | 'planning' | 'biz-data' | 'competitor' | 'opportunity' | 'trip' | 'attendance' = 'org-data',
 ) {
   return `${ROUTES.DATA}?tab=${tab}`
 }

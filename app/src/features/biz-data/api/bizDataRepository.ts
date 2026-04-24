@@ -3,6 +3,7 @@ import {
   fetchAvailableMonths,
   fetchBizReport,
   fetchMonthlyPlan,
+  fetchStrategyBudgetPlan,
 } from '../services/bizDataService'
 
 export interface BizDataFilters {
@@ -30,4 +31,8 @@ export async function loadBizData(filters: BizDataFilters) {
   const tuweiReports = filters.reportType === 'tuwei' ? reports : []
 
   return aggregateByNode(foneReports, tuweiReports, monthlyPlans)
+}
+
+export async function loadStrategyBudgetPlan() {
+  return fetchStrategyBudgetPlan()
 }

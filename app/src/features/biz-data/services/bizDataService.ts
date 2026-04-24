@@ -2,6 +2,7 @@ import { supabase } from '@/shared/lib/supabase'
 import type {
   EduBizReport,
   EduBizMonthlyPlan,
+  EduStrategyBudgetPlan,
   EnrichedBizDataNode,
   MetricCategory,
 } from '../types'
@@ -373,6 +374,34 @@ export async function fetchMonthlyPlan() {
   }
 
   return allData as EduBizMonthlyPlan[]
+}
+
+export async function fetchStrategyBudgetPlan() {
+  const PAGE_SIZE = 1000
+  let allData: EduStrategyBudgetPlan[] = []
+  let page = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const { data: pageData, error } = await supabase
+      .from('edu_strategy_budget_plan')
+      .select('*')
+      .order('sort_order')
+      .order('plan_year')
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+    if (error) throw error
+
+    if (pageData && pageData.length > 0) {
+      allData = allData.concat(pageData as EduStrategyBudgetPlan[])
+      hasMore = pageData.length === PAGE_SIZE
+      page += 1
+    } else {
+      hasMore = false
+    }
+  }
+
+  return allData
 }
 
 export async function fetchAvailableMonths(

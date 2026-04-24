@@ -6,7 +6,7 @@
 - 2.x: 突围版经营数据（累计/月度）
 - 3.x: 突围版成本分析（累计/月度）
 - 4.x: fone 版成本分析（累计/月度）
-- 5: 突围计划分月版
+- 5: 5年战略预算规划
 
 同时读取组织标签映射表，创建独立的 edu_org_hierarchy 表。
 数据表之间无外键约束，仅通过 node_name 字段关联。
@@ -89,13 +89,24 @@ METRIC_CATEGORIES = [
     ("profit_creation",   "一元创利",    77),
 ]
 
-# Sheet 5 指标：营业收入 + 税前利润，各 7 列（6个月 + 合计）
-SHEET5_METRICS = [
-    ("revenue",      "营业收入", 2, 8),   # C2-C8
-    ("pretax_profit", "税前利润", 9, 15),  # C9-C15
+# Sheet 2.1 末尾附加列：突围计划 1-6 整体目标 / 完成进度
+# 结合该 sheet 原有的累计实际值，生成 period=<202607 的 cumulative 指标
+TUWEI_CUMULATIVE_EXTRA_METRICS = [
+    {
+        "metric_category": "revenue",
+        "metric_category_cn": "营业收入",
+        "actual_col": 2,
+        "budget_col": 72,
+        "completion_col": 74,
+    },
+    {
+        "metric_category": "pretax_profit",
+        "metric_category_cn": "税前利润",
+        "actual_col": 47,
+        "budget_col": 73,
+        "completion_col": 75,
+    },
 ]
-
-SHEET3_MONTHS = ["202601", "202602", "202603", "202604", "202605", "202606", "total"]
 
 # 成本分析指标（6.1/6.2/7.1/7.2），每类占 5 列（实际值、考核数、预算完成率、预实差异、同期）
 COST_METRIC_CATEGORIES = [
@@ -113,6 +124,17 @@ COST_METRIC_CATEGORIES = [
 
 DATA_ROW_START = 8
 DATA_ROW_END = 139
+
+STRATEGY_PLAN_TABLE = "edu_strategy_budget_plan"
+STRATEGY_PLAN_SHEET_CODE = "5"
+STRATEGY_YEAR_COLUMNS = [
+    (2025, 3, 4),
+    (2026, 5, 6),
+    (2027, 7, 8),
+    (2028, 9, 10),
+    (2029, 11, 12),
+    (2030, 13, 14),
+]
 
 
 def normalize_header(value) -> str:
@@ -220,6 +242,14 @@ def safe_num(v):
         return float(v)
     except (TypeError, ValueError):
         return None
+
+
+def safe_text(v) -> str | None:
+    """将 Excel 单元格值转为去空白后的文本或 None"""
+    if v is None:
+        return None
+    text = str(v).strip()
+    return text or None
 
 
 def detect_period_type(raw_period) -> str | None:
@@ -401,6 +431,159 @@ def clear_table(table: str):
         print(f"  清空 {table} 失败: {resp.status_code} {resp.text[:200]}")
 
 
+def infer_strategy_group(line_label: str) -> tuple[str, str]:
+    """为战略预算行识别分组，便于咨询分析与前端过滤。"""
+    if line_label.startswith("基本盘"):
+        return ("base_business", "基本盘")
+    if line_label.startswith("增长极"):
+        return ("growth_engine", "增长极")
+    if line_label == "合计":
+        return ("overall_total", "合计")
+    return ("strategic_kpi", "战略指标")
+
+
+def infer_strategy_line_role(line_label: str) -> str:
+    """识别行角色：明细/小计/合计/战略指标。"""
+    if line_label == "合计":
+        return "total"
+    if line_label.endswith("小计"):
+        return "subtotal"
+    if any(keyword in line_label for keyword in ("增速", "利润率", "成本率")):
+        return "kpi"
+    return "detail"
+
+
+def normalize_strategy_business_line(line_label: str) -> str:
+    """从指标标签中提取标准业务条线名称。"""
+    mapping = [
+        ("三大区域营收增速", "三大区域"),
+        ("三大区域利润率", "三大区域"),
+        ("集团本级管理部门成本率", "集团本级管理部门"),
+        ("商超业务利润率", "商超业务"),
+    ]
+    for source, normalized in mapping:
+        if line_label == source:
+            return normalized
+    return line_label
+
+
+def parse_strategy_kpi_definition(line_label: str) -> tuple[str, str, str, str] | None:
+    """
+    从战略 KPI 行名识别指标定义：
+    返回 (metric_code, metric_name_cn, unit, value_type)
+    """
+    definitions = {
+        "三大区域营收增速": ("revenue_growth_rate", "营收增速", "ratio", "ratio"),
+        "三大区域利润率": ("profit_margin", "利润率", "ratio", "ratio"),
+        "集团本级管理部门成本率": ("cost_ratio", "成本率", "ratio", "ratio"),
+        "商超业务利润率": ("profit_margin", "利润率", "ratio", "ratio"),
+    }
+    return definitions.get(line_label)
+
+
+def parse_strategy_budget_sheet(wb) -> list[dict]:
+    """解析 sheet 5：5年战略预算规划，按 条线 × 年份 × 指标 落成长表。"""
+    sheet_name = select_sheet_name(wb, STRATEGY_PLAN_SHEET_CODE)
+    if not sheet_name:
+        print("  警告: 未找到 sheet 5，跳过战略预算规划导入")
+        return []
+
+    ws = wb[sheet_name]
+    print(f"  处理 [{sheet_name}]")
+
+    source_note = safe_text(ws.cell(row=14, column=2).value)
+    all_rows = []
+
+    for row_idx in range(2, ws.max_row + 1):
+        line_label = safe_text(ws.cell(row=row_idx, column=2).value)
+        if not line_label or line_label.startswith("注明"):
+            continue
+
+        strategy_group, strategy_group_cn = infer_strategy_group(line_label)
+        line_role = infer_strategy_line_role(line_label)
+        business_line = normalize_strategy_business_line(line_label)
+
+        if line_role == "kpi":
+            kpi_definition = parse_strategy_kpi_definition(line_label)
+            if not kpi_definition:
+                print(f"    警告: 未识别的战略 KPI 行 [{line_label}]，已跳过")
+                continue
+
+            metric_code, metric_name_cn, unit, value_type = kpi_definition
+            for col_idx in range(3, ws.max_column + 1):
+                value = safe_num(ws.cell(row=row_idx, column=col_idx).value)
+                if value is None:
+                    continue
+
+                header = safe_text(ws.cell(row=1, column=col_idx).value)
+                year_match = re.search(r"(20\d{2})自然年", header or "")
+                if not year_match:
+                    continue
+
+                all_rows.append(
+                    {
+                        "strategy_group": strategy_group,
+                        "strategy_group_cn": strategy_group_cn,
+                        "line_role": line_role,
+                        "business_line": business_line,
+                        "line_label": line_label,
+                        "plan_year": int(year_match.group(1)),
+                        "metric_code": metric_code,
+                        "metric_name_cn": metric_name_cn,
+                        "value": value,
+                        "unit": unit,
+                        "value_type": value_type,
+                        "sort_order": row_idx,
+                        "source_note": source_note,
+                    }
+                )
+            continue
+
+        for plan_year, revenue_col, profit_col in STRATEGY_YEAR_COLUMNS:
+            revenue = safe_num(ws.cell(row=row_idx, column=revenue_col).value)
+            if revenue is not None:
+                all_rows.append(
+                    {
+                        "strategy_group": strategy_group,
+                        "strategy_group_cn": strategy_group_cn,
+                        "line_role": line_role,
+                        "business_line": business_line,
+                        "line_label": line_label,
+                        "plan_year": plan_year,
+                        "metric_code": "revenue",
+                        "metric_name_cn": "营收",
+                        "value": revenue,
+                        "unit": "amount",
+                        "value_type": "absolute",
+                        "sort_order": row_idx,
+                        "source_note": source_note,
+                    }
+                )
+
+            profit = safe_num(ws.cell(row=row_idx, column=profit_col).value)
+            if profit is not None:
+                all_rows.append(
+                    {
+                        "strategy_group": strategy_group,
+                        "strategy_group_cn": strategy_group_cn,
+                        "line_role": line_role,
+                        "business_line": business_line,
+                        "line_label": line_label,
+                        "plan_year": plan_year,
+                        "metric_code": "profit",
+                        "metric_name_cn": "利润",
+                        "value": profit,
+                        "unit": "amount",
+                        "value_type": "absolute",
+                        "sort_order": row_idx,
+                        "source_note": source_note,
+                    }
+                )
+
+    print(f"    -> {len(all_rows)} 条战略预算规划数据")
+    return all_rows
+
+
 def parse_main_sheets(wb, valid_nodes: set):
     """解析经营数据 sheets 1.x-2.x，只导入映射表中存在的节点"""
     all_rows = []
@@ -490,17 +673,17 @@ def parse_main_sheets(wb, valid_nodes: set):
     return all_rows
 
 
-def parse_sheet5(wb, valid_nodes: set):
-    """解析 sheet 5（突围计划分月版），只导入映射表中存在的节点"""
-    sheet_name = select_sheet_name(wb, "5")
+def parse_tuwei_cumulative_extra_metrics(wb, valid_nodes: set):
+    """解析 2.1 突围累计 sheet 末尾整体目标列，生成 <202607 的 cumulative 指标。"""
+    sheet_name = select_sheet_name(wb, "2.1")
     if not sheet_name:
-        print("  警告: 未找到 sheet 5")
+        print("  警告: 未找到 sheet 2.1，跳过突围累计附加指标")
         return []
+
     ws = wb[sheet_name]
-    print(f"  处理 [{sheet_name}]")
+    print(f"  处理 [{sheet_name}] 的突围累计附加指标")
 
     all_rows = []
-    row_count = 0
     skipped_nodes = set()
 
     for row_idx in range(DATA_ROW_START, DATA_ROW_END + 1):
@@ -511,29 +694,38 @@ def parse_sheet5(wb, valid_nodes: set):
         if not node_name:
             continue
 
-        # 只导入映射表中存在的节点
         if node_name not in valid_nodes:
             skipped_nodes.add(node_name)
             continue
 
-        for metric_en, metric_cn, start_col, end_col in SHEET5_METRICS:
-            col_idx = start_col
-            for month in SHEET3_MONTHS:
-                val = safe_num(ws.cell(row=row_idx, column=col_idx).value)
-                if val is not None:
-                    row_data = {
-                        "node_name": node_name,
-                        "metric_category": metric_en,
-                        "metric_category_cn": metric_cn,
-                        "month": month,
-                        "plan_value": val,
-                        "sort_order": row_idx,
-                    }
-                    all_rows.append(row_data)
-                    row_count += 1
-                col_idx += 1
+        for metric in TUWEI_CUMULATIVE_EXTRA_METRICS:
+            actual = safe_num(ws.cell(row=row_idx, column=metric["actual_col"]).value)
+            budget = safe_num(ws.cell(row=row_idx, column=metric["budget_col"]).value)
+            completion = safe_num(ws.cell(row=row_idx, column=metric["completion_col"]).value)
 
-    print(f"    -> {row_count} 条计划数据")
+            if all(v is None for v in [actual, budget, completion]):
+                continue
+
+            all_rows.append(
+                {
+                    "sheet_code": "2.1",
+                    "report_type": "tuwei",
+                    "period_type": "cumulative",
+                    "period": "<202607",
+                    "period_yoy": None,
+                    "node_name": node_name,
+                    "metric_category": metric["metric_category"],
+                    "metric_category_cn": metric["metric_category_cn"],
+                    "actual_value": actual,
+                    "budget_value": budget,
+                    "completion_rate": completion,
+                    "diff_value": actual - budget if actual is not None and budget is not None else None,
+                    "yoy_value": None,
+                    "sort_order": row_idx,
+                }
+            )
+
+    print(f"    -> {len(all_rows)} 条突围累计附加指标数据")
 
     if skipped_nodes:
         print(f"\n  跳过了 {len(skipped_nodes)} 个不在映射表中的节点:")
@@ -649,8 +841,8 @@ def main():
     # 清空目标表
     print("清空目标表...")
     clear_table("edu_biz_report")
-    clear_table("edu_biz_monthly_plan")
     clear_table("edu_org_hierarchy")
+    clear_table(STRATEGY_PLAN_TABLE)
     print()
 
     # 解析主报表（只导入映射表中存在的节点）
@@ -704,10 +896,18 @@ def main():
     removed_count = len(all_report_rows) - len(final_report_rows)
     print(f"  去重后: {len(final_report_rows)} 条报表数据 (移除 {removed_count} 条重复)")
 
-    # 解析突围计划（只导入映射表中存在的节点）
-    print("\n解析突围计划分月版 (5)...")
-    plan_rows = parse_sheet5(wb, valid_nodes)
-    print(f"共 {len(plan_rows)} 条计划数据")
+    # 解析 2.1 末尾附加的突围累计整体目标指标
+    print("\n解析突围累计整体目标附加指标 (2.1 tail columns)...")
+    tuwei_extra_rows = parse_tuwei_cumulative_extra_metrics(wb, valid_nodes)
+    print(f"共 {len(tuwei_extra_rows)} 条突围累计附加指标数据")
+
+    if tuwei_extra_rows:
+        final_report_rows.extend(tuwei_extra_rows)
+        print(f"  合并后报表数据: {len(final_report_rows)} 条")
+
+    print("\n解析战略预算规划 (5)...")
+    strategy_plan_rows = parse_strategy_budget_sheet(wb)
+    print(f"共 {len(strategy_plan_rows)} 条战略预算规划数据")
 
     # 写入 Supabase（先写入层级表，再写入数据表，但无外键约束）
     print("\n写入 Supabase...")
@@ -720,9 +920,9 @@ def main():
         n = upsert_batch("edu_biz_report", final_report_rows)
         print(f"  edu_biz_report: 写入 {n}/{len(final_report_rows)} 条")
 
-    if plan_rows:
-        n = upsert_batch("edu_biz_monthly_plan", plan_rows)
-        print(f"  edu_biz_monthly_plan: 写入 {n}/{len(plan_rows)} 条")
+    if strategy_plan_rows:
+        n = upsert_batch(STRATEGY_PLAN_TABLE, strategy_plan_rows)
+        print(f"  {STRATEGY_PLAN_TABLE}: 写入 {n}/{len(strategy_plan_rows)} 条")
 
     print("\n完成!")
     wb.close()

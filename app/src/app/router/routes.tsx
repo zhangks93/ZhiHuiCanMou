@@ -48,6 +48,7 @@ export function AppRoutes() {
         <Route path="schedule" element={<Navigate to={buildWorkspaceHref('schedule')} replace />} />
         <Route path="links" element={<Navigate to={buildWorkspaceHref('links')} replace />} />
         <Route path="org-data" element={<Navigate to={buildDataHref('org-data')} replace />} />
+        <Route path="planning" element={<Navigate to={buildDataHref('planning')} replace />} />
         <Route path="biz-data" element={<Navigate to={buildDataHref('biz-data')} replace />} />
         <Route path="opportunity" element={<Navigate to={buildDataHref('opportunity')} replace />} />
         <Route path="competitor" element={<Navigate to={buildDataHref('competitor')} replace />} />

@@ -37,6 +37,24 @@ export interface EduBizMonthlyPlan {
   created_at: string
 }
 
+export interface EduStrategyBudgetPlan {
+  id: string
+  strategy_group: 'base_business' | 'growth_engine' | 'overall_total' | 'strategic_kpi'
+  strategy_group_cn: string
+  line_role: 'detail' | 'subtotal' | 'total' | 'kpi'
+  business_line: string
+  line_label: string
+  plan_year: number
+  metric_code: 'revenue' | 'profit' | 'revenue_growth_rate' | 'profit_margin' | 'cost_ratio'
+  metric_name_cn: string
+  value: number | null
+  unit: 'amount' | 'ratio'
+  value_type: 'absolute' | 'ratio'
+  sort_order: number
+  source_note: string | null
+  created_at: string
+}
+
 export interface BizDataNode {
   node_name: string
   sort_order: number

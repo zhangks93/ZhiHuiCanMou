@@ -1,6 +1,6 @@
 # Supabase Migrations
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 
 ## Migration History
 
@@ -28,16 +28,17 @@ Last updated: 2026-04-23
 | 20260402110000 | add_schedule_time_range_constraints | Backfill schedule period from timed items and enforce valid time ranges |
 | 20260423113000 | create_opportunity_ledger_v2 | Create a simplified opportunity ledger table for the new workbook structure |
 | 20260423123000 | simplify_opportunity_ledger_v2 | Drop non-essential derived/import fields and keep only Excel fields plus snapshot metadata |
+| 20260424110000 | create_edu_strategy_budget_plan | Create long-form table for sheet 5 five-year strategic budget planning data |
 
-## Total Migrations: 22
+## Total Migrations: 23
 
 ## Latest Migration
-**Version**: 20260423123000
-**Name**: simplify_opportunity_ledger_v2
-**Date**: 2026-04-23
+**Version**: 20260424110000
+**Name**: create_edu_strategy_budget_plan
+**Date**: 2026-04-24
 
-This migration reshapes `opportunity_ledger_v2` into a simplified snapshot table:
-- Aligns columns to the `2025学年商机项目台账_new.xlsx` structure
-- Keeps only Excel fields plus `snapshot_date / sheet_name / row_number`
-- Converts `first_year_revenue` to text to preserve the original Excel content
-- Keeps the previous `opportunity_ledger` tables untouched for backward compatibility
+This migration creates `edu_strategy_budget_plan` for the `5、5年战略预算规划` sheet:
+- Stores data in long form by `业务条线 × 自然年 × 指标`
+- Separates absolute values and ratio KPIs with `value_type / unit`
+- Preserves original row labels and note text for auditability
+- Adds uniqueness and filter indexes for strategic analysis queries

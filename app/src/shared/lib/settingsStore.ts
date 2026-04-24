@@ -83,15 +83,33 @@ export const DEFAULT_THRESHOLDS: ThresholdSettings = {
 
 export const DEFAULT_ENABLED_MODULES = [
   'schedule',
-  'org-data',
   'biz-data',
   'opportunity',
-  'competitor',
   'trip',
   'attendance',
+  'org-data',
+  'planning',
+  'competitor',
   'links',
   'ai',
 ]
+
+function normalizeEnabledModules(moduleIds: string[]): string[] {
+  const normalized = [...moduleIds]
+  const hasPlanning = normalized.includes('planning')
+  const shouldExposePlanning = normalized.includes('org-data') || normalized.includes('biz-data')
+
+  if (!hasPlanning && shouldExposePlanning) {
+    const orgIndex = normalized.indexOf('org-data')
+    if (orgIndex >= 0) {
+      normalized.splice(orgIndex + 1, 0, 'planning')
+    } else {
+      normalized.push('planning')
+    }
+  }
+
+  return normalized
+}
 
 let settingsState: StoredSettingsSnapshot = {
   llm: null,
@@ -126,7 +144,7 @@ function cloneSnapshot(snapshot: StoredSettingsSnapshot): StoredSettingsSnapshot
     thresholds: {
       default: { ...snapshot.thresholds.default },
     },
-    enabledModules: [...snapshot.enabledModules],
+    enabledModules: normalizeEnabledModules(snapshot.enabledModules),
   }
 }
 
@@ -235,7 +253,7 @@ function readLegacyBrowserSnapshot(): StoredSettingsSnapshot {
     thresholds: thresholds?.default?.yellowThreshold != null && thresholds?.default?.redThreshold != null
       ? thresholds
       : fallback.thresholds,
-    enabledModules: Array.isArray(enabledModules) ? enabledModules : fallback.enabledModules,
+    enabledModules: normalizeEnabledModules(Array.isArray(enabledModules) ? enabledModules : fallback.enabledModules),
   }
 }
 
@@ -247,9 +265,9 @@ function normalizeWireSnapshot(snapshot: StoredSettingsSnapshotWire | null | und
       snapshot.thresholds.default.redThreshold != null
         ? snapshot.thresholds
         : DEFAULT_THRESHOLDS,
-    enabledModules: Array.isArray(snapshot?.enabledModules)
+    enabledModules: normalizeEnabledModules(Array.isArray(snapshot?.enabledModules)
       ? snapshot.enabledModules
-      : [...DEFAULT_ENABLED_MODULES],
+      : [...DEFAULT_ENABLED_MODULES]),
   }
 }
 

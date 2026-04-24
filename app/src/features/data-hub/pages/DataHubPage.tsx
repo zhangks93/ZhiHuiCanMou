@@ -3,14 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { buildDataHref } from '@/app/config/constants'
 import { MODULE_NAV_CONFIG } from '@/app/config/modules'
 import { useEnabledModules } from '@/app/hooks/useEnabledModules'
-import { BizDataPage } from '@/features/biz-data'
+import { BizDataPage, PlanningPage } from '@/features/biz-data'
 import { OrgDataPage } from '@/features/org'
 import { OpportunityPage } from '@/features/opportunity'
 import { AttendancePage } from '@/features/attendance'
 import { TripPage } from '@/features/trip'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 
-const DATA_TABS = ['biz-data', 'opportunity', 'trip', 'attendance', 'org-data'] as const
+const DATA_TABS = ['biz-data', 'opportunity', 'trip', 'attendance', 'org-data', 'planning'] as const
 
 type DataTab = (typeof DATA_TABS)[number]
 
@@ -57,6 +57,8 @@ export function DataHubPage() {
     >
       {activeTab === 'biz-data' ? (
         <BizDataPage />
+      ) : activeTab === 'planning' ? (
+        <PlanningPage />
       ) : activeTab === 'opportunity' ? (
         <OpportunityPage />
       ) : activeTab === 'trip' ? (

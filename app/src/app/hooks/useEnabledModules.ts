@@ -62,6 +62,12 @@ function buildNavSections(enabledModuleIds: string[]): NavSection[] {
     else if (config.section === 'ai') ai.push(item)
   }
 
+  data.sort((a, b) => {
+    const leftOrder = a.moduleId ? MODULE_NAV_CONFIG[a.moduleId]?.sortOrder ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER
+    const rightOrder = b.moduleId ? MODULE_NAV_CONFIG[b.moduleId]?.sortOrder ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER
+    return leftOrder - rightOrder
+  })
+
   settings.push({
     to: FIXED_NAV.settings.routePath,
     icon: FIXED_NAV.settings.icon,
