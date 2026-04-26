@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { logger } from '@/shared/lib/logger'
 import {
   createScheduleItem,
   exportScheduleTransferPayload,
@@ -50,7 +51,7 @@ export function useScheduleData(startDate: string, endDate: string) {
         }
       } catch (error) {
         if (!cancelled) {
-          console.error('[Schedule] Fetch failed:', error)
+          logger.error('Schedule fetch failed', error)
           setError(error instanceof Error ? error.message : '日程加载失败，请稍后重试。')
           setLoading(false)
         }

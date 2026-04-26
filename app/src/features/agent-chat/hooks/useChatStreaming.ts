@@ -126,12 +126,13 @@ export function useChatStreaming(params: UseChatStreamingParams) {
     let runtimeDataContext: FinancialAnalysisRuntimeDataContext | undefined
 
     try {
-      ;[runtimeDataContext] = await Promise.all([
+      const [resolvedRuntimeDataContext, agentRuntime] = await Promise.all([
         activeAgent.id === 'financial-analysis'
           ? getFinancialAnalysisRuntimeDataContext()
           : Promise.resolve<FinancialAnalysisRuntimeDataContext | undefined>(undefined),
         ensureAgentReady(),
       ])
+      runtimeDataContext = resolvedRuntimeDataContext
 
       if (activeSendRunRef.current !== sendRunId) {
         throw new DOMException('Send aborted', 'AbortError')
@@ -144,7 +145,6 @@ export function useChatStreaming(params: UseChatStreamingParams) {
         latestUserQuery: text,
       })
 
-      const agentRuntime = await ensureAgentReady()
       if (!agentRuntime) throw new Error('AI agent not initialized')
       const promptMessages = getRecentMessagesForPrompt(
         currentConversation?.id === conversationId

@@ -1,4 +1,5 @@
 import { setOAuthSessionTokens } from './authSessionService'
+import { logger } from '@/shared/lib/logger'
 
 export function isTauriRuntime() {
   return typeof window !== 'undefined' && '__TAURI__' in window
@@ -17,9 +18,9 @@ export async function registerOAuthCompleteListener(handlers: {
 
     handlers.onStart()
     try {
-      console.log('[Canmou] Received OAuth tokens, setting session...')
+      logger.info('Received OAuth tokens, setting session')
       await setOAuthSessionTokens(access_token, refresh_token)
-      console.log('[Canmou] Session set successfully')
+      logger.info('OAuth session set successfully')
     } catch (error) {
       handlers.onError(error)
     } finally {

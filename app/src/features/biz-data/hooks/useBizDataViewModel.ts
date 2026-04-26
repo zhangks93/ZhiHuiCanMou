@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ALL_METRICS } from '@/shared/lib/constants'
+import { logger } from '@/shared/lib/logger'
 import { loadAvailableMonths, loadBizData } from '../api/bizDataRepository'
 import type { EnrichedBizDataNode, MetricCategory } from '../types'
 
@@ -40,7 +41,7 @@ export function useBizDataViewModel() {
         })
         setNodes(nextNodes)
       } catch (error) {
-        console.error('[BizData] Failed to load data:', error)
+        logger.error('Biz data load failed', error)
         setNodes([])
       } finally {
         setDataLoading(false)

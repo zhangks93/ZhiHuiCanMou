@@ -28,11 +28,17 @@ jobs:
       - name: Build frontend
         run: npm run build --prefix app
 
+      - name: Run frontend tests
+        run: npm run test --prefix app
+
       - name: Prepare Pages artifact
         run: node scripts/prepare-pages-artifact.mjs --source docs --out .pages-artifact
 
       - name: Check public artifacts
         run: node scripts/check-public-artifacts.mjs --dir .pages-artifact
+
+      - name: Check tracked private data
+        run: node scripts/check-tracked-private-data.mjs
 
       - name: Check RLS policies
         run: node scripts/check-rls-policies.mjs
@@ -40,7 +46,7 @@ jobs:
       - name: Check for hardcoded secrets
         run: node scripts/check-no-secrets.mjs
 
-  rust-format:
+  rust-quality:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -51,7 +57,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt
+          components: rustfmt, clippy
 
       - name: Rust format check
         run: cargo fmt --check
+
+      - name: Rust clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Rust tests
+        run: cargo test

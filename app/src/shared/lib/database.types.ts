@@ -110,6 +110,195 @@ export type Database = {
         }
         Relationships: []
       }
+      edu_biz_monthly_plan: {
+        Row: {
+          created_at: string | null
+          id: string
+          metric_category: string
+          metric_category_cn: string
+          month: string
+          node_name: string
+          plan_value: number | null
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          metric_category: string
+          metric_category_cn: string
+          month: string
+          node_name: string
+          plan_value?: number | null
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          metric_category?: string
+          metric_category_cn?: string
+          month?: string
+          node_name?: string
+          plan_value?: number | null
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      edu_biz_report: {
+        Row: {
+          actual_value: number | null
+          aggregation_level: string | null
+          budget_value: number | null
+          business_segment: string | null
+          center_region: string | null
+          completion_rate: number | null
+          created_at: string | null
+          diff_value: number | null
+          id: string
+          is_aggregated: boolean | null
+          metric_category: string
+          metric_category_cn: string
+          node_name: string
+          period: string
+          period_type: string
+          period_yoy: string | null
+          report_level1: string | null
+          report_level2: string | null
+          report_type: string
+          sheet_code: string
+          sort_order: number
+          yoy_value: number | null
+        }
+        Insert: {
+          actual_value?: number | null
+          aggregation_level?: string | null
+          budget_value?: number | null
+          business_segment?: string | null
+          center_region?: string | null
+          completion_rate?: number | null
+          created_at?: string | null
+          diff_value?: number | null
+          id?: string
+          is_aggregated?: boolean | null
+          metric_category: string
+          metric_category_cn: string
+          node_name: string
+          period: string
+          period_type: string
+          period_yoy?: string | null
+          report_level1?: string | null
+          report_level2?: string | null
+          report_type: string
+          sheet_code: string
+          sort_order?: number
+          yoy_value?: number | null
+        }
+        Update: {
+          actual_value?: number | null
+          aggregation_level?: string | null
+          budget_value?: number | null
+          business_segment?: string | null
+          center_region?: string | null
+          completion_rate?: number | null
+          created_at?: string | null
+          diff_value?: number | null
+          id?: string
+          is_aggregated?: boolean | null
+          metric_category?: string
+          metric_category_cn?: string
+          node_name?: string
+          period?: string
+          period_type?: string
+          period_yoy?: string | null
+          report_level1?: string | null
+          report_level2?: string | null
+          report_type?: string
+          sheet_code?: string
+          sort_order?: number
+          yoy_value?: number | null
+        }
+        Relationships: []
+      }
+      edu_org_hierarchy: {
+        Row: {
+          created_at: string | null
+          id: string
+          level_0: string | null
+          level_1: string | null
+          level_2: string | null
+          node_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          level_0?: string | null
+          level_1?: string | null
+          level_2?: string | null
+          node_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          level_0?: string | null
+          level_1?: string | null
+          level_2?: string | null
+          node_name?: string
+        }
+        Relationships: []
+      }
+      edu_strategy_budget_plan: {
+        Row: {
+          business_line: string
+          created_at: string | null
+          id: string
+          line_label: string
+          line_role: string
+          metric_code: string
+          metric_name_cn: string
+          plan_year: number
+          sort_order: number
+          source_note: string | null
+          strategy_group: string
+          strategy_group_cn: string
+          unit: string
+          value: number | null
+          value_type: string
+        }
+        Insert: {
+          business_line: string
+          created_at?: string | null
+          id?: string
+          line_label: string
+          line_role: string
+          metric_code: string
+          metric_name_cn: string
+          plan_year: number
+          sort_order?: number
+          source_note?: string | null
+          strategy_group: string
+          strategy_group_cn: string
+          unit: string
+          value?: number | null
+          value_type: string
+        }
+        Update: {
+          business_line?: string
+          created_at?: string | null
+          id?: string
+          line_label?: string
+          line_role?: string
+          metric_code?: string
+          metric_name_cn?: string
+          plan_year?: number
+          sort_order?: number
+          source_note?: string | null
+          strategy_group?: string
+          strategy_group_cn?: string
+          unit?: string
+          value?: number | null
+          value_type?: string
+        }
+        Relationships: []
+      }
       feishu_departments: {
         Row: {
           created_at: string | null
@@ -145,6 +334,87 @@ export type Database = {
           order_value?: number | null
           parent_id?: string | null
           status?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      feishu_department_member_changes: {
+        Row: {
+          change_type: string
+          current_member_count: number
+          department_id: string
+          department_name: string
+          latest_snapshot_at: string | null
+          member_count_change: number
+          order_value: number
+          parent_id: string | null
+          previous_member_count: number
+          previous_snapshot_at: string | null
+        }
+        Insert: {
+          change_type: string
+          current_member_count?: number
+          department_id: string
+          department_name: string
+          latest_snapshot_at?: string | null
+          member_count_change?: number
+          order_value?: number
+          parent_id?: string | null
+          previous_member_count?: number
+          previous_snapshot_at?: string | null
+        }
+        Update: {
+          change_type?: string
+          current_member_count?: number
+          department_id?: string
+          department_name?: string
+          latest_snapshot_at?: string | null
+          member_count_change?: number
+          order_value?: number
+          parent_id?: string | null
+          previous_member_count?: number
+          previous_snapshot_at?: string | null
+        }
+        Relationships: []
+      }
+      feishu_department_snapshots: {
+        Row: {
+          created_at: string | null
+          department_id: string
+          id: string
+          leader_user_id: string | null
+          member_count: number | null
+          name: string
+          order_value: number | null
+          parent_id: string | null
+          status: Json | null
+          sync_run_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          department_id: string
+          id?: string
+          leader_user_id?: string | null
+          member_count?: number | null
+          name: string
+          order_value?: number | null
+          parent_id?: string | null
+          status?: Json | null
+          sync_run_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          department_id?: string
+          id?: string
+          leader_user_id?: string | null
+          member_count?: number | null
+          name?: string
+          order_value?: number | null
+          parent_id?: string | null
+          status?: Json | null
+          sync_run_id?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -203,6 +473,114 @@ export type Database = {
           status?: Json | null
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      feishu_member_snapshots: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          department_id: string | null
+          department_ids: string[] | null
+          email: string | null
+          employee_no: string | null
+          employee_type: number | null
+          en_name: string | null
+          gender: number | null
+          id: string
+          job_title: string | null
+          join_time: number | null
+          name: string
+          open_id: string
+          primary_department_id: string | null
+          status: Json | null
+          sync_run_id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          department_id?: string | null
+          department_ids?: string[] | null
+          email?: string | null
+          employee_no?: string | null
+          employee_type?: number | null
+          en_name?: string | null
+          gender?: number | null
+          id?: string
+          job_title?: string | null
+          join_time?: number | null
+          name: string
+          open_id: string
+          primary_department_id?: string | null
+          status?: Json | null
+          sync_run_id: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          department_id?: string | null
+          department_ids?: string[] | null
+          email?: string | null
+          employee_no?: string | null
+          employee_type?: number | null
+          en_name?: string | null
+          gender?: number | null
+          id?: string
+          job_title?: string | null
+          join_time?: number | null
+          name?: string
+          open_id?: string
+          primary_department_id?: string | null
+          status?: Json | null
+          sync_run_id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      feishu_sync_runs: {
+        Row: {
+          created_at: string | null
+          department_count: number
+          finished_at: string
+          id: string
+          last_snapshot_at: string | null
+          member_count: number
+          root_department_ids: string[] | null
+          snapshot_at: string | null
+          snapshot_reason: string | null
+          snapshot_taken: boolean
+          started_at: string
+        }
+        Insert: {
+          created_at?: string | null
+          department_count?: number
+          finished_at: string
+          id?: string
+          last_snapshot_at?: string | null
+          member_count?: number
+          root_department_ids?: string[] | null
+          snapshot_at?: string | null
+          snapshot_reason?: string | null
+          snapshot_taken?: boolean
+          started_at: string
+        }
+        Update: {
+          created_at?: string | null
+          department_count?: number
+          finished_at?: string
+          id?: string
+          last_snapshot_at?: string | null
+          member_count?: number
+          root_department_ids?: string[] | null
+          snapshot_at?: string | null
+          snapshot_reason?: string | null
+          snapshot_taken?: boolean
+          started_at?: string
         }
         Relationships: []
       }
@@ -389,6 +767,81 @@ export type Database = {
           region?: string | null
           snapshot_date?: string
           stage_label?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          feishu_open_id: string | null
+          id: string
+          name: string | null
+          org_id: string | null
+          org_node_id: string | null
+          reports_to_id: string | null
+          role: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          feishu_open_id?: string | null
+          id: string
+          name?: string | null
+          org_id?: string | null
+          org_node_id?: string | null
+          reports_to_id?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          feishu_open_id?: string | null
+          id?: string
+          name?: string | null
+          org_id?: string | null
+          org_node_id?: string | null
+          reports_to_id?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      schedule_transfers: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string
+          id: string
+          imported_at: string | null
+          imported_summary: Json | null
+          payload_hash: string
+          payload_json: Json
+          recipient_user_id: string
+          sender_user_id: string
+          status: 'pending' | 'imported' | 'cancelled'
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string
+          id?: string
+          imported_at?: string | null
+          imported_summary?: Json | null
+          payload_hash: string
+          payload_json: Json
+          recipient_user_id: string
+          sender_user_id: string
+          status?: 'pending' | 'imported' | 'cancelled'
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string
+          id?: string
+          imported_at?: string | null
+          imported_summary?: Json | null
+          payload_hash?: string
+          payload_json?: Json
+          recipient_user_id?: string
+          sender_user_id?: string
+          status?: 'pending' | 'imported' | 'cancelled'
         }
         Relationships: []
       }

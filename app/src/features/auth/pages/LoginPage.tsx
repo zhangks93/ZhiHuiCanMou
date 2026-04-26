@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { env } from '@/app/config/env'
 import { storeAuthState } from '@/shared/lib/auth-storage'
+import { logger } from '@/shared/lib/logger'
 import { AppBrandMark } from '@/shared/ui/AppBrandMark'
 
 const FEISHU_AUTH_URL = 'https://open.feishu.cn/open-apis/authen/v1/authorize'
@@ -29,7 +30,7 @@ export function Login() {
   const [deepLinkError, setDeepLinkError] = useState<string | null>(null)
 
   const addDebugInfo = (message: string) => {
-    console.log('[Canmou Login]', message)
+    logger.debug(`Login debug: ${message}`)
     setDebugInfo((previous) => [...previous, `${new Date().toLocaleTimeString()}: ${message}`])
   }
 
@@ -46,7 +47,7 @@ export function Login() {
           addDebugInfo('Preloaded desktop webview window')
         }
       } catch (error) {
-        console.error('[Canmou] Failed to preload Tauri modules:', error)
+        logger.error('Failed to preload Tauri modules', error)
       }
     }
 
@@ -136,7 +137,7 @@ export function Login() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       addDebugInfo(`Login error: ${message}`)
-      console.error('[Canmou] Login error:', error)
+      logger.error('Login error', error)
       setIsLoading(false)
     }
   }

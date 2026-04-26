@@ -9,7 +9,11 @@
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "https://**" },
+        { "url": "https://*.supabase.co/*" },
+        { "url": "https://open.feishu.cn/*" },
+        { "url": "https://*.feishu.cn/*" },
+        { "url": "https://*.hailiangedu.com/*" },
+        { "url": "https://www.fxiaoke.com/*" },
         { "url": "http://localhost:*" },
         { "url": "http://127.0.0.1:*" }
       ]
@@ -17,7 +21,11 @@
     {
       "identifier": "opener:allow-open-url",
       "allow": [
-        { "url": "https://**" },
+        { "url": "https://*.supabase.co/*" },
+        { "url": "https://open.feishu.cn/*" },
+        { "url": "https://*.feishu.cn/*" },
+        { "url": "https://*.hailiangedu.com/*" },
+        { "url": "https://www.fxiaoke.com/*" },
         { "url": "http://localhost:*" },
         { "url": "http://127.0.0.1:*" },
         { "url": "canmou://auth-callback*" }

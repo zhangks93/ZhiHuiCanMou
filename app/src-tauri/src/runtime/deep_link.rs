@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
+use url::Url;
 
 struct DeepLinkState {
     last_attempt: Option<SystemTime>,
@@ -59,7 +60,7 @@ fn current_deep_link(app: &tauri::App) -> AppResult<Option<String>> {
 }
 
 fn handle_auth_callback(handle: &tauri::AppHandle, url: &str, state: Arc<Mutex<DeepLinkState>>) {
-    if !url.starts_with("canmou://auth-callback") {
+    if !is_supported_auth_callback(url) {
         return;
     }
 
@@ -77,7 +78,15 @@ fn handle_auth_callback(handle: &tauri::AppHandle, url: &str, state: Arc<Mutex<D
         return;
     }
 
-    let sanitized_params = sanitize_auth_params(&params);
+    let Ok(sanitized_params) = sanitize_auth_params(&params) else {
+        emit_error(
+            handle,
+            "DEEP_LINK_FAILED",
+            "Deep link contains unsupported or duplicated authentication parameters",
+        );
+        return;
+    };
+
     if sanitized_params.is_empty() {
         emit_error(
             handle,
@@ -147,15 +156,30 @@ fn handle_auth_callback(handle: &tauri::AppHandle, url: &str, state: Arc<Mutex<D
 }
 
 fn extract_auth_params(url: &str) -> String {
-    if let Some(fragment) = url.split('#').nth(1) {
-        return fragment.to_string();
-    }
+    if let Ok(parsed_url) = Url::parse(url) {
+        if let Some(fragment) = parsed_url.fragment() {
+            return fragment.to_string();
+        }
 
-    if let Some(query) = url.split('?').nth(1) {
-        return query.split('#').next().unwrap_or("").to_string();
+        if let Some(query) = parsed_url.query() {
+            return query.to_string();
+        }
     }
 
     String::new()
+}
+
+fn is_supported_auth_callback(url: &str) -> bool {
+    let Ok(parsed_url) = Url::parse(url) else {
+        return false;
+    };
+
+    parsed_url.scheme() == "canmou"
+        && parsed_url.host_str() == Some("auth-callback")
+        && parsed_url.username().is_empty()
+        && parsed_url.password().is_none()
+        && parsed_url.port().is_none()
+        && parsed_url.path().trim_matches('/').is_empty()
 }
 
 fn has_required_auth_tokens(params: &str) -> bool {
@@ -168,7 +192,7 @@ fn has_required_auth_tokens(params: &str) -> bool {
         && matches!(query_pairs.get("refresh_token"), Some(value) if !value.is_empty())
 }
 
-fn sanitize_auth_params(params: &str) -> String {
+fn sanitize_auth_params(params: &str) -> Result<String, ()> {
     const ALLOWED_KEYS: &[&str] = &[
         "access_token",
         "refresh_token",
@@ -180,13 +204,23 @@ fn sanitize_auth_params(params: &str) -> String {
         "type",
     ];
 
-    params
-        .split('&')
-        .filter_map(|pair| pair.split_once('='))
-        .filter(|(key, value)| ALLOWED_KEYS.contains(key) && !value.is_empty())
-        .map(|(key, value)| format!("{key}={value}"))
-        .collect::<Vec<_>>()
-        .join("&")
+    let mut seen_keys = HashMap::new();
+    let mut sanitized = Vec::new();
+
+    for (key, value) in params.split('&').filter_map(|pair| pair.split_once('=')) {
+        if !ALLOWED_KEYS.contains(&key) {
+            return Err(());
+        }
+        if value.is_empty() {
+            continue;
+        }
+        if seen_keys.insert(key, true).is_some() {
+            return Err(());
+        }
+        sanitized.push(format!("{key}={value}"));
+    }
+
+    Ok(sanitized.join("&"))
 }
 
 fn emit_success(handle: &tauri::AppHandle) {

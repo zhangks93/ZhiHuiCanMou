@@ -9,6 +9,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react'
 import { env } from '@/app/config/env'
+import { logger } from '@/shared/lib/logger'
 
 const systemLinks = [
   { icon: Shield, name: '安全管理系统', url: env.links.safety },
@@ -46,7 +47,7 @@ export function Links() {
     try {
       await openSystemLink(url)
     } catch (error) {
-      console.error('[Canmou] Failed to open system link:', error)
+      logger.error('Failed to open system link', error)
     }
   }
 

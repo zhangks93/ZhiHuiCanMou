@@ -48,9 +48,14 @@ npm run tauri:android:dev
 ## 产品展示页（GitHub Pages）
 
 `docs/` 目录包含产品宣传页，推送代码后会自动部署到 GitHub Pages。
-公开站点发布前会先生成 `.pages-artifact/`，自动排除 `docs/data/` 和 Excel 文件。
+公开站点发布前会先生成 `.pages-artifact/`，并执行公开产物扫描。
 
-私有业务数据请放到 `private-data/`，不要再放入 `docs/data/`。
+私有业务数据统一放到仓库根目录 `private-data/`，该目录仅供本地导入脚本使用，不得提交到仓库。
+仓库 CI 会阻断以下内容被 Git 跟踪：
+
+- `docs/data/**`
+- `*.xls`
+- `*.xlsx`
 
 **首次启用：**
 

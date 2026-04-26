@@ -68,7 +68,7 @@ async function fetchDistinctValues(
 
     if (error) throw error
 
-    const pageData = data ?? []
+    const pageData = (data ?? []) as unknown as Array<Record<string, unknown>>
     pageData.forEach((row: Record<string, unknown>) => {
       const value = row[column]
       if (typeof value === 'string' && value) {

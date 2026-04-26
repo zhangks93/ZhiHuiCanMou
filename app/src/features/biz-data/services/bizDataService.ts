@@ -63,7 +63,7 @@ async function fetchDistinctColumnValues(
     const { data, error } = await query
     if (error) throw error
 
-    const pageData = data ?? []
+    const pageData = (data ?? []) as unknown as Array<Record<string, unknown>>
     pageData.forEach((row: Record<string, unknown>) => {
       const value = row[column]
       if (typeof value === 'string' && value) {
@@ -326,7 +326,7 @@ export async function fetchBizReport(options: BizDataQueryOptions = {}) {
     if (error) throw error
 
     if (pageData && pageData.length > 0) {
-      allReportData = allReportData.concat(pageData)
+      allReportData = allReportData.concat(pageData as unknown as EduBizReport[])
       hasMore = pageData.length === PAGE_SIZE
       page += 1
     } else {
@@ -365,7 +365,7 @@ export async function fetchMonthlyPlan() {
     if (error) throw error
 
     if (pageData && pageData.length > 0) {
-      allData = allData.concat(pageData)
+      allData = allData.concat(pageData as unknown as EduBizMonthlyPlan[])
       hasMore = pageData.length === PAGE_SIZE
       page += 1
     } else {

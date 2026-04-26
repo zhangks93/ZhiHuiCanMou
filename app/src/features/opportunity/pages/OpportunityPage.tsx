@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-table'
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { AppPagination } from '@/shared/ui/AppPagination'
+import { ActiveFiltersSummary, DataEmptyState, DataFreshnessBadge } from '@/shared/components/data-state'
 import { useOpportunityData } from '../hooks/useOpportunityData'
 import type { OpportunitySnapshotItem } from '../types'
 
@@ -188,12 +189,16 @@ export function OpportunityPage() {
     <div className="app-page">
       <section className="app-table-shell opportunity-table-shell">
         <div className="app-table-toolbar opportunity-table-toolbar">
-          <div className="app-table-title">
+          <div className="app-table-title flex-col items-start gap-2">
+            <div className="flex items-center gap-2">
             <CalendarRange size={18} className="text-[var(--color-text-muted)]" />
             <h3>商机明细</h3>
             <span className="app-table-meta">
               {selectedSnapshotDate ? formatSnapshotDate(selectedSnapshotDate) : '暂无快照'}
             </span>
+            </div>
+            <DataFreshnessBadge source="Supabase / 商机快照" updatedAt={selectedSnapshotDate || undefined} />
+            <ActiveFiltersSummary filters={[selectedSnapshotDate ? `快照 ${formatSnapshotDate(selectedSnapshotDate)}` : '暂无快照']} />
           </div>
           <div className="flex items-center gap-2 rounded-full bg-[rgba(255,255,255,0.32)] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.48)]">
             <CalendarRange size={15} className="text-[var(--color-text-muted)]" />
@@ -216,7 +221,7 @@ export function OpportunityPage() {
             <AppLoading label="加载商机数据..." variant="block" />
           </div>
         ) : rows.length === 0 ? (
-          <div className="app-empty-state">当前快照暂无商机数据</div>
+          <DataEmptyState title="当前快照暂无商机数据" description="请切换其他快照，或先导入最新商机台账。" />
         ) : (
           <>
             <div className="space-y-3 px-4 py-4 lg:hidden">

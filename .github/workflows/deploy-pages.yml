@@ -39,6 +39,9 @@ jobs:
       - name: Validate public artifact
         run: node scripts/check-public-artifacts.mjs --dir .pages-artifact
 
+      - name: Check tracked private data
+        run: node scripts/check-tracked-private-data.mjs
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

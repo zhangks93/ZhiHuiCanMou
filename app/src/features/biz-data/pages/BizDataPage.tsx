@@ -9,6 +9,12 @@ import { ChartHierarchyBreadcrumb } from '../components/ChartHierarchyBreadcrumb
 import type { DrillDownLevel } from '../components/ChartView'
 import { HierarchyLevelFilter, type LevelVisibility } from '../components/HierarchyLevelFilter'
 import { TableView } from '../components/TableView'
+import {
+  ActiveFiltersSummary,
+  DataEmptyState,
+  DataFreshnessBadge,
+  DataLoadingState,
+} from '@/shared/components/data-state'
 import { useBizDataViewModel } from '../hooks/useBizDataViewModel'
 import { buildTreeWithAggregation } from '../services/bizDataService'
 import type { EnrichedBizDataNode } from '../types'
@@ -97,6 +103,14 @@ export function BizDataPage() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:flex-wrap">
+          <DataFreshnessBadge source="Supabase / 经营数据" updatedAt={selectedMonth || undefined} />
+          <ActiveFiltersSummary
+            filters={[
+              reportType === 'fone' ? 'Fone 版' : '突围版',
+              periodType === 'cumulative' ? '累计' : '月度',
+              selectedMonth || '未选择期间',
+            ]}
+          />
           {viewMode === 'table' ? (
             <HierarchyLevelFilter value={showLevels} onChange={setShowLevels} />
           ) : (
@@ -117,22 +131,15 @@ export function BizDataPage() {
       <div className="relative min-w-0 min-h-0 h-full">
         {dataLoading ? (
           <div className="biz-content-area">
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-[var(--color-border)] border-t-[var(--color-accent)] mx-auto mb-3"></div>
-                <div className="text-caption text-[var(--color-text-muted)]">加载中...</div>
-              </div>
-            </div>
+            <DataLoadingState label="加载经营数据..." />
           </div>
         ) : nodes.length === 0 ? (
           <div className="biz-content-area">
-            <div className="app-empty-state">
-              <AlertTriangle size={32} className="text-warning-700 opacity-60" />
-              <div className="text-[var(--color-text-strong)] font-medium text-body">暂无数据</div>
-              <div className="text-caption text-[var(--color-text-muted)]">
-                {periodType === 'cumulative' ? '累计数据' : '月度数据'} · 请检查数据库或切换期间类型
-              </div>
-            </div>
+            <DataEmptyState
+              title="暂无经营数据"
+              description={`${periodType === 'cumulative' ? '累计数据' : '月度数据'} · 请检查数据库或切换期间类型`}
+              action={<AlertTriangle size={18} className="text-warning-700 opacity-60" />}
+            />
           </div>
         ) : viewMode === 'table' ? (
           <TableView

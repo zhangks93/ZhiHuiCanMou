@@ -2,17 +2,11 @@ import { useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { buildWorkspaceHref } from '@/app/config/constants'
 import { useEnabledModules } from '@/app/hooks/useEnabledModules'
+import { ManagerBriefingPage } from '@/features/dashboard'
 import { LinksPage } from '@/features/links'
 import { ScheduleInboxPage, SchedulePage } from '@/features/schedule'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
-
-const TAB_LABELS = {
-  schedule: '日程',
-  inbox: '收件箱',
-  links: '链接',
-} as const
-
-type WorkspaceTab = keyof typeof TAB_LABELS
+import { WORKSPACE_TAB_LABELS, getWorkspaceTabs, type WorkspaceTab } from '../workspaceTabs'
 
 export function WorkspacePage() {
   const navigate = useNavigate()
@@ -20,15 +14,7 @@ export function WorkspacePage() {
   const { enabledModuleIds } = useEnabledModules()
 
   const tabs = useMemo(() => {
-    const availableTabs: WorkspaceTab[] = []
-
-    if (enabledModuleIds.includes('schedule')) {
-      availableTabs.push('schedule')
-      availableTabs.push('inbox')
-    }
-    if (enabledModuleIds.includes('links')) availableTabs.push('links')
-
-    return availableTabs
+    return getWorkspaceTabs(enabledModuleIds)
   }, [enabledModuleIds])
 
   const requestedTab = searchParams.get('tab') as WorkspaceTab | null
@@ -42,14 +28,16 @@ export function WorkspacePage() {
 
   const tabItems = tabs.map((tab) => ({
     key: tab,
-    label: TAB_LABELS[tab],
+    label: WORKSPACE_TAB_LABELS[tab],
     to: buildWorkspaceHref(tab),
     active: tab === activeTab,
   }))
 
   return (
     <TabbedPageShell tabs={tabItems}>
-      {activeTab === 'schedule' ? (
+      {activeTab === 'briefing' ? (
+        <ManagerBriefingPage />
+      ) : activeTab === 'schedule' ? (
         <SchedulePage />
       ) : activeTab === 'inbox' ? (
         <ScheduleInboxPage />

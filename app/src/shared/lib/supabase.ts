@@ -1,7 +1,8 @@
 import { createClient, type User } from '@supabase/supabase-js'
 import { env } from '@/app/config/env'
+import type { Database } from '@/shared/lib/database.types'
 
-export const supabase = createClient(env.supabase.url, env.supabase.anonKey)
+export const supabase = createClient<Database>(env.supabase.url, env.supabase.anonKey)
 
 // --- 教育后勤经营数据 (NEW: edu_biz_report & edu_biz_monthly_plan) ---
 

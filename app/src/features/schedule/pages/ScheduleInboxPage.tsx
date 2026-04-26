@@ -8,6 +8,13 @@ import {
   markScheduleTransferImported,
   type ScheduleTransferRecord,
 } from '../api/scheduleTransferRepository'
+import {
+  ActiveFiltersSummary,
+  DataEmptyState,
+  DataErrorState,
+  DataFreshnessBadge,
+  DataLoadingState,
+} from '@/shared/components/data-state'
 
 type InboxTab = 'incoming' | 'outgoing'
 
@@ -99,6 +106,10 @@ export function ScheduleInboxPage() {
             <p className="mt-1 text-body text-[var(--color-text-muted)]">
               接收同事发送的日程包，并导入到当前设备本地。
             </p>
+            <div className="mt-3 flex flex-col items-start gap-2">
+              <DataFreshnessBadge source="Supabase / 日程转交" />
+              <ActiveFiltersSummary filters={[activeTab === 'incoming' ? '收件箱' : '发件箱']} />
+            </div>
           </div>
           <div className="flex gap-2 rounded-2xl bg-primary-50 p-1">
             <button
@@ -119,20 +130,17 @@ export function ScheduleInboxPage() {
         </div>
       </section>
 
-      {error ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
-          {error}
-        </section>
-      ) : null}
+      {error ? <DataErrorState message={error} onRetry={() => void reload()} /> : null}
 
       <section className="app-table-shell p-5">
         {loading ? (
-          <div className="py-12 text-center text-[var(--color-text-muted)]">加载中...</div>
+          <DataLoadingState label="加载收件箱..." />
         ) : currentList.length === 0 ? (
-          <div className="py-12 text-center text-[var(--color-text-muted)]">
-            <Inbox size={28} className="mx-auto mb-3 opacity-50" />
-            {activeTab === 'incoming' ? '暂无待处理日程包' : '暂无发出的日程包'}
-          </div>
+          <DataEmptyState
+            title={activeTab === 'incoming' ? '暂无待处理日程包' : '暂无发出的日程包'}
+            description={activeTab === 'incoming' ? '收到同事分享后，会先在这里等待导入。' : '发出的日程包会在这里展示状态。'}
+            action={<Inbox size={28} className="opacity-50" />}
+          />
         ) : (
           <div className="space-y-3">
             {currentList.map((record) => {

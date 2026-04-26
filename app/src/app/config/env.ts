@@ -2,6 +2,7 @@
  * Environment configuration with validation
  * All env vars used at runtime must be defined here
  */
+import { logger } from '@/shared/lib/logger'
 
 function getEnv(key: string, defaultValue?: string): string {
   const value = import.meta.env[key] ?? defaultValue ?? ''
@@ -75,9 +76,9 @@ export const env = {
 
 export function validateEnv(): void {
   if (!env.supabase.url) {
-    console.warn('[Canmou] VITE_SUPABASE_URL is not set. Supabase features will not work.')
+    logger.warn('VITE_SUPABASE_URL is not set. Supabase features will not work.')
   }
   if (!env.supabase.anonKey) {
-    console.warn('[Canmou] VITE_SUPABASE_ANON_KEY is not set. Supabase features will not work.')
+    logger.warn('VITE_SUPABASE_ANON_KEY is not set. Supabase features will not work.')
   }
 }

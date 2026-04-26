@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Send,
   Square,
@@ -159,8 +159,10 @@ export function AgentChatPage({
   defaultAgentId,
   onBackToDirectory,
 }: AgentChatPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialPrompt = searchParams.get('prompt') ?? ''
   const activeAgentId = defaultAgentId || agents[0]?.id || 'financial-analysis'
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(initialPrompt)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [historyCollapsed, setHistoryCollapsed] = useState(false)
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024)
@@ -245,6 +247,17 @@ export function AgentChatPage({
     if (activeAgent?.id !== 'financial-analysis') return
     void getFinancialAnalysisRuntimeDataContext().catch(() => {})
   }, [activeAgent?.id])
+
+  useEffect(() => {
+    const prompt = searchParams.get('prompt')
+    if (!prompt) return
+
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous)
+      next.delete('prompt')
+      return next
+    }, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const { isStreaming, streamingMsg, handleSend, handleAbort } = useChatStreaming({
     activeAgent,

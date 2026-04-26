@@ -3,6 +3,14 @@ import path from 'node:path'
 
 const migrationDir = path.resolve('supabase/migrations')
 const violations = []
+const requiredRlsTables = new Set([
+  'edu_biz_report',
+  'edu_biz_monthly_plan',
+  'edu_org_hierarchy',
+  'edu_strategy_budget_plan',
+])
+const rlsEnabledTables = new Set()
+const policyTables = new Set()
 
 function isAllowedLine(line) {
   return line.includes('RLS-ALLOW') || line.includes('RLS_ALLOW')
@@ -10,6 +18,14 @@ function isAllowedLine(line) {
 
 function inspectFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf8')
+  const normalizedContent = content.toLowerCase()
+  for (const match of normalizedContent.matchAll(/alter\s+table\s+(?:public\.)?([a-z0-9_]+)\s+enable\s+row\s+level\s+security/g)) {
+    rlsEnabledTables.add(match[1])
+  }
+  for (const match of normalizedContent.matchAll(/create\s+policy[\s\S]*?\son\s+(?:public\.)?([a-z0-9_]+)/g)) {
+    policyTables.add(match[1])
+  }
+
   const lines = content.split(/\r?\n/)
   lines.forEach((line, index) => {
     const normalized = line.toLowerCase()
@@ -41,6 +57,15 @@ function main() {
 
   for (const filePath of files) {
     inspectFile(filePath)
+  }
+
+  for (const tableName of requiredRlsTables) {
+    if (!rlsEnabledTables.has(tableName)) {
+      violations.push(`required table ${tableName} does not enable row level security`)
+    }
+    if (!policyTables.has(tableName)) {
+      violations.push(`required table ${tableName} does not define any RLS policy`)
+    }
   }
 
   if (violations.length > 0) {

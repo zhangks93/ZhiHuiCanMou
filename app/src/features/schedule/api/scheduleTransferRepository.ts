@@ -1,6 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/shared/lib/supabase'
-import type { Database, Json } from '@/shared/lib/supabase/database.types'
+import type { Json, Tables } from '@/shared/lib/database.types'
 import type {
   ScheduleImportResult,
   ScheduleTransferPayload,
@@ -30,27 +29,12 @@ export interface ScheduleTransferRecord {
   recipientName: string
 }
 
-type RawTransferRow = {
-  id: string
-  sender_user_id: string
-  recipient_user_id: string
-  status: ScheduleTransferStatus
+type RawTransferRow = Tables<'schedule_transfers'> & {
   payload_json: ScheduleTransferPayload
-  payload_hash: string
   imported_summary: ScheduleImportResult | null
-  created_at: string
-  imported_at: string | null
-  cancelled_at: string | null
 }
 
-const db = supabase as SupabaseClient<Database>
-
-type RawProfileRow = {
-  id: string
-  name: string | null
-  avatar_url: string | null
-  feishu_open_id: string | null
-}
+type RawProfileRow = Tables<'profiles'>
 
 async function getCurrentUserId() {
   const { data, error } = await supabase.auth.getUser()
@@ -92,7 +76,7 @@ function mapTransferRecord(
 async function fetchProfilesByIds(userIds: string[]) {
   if (userIds.length === 0) return new Map<string, ScheduleTransferRecipient>()
 
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('profiles')
     .select('id, name, avatar_url, feishu_open_id')
     .in('id', userIds)
@@ -113,7 +97,7 @@ async function fetchProfilesByIds(userIds: string[]) {
 
 export async function listScheduleTransferRecipients() {
   const currentUserId = await getCurrentUserId()
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('profiles')
     .select('id, name, avatar_url, feishu_open_id')
     .order('name', { ascending: true })
@@ -137,7 +121,7 @@ export async function createScheduleTransfer(params: {
   const currentUserId = await getCurrentUserId()
   const payloadHash = await sha256Hex(JSON.stringify(params.payload))
 
-  const { error } = await db.from('schedule_transfers').insert({
+  const { error } = await supabase.from('schedule_transfers').insert({
     sender_user_id: currentUserId,
     recipient_user_id: params.recipientUserId,
     status: 'pending',
@@ -150,7 +134,7 @@ export async function createScheduleTransfer(params: {
 
 export async function listIncomingScheduleTransfers() {
   const currentUserId = await getCurrentUserId()
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('schedule_transfers')
     .select('*')
     .eq('recipient_user_id', currentUserId)
@@ -168,7 +152,7 @@ export async function listIncomingScheduleTransfers() {
 
 export async function listOutgoingScheduleTransfers() {
   const currentUserId = await getCurrentUserId()
-  const { data, error } = await db
+  const { data, error } = await supabase
     .from('schedule_transfers')
     .select('*')
     .eq('sender_user_id', currentUserId)
@@ -188,7 +172,7 @@ export async function markScheduleTransferImported(
   transferId: string,
   importResult: ScheduleImportResult,
 ) {
-  const { error } = await db
+  const { error } = await supabase
     .from('schedule_transfers')
     .update({
       status: 'imported',
@@ -202,7 +186,7 @@ export async function markScheduleTransferImported(
 }
 
 export async function cancelScheduleTransfer(transferId: string) {
-  const { error } = await db
+  const { error } = await supabase
     .from('schedule_transfers')
     .update({
       status: 'cancelled',
