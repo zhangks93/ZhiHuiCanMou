@@ -51,7 +51,6 @@ export function AppRoutes() {
         <Route path="planning" element={<Navigate to={buildDataHref('planning')} replace />} />
         <Route path="biz-data" element={<Navigate to={buildDataHref('biz-data')} replace />} />
         <Route path="opportunity" element={<Navigate to={buildDataHref('opportunity')} replace />} />
-        <Route path="competitor" element={<Navigate to={buildDataHref('competitor')} replace />} />
         <Route path="trip" element={<Navigate to={buildDataHref('trip')} replace />} />
         <Route path="attendance" element={<Navigate to={buildDataHref('attendance')} replace />} />
         <Route path="ai" element={withRouteSuspense(<AgentChat />)} />

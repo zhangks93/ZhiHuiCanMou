@@ -14,7 +14,6 @@ const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   '/org-data': { title: '人员', subtitle: '组织与人员基础信息' },
   '/biz-data': { title: '经营', subtitle: '经营结果与趋势分析' },
   '/opportunity': { title: '商机', subtitle: '项目机会与进展跟踪' },
-  '/competitor': { title: '竞对档案', subtitle: '竞争对手信息整理' },
   '/trip': { title: '出差', subtitle: '行程与人员记录' },
   '/attendance': { title: '考勤', subtitle: '出勤统计与明细' },
   '/links': { title: '链接', subtitle: '系统入口与看板导航' },

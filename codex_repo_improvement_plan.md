@@ -98,7 +98,7 @@ cargo test
 范围：
 
 - 新增管理者首页 / 今日经营简报。
-- 修复 `competitor` 模块配置与 DataHub tab 不一致。
+- 修复历史数据模块配置与 DataHub tab 不一致。
 - 给数据页补齐统一状态组件。
 - 优化日程收件箱状态表达。
 - 优化 AI 回答来源和结构化呈现。
@@ -314,7 +314,7 @@ VITE_FEISHU_APP_ID=your-feishu-app-id
 
 **背景**
 
-`src/app/config/modules.ts` 中定义了 `competitor` 模块，路由也有旧路径重定向到 `buildDataHref('competitor')`，但 `src/features/data-hub/pages/DataHubPage.tsx` 的 `DATA_TABS` 没有 `competitor`。
+历史数据模块配置、旧路径重定向和 DataHub tab 曾存在多处事实来源，容易出现“路由可达但页面不可见”的状态。
 
 **目标**
 
@@ -322,25 +322,12 @@ VITE_FEISHU_APP_ID=your-feishu-app-id
 
 **建议修改**
 
-二选一：
-
-- 如果竞品模块要上线：
-  - 新增 `CompetitorPage`。
-  - 将 `competitor` 加入 DataHub tabs。
-  - 补齐空状态和数据来源说明。
-- 如果暂不开发：
-  - 从默认启用模块中隐藏 `competitor`。
-  - 移除或调整对应重定向。
-  - 保留 TODO 和 issue。
-
-更优方案：
-
 - 让 DataHub tabs 从 `modules.ts` 或统一 registry 派生。
 - 避免 `modules.ts`、routes、`DATA_TABS` 各自维护一份模块列表。
 
 **验收标准**
 
-- `competitor` 不会出现“路由可达但页面不可见”的状态。
+- 历史数据模块不会出现“路由可达但页面不可见”的状态。
 - 新增模块只需在一个注册源维护。
 - DataHub tab、侧边栏和路由行为一致。
 
@@ -852,7 +839,7 @@ Codex 应优先检查和修改以下位置：
 | 导入脚本 | Python/Node import scripts | 可能内置 Supabase URL/key 默认值 | P0 |
 | Tauri 权限 | `src-tauri/capabilities/default.json` | HTTP/opener/shell scope 偏宽 | P0 |
 | CSP | `src-tauri/tauri.conf.json` | CSP 含 `'unsafe-inline'` | P0 |
-| DataHub | `src/app/config/modules.ts`、`src/features/data-hub/pages/DataHubPage.tsx` | `competitor` 模块注册和 tab 不一致 | P1 |
+| DataHub | `src/app/config/modules.ts`、`src/features/data-hub/pages/DataHubPage.tsx` | 模块注册和 tab 曾存在事实来源不一致 | P1 |
 | AI 初始化 | `useChatStreaming.ts` | `ensureAgentReady()` 可能重复调用 | P1 |
 | Supabase 类型 | `scheduleTransferRepository.ts` | 存在 `supabase as any` | P2 |
 | Agent | `src/shared/lib/agent/chatAgent.ts` | 文件过大，职责混合 | P2 |
@@ -1010,7 +997,7 @@ node scripts/check-public-artifacts.mjs --dir docs-site
 
 5. 修复 DataHub 一致性：
    - 统一模块 registry。
-   - 处理 `competitor` 显示或隐藏策略。
+   - 处理历史数据模块显示或隐藏策略。
 
 6. 建立 CI：
    - lint/build/test。

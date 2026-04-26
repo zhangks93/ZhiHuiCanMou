@@ -89,7 +89,6 @@ export const DEFAULT_ENABLED_MODULES = [
   'attendance',
   'org-data',
   'planning',
-  'competitor',
   'links',
   'ai',
 ]

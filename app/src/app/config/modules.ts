@@ -10,7 +10,6 @@ import {
   Users,
   BarChart3,
   Target,
-  Trophy,
   Plane,
   Clock,
   Link2,
@@ -69,7 +68,6 @@ export const DATA_MODULE_IDS = [
   'attendance',
   'org-data',
   'planning',
-  'competitor',
 ] as const
 
 export type DataModuleId = (typeof DATA_MODULE_IDS)[number]
@@ -113,13 +111,6 @@ export const MODULE_NAV_CONFIG: Record<string, Omit<ModuleNavConfig, 'id'>> = {
     section: 'data',
     icon: BarChart3,
     sortOrder: 20,
-  },
-  competitor: {
-    label: '竞对档案',
-    routePath: '/competitor',
-    section: 'data',
-    icon: Trophy,
-    sortOrder: 26,
   },
   opportunity: {
     label: '商机',
@@ -177,7 +168,6 @@ export const DEFAULT_ENABLED_MODULE_IDS = [
   'attendance',
   'org-data',
   'planning',
-  'competitor',
   'links',
   'ai',
 ]

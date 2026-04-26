@@ -7,7 +7,6 @@ import { BizDataPage, PlanningPage } from '@/features/biz-data'
 import { OrgDataPage } from '@/features/org'
 import { OpportunityPage } from '@/features/opportunity'
 import { AttendancePage } from '@/features/attendance'
-import { CompetitorPage } from '@/features/competitor'
 import { TripPage } from '@/features/trip'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 
@@ -59,8 +58,6 @@ export function DataHubPage() {
         <PlanningPage />
       ) : activeTab === 'opportunity' ? (
         <OpportunityPage />
-      ) : activeTab === 'competitor' ? (
-        <CompetitorPage />
       ) : activeTab === 'trip' ? (
         <TripPage />
       ) : activeTab === 'attendance' ? (

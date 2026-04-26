@@ -17,7 +17,6 @@ export const ROUTES = {
   PLANNING: '/planning',
   BIZ_DATA: '/biz-data',
   OPPORTUNITY: '/opportunity',
-  COMPETITOR: '/competitor',
   TRIP: '/trip',
   ATTENDANCE: '/attendance',
   LINKS: '/links',
