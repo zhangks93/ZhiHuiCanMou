@@ -11,7 +11,7 @@ import {
 } from '@tanstack/react-table'
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { AppPagination } from '@/shared/ui/AppPagination'
-import { ActiveFiltersSummary, DataEmptyState, DataFreshnessBadge } from '@/shared/components/data-state'
+import { DataEmptyState } from '@/shared/components/data-state'
 import { useOpportunityData } from '../hooks/useOpportunityData'
 import type { OpportunitySnapshotItem } from '../types'
 
@@ -197,8 +197,6 @@ export function OpportunityPage() {
               {selectedSnapshotDate ? formatSnapshotDate(selectedSnapshotDate) : '暂无快照'}
             </span>
             </div>
-            <DataFreshnessBadge source="Supabase / 商机快照" updatedAt={selectedSnapshotDate || undefined} />
-            <ActiveFiltersSummary filters={[selectedSnapshotDate ? `快照 ${formatSnapshotDate(selectedSnapshotDate)}` : '暂无快照']} />
           </div>
           <div className="flex items-center gap-2 rounded-full bg-[rgba(255,255,255,0.32)] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.48)]">
             <CalendarRange size={15} className="text-[var(--color-text-muted)]" />

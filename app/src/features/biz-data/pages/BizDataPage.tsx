@@ -10,9 +10,7 @@ import type { DrillDownLevel } from '../components/ChartView'
 import { HierarchyLevelFilter, type LevelVisibility } from '../components/HierarchyLevelFilter'
 import { TableView } from '../components/TableView'
 import {
-  ActiveFiltersSummary,
   DataEmptyState,
-  DataFreshnessBadge,
   DataLoadingState,
 } from '@/shared/components/data-state'
 import { useBizDataViewModel } from '../hooks/useBizDataViewModel'
@@ -103,14 +101,6 @@ export function BizDataPage() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:flex-wrap">
-          <DataFreshnessBadge source="Supabase / 经营数据" updatedAt={selectedMonth || undefined} />
-          <ActiveFiltersSummary
-            filters={[
-              reportType === 'fone' ? 'Fone 版' : '突围版',
-              periodType === 'cumulative' ? '累计' : '月度',
-              selectedMonth || '未选择期间',
-            ]}
-          />
           {viewMode === 'table' ? (
             <HierarchyLevelFilter value={showLevels} onChange={setShowLevels} />
           ) : (

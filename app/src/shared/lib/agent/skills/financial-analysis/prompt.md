@@ -24,7 +24,7 @@
 
 # 交互总原则
 
-所有执行动作之前，先和用户确认，再执行。
+默认先确认分析边界，再执行。完整经营分析报告、月报、汇报版材料是例外：只要用户已经给出对象和期间，且 Runtime Data Context 中存在对应 period，就直接进入报告流程，不再逐项确认读取模板、查询数据和写作动作。
 
 这里的“执行动作”包括但不限于：
 - 调用任何查询工具
@@ -41,7 +41,7 @@
 - 用什么统计口径
 - 用户想要查数、简析，还是完整报告
 
-只有在用户意图、范围、期间、口径都已清楚，或用户明确授权“你按默认规则直接查”时，才进入执行。
+只有在用户意图、范围、期间、口径都已清楚，或用户明确授权“你按默认规则直接查”时，才进入执行。完整报告若未指定口径，默认同时覆盖 `fone` 和 `tuwei`；若未指定节点，默认集团整体 `node_name=""`。
 
 ---
 
@@ -62,8 +62,11 @@
 
 3. 用户要求“完整报告 / 经营分析报告 / 月报 / markdown 报告 / 汇报版材料”时：
    - 首次进入报告写作阶段时读取 `/assets/financial-analysis/biz-analysis-report.md`
-   - 先基于模板梳理本次报告必须覆盖的章节、指标名、期间口径和统计口径，再组织查询
-   - 再读取一次 `/assets/financial-analysis/references/report-generation.md`
+   - 读取 `/assets/financial-analysis/references/report-generation.md`
+   - 读取 `/assets/financial-analysis/references/actual-march-report-style.md`
+   - 读取 `/assets/financial-analysis/references/report-quality-rubric.md`
+   - 读取 `/assets/financial-analysis/references/data-requirements.md`
+   - 基于模板和规范调用 `query_business_report_pack`，再组织写作
 
 4. 需要把结论写得更像正式经营分析材料，或需要补强归因、判断、建议表达时：
    - 再补读一次 `/assets/financial-analysis/references/analysis-method.md`
@@ -104,7 +107,7 @@
 只要用户要求分析、对比、诊断、异常扫描、报告、月报、汇报材料，按分析模式处理。
 
 这类任务必须读取 `workflow.md`，并按更完整的查询与输出规则执行。
-这类任务在开始任何查询前，必须先把任务边界与用户确认清楚。
+完整报告若对象和期间已经明确，直接执行；其他经营分析任务在开始任何查询前，必须先把任务边界与用户确认清楚。
 
 ---
 
@@ -163,9 +166,10 @@
 
 默认优先使用：
 1. `resolve_org_nodes`（必要时）
-2. `query_with_hierarchy`
-3. `query_monthly_plan`（仅用户明确问月度计划或计划值时）
-4. `query_biz_data`（仅兜底）
+2. 完整报告 / 月报 / 汇报材料：`query_business_report_pack`
+3. 轻量查数和非报告分析：`query_with_hierarchy`
+4. `query_monthly_plan`（仅用户明确问月度计划或计划值时）
+5. `query_biz_data`（仅兜底）
 
 使用 `query_with_hierarchy` 时：
 - 优先直接分析返回的 `tree / children`
@@ -207,12 +211,14 @@
 
 以下数据默认不可自动获取，禁止编造：
 - 回款、应收账款、账龄结构
+- 资金计划预算、实际收支、现金净流量、奖惩测算
+- 核心费用专项明细，如办公用品费、咨询/维修/服务费等
 - 新签合同额、在手订单
 - 项目进度、项目台账
 - 全年预测
 - 责任部门、责任人、完成时点
 
-遇到数据库无此数据时，明确标注数据限制或跳过相关章节。
+完整报告中，应收账款回款、资金计划执行、当月核心费用支出不得跳过，必须输出人工补充占位表；其他不可取数据明确标注数据限制。
 
 ---
 
@@ -222,9 +228,9 @@
 1. 确认三要素
 2. 必要时标准化节点
 3. 读取 `workflow.md`
-4. 若是完整报告，先读取模板并提取本次报告需要覆盖的指标清单、口径清单、期间清单
+4. 若是完整报告，先读取模板和完整报告 references，再调用 `query_business_report_pack`
 5. 正式查询前读取 `metrics.md`
-6. 查询时优先按模板梳理出的指标清单一次或分组查询，不能遗漏模板已出现的关键指标名
+6. 完整报告直接使用报告包；其他分析查询时优先按模板梳理出的指标清单一次或分组查询，不能遗漏模板已出现的关键指标名
 7. 先做数据完整性检查；若模板中某指标未返回，先按该指标名补查后，才能判断是否真缺数
 8. 再进入分析或写作；若是完整报告，再加载对应写作规范
 9. 若需要图表，再加载图表规范
@@ -263,16 +269,21 @@
 当用户要求完整报告、月报、markdown 报告或汇报材料时，必须：
 1. 先读取模板 `/assets/financial-analysis/biz-analysis-report.md`
 2. 再读取 `references/report-generation.md`
-3. 默认读取 `references/analysis-method.md`
-4. 需要图表时读取 `references/chart-guidance.md`
-5. 上述文件若本任务中已读过，不得重复读取同一路径，直接复用
-6. 输出前先自审，再只展示终稿
-7. 结尾给出后续可继续支持的动作建议
+3. 再读取 `references/actual-march-report-style.md`
+4. 再读取 `references/report-quality-rubric.md`
+5. 再读取 `references/data-requirements.md`
+6. 默认读取 `references/analysis-method.md`
+7. 调用 `query_business_report_pack`
+8. 需要图表时读取 `references/chart-guidance.md`
+9. 上述文件若本任务中已读过，不得重复读取同一路径，直接复用
+10. 输出前先自审，再只展示终稿
+11. 结尾给出后续可继续支持的动作建议
 
 完整报告默认是“详版经营分析材料”，除非用户明确要求“摘要版 / 会议纪要版 / 简版”，否则：
 - 不得把核心章节压缩成 1-2 句结论
 - 不得只罗列表格不写经营含义
 - 不得只写“是否达标”，还要写偏差原因、结构质量、阶段性/结构性判断和后续影响
+- 第 3/4/5 节必须输出人工补充占位表，不得删除，也不得编造专项数据
 
 ## 结尾推荐动作
 
@@ -325,6 +336,7 @@
 
 禁止出现以下行为：
 - 未经确认就直接执行查询、解析节点、读取模板或生成报告
+- 用户已明确要求完整报告且对象/期间已足够明确时，仍逐项询问是否读取模板或是否查数
 - 未确认三要素就直接正式查询
 - 跳过必要的 `resolve_org_nodes`
 - 用户只是查数，却默认扩展成完整经营分析或报告

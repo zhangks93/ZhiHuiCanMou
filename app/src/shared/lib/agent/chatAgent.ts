@@ -69,6 +69,7 @@ function pickCoreArgs(name: string, args: Record<string, unknown>): Record<strin
   const toolSpecificKeys: Record<string, string[]> = {
     resolve_org_nodes: ['keyword', 'level'],
     query_with_hierarchy: ['node_name', 'report_type', 'period_type', 'period', 'metric_categories', 'sheet_codes'],
+    query_business_report_pack: ['node_name', 'month', 'previous_month', 'cumulative_period', 'report_types', 'max_units'],
     query_biz_data: ['node_name', 'metric_category', 'metric_categories', 'report_type', 'period_type', 'period', 'sheet_codes'],
     query_monthly_plan: ['node_name', 'metric_category', 'month', 'months'],
     read_file: ['path'],
@@ -296,6 +297,31 @@ function compactHierarchyResult(content: string): string {
   }
 }
 
+function compactBusinessReportPackResult(content: string): string {
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>
+    const unitCards = Array.isArray(parsed.unit_cards) ? parsed.unit_cards : []
+    const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : []
+
+    const compacted = {
+      ...parsed,
+      unit_cards: unitCards.slice(0, 40),
+      unit_cards_truncated: unitCards.length > 40 ? true : undefined,
+      original_unit_card_count: unitCards.length > 40 ? unitCards.length : undefined,
+      warnings: warnings.slice(0, 40),
+      warnings_truncated: warnings.length > 40 ? true : undefined,
+      tool_result_compacted: unitCards.length > 40 || warnings.length > 40 ? true : undefined,
+    }
+
+    const serialized = JSON.stringify(compacted, null, 2)
+    return serialized.length <= MAX_TOOL_RESULT_CHAR_BUDGET * 2
+      ? serialized
+      : truncateText(serialized, MAX_TOOL_RESULT_CHAR_BUDGET * 2, 'business report pack exceeded model context budget')
+  } catch {
+    return truncateText(content, MAX_TOOL_RESULT_CHAR_BUDGET * 2, 'business report pack exceeded model context budget')
+  }
+}
+
 function prepareToolResultForModel(name: string, content: string): string {
   if (!content) return content
 
@@ -305,6 +331,10 @@ function prepareToolResultForModel(name: string, content: string): string {
 
   if (name === 'query_with_hierarchy') {
     return compactHierarchyResult(content)
+  }
+
+  if (name === 'query_business_report_pack') {
+    return compactBusinessReportPackResult(content)
   }
 
   if (name === 'query_biz_data' || name === 'query_monthly_plan' || name === 'resolve_org_nodes') {

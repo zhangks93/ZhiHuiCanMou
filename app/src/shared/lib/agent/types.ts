@@ -77,6 +77,9 @@ export interface FinancialAnalysisSessionContext {
     workflowLoaded?: boolean
     metricsLoaded?: boolean
     reportGenerationLoaded?: boolean
+    actualMarchReportStyleLoaded?: boolean
+    reportQualityRubricLoaded?: boolean
+    dataRequirementsLoaded?: boolean
     analysisMethodLoaded?: boolean
     chartGuidanceLoaded?: boolean
     loadedPaths?: string[]

@@ -59,7 +59,7 @@ function deriveScopeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysi
       }
     }
 
-    if (toolCall.name === 'query_with_hierarchy' || toolCall.name === 'query_biz_data') {
+    if (toolCall.name === 'query_with_hierarchy' || toolCall.name === 'query_biz_data' || toolCall.name === 'query_business_report_pack') {
       const nodeNameArg = typeof toolCall.arguments.node_name === 'string'
         ? toolCall.arguments.node_name.trim()
         : ''
@@ -91,6 +91,15 @@ function deriveTimeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysis
       return {
         periodType: 'monthly',
         period: typeof toolCall.arguments.month === 'string' ? toolCall.arguments.month : undefined,
+        confidence: 'high',
+      }
+    }
+
+    if (toolCall.name === 'query_business_report_pack') {
+      return {
+        periodType: 'monthly',
+        period: typeof toolCall.arguments.month === 'string' ? toolCall.arguments.month : undefined,
+        comparePeriod: typeof toolCall.arguments.previous_month === 'string' ? toolCall.arguments.previous_month : undefined,
         confidence: 'high',
       }
     }
@@ -161,6 +170,9 @@ function deriveReportMode(
   const workflowLoaded = readFilePaths.includes('/assets/financial-analysis/references/workflow.md')
   const metricsLoaded = readFilePaths.includes('/assets/financial-analysis/references/metrics.md')
   const reportGenerationLoaded = readFilePaths.includes('/assets/financial-analysis/references/report-generation.md')
+  const actualMarchReportStyleLoaded = readFilePaths.includes('/assets/financial-analysis/references/actual-march-report-style.md')
+  const reportQualityRubricLoaded = readFilePaths.includes('/assets/financial-analysis/references/report-quality-rubric.md')
+  const dataRequirementsLoaded = readFilePaths.includes('/assets/financial-analysis/references/data-requirements.md')
   const analysisMethodLoaded = readFilePaths.includes('/assets/financial-analysis/references/analysis-method.md')
   const chartGuidanceLoaded = readFilePaths.includes('/assets/financial-analysis/references/chart-guidance.md')
 
@@ -169,6 +181,9 @@ function deriveReportMode(
     !workflowLoaded &&
     !metricsLoaded &&
     !reportGenerationLoaded &&
+    !actualMarchReportStyleLoaded &&
+    !reportQualityRubricLoaded &&
+    !dataRequirementsLoaded &&
     !analysisMethodLoaded &&
     !chartGuidanceLoaded &&
     !previous
@@ -187,6 +202,9 @@ function deriveReportMode(
     workflowLoaded: previous?.workflowLoaded || workflowLoaded,
     metricsLoaded: previous?.metricsLoaded || metricsLoaded,
     reportGenerationLoaded: previous?.reportGenerationLoaded || reportGenerationLoaded,
+    actualMarchReportStyleLoaded: previous?.actualMarchReportStyleLoaded || actualMarchReportStyleLoaded,
+    reportQualityRubricLoaded: previous?.reportQualityRubricLoaded || reportQualityRubricLoaded,
+    dataRequirementsLoaded: previous?.dataRequirementsLoaded || dataRequirementsLoaded,
     analysisMethodLoaded: previous?.analysisMethodLoaded || analysisMethodLoaded,
     chartGuidanceLoaded: previous?.chartGuidanceLoaded || chartGuidanceLoaded,
     loadedPaths,
@@ -247,6 +265,15 @@ export function buildFinancialAnalysisSessionContextBlock(
   }
   if (typeof sessionContext.reportMode?.reportGenerationLoaded === 'boolean') {
     lines.push(`- report_generation_reference_loaded: ${sessionContext.reportMode.reportGenerationLoaded ? 'yes' : 'no'}`)
+  }
+  if (typeof sessionContext.reportMode?.actualMarchReportStyleLoaded === 'boolean') {
+    lines.push(`- actual_report_style_loaded: ${sessionContext.reportMode.actualMarchReportStyleLoaded ? 'yes' : 'no'}`)
+  }
+  if (typeof sessionContext.reportMode?.reportQualityRubricLoaded === 'boolean') {
+    lines.push(`- report_quality_rubric_loaded: ${sessionContext.reportMode.reportQualityRubricLoaded ? 'yes' : 'no'}`)
+  }
+  if (typeof sessionContext.reportMode?.dataRequirementsLoaded === 'boolean') {
+    lines.push(`- data_requirements_loaded: ${sessionContext.reportMode.dataRequirementsLoaded ? 'yes' : 'no'}`)
   }
   if (typeof sessionContext.reportMode?.analysisMethodLoaded === 'boolean') {
     lines.push(`- analysis_method_reference_loaded: ${sessionContext.reportMode.analysisMethodLoaded ? 'yes' : 'no'}`)

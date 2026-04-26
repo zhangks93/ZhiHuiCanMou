@@ -14,6 +14,7 @@ export function loadAgentRuntimeModules(): Promise<AgentRuntimeModules> {
       import('./chatAgent'),
       import('./tools/queryBizData'),
       import('./tools/queryWithHierarchy'),
+      import('./tools/queryBusinessReportPack'),
       import('./tools/queryMonthlyPlan'),
       import('./tools/resolveOrgNodes'),
       import('./tools/readFile'),
@@ -21,6 +22,7 @@ export function loadAgentRuntimeModules(): Promise<AgentRuntimeModules> {
       chatAgentModule,
       queryBizDataModule,
       queryWithHierarchyModule,
+      queryBusinessReportPackModule,
       queryMonthlyPlanModule,
       resolveOrgNodesModule,
       readFileModule,
@@ -29,6 +31,7 @@ export function loadAgentRuntimeModules(): Promise<AgentRuntimeModules> {
       tools: [
         resolveOrgNodesModule.resolveOrgNodesTool,
         queryWithHierarchyModule.queryWithHierarchyTool,
+        queryBusinessReportPackModule.queryBusinessReportPackTool,
         queryMonthlyPlanModule.queryMonthlyPlanTool,
         queryBizDataModule.queryBizDataTool,
         readFileModule.readFileTool,
