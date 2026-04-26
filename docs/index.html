@@ -3,34 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="智汇参谋 - 数字秘书，让员工向 AI 汇报工作。统一汇报入口、AI 智能汇总、多层级权限、插件式模块，助力企业管理更高效">
-  <title>智汇参谋 Canmou — 数字秘书 · 员工向 AI 汇报工作</title>
+  <meta name="description" content="智汇参谋 Canmou - 面向经营管理的企业智能助手，整合工作台、经营数据、商机、出差、考勤、组织与 AI 分析。">
+  <title>智汇参谋 Canmou｜企业经营智能助手</title>
   <link rel="icon" type="image/png" href="./logo.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-deep: #040816;
-      --bg-surface: #050819;
-      --bg-elevated: #0b1024;
-      --bg-card: rgba(11, 16, 36, 0.7);
-      --border: rgba(148, 163, 184, 0.18);
-      --border-accent: rgba(56, 189, 248, 0.45);
-      --text-primary: #e5f0ff;
-      --text-secondary: #a5b4fc;
-      --text-muted: #64748b;
-      --accent: #38bdf8;
-      --accent-soft: #818cf8;
-      --accent-dim: rgba(56, 189, 248, 0.1);
-      --accent-glow: rgba(56, 189, 248, 0.4);
-      --gradient-accent: linear-gradient(135deg, #38bdf8 0%, #6366f1 45%, #f97316 100%);
-      --gradient-orb: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(56, 189, 248, 0.16) 0%, transparent 70%);
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --panel-soft: #eef4fb;
+      --ink: #182230;
+      --muted: #667085;
+      --subtle: #98a2b3;
+      --line: #d9e2ec;
+      --accent: #087f8c;
+      --accent-dark: #055e68;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+      --blue: #2563eb;
+      --shadow: 0 24px 70px rgba(16, 24, 40, 0.12);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
     }
 
     * {
-      margin: 0;
-      padding: 0;
       box-sizing: border-box;
     }
 
@@ -39,972 +35,533 @@
     }
 
     body {
-      font-family: 'DM Sans', 'Zen Kaku Gothic New', -apple-system, sans-serif;
-      background: var(--bg-deep);
-      color: var(--text-primary);
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(8, 127, 140, 0.08), transparent 360px),
+        var(--bg);
+      color: var(--ink);
       line-height: 1.65;
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
     }
 
-    h1, h2, h3, .font-display {
-      font-family: 'Syne', sans-serif;
-    }
-
-    /* Advanced grid + mesh background */
-    .grid-bg {
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(56, 189, 248, 0.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(56, 189, 248, 0.018) 1px, transparent 1px);
-      background-size: 80px 80px;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .grid-bg::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: 
-        radial-gradient(ellipse 100% 60% at 20% 0%, rgba(56, 189, 248, 0.1) 0%, transparent 55%),
-        radial-gradient(ellipse 80% 50% at 80% 100%, rgba(99, 102, 241, 0.07) 0%, transparent 55%),
-        radial-gradient(ellipse 60% 40% at 50% 40%, rgba(248, 250, 252, 0.05) 0%, transparent 65%);
-      pointer-events: none;
-    }
-
-    .grid-bg::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-      pointer-events: none;
-      mix-blend-mode: overlay;
-    }
-
-    .container {
-      max-width: 1160px;
-      margin: 0 auto;
-      padding: 0 28px;
-      position: relative;
-      z-index: 1;
-    }
-
-    /* Header */
-    header {
-      padding: 32px 0;
-      position: relative;
-      z-index: 10;
-      animation: fadeDown 0.8s ease-out;
-    }
-
-    @keyframes fadeDown {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--text-primary);
+    a {
+      color: inherit;
       text-decoration: none;
     }
 
-    .logo img {
-      width: 44px;
-      height: 44px;
-      border-radius: 14px;
-      object-fit: cover;
-      box-shadow: 0 16px 32px rgba(2, 6, 23, 0.34);
+    .shell {
+      width: min(1160px, calc(100% - 40px));
+      margin: 0 auto;
     }
 
-    .logo span {
-      font-family: 'Syne', sans-serif;
-      font-size: 1.2rem;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      color: var(--text-primary);
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(217, 226, 236, 0.76);
+      background: rgba(246, 248, 251, 0.88);
+      backdrop-filter: blur(16px);
     }
 
-    .logo span strong {
-      background: var(--gradient-accent);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 72px;
+      gap: 24px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .brand img {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      box-shadow: 0 12px 24px rgba(16, 24, 40, 0.16);
+    }
+
+    .brand span {
+      display: grid;
+      line-height: 1.1;
+    }
+
+    .brand small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
     }
 
     .nav-links {
       display: flex;
-      gap: 36px;
-      font-size: 0.9rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-    }
-
-    .nav-links a {
-      color: inherit;
-      text-decoration: none;
-      transition: color 0.2s;
+      align-items: center;
+      gap: 22px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 650;
     }
 
     .nav-links a:hover {
       color: var(--accent);
     }
 
-    /* Status badge - Neon-style */
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--accent);
-      background: var(--accent-dim);
-      border: 1px solid var(--border-accent);
-      border-radius: 6px;
-      font-family: 'DM Sans', monospace;
-    }
-
-    .status-badge::before {
-      content: '';
-      width: 6px;
-      height: 6px;
-      background: var(--accent);
-      border-radius: 50%;
-      box-shadow: 0 0 8px var(--accent);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    /* Hero */
     .hero {
-      padding: 100px 0 160px;
-      text-align: center;
-      animation: fadeUp 1s ease-out 0.2s both;
+      padding: 78px 0 58px;
     }
 
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(40px); }
-      to { opacity: 1; transform: translateY(0); }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.04fr) minmax(360px, 0.96fr);
+      gap: 44px;
+      align-items: center;
     }
 
-    .hero-tag {
+    .eyebrow {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 20px;
-      margin-bottom: 24px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--accent);
-      border: 1px solid var(--border-accent);
-      border-radius: 100px;
-      background: var(--accent-dim);
-      animation: fadeUp 0.8s ease-out 0.35s both;
-    }
-
-    .hero-tag::before {
-      content: '';
-      width: 6px;
-      height: 6px;
-      background: var(--accent);
-      border-radius: 50%;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .hero h1 {
-      font-size: clamp(2.75rem, 6.5vw, 4.5rem);
-      font-weight: 700;
-      letter-spacing: -0.04em;
-      line-height: 1.1;
-      margin-bottom: 24px;
-      background: linear-gradient(180deg, var(--text-primary) 0%, rgba(246, 246, 248, 0.88) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      animation: fadeUp 1s ease-out 0.45s both;
-    }
-
-    .hero h1 .highlight {
-      background: var(--gradient-accent);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .hero-desc {
-      font-size: 1.2rem;
-      color: var(--text-secondary);
-      max-width: 580px;
-      margin: 0 auto 20px;
-      line-height: 1.75;
-      animation: fadeUp 1s ease-out 0.55s both;
-    }
-
-    .hero-desc-sub {
-      font-size: 0.95rem;
-      color: var(--text-muted);
-      max-width: 520px;
-      margin: 0 auto 44px;
-      line-height: 1.7;
-      animation: fadeUp 1s ease-out 0.6s both;
-    }
-
-    .hero-vision-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.45);
-      background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.22), transparent 60%);
-      color: var(--text-secondary);
-      font-size: 0.8rem;
-      margin-bottom: 8px;
-    }
-
-    .hero-vision-label span {
-      font-weight: 600;
-      color: var(--accent);
-    }
-
-    /* Feature pills - Neon style */
-    .hero-pills {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 48px;
-      animation: fadeUp 1s ease-out 0.65s both;
-    }
-
-    .hero-pill {
-      padding: 6px 14px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      transition: all 0.25s;
-    }
-
-    .hero-pill:hover {
-      border-color: var(--border-accent);
-      color: var(--accent);
-    }
-
-    .hero-cta {
-      display: flex;
-      gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
-      animation: fadeUp 1s ease-out 0.75s both;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px 32px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      font-family: inherit;
-      text-decoration: none;
-      border-radius: 12px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      cursor: pointer;
-      border: none;
-    }
-
-    .btn-primary {
-      background: var(--gradient-accent);
-      color: #030306;
-      box-shadow: 0 4px 28px var(--accent-glow);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 12px 40px var(--accent-glow);
-    }
-
-    .btn-secondary {
-      background: var(--bg-elevated);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
-
-    .btn-secondary:hover {
-      border-color: var(--border-accent);
-      color: var(--accent);
-    }
-
-    /* Hero illustration - tech diagram */
-    .hero-visual {
-      max-width: 720px;
-      margin: 56px auto 0;
-      animation: fadeUp 1.2s ease-out 0.85s both;
-    }
-
-    .hero-visual svg {
-      width: 100%;
-      height: auto;
-      filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.4));
-    }
-
-    /* Vision section: P-P → P-A-P → A-A-P */
-    .vision {
-      padding: 40px 0 120px;
-    }
-
-    .vision-inner {
-      display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.1fr);
-      gap: 48px;
-      align-items: center;
-    }
-
-    .vision-eyebrow {
-      font-size: 0.8rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 14px;
-    }
-
-    .vision-title {
-      font-family: 'Syne', sans-serif;
-      font-size: clamp(1.9rem, 3.4vw, 2.4rem);
-      letter-spacing: -0.03em;
-      margin-bottom: 14px;
-      color: var(--text-primary);
-    }
-
-    .vision-subtitle {
-      font-size: 0.98rem;
-      color: var(--text-secondary);
-      line-height: 1.75;
       margin-bottom: 18px;
+      color: var(--accent-dark);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0;
     }
 
-    .vision-explain {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      margin-bottom: 20px;
+    .eyebrow::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--green);
+      box-shadow: 0 0 0 5px rgba(22, 163, 74, 0.12);
     }
 
-    .vision-explain span {
-      color: var(--accent);
-      font-weight: 600;
+    h1 {
+      margin: 0;
+      max-width: 720px;
+      font-size: clamp(42px, 6vw, 72px);
+      line-height: 1.04;
+      letter-spacing: 0;
     }
 
-    .vision-badges {
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 26px;
+    .lead {
+      margin: 24px 0 0;
+      max-width: 680px;
+      color: #475467;
+      font-size: 19px;
     }
 
-    .vision-badge {
-      padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      background: radial-gradient(circle at 20% 0%, rgba(56, 189, 248, 0.18), transparent 60%);
-    }
-
-    .vision-badge strong {
-      color: var(--accent);
-      margin-right: 4px;
-    }
-
-    .vision-metrics {
+    .cta-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 18px;
-      margin-top: 10px;
+      gap: 12px;
+      margin-top: 32px;
     }
 
-    .vision-metric {
-      min-width: 120px;
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 8px;
+      font-weight: 800;
+      border: 1px solid transparent;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
     }
 
-    .vision-metric strong {
-      display: block;
-      font-size: 1.25rem;
-      color: var(--accent-soft);
-      margin-bottom: 4px;
+    .button:hover {
+      transform: translateY(-1px);
     }
 
-    .vision-metric span {
-      font-size: 0.8rem;
-      color: var(--text-muted);
+    .button.primary {
+      color: white;
+      background: var(--accent);
+      box-shadow: 0 14px 30px rgba(8, 127, 140, 0.24);
     }
 
-    .vision-diagram {
-      position: relative;
-      padding: 26px 26px 24px;
-      border-radius: 24px;
-      background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.18), transparent 55%),
-                  radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.18), transparent 55%),
-                  var(--bg-card);
-      border: 1px solid var(--border);
-      backdrop-filter: blur(14px);
+    .button.primary:hover {
+      background: var(--accent-dark);
+    }
+
+    .button.secondary {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.82);
+      border-color: var(--line);
+    }
+
+    .hero-panel {
+      background: var(--panel);
+      border: 1px solid rgba(217, 226, 236, 0.9);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
       overflow: hidden;
     }
 
-    .vision-diagram::before {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: inherit;
-      border: 1px solid rgba(94, 234, 212, 0.1);
-      mix-blend-mode: screen;
-      pointer-events: none;
-    }
-
-    .vision-diagram-header {
+    .panel-top {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      font-size: 0.8rem;
-      color: var(--text-muted);
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 750;
     }
 
-    .vision-diagram-header span {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+    .traffic {
+      display: flex;
+      gap: 7px;
     }
 
-    .vision-diagram-header span::before {
-      content: '';
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: var(--accent);
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+    .traffic i {
+      width: 10px;
+      height: 10px;
+      border-radius: 99px;
+      background: var(--line);
     }
 
-    .vision-stages {
+    .traffic i:nth-child(1) { background: #f97316; }
+    .traffic i:nth-child(2) { background: #eab308; }
+    .traffic i:nth-child(3) { background: #22c55e; }
+
+    .dashboard {
+      padding: 20px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .metric-row {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-      position: relative;
-      margin-bottom: 18px;
+      gap: 12px;
     }
 
-    .vision-stage {
-      padding: 14px 12px;
-      border-radius: 16px;
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      position: relative;
+    .metric {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfdff;
     }
 
-    .vision-stage.highlight {
-      border-color: var(--border-accent);
-      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35), 0 14px 40px rgba(15, 23, 42, 0.9);
-      background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.35), transparent 65%),
-                  rgba(15, 23, 42, 0.9);
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
     }
 
-    .vision-tag {
+    .metric strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .briefing {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #e8f6f7, #f7fbff);
+      border: 1px solid #c7e8ec;
+    }
+
+    .briefing h3,
+    .feature h3,
+    .module h3,
+    .step h3 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .briefing p,
+    .feature p,
+    .module p,
+    .step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .risk-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .risk {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .risk b {
+      color: var(--ink);
+    }
+
+    .tag {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      padding: 3px 9px;
+      justify-content: center;
+      min-width: 58px;
+      height: 24px;
+      padding: 0 9px;
       border-radius: 999px;
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.15em;
-      border: 1px solid rgba(148, 163, 184, 0.6);
-      color: var(--text-secondary);
-      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 800;
     }
 
-    .vision-tag span {
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: var(--accent);
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+    .tag.green { color: #067647; background: #dcfae6; }
+    .tag.amber { color: #b54708; background: #fef0c7; }
+    .tag.red { color: #b42318; background: #fee4e2; }
+    .tag.blue { color: #175cd3; background: #dbeafe; }
+
+    section {
+      padding: 64px 0;
     }
 
-    .vision-stage h4 {
-      font-family: 'Syne', sans-serif;
-      font-size: 1rem;
-      margin-bottom: 4px;
-      color: var(--text-primary);
+    .section-head {
+      max-width: 760px;
+      margin-bottom: 28px;
     }
 
-    .vision-stage p {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
-
-    .vision-arrow-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin: 4px 2px 0;
-      font-size: 0.72rem;
-      color: var(--text-secondary);
-    }
-
-    .vision-arrow-row span {
-      opacity: 0.8;
-    }
-
-    .vision-arrow {
-      flex: 1;
-      height: 1px;
-      margin: 0 8px;
-      background: linear-gradient(90deg, rgba(56, 189, 248, 0.1), rgba(56, 189, 248, 0.8), rgba(249, 115, 22, 0.7));
-      position: relative;
-    }
-
-    .vision-arrow::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      top: 50%;
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: #f97316;
-      box-shadow: 0 0 18px rgba(249, 115, 22, 0.9);
-      transform: translateY(-50%);
-    }
-
-    .vision-footnote {
-      font-size: 0.74rem;
-      color: var(--text-muted);
-      margin-top: 10px;
-    }
-
-    .vision-footnote code {
-      font-family: 'DM Sans', monospace;
-      font-size: 0.7rem;
-      padding: 2px 6px;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      background: rgba(15, 23, 42, 0.8);
-      color: var(--text-secondary);
-    }
-
-    .vision-gallery {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 16px;
-      margin-top: 20px;
-    }
-
-    .vision-photo {
-      position: relative;
-      border-radius: 18px;
-      overflow: hidden;
-      border: 1px solid rgba(148, 163, 184, 0.38);
-      background: #020617;
-      transform-origin: center;
-      transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
-    }
-
-    .vision-photo:nth-child(1) {
-      transform: rotate(-2.2deg) translateY(4px);
-    }
-
-    .vision-photo:nth-child(2) {
-      transform: rotate(3.5deg) translateY(-2px);
-    }
-
-    .vision-photo img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      filter: saturate(1.2) contrast(1.05);
-    }
-
-    .vision-photo::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.92));
-      mix-blend-mode: multiply;
-    }
-
-    .vision-photo::after {
-      content: attr(data-label);
-      position: absolute;
-      left: 14px;
-      bottom: 12px;
-      font-size: 0.78rem;
-      color: #e5e7eb;
-      text-shadow: 0 8px 18px rgba(15, 23, 42, 0.9);
-    }
-
-    .vision-photo:hover {
-      transform: rotate(0deg) translateY(-2px) scale(1.02);
-      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.95);
-      border-color: rgba(56, 189, 248, 0.6);
-    }
-
-    /* Features */
-    .features {
-      padding: 100px 0 140px;
+    .section-head.center {
+      margin-right: auto;
+      margin-left: auto;
+      text-align: center;
     }
 
     .section-label {
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 16px;
-      text-align: center;
+      margin: 0 0 10px;
+      color: var(--accent-dark);
+      font-size: 13px;
+      font-weight: 850;
     }
 
-    .section-title {
-      font-family: 'Syne', sans-serif;
-      font-size: clamp(2rem, 4vw, 2.75rem);
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      text-align: center;
-      margin-bottom: 20px;
-      color: var(--text-primary);
+    h2 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.15;
+      letter-spacing: 0;
     }
 
-    .section-desc {
-      font-size: 1.05rem;
-      color: var(--text-secondary);
-      max-width: 560px;
-      margin: 0 auto 64px;
-      text-align: center;
-      line-height: 1.7;
+    .section-copy {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 17px;
     }
 
     .feature-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 28px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
     }
 
-    .feature-card {
-      padding: 32px;
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .feature-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
-      opacity: 0;
-      transition: opacity 0.35s;
-    }
-
-    .feature-card:hover {
-      border-color: var(--border-accent);
-      transform: translateY(-6px);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-    }
-
-    .feature-card:hover::before {
-      opacity: 0.6;
-    }
-
-    .feature-icon {
-      width: 52px;
-      height: 52px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.35rem;
-      margin-bottom: 22px;
-      background: var(--accent-dim);
-      border: 1px solid var(--border-accent);
+    .feature,
+    .module,
+    .step {
+      border: 1px solid var(--line);
       border-radius: 14px;
-      color: var(--accent);
+      background: rgba(255, 255, 255, 0.78);
+      padding: 20px;
+      box-shadow: 0 10px 32px rgba(16, 24, 40, 0.06);
     }
 
-    .feature-card h3 {
-      font-family: 'Syne', sans-serif;
-      font-size: 1.15rem;
-      font-weight: 700;
-      margin-bottom: 10px;
-      color: var(--text-primary);
-    }
-
-    .feature-card p {
-      font-size: 0.95rem;
-      color: var(--text-secondary);
-      line-height: 1.7;
-    }
-
-    /* Tech illustration section */
-    .illustration-section {
-      padding: 80px 0 120px;
-    }
-
-    .illustration-block {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
+    .icon {
+      display: inline-flex;
       align-items: center;
-      margin-bottom: 100px;
-    }
-
-    .illustration-block:nth-child(even) {
-      direction: rtl;
-    }
-
-    .illustration-block:nth-child(even) > * {
-      direction: ltr;
-    }
-
-    .illustration-content h3 {
-      font-family: 'Syne', sans-serif;
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 16px;
-      color: var(--text-primary);
-    }
-
-    .illustration-content p {
-      font-size: 1rem;
-      color: var(--text-secondary);
-      line-height: 1.75;
-      margin-bottom: 12px;
-    }
-
-    .illustration-visual {
-      border-radius: 16px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      background: var(--bg-surface);
-      padding: 24px;
-    }
-
-    .illustration-visual svg {
-      width: 100%;
-      height: auto;
-    }
-
-    /* Platforms */
-    .platforms {
-      padding: 80px 0 120px;
-    }
-
-    .platform-grid {
-      display: flex;
       justify-content: center;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-
-    .platform-badge {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 18px 28px;
-      background: var(--bg-card);
-      backdrop-filter: blur(8px);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      color: var(--text-secondary);
-      font-size: 0.98rem;
-      font-weight: 600;
-      transition: all 0.3s ease;
-    }
-
-    .platform-badge:hover {
-      border-color: var(--border-accent);
-      color: var(--text-primary);
-      transform: translateY(-2px);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
-    }
-
-    .platform-badge svg {
-      width: 26px;
-      height: 26px;
-      opacity: 0.85;
-    }
-
-    /* Tech stack */
-    .tech {
-      padding: 60px 0 120px;
-    }
-
-    .tech-list {
-      display: flex;
-      justify-content: center;
-      gap: 14px;
-      flex-wrap: wrap;
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    .tech-list span {
-      padding: 10px 20px;
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
+      width: 38px;
+      height: 38px;
+      margin-bottom: 14px;
       border-radius: 10px;
-      transition: all 0.25s;
+      color: var(--accent-dark);
+      background: #dff3f5;
+      font-weight: 900;
     }
 
-    .tech-list span:hover {
-      border-color: var(--border-accent);
-      color: var(--accent);
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
     }
 
-    /* Footer */
-    footer {
-      padding: 48px 0 40px;
-      border-top: 1px solid var(--border);
-      text-align: center;
+    .module {
+      min-height: 150px;
     }
 
-    footer p {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      line-height: 1.6;
+    .module .kicker {
+      margin-bottom: 10px;
+      color: var(--subtle);
+      font-size: 12px;
+      font-weight: 850;
     }
 
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
-      transition: opacity 0.2s;
+    .band {
+      background: #101828;
+      color: white;
+      margin: 38px 0;
     }
 
-    footer a:hover {
-      opacity: 0.85;
-      text-decoration: underline;
+    .band .section-copy,
+    .band p {
+      color: #cbd5e1;
     }
 
-    /* Responsive */
-    @media (max-width: 768px) {
-      .vision-inner {
+    .agent-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      gap: 28px;
+      align-items: start;
+    }
+
+    .agent-card {
+      padding: 22px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .agent-card h3 {
+      margin: 0 0 10px;
+      font-size: 22px;
+    }
+
+    .tool-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .tool {
+      padding: 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip {
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: white;
+      border: 1px solid var(--line);
+      color: #344054;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .footer {
+      padding: 38px 0 54px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+    }
+
+    .footer-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid,
+      .agent-layout {
         grid-template-columns: 1fr;
-        gap: 32px;
       }
 
-      .vision-diagram {
-        margin-top: 8px;
-      }
-
-      .vision-gallery {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .illustration-block {
-        grid-template-columns: 1fr;
-        direction: ltr !important;
-        gap: 32px;
-        margin-bottom: 64px;
-      }
-
-      .illustration-block:nth-child(even) {
-        direction: ltr;
-      }
-
-      .illustration-block:nth-child(even) > * {
-        direction: ltr;
-      }
-
-      .illustration-visual {
-        order: -1;
+      .feature-grid,
+      .module-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100% - 28px, 1160px);
+      }
+
+      .nav {
+        min-height: 64px;
+      }
+
       .nav-links {
         display: none;
       }
 
-      .status-badge {
-        display: none;
-      }
-
       .hero {
-        padding: 72px 0 100px;
+        padding: 48px 0 34px;
       }
 
-      .hero-pills {
-        margin-bottom: 32px;
+      .hero-grid {
+        gap: 28px;
       }
 
-      .hero-cta {
-        flex-direction: column;
+      .lead {
+        font-size: 16px;
       }
 
-      .vision {
-        padding-top: 20px;
-      }
-
-      .vision-gallery {
-        grid-template-columns: 1fr;
-      }
-
-      .btn {
+      .button {
         width: 100%;
-        justify-content: center;
       }
 
-      .feature-grid {
+      .hero-panel {
+        border-radius: 14px;
+      }
+
+      .metric-row,
+      .feature-grid,
+      .module-grid,
+      .steps,
+      .tool-list {
         grid-template-columns: 1fr;
       }
 
-      .platform-grid {
-        flex-direction: column;
-        align-items: center;
+      section {
+        padding: 46px 0;
       }
     }
   </style>
 </head>
 <body>
-  <div class="grid-bg"></div>
-
-  <header>
-    <nav class="container">
-      <div class="logo">
+  <header class="topbar">
+    <nav class="shell nav" aria-label="主导航">
+      <a class="brand" href="#">
         <img src="./logo.png" alt="智汇参谋 Logo">
-        <span>智汇<strong>参谋</strong></span>
-      </div>
+        <span>智汇参谋<small>Canmou</small></span>
+      </a>
       <div class="nav-links">
-        <span class="status-badge">系统在线</span>
-        <a href="#features">功能</a>
-        <a href="#platforms">平台</a>
+        <a href="#features">能力</a>
+        <a href="#modules">模块</a>
+        <a href="#agent">AI 分析</a>
+        <a href="#delivery">交付</a>
         <a href="https://github.com/zhangks93/ZhiHuiCanMou" target="_blank" rel="noopener">GitHub</a>
       </div>
     </nav>
@@ -1012,139 +569,35 @@
 
   <main>
     <section class="hero">
-      <div class="container">
-        <div class="hero-tag">数字秘书</div>
-        <h1>让员工向 <span class="highlight">AI</span> 汇报工作</h1>
-        <p class="hero-desc">一个统一入口，让员工把工作讲给 AI，由智汇参谋替你整理成管理者看得懂的决策视图。</p>
-        <p class="hero-desc-sub">少写 PPT、多做事情；汇报交给 Agent，总裁和管理者只看关键摘要和风险提醒。</p>
-        <div class="hero-vision-label">
-          愿景路径：
-          <span>P-P → P-A-P → A-A-P</span>
-        </div>
-        <div class="hero-pills">
-          <span class="hero-pill">工作汇报</span>
-          <span class="hero-pill">AI 汇总</span>
-          <span class="hero-pill">权限管控</span>
-          <span class="hero-pill">插件模块</span>
-          <span class="hero-pill">私有化</span>
-        </div>
-        <div class="hero-cta">
-          <a href="https://github.com/zhangks93/ZhiHuiCanMou/releases" class="btn btn-primary" target="_blank" rel="noopener">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-            前往下载
-          </a>
-          <a href="#features" class="btn btn-secondary">了解功能</a>
-        </div>
-        <div class="hero-visual">
-          <svg viewBox="0 0 640 280" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.8"/>
-                <stop offset="100%" stop-color="#0891b2" stop-opacity="0.4"/>
-              </linearGradient>
-              <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#22d3ee"/>
-                <stop offset="100%" stop-color="#06b6d4"/>
-              </linearGradient>
-              <filter id="glow">
-                <feGaussianBlur stdDeviation="2" result="blur"/>
-                <feMerge>
-                  <feMergeNode in="blur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
-            <!-- Data flow diagram -->
-            <rect x="40" y="100" width="100" height="60" rx="12" fill="#0e0e16" stroke="rgba(34,211,238,0.25)" stroke-width="1.5"/>
-            <text x="90" y="138" fill="#22d3ee" font-size="12" font-weight="600" text-anchor="middle" font-family="system-ui">员工汇报</text>
-            <rect x="260" y="100" width="120" height="60" rx="12" fill="#0e0e16" stroke="rgba(34,211,238,0.4)" stroke-width="1.5"/>
-            <text x="320" y="138" fill="#22d3ee" font-size="12" font-weight="600" text-anchor="middle" font-family="system-ui">AI 汇总引擎</text>
-            <rect x="500" y="100" width="100" height="60" rx="12" fill="#0e0e16" stroke="rgba(34,211,238,0.25)" stroke-width="1.5"/>
-            <text x="550" y="138" fill="#22d3ee" font-size="12" font-weight="600" text-anchor="middle" font-family="system-ui">洞察输出</text>
-            <path d="M140 130 L260 130" stroke="url(#flowGrad)" stroke-width="2" stroke-dasharray="6 4" opacity="0.8">
-              <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.5s" repeatCount="indefinite"/>
-            </path>
-            <path d="M380 130 L500 130" stroke="url(#flowGrad)" stroke-width="2" stroke-dasharray="6 4" opacity="0.8">
-              <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.5s" repeatCount="indefinite" begin="0.3s"/>
-            </path>
-            <circle cx="90" cy="220" r="8" fill="#22d3ee" opacity="0.6"/>
-            <circle cx="320" cy="220" r="10" fill="#22d3ee" opacity="0.9"/>
-            <circle cx="550" cy="220" r="8" fill="#22d3ee" opacity="0.6"/>
-            <path d="M90 212 Q205 180 320 212" stroke="rgba(34,211,238,0.2)" stroke-width="1" fill="none"/>
-            <path d="M320 212 Q435 180 550 212" stroke="rgba(34,211,238,0.2)" stroke-width="1" fill="none"/>
-          </svg>
-        </div>
-      </div>
-    </section>
-
-    <section class="vision">
-      <div class="container">
-        <div class="vision-inner">
-          <div>
-            <p class="vision-eyebrow">PRODUCT VISION</p>
-            <h2 class="vision-title">从 P-P，到 P-A-P，再到 A-A-P</h2>
-            <p class="vision-subtitle">今天，员工先向 Agent 汇报，再交由 Agent 汇总给管理者；明天，让智能体彼此对话，人只在关键节点做判断。</p>
-            <p class="vision-explain">
-              在智汇参谋的愿景中：<span>P = People（人）</span>，<span>A = Agent（智能体）</span>。
-              汇报不再是重复劳动，而是人与智能体之间持续协同的过程。
-            </p>
-            <div class="vision-badges">
-              <div class="vision-badge"><strong>P-P</strong> 传统：人与人逐级汇报</div>
-              <div class="vision-badge"><strong>P-A-P</strong> 现在：人 → Agent → 管理者</div>
-              <div class="vision-badge"><strong>A-A-P</strong> 未来：Agent ↔ Agent → 管理者</div>
-            </div>
-            <div class="vision-metrics">
-              <div class="vision-metric">
-                <strong>70%</strong>
-                <span>预期减少重复性汇报编辑时间</span>
-              </div>
-              <div class="vision-metric">
-                <strong>3-5×</strong>
-                <span>管理者获取全局态势的速度提升</span>
-              </div>
-            </div>
+      <div class="shell hero-grid">
+        <div>
+          <div class="eyebrow">企业经营智能助手</div>
+          <h1>把分散的业务数据，整理成管理者每天能用的经营视图。</h1>
+          <p class="lead">智汇参谋整合日程、经营数据、商机、出差、考勤、组织与规划模块，并通过 AI 分析助手辅助查询、归因、预警和复盘。</p>
+          <div class="cta-row">
+            <a class="button primary" href="https://github.com/zhangks93/ZhiHuiCanMou/releases" target="_blank" rel="noopener">查看发布版本</a>
+            <a class="button secondary" href="#modules">浏览功能模块</a>
           </div>
-          <div>
-            <div class="vision-diagram">
-              <div class="vision-diagram-header">
-                <span>Reporting Paradigm Shift</span>
-                <span>Canmou · Agent First</span>
-              </div>
-              <div class="vision-stages">
-                <div class="vision-stage">
-                  <div class="vision-tag"><span></span>P-P</div>
-                  <h4>People → People</h4>
-                  <p>员工直接写给上级，再层层转发和复述，精力花在“整理说法”上。</p>
-                </div>
-                <div class="vision-stage highlight">
-                  <div class="vision-tag"><span></span>P-A-P</div>
-                  <h4>People → Agent → People</h4>
-                  <p>员工统一向 Agent 汇报，Agent 帮你拆解、汇总、生成结构化视图，再推送给管理者。</p>
-                </div>
-                <div class="vision-stage">
-                  <div class="vision-tag"><span></span>A-A-P</div>
-                  <h4>Agent ↔ Agent → People</h4>
-                  <p>业务智能体互相对话、主动发现异常，人只看关键问题、关键机会和少量决策选项。</p>
-                </div>
-              </div>
-              <div class="vision-arrow-row">
-                <span>传统</span>
-                <div class="vision-arrow"></div>
-                <span>智能体时代</span>
-              </div>
-              <p class="vision-footnote">
-                记法：
-                <code>P = People</code>
-                <code>A = Agent</code>
-                —— 汇报链条越少“P”，越少人为搬运；越多“A”，越多智能协同。
-              </p>
-              <div class="vision-gallery">
-                <figure class="vision-photo" data-label="团队向统一 Agent 汇报">
-                  <img src="https://images.pexels.com/photos/1181355/pexels-photo-1181355.jpeg?auto=compress&cs=tinysrgb&w=800" alt="团队成员围绕屏幕协作讨论的场景" loading="lazy">
-                </figure>
-                <figure class="vision-photo" data-label="管理者浏览 AI 汇总视图">
-                  <img src="https://images.pexels.com/photos/3861964/pexels-photo-3861964.jpeg?auto=compress&cs=tinysrgb&w=800" alt="管理者在电脑前查看可视化数据与看板" loading="lazy">
-                </figure>
+        </div>
+
+        <div class="hero-panel" aria-label="产品界面示意">
+          <div class="panel-top">
+            <span>今日经营简报</span>
+            <span class="traffic"><i></i><i></i><i></i></span>
+          </div>
+          <div class="dashboard">
+            <div class="metric-row">
+              <div class="metric"><span>待处理日程包</span><strong>3</strong></div>
+              <div class="metric"><span>经营数据期间</span><strong>04</strong></div>
+              <div class="metric"><span>高价值商机</span><strong>12</strong></div>
+            </div>
+            <div class="briefing">
+              <h3>AI 快捷问题</h3>
+              <p>基于最新经营数据，汇总收入异常部门、商机推进风险与今日管理重点。</p>
+              <div class="risk-list">
+                <div class="risk"><b>经营完成率</b><span class="tag green">正常</span></div>
+                <div class="risk"><b>商机停滞</b><span class="tag amber">关注</span></div>
+                <div class="risk"><b>考勤异常</b><span class="tag red">预警</span></div>
               </div>
             </div>
           </div>
@@ -1152,118 +605,152 @@
       </div>
     </section>
 
-    <section class="features" id="features">
-      <div class="container">
-        <p class="section-label">核心能力</p>
-        <h2 class="section-title">数字秘书 · 汇报与洞察</h2>
-        <p class="section-desc">从分散的工作汇报到结构化的智能洞察，智汇参谋打通汇报者与管理者之间的信息鸿沟，让各级管理者在第一时间掌握团队进展与风险。</p>
+    <section id="features">
+      <div class="shell">
+        <div class="section-head center">
+          <p class="section-label">核心能力</p>
+          <h2>围绕经营管理闭环组织信息</h2>
+          <p class="section-copy">当前应用不是单一报表页，而是面向管理者日常工作的工作台：先聚合事实，再辅助判断，最后回到行动。</p>
+        </div>
         <div class="feature-grid">
-          <article class="feature-card">
-            <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-            <h3>工作汇报</h3>
-            <p>类 Jira 模块同步项目进展，支持附加飞书文档与表格链接。汇报者与管理者的双视角设计，让填表与审阅都更高效。工作项看板与工时追踪，一目了然。</p>
+          <article class="feature">
+            <span class="icon">01</span>
+            <h3>工作台总览</h3>
+            <p>默认展示今日经营简报、今日日程、协作提醒、Top 商机与 AI 快捷问题。</p>
           </article>
-          <article class="feature-card">
-            <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></div>
-            <h3>AI 智能汇总</h3>
-            <p>汇聚下属多模块汇报，一键生成结构化周报与日报。支持自然语言追问，深入挖掘进展与风险。从原始数据到可执行的洞察，让决策更从容。</p>
+          <article class="feature">
+            <span class="icon">02</span>
+            <h3>数据中枢</h3>
+            <p>经营、商机、出差、考勤、人员、规划以统一入口组织，支持按模块切换。</p>
           </article>
-          <article class="feature-card">
-            <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
-            <h3>多层级权限</h3>
-            <p>总裁、总监、经理、主管逐层可见，满足组织层级管控需求。权限与组织架构挂钩，确保敏感信息只对授权人开放，同时保持汇报链路的清晰。</p>
+          <article class="feature">
+            <span class="icon">03</span>
+            <h3>智能体分析</h3>
+            <p>技能化 Agent 可调用组织解析、经营查询、月度规划和文件读取工具。</p>
           </article>
-          <article class="feature-card">
-            <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg></div>
-            <h3>插件式模块</h3>
-            <p>日程、数据、商机、考勤等按需启用，私有化部署灵活裁剪。模块化架构让企业可根据自身场景定制功能，避免过度冗余，控制总体拥有成本。</p>
+          <article class="feature">
+            <span class="icon">04</span>
+            <h3>多端交付</h3>
+            <p>同一套前端可构建 Web、Windows/macOS/Linux 桌面端与 Android APK。</p>
           </article>
         </div>
       </div>
     </section>
 
-    <section class="illustration-section">
-      <div class="container">
-        <div class="illustration-block">
-          <div class="illustration-content">
-            <h3>汇报 → 汇总 → 洞察</h3>
-            <p>智汇参谋将分散的工作汇报统一汇聚，经 AI 引擎提炼为结构化摘要，再按层级推送给相应管理者。从原始信息到可行动的洞察，全程自动化。</p>
-            <p>支持自然语言追问，管理者可以针对任何汇报内容深入挖掘，获取更细粒度的进展与风险说明。</p>
-          </div>
-          <div class="illustration-visual">
-            <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="20" y="30" width="110" height="140" rx="8" fill="#0e0e16" stroke="rgba(34,211,238,0.2)" stroke-width="1"/>
-              <rect x="30" y="45" width="90" height="8" rx="4" fill="rgba(34,211,238,0.3)"/>
-              <rect x="30" y="65" width="70" height="6" rx="3" fill="rgba(34,211,238,0.15)"/>
-              <rect x="30" y="78" width="80" height="6" rx="3" fill="rgba(34,211,238,0.15)"/>
-              <rect x="30" y="91" width="60" height="6" rx="3" fill="rgba(34,211,238,0.15)"/>
-              <path d="M130 100 L200 100" stroke="#22d3ee" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
-              <circle cx="200" cy="100" r="25" fill="#0e0e16" stroke="#22d3ee" stroke-width="2" opacity="0.8"/>
-              <text x="200" y="106" fill="#22d3ee" font-size="14" font-weight="700" text-anchor="middle">AI</text>
-              <path d="M225 100 L295 100" stroke="#22d3ee" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
-              <rect x="295" y="55" width="85" height="90" rx="8" fill="#0e0e16" stroke="rgba(34,211,238,0.3)" stroke-width="1"/>
-              <rect x="305" y="70" width="65" height="6" rx="3" fill="rgba(34,211,238,0.4)"/>
-              <rect x="305" y="85" width="55" height="5" rx="2" fill="rgba(34,211,238,0.2)"/>
-              <rect x="305" y="98" width="60" height="5" rx="2" fill="rgba(34,211,238,0.2)"/>
-              <rect x="305" y="111" width="50" height="5" rx="2" fill="rgba(34,211,238,0.2)"/>
-              <rect x="305" y="124" width="70" height="5" rx="2" fill="rgba(34,211,238,0.2)"/>
-            </svg>
+    <section id="modules">
+      <div class="shell">
+        <div class="section-head">
+          <p class="section-label">业务模块</p>
+          <h2>按管理场景拆分，按权限与配置启用</h2>
+          <p class="section-copy">模块注册表当前包含工作台、数据、AI、设置四个导航分组，具体模块可由组织配置启停。</p>
+        </div>
+        <div class="module-grid">
+          <article class="module">
+            <div class="kicker">WORKSPACE</div>
+            <h3>简报 / 日程 / 收件箱 / 链接</h3>
+            <p>管理者从首页进入经营简报，处理日程、同事转交的日程包和常用业务系统入口。</p>
+          </article>
+          <article class="module">
+            <div class="kicker">DATA</div>
+            <h3>经营数据</h3>
+            <p>支持月度与累计视角、指标选择、层级筛选、表格与图表切换，并结合预警阈值标记异常。</p>
+          </article>
+          <article class="module">
+            <div class="kicker">DATA</div>
+            <h3>商机台账</h3>
+            <p>按快照查看项目、市场负责人、商机属性和首年营收等核心字段，辅助识别推进风险。</p>
+          </article>
+          <article class="module">
+            <div class="kicker">DATA</div>
+            <h3>出差与考勤</h3>
+            <p>查看当前在途人员、出差记录、部门考勤汇总、迟到早退与请假统计。</p>
+          </article>
+          <article class="module">
+            <div class="kicker">DATA</div>
+            <h3>人员组织</h3>
+            <p>展示组织架构树、快照变动和部门详情，为权限、经营层级与 AI 查询提供基础上下文。</p>
+          </article>
+          <article class="module">
+            <div class="kicker">DATA</div>
+            <h3>经营规划</h3>
+            <p>承载月度计划与预算数据，让经营结果可以和目标进行对照分析。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="agent">
+      <div class="shell agent-layout">
+        <div class="section-head">
+          <p class="section-label">AI ANALYSIS</p>
+          <h2>把查询能力封装进智能体</h2>
+          <p class="section-copy">AI 分析页从技能系统加载已启用 Agent。用户在设置页配置模型供应商、API URL、API Key 和模型名后，可以进行经营分析对话。</p>
+        </div>
+        <div class="agent-card">
+          <h3>经营分析智能体</h3>
+          <p>支持对话记忆压缩、工具调用过程展示、Markdown 渲染、代码复制、图表预览和本地 SQLite 对话持久化。</p>
+          <div class="tool-list">
+            <div class="tool">resolve_org_nodes</div>
+            <div class="tool">query_with_hierarchy</div>
+            <div class="tool">query_monthly_plan</div>
+            <div class="tool">query_biz_data</div>
+            <div class="tool">read_file</div>
+            <div class="tool">financial-analysis skill</div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="platforms" id="platforms">
-      <div class="container">
-        <p class="section-label">多端支持</p>
-        <h2 class="section-title">跨平台无缝体验</h2>
-        <p class="section-desc">智汇参谋支持桌面端与移动端，无论您使用 macOS、Windows、Linux 或 Android，均可获得一致的高效体验。Web 端随时访问，数据实时同步。</p>
-        <div class="platform-grid">
-          <div class="platform-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-            macOS
-          </div>
-          <div class="platform-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.557v12.886c0 .614.501 1.112 1.12 1.112h15.76c.619 0 1.12-.498 1.12-1.112V5.557c0-.614-.501-1.112-1.12-1.112H4.12C3.501 4.445 3 4.943 3 5.557zM18.4 6.67h2.4v2.223h-2.4V6.67zM15.2 6.67h2.4v2.223h-2.4V6.67zM4.8 6.67h8.8v10.666H4.8V6.67z"/></svg>
-            Windows
-          </div>
-          <div class="platform-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 2.047a.7.7 0 0 0-.985 0l-4.97 4.97a1.176 1.176 0 1 1-1.662-1.662l4.97-4.97a.7.7 0 0 0 0-.985l-.726-.726a.7.7 0 0 0-.985 0L9.772 7.216a1.176 1.176 0 0 1-1.662-1.662l4.97-4.97a.7.7 0 0 0 0-.986l-.72-.72a.7.7 0 0 0-.984 0L2.047 5.058a.7.7 0 0 0 0 .985l.72.72a.7.7 0 0 0 .984 0l1.176-1.176a1.176 1.176 0 1 1 1.662 1.662L4.614 8.492a.7.7 0 0 0 0 .985l.72.72a.7.7 0 0 0 .985 0l1.176-1.176a1.176 1.176 0 1 1 1.662 1.662l-1.176 1.176a.7.7 0 0 0 0 .984l.726.727a.7.7 0 0 0 .984 0l.752-.753 4.975 4.975a1.176 1.176 0 0 1-1.662 1.662l-4.975-4.975a.7.7 0 0 0-.984 0l-.727.726a.7.7 0 0 0 0 .985l4.97 4.97a.7.7 0 0 0 .985 0l.726-.726a.7.7 0 0 0 0-.984l-4.97-4.97a1.176 1.176 0 0 1 1.662-1.662l4.97 4.97a.7.7 0 0 0 .984 0l.726-.726a.7.7 0 0 0 0-.985l-4.97-4.97a1.176 1.176 0 0 1 1.662-1.662l4.97 4.97a.7.7 0 0 0 .985 0l.726-.726a.7.7 0 0 0 0-.985L17.523 2.047z"/></svg>
-            Linux
-          </div>
-          <div class="platform-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.4921 0-.8525-.2483-.8525-.6539 0-.4055.3604-.6539.8525-.6539.4921 0 .8525.2483.8525.6539 0 .4055-.3604.6539-.8525.6539zM24 12.4055v.0508c0 6.627-5.3729 12-12 12s-12-5.373-12-12 5.3729-12 12-12c3.3264 0 6.3605 1.3582 8.5605 3.5455L15.7184 8.206c-.4055-.4055-.4055-1.0635 0-1.469s1.0635-.4055 1.469 0l6.8421 6.7407c.4055.4055.4055 1.0635 0 1.469 0 0 0 0 0 0zm-12-.0508c-5.5144 0-10 4.4856-10 10s4.4856 10 10 10 10-4.4856 10-10-4.4856-10-10-10z"/></svg>
-            Android
-          </div>
-          <div class="platform-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8-3.582 8-8 8z"/><path d="M12 6v6l4 2"/></svg>
-            Web
-          </div>
+    <section id="delivery">
+      <div class="shell">
+        <div class="section-head center">
+          <p class="section-label">交付与安全</p>
+          <h2>前端、桌面、移动与公开页面各自有清晰发布链路</h2>
+          <p class="section-copy">仓库内置 CI、GitHub Pages 构建、Tauri Release 构建和公开产物安全扫描，降低私有数据误发布风险。</p>
+        </div>
+        <div class="steps">
+          <article class="step">
+            <h3>Web / Pages</h3>
+            <p>React 应用构建到 app/dist；产品页从 docs 生成 .pages-artifact 后发布到 GitHub Pages。</p>
+          </article>
+          <article class="step">
+            <h3>桌面 / Android</h3>
+            <p>Tauri 2 负责桌面端与 Android APK 打包，Deep Link scheme 为 canmou。</p>
+          </article>
+          <article class="step">
+            <h3>数据边界</h3>
+            <p>private-data、docs/data 和 Excel 文件不会进入公开产物；CI 会检查 RLS、密钥和私有数据。</p>
+          </article>
         </div>
       </div>
     </section>
 
-    <section class="tech">
-      <div class="container">
-        <p class="section-label">技术栈</p>
-        <h2 class="section-title">现代技术，可靠交付</h2>
-        <p class="section-desc">基于 React 19、TypeScript、Supabase 与 Tauri 2 构建，兼顾开发效率与运行时性能。支持私有化部署，数据安全可控。</p>
-        <div class="tech-list">
-          <span>React 19</span>
-          <span>TypeScript</span>
-          <span>Vite 7</span>
-          <span>Supabase</span>
-          <span>Tauri 2</span>
-          <span>Rust</span>
+    <section>
+      <div class="shell">
+        <div class="section-head">
+          <p class="section-label">技术栈</p>
+          <h2>围绕快速迭代和私有化部署选型</h2>
+        </div>
+        <div class="stack">
+          <span class="chip">React 19</span>
+          <span class="chip">TypeScript</span>
+          <span class="chip">Vite 7</span>
+          <span class="chip">Tailwind CSS</span>
+          <span class="chip">Supabase</span>
+          <span class="chip">Tauri 2</span>
+          <span class="chip">Rust</span>
+          <span class="chip">SQLite</span>
+          <span class="chip">Vitest</span>
+          <span class="chip">GitHub Actions</span>
         </div>
       </div>
     </section>
   </main>
 
-  <footer>
-    <div class="container">
-      <p>智汇参谋 Canmou · 数字秘书 · 员工向 AI 汇报工作</p>
-      <p style="margin-top: 12px;">助力总裁、总监、经理、主管各层级高效决策 · <a href="https://github.com/zhangks93/ZhiHuiCanMou" target="_blank" rel="noopener">GitHub 开源项目</a></p>
+  <footer class="footer">
+    <div class="shell footer-row">
+      <div>智汇参谋 Canmou · 企业经营智能助手</div>
+      <a href="https://github.com/zhangks93/ZhiHuiCanMou" target="_blank" rel="noopener">GitHub Repository</a>
     </div>
   </footer>
 </body>
