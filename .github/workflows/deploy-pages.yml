@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'docs/**'
-      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,13 +25,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
+
+      - name: Prepare public artifact
+        run: node scripts/prepare-pages-artifact.mjs --source docs --out .pages-artifact
+
+      - name: Validate public artifact
+        run: node scripts/check-public-artifacts.mjs --dir .pages-artifact
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: .pages-artifact
 
       - name: Deploy to GitHub Pages
         id: deployment

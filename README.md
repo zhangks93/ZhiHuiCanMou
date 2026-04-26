@@ -48,6 +48,9 @@ npm run tauri:android:dev
 ## 产品展示页（GitHub Pages）
 
 `docs/` 目录包含产品宣传页，推送代码后会自动部署到 GitHub Pages。
+公开站点发布前会先生成 `.pages-artifact/`，自动排除 `docs/data/` 和 Excel 文件。
+
+私有业务数据请放到 `private-data/`，不要再放入 `docs/data/`。
 
 **首次启用：**
 
@@ -87,6 +90,15 @@ npm run build:exe
    ```
 
 产物位于 `app/src-tauri/gen/android/app/build/outputs/apk/`。
+
+### Release Workflow
+
+GitHub Release 构建现在只在以下情况下触发：
+
+- Actions 页面手动触发 `Build and Release`
+- 推送 `app-v*` tag
+
+日常推送到 `main` 只会跑 `CI` 与 `GitHub Pages`。
 
 ### 应用图标
 

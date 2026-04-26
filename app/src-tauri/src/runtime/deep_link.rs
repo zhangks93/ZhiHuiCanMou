@@ -77,7 +77,17 @@ fn handle_auth_callback(handle: &tauri::AppHandle, url: &str, state: Arc<Mutex<D
         return;
     }
 
-    if !has_required_auth_tokens(&params) {
+    let sanitized_params = sanitize_auth_params(&params);
+    if sanitized_params.is_empty() {
+        emit_error(
+            handle,
+            "DEEP_LINK_FAILED",
+            "No supported authentication parameters in deep link",
+        );
+        return;
+    }
+
+    if !has_required_auth_tokens(&sanitized_params) {
         emit_error(
             handle,
             "MISSING_TOKENS",
@@ -91,7 +101,7 @@ fn handle_auth_callback(handle: &tauri::AppHandle, url: &str, state: Arc<Mutex<D
         return;
     };
 
-    let target_hash = format!("/auth-callback#{params}");
+    let target_hash = format!("/auth-callback#{sanitized_params}");
     let serialized_hash = match serde_json::to_string(&target_hash) {
         Ok(value) => value,
         Err(error) => {
@@ -154,7 +164,29 @@ fn has_required_auth_tokens(params: &str) -> bool {
         .filter_map(|pair| pair.split_once('='))
         .collect::<HashMap<_, _>>();
 
-    query_pairs.contains_key("access_token") && query_pairs.contains_key("refresh_token")
+    matches!(query_pairs.get("access_token"), Some(value) if !value.is_empty())
+        && matches!(query_pairs.get("refresh_token"), Some(value) if !value.is_empty())
+}
+
+fn sanitize_auth_params(params: &str) -> String {
+    const ALLOWED_KEYS: &[&str] = &[
+        "access_token",
+        "refresh_token",
+        "expires_at",
+        "expires_in",
+        "provider_token",
+        "provider_refresh_token",
+        "token_type",
+        "type",
+    ];
+
+    params
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .filter(|(key, value)| ALLOWED_KEYS.contains(key) && !value.is_empty())
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join("&")
 }
 
 fn emit_success(handle: &tauri::AppHandle) {

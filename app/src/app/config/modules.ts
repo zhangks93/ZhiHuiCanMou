@@ -62,6 +62,22 @@ export interface ModuleNavConfig {
   sortOrder: number
 }
 
+export const DATA_MODULE_IDS = [
+  'biz-data',
+  'opportunity',
+  'trip',
+  'attendance',
+  'org-data',
+  'planning',
+  'competitor',
+] as const
+
+export type DataModuleId = (typeof DATA_MODULE_IDS)[number]
+
+export function isDataModuleId(value: string): value is DataModuleId {
+  return (DATA_MODULE_IDS as readonly string[]).includes(value)
+}
+
 export const MODULE_NAV_CONFIG: Record<string, Omit<ModuleNavConfig, 'id'>> = {
   schedule: {
     label: '日程',

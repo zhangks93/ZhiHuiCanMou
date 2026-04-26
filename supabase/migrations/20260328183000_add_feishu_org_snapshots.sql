@@ -70,43 +70,22 @@ drop policy if exists feishu_sync_runs_select on public.feishu_sync_runs;
 create policy feishu_sync_runs_select
   on public.feishu_sync_runs
   for select
-  to public
-  using (true);
-
-drop policy if exists feishu_sync_runs_insert on public.feishu_sync_runs;
-create policy feishu_sync_runs_insert
-  on public.feishu_sync_runs
-  for insert
-  to public
-  with check (true);
+  to authenticated
+  using (auth.uid() is not null);
 
 drop policy if exists feishu_department_snapshots_select on public.feishu_department_snapshots;
 create policy feishu_department_snapshots_select
   on public.feishu_department_snapshots
   for select
-  to public
-  using (true);
-
-drop policy if exists feishu_department_snapshots_insert on public.feishu_department_snapshots;
-create policy feishu_department_snapshots_insert
-  on public.feishu_department_snapshots
-  for insert
-  to public
-  with check (true);
+  to authenticated
+  using (auth.uid() is not null);
 
 drop policy if exists feishu_member_snapshots_select on public.feishu_member_snapshots;
 create policy feishu_member_snapshots_select
   on public.feishu_member_snapshots
   for select
-  to public
-  using (true);
-
-drop policy if exists feishu_member_snapshots_insert on public.feishu_member_snapshots;
-create policy feishu_member_snapshots_insert
-  on public.feishu_member_snapshots
-  for insert
-  to public
-  with check (true);
+  to authenticated
+  using (auth.uid() is not null);
 
 create or replace view public.feishu_department_member_changes as
 with ranked_runs as (

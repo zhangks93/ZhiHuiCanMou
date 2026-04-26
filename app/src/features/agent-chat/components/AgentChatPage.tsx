@@ -205,13 +205,6 @@ export function AgentChatPage({
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  useEffect(() => {
-    if (isHydrating) return
-    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-      setSidebarOpen(true)
-    }
-  }, [isHydrating])
-
   const handleMessagesScroll = useCallback(() => {
     const container = messagesContainerRef.current
     if (!container) return
@@ -276,7 +269,7 @@ export function AgentChatPage({
     }
   }, [messages, streamingMsg])
 
-  const handleNewConversation = useCallback(async () => {
+  const handleNewConversation = async () => {
     const conversation = createConversation()
     const nextConversations = [conversation, ...conversations]
     setActiveConversationId(conversation.id)
@@ -287,9 +280,9 @@ export function AgentChatPage({
       setSidebarOpen(false)
     }
     textareaRef.current?.focus()
-  }, [conversations, syncConversationPersistence])
+  }
 
-  const handleSelectConversation = useCallback(async (id: string) => {
+  const handleSelectConversation = async (id: string) => {
     if (isStreaming) return
 
     if (activeConversationId && messages.length > 0) {
@@ -316,7 +309,7 @@ export function AgentChatPage({
     if (window.innerWidth < 1024) {
       setSidebarOpen(false)
     }
-  }, [conversations, activeConversationId, messages, isStreaming, syncConversationPersistence])
+  }
 
   const handleDeleteConversation = useCallback(async (id: string) => {
     if (isStreaming) return

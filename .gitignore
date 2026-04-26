@@ -1,0 +1,6 @@
+/private-data/
+/docs/data/
+/.pages-artifact/
+*.xls
+*.xlsx
+~$*

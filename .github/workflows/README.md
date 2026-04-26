@@ -1,13 +1,16 @@
-# GitHub Actions 构建说明
+# GitHub Actions 说明
 
-## 工作流说明
+## 工作流
 
-`build-release.yml` 用于自动构建智汇参谋的 Windows exe 和 Android APK，并上传到 GitHub Release。
+- `ci.yml`：每次 `pull_request` 和 `main` push 执行前端 lint/build、Pages 公开产物扫描、RLS 扫描、密钥扫描、Rust fmt 检查。
+- `deploy-pages.yml`：发布 `docs/` 里的公开站点内容，但实际上传前会先生成 `.pages-artifact/`，自动排除 `docs/data/` 和 Excel 文件。
+- `build-release.yml`：仅手动触发或推送 `app-v*` tag 时构建桌面端和 Android 产物，并上传到 GitHub Release。
 
 ## 触发方式
 
-1. **手动触发**：在 GitHub 仓库的 Actions 页面选择 "Build and Release" 工作流，点击 "Run workflow"
-2. **推送触发**：推送到 `release` 分支时自动触发
+1. `CI`：Pull Request 与推送到 `main` 自动触发
+2. `Deploy GitHub Pages`：推送到 `main` 或手动触发
+3. `Build and Release`：手动触发，或推送 `app-v*` tag 时触发
 
 ## 构建产物
 
@@ -15,6 +18,12 @@
 - **Android**：`.apk` 安装包
 
 构建完成后，产物会上传到同一条 GitHub Release 的 Draft 中。
+
+## Pages 安全边界
+
+- 公开站点源码保留在 `docs/`
+- 私有业务数据必须放在 `private-data/`，禁止继续提交到 `docs/data/`
+- Pages workflow 发布前会运行公开产物扫描，发现 `docs/data/`、`.xls`、`.xlsx` 或敏感命名文件会直接失败
 
 ## 前置配置
 

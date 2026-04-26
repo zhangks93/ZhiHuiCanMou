@@ -128,7 +128,9 @@ impl ScheduleService {
         bytes: Vec<u8>,
     ) -> AppResult<ScheduleImportResult> {
         if !file_name.to_ascii_lowercase().ends_with(".xlsx") {
-            return Err(AppError::message("Only .xlsx Feishu calendar exports are supported"));
+            return Err(AppError::message(
+                "Only .xlsx Feishu calendar exports are supported",
+            ));
         }
 
         let rows = parse_feishu_workbook(bytes)?;
@@ -355,7 +357,12 @@ where
         }
 
         imported_dates.insert(item.date.clone());
-        upsert_imported_item(transaction, item, &mut inserted_count, &mut overwritten_count)?;
+        upsert_imported_item(
+            transaction,
+            item,
+            &mut inserted_count,
+            &mut overwritten_count,
+        )?;
     }
 
     let mut imported_dates = imported_dates.into_iter().collect::<Vec<_>>();
@@ -457,10 +464,11 @@ fn parse_feishu_workbook(bytes: Vec<u8>) -> AppResult<Vec<FeishuScheduleImportRo
         }
 
         let title = title.ok_or_else(|| AppError::message("Feishu schedule title is required"))?;
-        let start_text = start_text
-            .ok_or_else(|| AppError::message(format!("Schedule start time is required: {title}")))?;
-        let end_text =
-            end_text.ok_or_else(|| AppError::message(format!("Schedule end time is required: {title}")))?;
+        let start_text = start_text.ok_or_else(|| {
+            AppError::message(format!("Schedule start time is required: {title}"))
+        })?;
+        let end_text = end_text
+            .ok_or_else(|| AppError::message(format!("Schedule end time is required: {title}")))?;
 
         let (date, start_time, period) = parse_feishu_datetime(&start_text)?;
         let (_, end_time, _) = parse_feishu_datetime(&end_text)?;
@@ -508,7 +516,9 @@ fn parse_feishu_workbook(bytes: Vec<u8>) -> AppResult<Vec<FeishuScheduleImportRo
     }
 
     if imported_rows.is_empty() {
-        return Err(AppError::message("No schedule rows found in Feishu workbook"));
+        return Err(AppError::message(
+            "No schedule rows found in Feishu workbook",
+        ));
     }
 
     Ok(imported_rows)
@@ -523,7 +533,9 @@ fn header_index(header: &[Data], expected: &str) -> AppResult<usize> {
 
 fn parse_feishu_datetime(value: &str) -> AppResult<(String, String, String)> {
     let datetime = NaiveDateTime::parse_from_str(value, "%Y/%m/%d %H:%M").map_err(|error| {
-        AppError::message(format!("Invalid Feishu schedule datetime '{value}': {error}"))
+        AppError::message(format!(
+            "Invalid Feishu schedule datetime '{value}': {error}"
+        ))
     })?;
 
     let timezone = FixedOffset::east_opt(8 * 3600)
@@ -616,7 +628,10 @@ fn normalize_feishu_text(value: Option<String>) -> Option<String> {
 }
 
 fn first_non_empty(values: Vec<Option<String>>) -> Option<String> {
-    values.into_iter().flatten().find(|value| !value.trim().is_empty())
+    values
+        .into_iter()
+        .flatten()
+        .find(|value| !value.trim().is_empty())
 }
 
 #[cfg(test)]
@@ -652,7 +667,8 @@ mod tests {
     fn import_transfer_items_overwrites_core_fields_but_keeps_notes() {
         let mut connection = Connection::open_in_memory().expect("open memory db");
         schema::ensure(&connection).expect("ensure schema");
-        seed_schedule(&connection, "existing-1", "旧标题", Some("保留纪要")).expect("seed schedule");
+        seed_schedule(&connection, "existing-1", "旧标题", Some("保留纪要"))
+            .expect("seed schedule");
 
         let transaction = connection.transaction().expect("begin transaction");
         let result = import_schedule_items(

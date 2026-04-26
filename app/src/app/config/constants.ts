@@ -2,6 +2,8 @@
  * Application constants
  */
 
+import type { DataModuleId } from '@/app/config/modules'
+
 export const APP_NAME = '智汇参谋'
 export const APP_DESCRIPTION = '企业智能助手'
 
@@ -29,7 +31,7 @@ export function buildWorkspaceHref(tab?: 'schedule' | 'inbox' | 'links') {
 }
 
 export function buildDataHref(
-  tab: 'org-data' | 'planning' | 'biz-data' | 'competitor' | 'opportunity' | 'trip' | 'attendance' = 'org-data',
+  tab: DataModuleId = 'org-data',
 ) {
   return `${ROUTES.DATA}?tab=${tab}`
 }

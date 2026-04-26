@@ -1,6 +1,5 @@
 use crate::features::schedule::{
-    ScheduleImportResult, ScheduleItem, ScheduleItemDraft, ScheduleService,
-    ScheduleTransferPayload,
+    ScheduleImportResult, ScheduleItem, ScheduleItemDraft, ScheduleService, ScheduleTransferPayload,
 };
 
 #[tauri::command]
@@ -38,9 +37,9 @@ pub async fn schedule_update_meeting_notes(
     tauri::async_runtime::spawn_blocking(move || {
         service.update_meeting_notes(&item_id, &meeting_notes)
     })
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(Into::into)
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(Into::into)
 }
 
 #[tauri::command]

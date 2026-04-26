@@ -1,15 +1,13 @@
 """
 Import visible sheets from the latest opportunity workbook into Supabase.
 
-Target table:
-1. opportunity_snapshot_items
-
 Dependencies:
   pip install pandas openpyxl httpx
 
 Usage:
-  python scripts/import_opportunity_ledger.py
   python scripts/import_opportunity_ledger.py --dry-run
+  python scripts/import_opportunity_ledger.py --confirm
+  python scripts/import_opportunity_ledger.py --input private-data/2025学年商机项目台账.xlsx --confirm
 """
 
 from __future__ import annotations
@@ -18,6 +16,7 @@ import argparse
 import math
 import os
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -27,19 +26,8 @@ import httpx
 import pandas as pd
 from openpyxl import load_workbook
 
-SUPABASE_URL = os.environ.get(
-    "SUPABASE_URL", "https://kwwoyzaeczecddilwajs.supabase.co"
-)
-SUPABASE_KEY = os.environ.get(
-    "SUPABASE_KEY",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d295emFlY3plY2RkaWx3YWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjU4NjQsImV4cCI6MjA4NjUwMTg2NH0.N37UdA8gi1PL4F5TEIi4NPOuoWljnNCzGfXMKtFSHYY",
-)
-DEFAULT_XLSX_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "docs"
-    / "data"
-    / "2025学年商机项目台账.xlsx"
-)
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_XLSX_PATH = ROOT_DIR / "private-data" / "2025学年商机项目台账.xlsx"
 
 TABLE_NAME = "opportunity_snapshot_items"
 
@@ -63,14 +51,30 @@ class SheetImport:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import opportunity ledger workbook into Supabase.")
-    parser.add_argument("--xlsx", default=str(DEFAULT_XLSX_PATH), help="Path to the workbook.")
+    parser.add_argument("--input", default=str(DEFAULT_XLSX_PATH), help="Path to the workbook.")
     parser.add_argument("--dry-run", action="store_true", help="Parse only. Do not write to Supabase.")
+    parser.add_argument("--confirm", action="store_true", help="Confirm replacement writes.")
     return parser.parse_args()
 
 
-def require_env() -> None:
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set.")
+def load_app_env() -> None:
+    env_path = ROOT_DIR / "app" / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+def require_env() -> tuple[str, str]:
+    load_app_env()
+    supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
+    service_role_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not supabase_url or not service_role_key:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
+    return supabase_url, service_role_key
 
 
 def is_nan(value: Any) -> bool:
@@ -237,31 +241,32 @@ def post_json(
 def delete_snapshot_rows(
     client: httpx.Client,
     headers: dict[str, str],
+    supabase_url: str,
     snapshot_date: str,
 ) -> None:
     response = client.delete(
-        f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?snapshot_date=eq.{snapshot_date}",
+        f"{supabase_url}/rest/v1/{TABLE_NAME}?snapshot_date=eq.{snapshot_date}",
         headers=headers,
     )
     response.raise_for_status()
 
 
 def import_to_supabase(imports: list[SheetImport]) -> None:
-    require_env()
+    supabase_url, service_role_key = require_env()
 
     headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}",
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
-    ledger_url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}"
+    ledger_url = f"{supabase_url}/rest/v1/{TABLE_NAME}"
 
     with httpx.Client(timeout=30) as client:
         print(f"[1/2] Replacing snapshot rows in {TABLE_NAME}...")
         inserted_rows = 0
         for sheet_import in imports:
-            delete_snapshot_rows(client, headers, sheet_import.snapshot_date)
+            delete_snapshot_rows(client, headers, supabase_url, sheet_import.snapshot_date)
             batch_size = 100
             for offset in range(0, len(sheet_import.rows), batch_size):
                 batch = sheet_import.rows[offset : offset + batch_size]
@@ -277,7 +282,7 @@ def import_to_supabase(imports: list[SheetImport]) -> None:
 
 def main() -> None:
     args = parse_args()
-    xlsx_path = Path(args.xlsx).resolve()
+    xlsx_path = Path(args.input).resolve()
     if not xlsx_path.exists():
         raise FileNotFoundError(f"Workbook not found: {xlsx_path}")
 
@@ -309,6 +314,10 @@ def main() -> None:
     if args.dry_run:
         print("Dry run complete. No data written.")
         return
+
+    if not args.confirm:
+        print("This operation replaces snapshot rows. Re-run with --confirm to execute.")
+        sys.exit(2)
 
     import_to_supabase(imports)
 

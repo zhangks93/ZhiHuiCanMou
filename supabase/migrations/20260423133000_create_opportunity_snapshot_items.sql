@@ -30,12 +30,13 @@ create index if not exists opportunity_snapshot_items_project_name_idx
 
 alter table public.opportunity_snapshot_items enable row level security;
 
+drop policy if exists "authenticated read access to opportunity_snapshot_items" on public.opportunity_snapshot_items;
 drop policy if exists "allow all access to opportunity_snapshot_items" on public.opportunity_snapshot_items;
-create policy "allow all access to opportunity_snapshot_items"
+create policy "authenticated read access to opportunity_snapshot_items"
   on public.opportunity_snapshot_items
-  for all
-  using (true)
-  with check (true);
+  for select
+  to authenticated
+  using (auth.uid() is not null);
 
 comment on table public.opportunity_snapshot_items is 'Opportunity snapshot rows imported from the simplified workbook structure';
 comment on column public.opportunity_snapshot_items.snapshot_date is 'Snapshot date parsed from sheet name using academic-year rules';

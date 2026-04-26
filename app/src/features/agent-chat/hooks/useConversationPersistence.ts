@@ -83,8 +83,9 @@ export function useConversationPersistence(options: UseConversationPersistenceOp
         if (cancelled) return
         setPersistenceError((error as Error).message || '加载历史对话失败')
       } finally {
-        if (cancelled) return
-        setIsHydrating(false)
+        if (!cancelled) {
+          setIsHydrating(false)
+        }
       }
     }
 

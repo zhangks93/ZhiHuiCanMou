@@ -29,7 +29,7 @@ create policy profiles_select_authenticated
   on public.profiles
   for select
   to authenticated
-  using (true);
+  using (auth.uid() is not null);
 
 drop policy if exists profiles_insert_self on public.profiles;
 create policy profiles_insert_self

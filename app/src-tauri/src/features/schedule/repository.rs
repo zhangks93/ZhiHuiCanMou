@@ -5,7 +5,10 @@ use rusqlite::{params, params_from_iter, Connection};
 pub struct ScheduleRepository;
 
 impl ScheduleRepository {
-    pub fn list_by_ids(connection: &Connection, item_ids: &[String]) -> AppResult<Vec<ScheduleItem>> {
+    pub fn list_by_ids(
+        connection: &Connection,
+        item_ids: &[String],
+    ) -> AppResult<Vec<ScheduleItem>> {
         if item_ids.is_empty() {
             return Ok(Vec::new());
         }

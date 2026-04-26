@@ -32,12 +32,13 @@ create index if not exists opportunity_ledger_v2_project_name_idx
   on public.opportunity_ledger_v2 (project_name);
 
 alter table public.opportunity_ledger_v2 enable row level security;
+drop policy if exists "authenticated read access to opportunity_ledger_v2" on public.opportunity_ledger_v2;
 drop policy if exists "allow all access to opportunity_ledger_v2" on public.opportunity_ledger_v2;
-create policy "allow all access to opportunity_ledger_v2"
+create policy "authenticated read access to opportunity_ledger_v2"
   on public.opportunity_ledger_v2
-  for all
-  using (true)
-  with check (true);
+  for select
+  to authenticated
+  using (auth.uid() is not null);
 
 comment on table public.opportunity_ledger_v2 is 'Opportunity records parsed from the latest workbook, keeping Excel fields plus snapshot metadata';
 comment on column public.opportunity_ledger_v2.snapshot_date is 'Snapshot date parsed from sheet name using academic-year rules';

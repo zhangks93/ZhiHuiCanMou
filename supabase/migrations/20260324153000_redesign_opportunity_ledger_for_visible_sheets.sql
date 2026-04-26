@@ -83,20 +83,22 @@ create index if not exists opportunity_ledger_snapshots_snapshot_date_idx
   on public.opportunity_ledger_snapshots (snapshot_date desc);
 
 alter table public.opportunity_ledger enable row level security;
+drop policy if exists "authenticated read access to opportunity_ledger" on public.opportunity_ledger;
 drop policy if exists "allow all access to opportunity_ledger" on public.opportunity_ledger;
-create policy "allow all access to opportunity_ledger"
+create policy "authenticated read access to opportunity_ledger"
   on public.opportunity_ledger
-  for all
-  using (true)
-  with check (true);
+  for select
+  to authenticated
+  using (auth.uid() is not null);
 
 alter table public.opportunity_ledger_snapshots enable row level security;
+drop policy if exists "authenticated read access to opportunity_ledger_snapshots" on public.opportunity_ledger_snapshots;
 drop policy if exists "allow all access to opportunity_ledger_snapshots" on public.opportunity_ledger_snapshots;
-create policy "allow all access to opportunity_ledger_snapshots"
+create policy "authenticated read access to opportunity_ledger_snapshots"
   on public.opportunity_ledger_snapshots
-  for all
-  using (true)
-  with check (true);
+  for select
+  to authenticated
+  using (auth.uid() is not null);
 
 comment on table public.opportunity_ledger_snapshots is 'Visible-sheet import snapshots for the opportunity ledger workbook';
 comment on table public.opportunity_ledger is 'Row-level opportunity records parsed from visible workbook sheets';

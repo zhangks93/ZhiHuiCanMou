@@ -25,9 +25,9 @@ pub async fn agent_chat_save_conversations(
     tauri::async_runtime::spawn_blocking(move || {
         service.save_conversations(&agent_id, conversations, payload_records)
     })
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(Into::into)
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(Into::into)
 }
 
 #[tauri::command]
@@ -41,9 +41,9 @@ pub async fn agent_chat_upsert_conversation(
     tauri::async_runtime::spawn_blocking(move || {
         service.upsert_conversation(&agent_id, conversation, payload_records)
     })
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(Into::into)
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(Into::into)
 }
 
 #[tauri::command]
@@ -56,9 +56,9 @@ pub async fn agent_chat_prune_conversations(
     tauri::async_runtime::spawn_blocking(move || {
         service.prune_conversations(&agent_id, keep_conversation_ids)
     })
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(Into::into)
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(Into::into)
 }
 
 #[tauri::command]
@@ -71,9 +71,9 @@ pub async fn agent_chat_delete_conversation(
     tauri::async_runtime::spawn_blocking(move || {
         service.delete_conversation(&agent_id, &conversation_id)
     })
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(Into::into)
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(Into::into)
 }
 
 #[tauri::command]
@@ -86,7 +86,7 @@ pub async fn agent_chat_get_artifact_payload(
     tauri::async_runtime::spawn_blocking(move || {
         service.get_artifact_payload(&agent_id, &artifact_id)
     })
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(Into::into)
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(Into::into)
 }

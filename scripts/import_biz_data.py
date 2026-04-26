@@ -14,9 +14,12 @@
 注意：人力成本指标在主报表和成本分析表中都存在，导入时会自动去重，
 优先保留成本分析表（3.x/4.x）中的数据。
 
-用法: python scripts/import_biz_data.py
+用法:
+  python scripts/import_biz_data.py --dry-run
+  python scripts/import_biz_data.py --confirm
 """
 
+import argparse
 import os
 import sys
 import json
@@ -26,10 +29,20 @@ import requests
 from pathlib import Path
 
 # ─── 配置 ───────────────────────────────────────────────
-EXCEL_PATH = Path(__file__).parent.parent / "docs" / "data" / "25学年经营数据.xlsx"
-ORG_HIERARCHY_PATH = Path(__file__).parent.parent / "docs" / "data" / "教育后勤2025经营数据看版_组织标签映射表-勿动.xlsx"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_EXCEL_PATH = ROOT_DIR / "private-data" / "25学年经营数据.xlsx"
+DEFAULT_ORG_HIERARCHY_PATH = ROOT_DIR / "private-data" / "教育后勤2025经营数据看版_组织标签映射表-勿动.xlsx"
 
-# 从 app/.env 读取 Supabase 配置
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="导入经营数据与组织映射到 Supabase")
+    parser.add_argument("--input", default=str(DEFAULT_EXCEL_PATH), help="经营数据 Excel 文件路径")
+    parser.add_argument("--org-map", default=str(DEFAULT_ORG_HIERARCHY_PATH), help="组织映射 Excel 文件路径")
+    parser.add_argument("--dry-run", action="store_true", help="仅解析并输出摘要，不写入数据库")
+    parser.add_argument("--confirm", action="store_true", help="确认执行覆盖写入")
+    return parser.parse_args()
+
+
 def load_env():
     env_path = Path(__file__).parent.parent / "app" / ".env"
     env = {}
@@ -41,22 +54,22 @@ def load_env():
                 env[k.strip()] = v.strip().strip('"').strip("'")
     return env
 
-env = load_env()
-SUPABASE_URL = env.get("VITE_SUPABASE_URL") or env.get("SUPABASE_URL", "")
-SUPABASE_KEY = env.get("VITE_SUPABASE_ANON_KEY") or env.get("SUPABASE_ANON_KEY", "")
-# 优先使用 service role key 以绕过 RLS
-SUPABASE_SERVICE_KEY = env.get("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
-
-if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-    print("错误: 未找到 Supabase 配置，请检查 app/.env")
-    sys.exit(1)
-
-HEADERS = {
-    "apikey": SUPABASE_SERVICE_KEY,
-    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-    "Content-Type": "application/json",
-    "Prefer": "return=minimal",
-}
+def require_supabase_env():
+    env = load_env()
+    supabase_url = os.getenv("SUPABASE_URL") or env.get("SUPABASE_URL") or env.get("VITE_SUPABASE_URL", "")
+    service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or env.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not supabase_url or not service_role_key:
+        print("错误: 未找到 SUPABASE_URL 或 SUPABASE_SERVICE_ROLE_KEY，请检查 app/.env 或当前环境变量")
+        sys.exit(1)
+    return {
+        "SUPABASE_URL": supabase_url,
+        "HEADERS": {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        },
+    }
 
 # ─── Sheet 类型映射（按主编号）────────────────────────────
 MAIN_SHEET_REPORT_TYPES = {
@@ -406,13 +419,13 @@ def discover_sheet_codes(wb, allowed_major_codes: set[str]) -> list[str]:
     return sorted(discovered, key=sheet_code_sort_key)
 
 
-def upsert_batch(table: str, rows: list[dict], batch_size: int = 500):
+def upsert_batch(supabase_url: str, headers: dict, table: str, rows: list[dict], batch_size: int = 500):
     """分批写入 Supabase"""
-    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    url = f"{supabase_url}/rest/v1/{table}"
     total = 0
     for i in range(0, len(rows), batch_size):
         batch = rows[i : i + batch_size]
-        resp = requests.post(url, headers=HEADERS, data=json.dumps(batch))
+        resp = requests.post(url, headers=headers, data=json.dumps(batch))
         if resp.status_code not in (200, 201):
             print(f"  写入失败 (batch {i // batch_size + 1}): {resp.status_code}")
             print(f"  响应: {resp.text[:500]}")
@@ -421,10 +434,10 @@ def upsert_batch(table: str, rows: list[dict], batch_size: int = 500):
     return total
 
 
-def clear_table(table: str):
+def clear_table(supabase_url: str, headers: dict, table: str):
     """清空目标表"""
-    url = f"{SUPABASE_URL}/rest/v1/{table}?id=not.is.null"
-    resp = requests.delete(url, headers=HEADERS)
+    url = f"{supabase_url}/rest/v1/{table}?id=not.is.null"
+    resp = requests.delete(url, headers=headers)
     if resp.status_code in (200, 204):
         print(f"  已清空 {table}")
     else:
@@ -818,14 +831,20 @@ def parse_cost_sheets(wb, valid_nodes: set):
 
 
 def main():
-    print(f"读取 Excel: {EXCEL_PATH}")
-    if not EXCEL_PATH.exists():
-        print(f"错误: 文件不存在 {EXCEL_PATH}")
+    args = parse_args()
+    excel_path = Path(args.input).resolve()
+    org_hierarchy_path = Path(args.org_map).resolve()
+    print(f"读取 Excel: {excel_path}")
+    if not excel_path.exists():
+        print(f"错误: 文件不存在 {excel_path}")
+        sys.exit(1)
+    if not org_hierarchy_path.exists():
+        print(f"错误: 组织映射文件不存在 {org_hierarchy_path}")
         sys.exit(1)
 
     # 加载组织层级数据
-    print(f"\n加载组织层级映射: {ORG_HIERARCHY_PATH}")
-    org_hierarchy_rows = load_org_hierarchy(ORG_HIERARCHY_PATH)
+    print(f"\n加载组织层级映射: {org_hierarchy_path}")
+    org_hierarchy_rows = load_org_hierarchy(org_hierarchy_path)
 
     # 清理组织层级数据
     print("\n清理组织层级数据...")
@@ -835,15 +854,8 @@ def main():
     valid_nodes = {row["node_name"] for row in org_hierarchy_rows}
     print(f"  映射表中有 {len(valid_nodes)} 个有效节点")
 
-    wb = openpyxl.load_workbook(str(EXCEL_PATH), data_only=True, keep_links=False)
+    wb = openpyxl.load_workbook(str(excel_path), data_only=True, keep_links=False)
     print(f"共 {len(wb.sheetnames)} 个 sheet\n")
-
-    # 清空目标表
-    print("清空目标表...")
-    clear_table("edu_biz_report")
-    clear_table("edu_org_hierarchy")
-    clear_table(STRATEGY_PLAN_TABLE)
-    print()
 
     # 解析主报表（只导入映射表中存在的节点）
     print("解析经营数据报表 (1.x-2.x)...")
@@ -909,19 +921,44 @@ def main():
     strategy_plan_rows = parse_strategy_budget_sheet(wb)
     print(f"共 {len(strategy_plan_rows)} 条战略预算规划数据")
 
+    print("\n导入摘要:")
+    print(f"  组织节点: {len(org_hierarchy_rows)}")
+    print(f"  经营报表: {len(final_report_rows)}")
+    print(f"  战略预算: {len(strategy_plan_rows)}")
+    print("  目标表: edu_org_hierarchy, edu_biz_report, edu_strategy_budget_plan")
+
+    if args.dry_run:
+        print("\nDry run 完成，未写入数据库。")
+        wb.close()
+        return
+
+    if not args.confirm:
+        print("\n检测到将执行覆盖写入。请追加 --confirm 后重试。")
+        wb.close()
+        sys.exit(2)
+
+    supabase = require_supabase_env()
+
+    # 清空目标表
+    print("\n清空目标表...")
+    clear_table(supabase["SUPABASE_URL"], supabase["HEADERS"], "edu_biz_report")
+    clear_table(supabase["SUPABASE_URL"], supabase["HEADERS"], "edu_org_hierarchy")
+    clear_table(supabase["SUPABASE_URL"], supabase["HEADERS"], STRATEGY_PLAN_TABLE)
+    print()
+
     # 写入 Supabase（先写入层级表，再写入数据表，但无外键约束）
     print("\n写入 Supabase...")
 
     if org_hierarchy_rows:
-        n = upsert_batch("edu_org_hierarchy", org_hierarchy_rows)
+        n = upsert_batch(supabase["SUPABASE_URL"], supabase["HEADERS"], "edu_org_hierarchy", org_hierarchy_rows)
         print(f"  edu_org_hierarchy: 写入 {n}/{len(org_hierarchy_rows)} 条")
 
     if final_report_rows:
-        n = upsert_batch("edu_biz_report", final_report_rows)
+        n = upsert_batch(supabase["SUPABASE_URL"], supabase["HEADERS"], "edu_biz_report", final_report_rows)
         print(f"  edu_biz_report: 写入 {n}/{len(final_report_rows)} 条")
 
     if strategy_plan_rows:
-        n = upsert_batch(STRATEGY_PLAN_TABLE, strategy_plan_rows)
+        n = upsert_batch(supabase["SUPABASE_URL"], supabase["HEADERS"], STRATEGY_PLAN_TABLE, strategy_plan_rows)
         print(f"  {STRATEGY_PLAN_TABLE}: 写入 {n}/{len(strategy_plan_rows)} 条")
 
     print("\n完成!")
