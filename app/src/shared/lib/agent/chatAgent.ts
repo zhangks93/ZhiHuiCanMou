@@ -14,6 +14,11 @@ interface ToolExecutionState {
   repeatedCachedCoreCallCounts: Map<string, number>
 }
 
+interface OpenAICompatibleCapabilities {
+  reasoningReplay: boolean
+  reasoningField: 'reasoning_content' | 'reasoning'
+}
+
 const MAX_TOOL_CALL_DEPTH = 12
 const MAX_CACHED_CORE_CALL_REUSE = 4
 const MAX_TOOL_RESULT_CHAR_BUDGET = 12000
@@ -311,6 +316,60 @@ function prepareToolResultForModel(name: string, content: string): string {
     : truncateText(content, MAX_TOOL_RESULT_CHAR_BUDGET, 'tool result exceeded model context budget')
 }
 
+function getOpenAICompatibleCapabilities(config: LLMConfig): OpenAICompatibleCapabilities {
+  const normalizedProvider = config.provider.toLowerCase()
+  const normalizedModel = config.model.toLowerCase()
+
+  const reasonerModelPatterns = [
+    /reasoner/,
+    /\br1\b/,
+    /reasoning/,
+    /thinking/,
+  ]
+  const isReasoningModel = reasonerModelPatterns.some(pattern => pattern.test(normalizedModel))
+
+  if (normalizedProvider === 'deepseek') {
+    return {
+      reasoningReplay: isReasoningModel || normalizedModel.startsWith('deepseek-v'),
+      reasoningField: 'reasoning_content',
+    }
+  }
+
+  if (normalizedProvider === 'openrouter') {
+    const routesToDeepSeek = normalizedModel.startsWith('deepseek/')
+      || normalizedModel.includes('/deepseek-')
+      || normalizedModel.includes('deepseek-r1')
+
+    return {
+      reasoningReplay: routesToDeepSeek,
+      reasoningField: routesToDeepSeek ? 'reasoning_content' : 'reasoning',
+    }
+  }
+
+  return {
+    reasoningReplay: false,
+    reasoningField: 'reasoning',
+  }
+}
+
+function buildAssistantApiMessage(
+  message: Pick<ChatMessage, 'content' | 'thinking'>,
+  capabilities: OpenAICompatibleCapabilities,
+  extra?: Record<string, unknown>,
+): Record<string, unknown> {
+  const assistantMessage: Record<string, unknown> = {
+    role: 'assistant',
+    content: message.content,
+    ...extra,
+  }
+
+  if (capabilities.reasoningReplay && message.thinking?.trim()) {
+    assistantMessage[capabilities.reasoningField] = message.thinking
+  }
+
+  return assistantMessage
+}
+
 export class ChatAgent {
   private config: LLMConfig
   private tools: Map<string, RegisteredTool> = new Map()
@@ -414,6 +473,7 @@ export class ChatAgent {
     depth: number,
     toolExecutionState: ToolExecutionState,
   ): AsyncGenerator<ChatStreamChunk> {
+    const capabilities = getOpenAICompatibleCapabilities(this.config)
     const body: Record<string, unknown> = {
       model: this.config.model,
       messages: apiMessages,
@@ -447,6 +507,7 @@ export class ChatAgent {
 
     const decoder = new TextDecoder()
     let buffer = ''
+    let assistantThinking = ''
     // Accumulate tool calls from streaming deltas
     const pendingToolCalls: Map<number, { id: string; name: string; arguments: string }> = new Map()
 
@@ -470,8 +531,10 @@ export class ChatAgent {
 
             // Thinking/reasoning content (DeepSeek, etc.)
             if (delta?.reasoning_content) {
+              assistantThinking += delta.reasoning_content
               yield { type: 'thinking', content: delta.reasoning_content }
             } else if (delta?.reasoning) {
+              assistantThinking += delta.reasoning
               yield { type: 'thinking', content: delta.reasoning }
             }
 
@@ -497,7 +560,15 @@ export class ChatAgent {
             // Check finish reason
             if (json.choices?.[0]?.finish_reason === 'tool_calls') {
               // Process accumulated tool calls
-              yield* this.processToolCalls(pendingToolCalls, apiMessages, toolDefs, depth, toolExecutionState)
+              yield* this.processToolCalls(
+                pendingToolCalls,
+                apiMessages,
+                toolDefs,
+                depth,
+                toolExecutionState,
+                assistantThinking,
+                capabilities,
+              )
               return
             }
           } catch {
@@ -511,7 +582,15 @@ export class ChatAgent {
 
     // After stream ends, check if we have pending tool calls (some APIs send finish_reason on last chunk)
     if (pendingToolCalls.size > 0) {
-      yield* this.processToolCalls(pendingToolCalls, apiMessages, toolDefs, depth, toolExecutionState)
+      yield* this.processToolCalls(
+        pendingToolCalls,
+        apiMessages,
+        toolDefs,
+        depth,
+        toolExecutionState,
+        assistantThinking,
+        capabilities,
+      )
     }
   }
 
@@ -521,6 +600,8 @@ export class ChatAgent {
     toolDefs: ToolDefinition[],
     depth: number,
     toolExecutionState: ToolExecutionState,
+    assistantThinking: string,
+    capabilities: OpenAICompatibleCapabilities,
   ): AsyncGenerator<ChatStreamChunk> {
     // Build assistant message with tool_calls for the API
     const assistantToolCalls = Array.from(pendingToolCalls.values()).map(tc => ({
@@ -531,7 +612,11 @@ export class ChatAgent {
 
     const updatedMessages = [
       ...apiMessages,
-      { role: 'assistant', tool_calls: assistantToolCalls },
+      buildAssistantApiMessage(
+        { content: '', thinking: assistantThinking },
+        capabilities,
+        { tool_calls: assistantToolCalls },
+      ),
     ]
     const cacheReuseReminders: string[] = []
     let shouldForceAnswerWithoutTools = false
@@ -924,6 +1009,7 @@ export class ChatAgent {
     systemPrompt?: string,
   ): Array<Record<string, unknown>> {
     const apiMessages: Array<Record<string, unknown>> = []
+    const capabilities = getOpenAICompatibleCapabilities(this.config)
 
     if (systemPrompt) {
       apiMessages.push({ role: 'system', content: systemPrompt })
@@ -931,6 +1017,10 @@ export class ChatAgent {
 
     for (const msg of messages) {
       if (msg.role === 'system') continue
+      if (msg.role === 'assistant') {
+        apiMessages.push(buildAssistantApiMessage(msg, capabilities))
+        continue
+      }
       apiMessages.push({ role: msg.role, content: msg.content })
     }
 
