@@ -6,6 +6,7 @@ import {
   prunePersistedConversations,
   deletePersistedConversation,
 } from '@/shared/lib/agent/conversationStore'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 
 const DEFAULT_PERSIST_LIMIT = 50
 
@@ -81,7 +82,7 @@ export function useConversationPersistence(options: UseConversationPersistenceOp
         }
       } catch (error) {
         if (cancelled) return
-        setPersistenceError((error as Error).message || '加载历史对话失败')
+        setPersistenceError(getErrorMessage(error, '加载历史对话失败'))
       } finally {
         if (!cancelled) {
           setIsHydrating(false)

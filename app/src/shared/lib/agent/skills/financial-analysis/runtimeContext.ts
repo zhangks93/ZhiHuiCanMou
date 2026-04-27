@@ -1,5 +1,6 @@
 import { supabase, type MetricCategory } from '@/shared/lib/supabase'
 import type { FinancialAnalysisRuntimeDataContext } from '../../types'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 
 const CACHE_TTL_MS = 5 * 60 * 1000
 
@@ -66,7 +67,7 @@ async function fetchDistinctValues(
       .select(column)
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-    if (error) throw error
+    if (error) throw new Error(`${table}.${column} 加载失败: ${getErrorMessage(error, '未知数据库错误')}`)
 
     const pageData = (data ?? []) as unknown as Array<Record<string, unknown>>
     pageData.forEach((row: Record<string, unknown>) => {
@@ -117,10 +118,7 @@ async function fetchMonthlyPlanMonths(): Promise<string[]> {
   try {
     return sortPeriodsDesc(await fetchDistinctValues('edu_biz_monthly_plan', 'month'))
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`加载月度计划月份失败: ${error.message}`)
-    }
-    throw error
+    throw new Error(`加载月度计划月份失败: ${getErrorMessage(error, '未知数据库错误')}`)
   }
 }
 

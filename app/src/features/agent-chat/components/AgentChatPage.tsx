@@ -19,6 +19,7 @@ import { buildConversationMemoryBlock } from '@/shared/lib/agent/conversationMem
 import { buildSettingsHref } from '@/app/config/constants'
 import { loadLLMConfig } from '@/shared/lib/llmConfig'
 import { isTauriRuntime } from '@/shared/lib/tauri'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import type { ChatAgent } from '@/shared/lib/agent/chatAgent'
 import { loadAgentRuntimeModules } from '@/shared/lib/agent/runtimeLoader'
 import { useAgentConfig } from '@/features/agent-chat/hooks/useAgentConfig'
@@ -399,17 +400,17 @@ export function AgentChatPage({
             activeId={activeConversationId}
             onSelect={(id) => {
               void handleSelectConversation(id).catch((error) => {
-                setPersistenceError((error as Error).message || '切换历史对话失败')
+                setPersistenceError(getErrorMessage(error, '切换历史对话失败'))
               })
             }}
             onNew={() => {
               void handleNewConversation().catch((error) => {
-                setPersistenceError((error as Error).message || '新建历史对话失败')
+                setPersistenceError(getErrorMessage(error, '新建历史对话失败'))
               })
             }}
             onDelete={(id) => {
               void handleDeleteConversation(id).catch((error) => {
-                setPersistenceError((error as Error).message || '删除历史对话失败')
+                setPersistenceError(getErrorMessage(error, '删除历史对话失败'))
               })
             }}
             className="agent-conversation-list"

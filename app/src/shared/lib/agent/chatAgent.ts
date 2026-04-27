@@ -3,6 +3,7 @@
 import type { LLMConfig } from '@/shared/lib/llmConfig'
 import type { ChatMessage, ToolCallRecord, ToolDefinition, RegisteredTool, ChatStreamChunk } from './types'
 import { appFetch } from '@/shared/lib/httpClient'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 
 interface ToolExecutionCacheEntry {
   status: 'success' | 'error'
@@ -743,7 +744,7 @@ export class ChatAgent {
           content: preparedResult,
         })
       } catch (err) {
-        const errMsg = err instanceof Error ? err.message : String(err)
+        const errMsg = getErrorMessage(err, '工具执行失败')
         toolCallRecord.status = 'error'
         toolCallRecord.error = errMsg
         yield { type: 'tool_result', toolCall: toolCallRecord }
@@ -960,7 +961,7 @@ export class ChatAgent {
                     result: preparedResult,
                   })
                 } catch (err) {
-                  const errMsg = err instanceof Error ? err.message : String(err)
+                  const errMsg = getErrorMessage(err, '工具执行失败')
                   toolCallRecord.status = 'error'
                   toolCallRecord.error = errMsg
                   yield { type: 'tool_result', toolCall: toolCallRecord }

@@ -14,6 +14,7 @@ import {
 import {
   updateFinancialAnalysisSessionContext,
 } from '@/shared/lib/agent/skills/financial-analysis/sessionContext'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 
 interface UseChatStreamingParams {
   activeAgent?: AgentDefinition
@@ -89,7 +90,7 @@ export function useChatStreaming(params: UseChatStreamingParams) {
         await syncConversationPersistence(nextConversations, conversation)
         setActiveConversationId(conversationId)
       } catch (error) {
-        setPersistenceError((error as Error).message || '创建对话失败')
+        setPersistenceError(getErrorMessage(error, '创建对话失败'))
         return
       }
     }
@@ -172,10 +173,11 @@ export function useChatStreaming(params: UseChatStreamingParams) {
         flushStreamingMessage(assistantMessage)
       }
     } catch (error) {
-      if ((error as Error).name !== 'AbortError') {
+      if (!(error instanceof Error && error.name === 'AbortError')) {
+        const errorMessage = getErrorMessage(error, '智能体对话失败，请稍后重试。')
         assistantMessage.content += assistantMessage.content
-          ? `\n\n---\n**错误**：${(error as Error).message}`
-          : `**错误**：${(error as Error).message}`
+          ? `\n\n---\n**错误**：${errorMessage}`
+          : `**错误**：${errorMessage}`
       }
     }
 
@@ -228,7 +230,7 @@ export function useChatStreaming(params: UseChatStreamingParams) {
       const updatedConversation = updatedConversations.find((conversation) => conversation.id === conversationId)
       await syncConversationPersistence(updatedConversations, updatedConversation)
     } catch (error) {
-      setPersistenceError((error as Error).message || '保存对话失败')
+      setPersistenceError(getErrorMessage(error, '保存对话失败'))
     }
   }, [
     activeAgent,
