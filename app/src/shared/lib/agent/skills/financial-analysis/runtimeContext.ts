@@ -136,15 +136,20 @@ async function fetchOrgLevel1(): Promise<string[]> {
 }
 
 const SHEET_CODE_LABELS: Record<string, string> = {
-  '1.1': '主报表-收入利润(fone)',
-  '1.2': '主报表-收入利润(tuwei)',
-  '2.1': '主报表-人效指标(fone)',
-  '2.2': '主报表-人效指标(tuwei)',
-  '2.3': '主报表-补充指标',
-  '6.1': '成本分析-人力成本明细(fone)',
-  '6.2': '成本分析-人力成本明细(tuwei)',
-  '7.1': '成本分析-费用明细(fone)',
-  '7.2': '成本分析-费用明细(tuwei)',
+  '1.1': '主报表-累计(fone)',
+  '1.2': '主报表-进度(fone)',
+  '1.3': '主报表-2月(fone)',
+  '1.4': '主报表-3月(fone)',
+  '2.1': '主报表-累计(tuwei)',
+  '2.2': '主报表-1月(tuwei)',
+  '2.3': '主报表-2月(tuwei)',
+  '2.4': '主报表-3月(tuwei)',
+  '3.1': '成本分析-累计(tuwei)',
+  '3.2': '成本分析-2月(tuwei)',
+  '3.3': '成本分析-3月(tuwei)',
+  '4.1': '成本分析-累计(fone)',
+  '4.2': '成本分析-2月(fone)',
+  '4.3': '成本分析-3月(fone)',
 }
 
 async function fetchSheetCodes(): Promise<{ code: string; label: string }[]> {

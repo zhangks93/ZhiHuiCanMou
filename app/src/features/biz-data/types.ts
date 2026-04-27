@@ -4,7 +4,11 @@ export type { MetricCategory }
 
 export interface EduBizReport {
   id: string
-  sheet_code: '1.1' | '1.2' | '2.1' | '2.2' | '2.3'
+  sheet_code:
+    | '1.1' | '1.2' | '1.3' | '1.4'
+    | '2.1' | '2.2' | '2.3' | '2.4'
+    | '3.1' | '3.2' | '3.3'
+    | '4.1' | '4.2' | '4.3'
   report_type: 'fone' | 'tuwei'
   period_type: 'cumulative' | 'monthly'
   period: string

@@ -12,6 +12,8 @@
 - `coverage.cash_plan = manual_required`：第 4 节输出人工补充占位。
 - `coverage.core_expenses = manual_required`：第 5 节输出人工补充占位。
 - `warnings` 非空：必须在报告正文和管理层关注事项中体现。
+- `cost_expense_summary` / `cost_expense_table` 非空：第 5 节必须先输出系统可取费用指标参考表，再输出人工补充占位。
+- `metric_coverage.missing_auto_metrics` 非空：生成正文前应先说明自动指标覆盖缺口；若是报告关键指标，必须补查一次或降低结论强度。
 
 ## 2. 章节要求
 
@@ -32,6 +34,7 @@
 - 明细构成表 1 张
 - 区域/中心累计完成小表 3 张以上，若实际少于 3 个单位则全部输出
 - 当月完成情况表 1 张
+- 系统可取成本费用指标参考表 1 张
 - 应收回款人工补充表 1 张
 - 资金计划人工补充表 1 张
 - 核心费用人工补充表 1 张
@@ -52,6 +55,8 @@
 - 占位表。
 - 业务人员需要补充的字段。
 - “补数后需复核”的提示。
+
+核心费用专项明细虽然需要人工补充，但系统已有的成本费用经营指标必须先作为参考输出；禁止把 `labor_cost`、`salary`、`material_cost`、`vehicle_expense`、`energy_expense`、`travel_expense`、`entertainment_expense` 等自动指标写成 `【待补】`。
 
 ## 6. 图表交付
 

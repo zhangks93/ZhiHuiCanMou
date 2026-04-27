@@ -35,14 +35,24 @@ const HIERARCHY_CORE_METRICS = [
   'pretax_profit',
   'pretax_margin',
   'labor_cost',
+  'salary',
+  'social_insurance',
+  'housing_fund',
+  'labor_service_fee',
+  'other_labor_cost',
+  'catering_expense',
+  'material_cost',
+  'other_expense',
+  'external_expense',
+  'vehicle_expense',
+  'energy_expense',
+  'travel_expense',
+  'entertainment_expense',
   'headcount',
   'per_capita_revenue',
   'labor_cost_rate',
   'revenue_creation',
   'profit_creation',
-  'salary',
-  'social_insurance',
-  'housing_fund',
 ] as const
 
 const HIERARCHY_CORE_METRIC_PRIORITY = new Map<string, number>(
@@ -303,15 +313,19 @@ function compactBusinessReportPackResult(content: string): string {
     const parsed = JSON.parse(content) as Record<string, unknown>
     const unitCards = Array.isArray(parsed.unit_cards) ? parsed.unit_cards : []
     const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : []
+    const costExpenseTable = Array.isArray(parsed.cost_expense_table) ? parsed.cost_expense_table : []
 
     const compacted = {
       ...parsed,
       unit_cards: unitCards.slice(0, 40),
       unit_cards_truncated: unitCards.length > 40 ? true : undefined,
       original_unit_card_count: unitCards.length > 40 ? unitCards.length : undefined,
+      cost_expense_table: costExpenseTable.slice(0, 240),
+      cost_expense_table_truncated: costExpenseTable.length > 240 ? true : undefined,
+      original_cost_expense_row_count: costExpenseTable.length > 240 ? costExpenseTable.length : undefined,
       warnings: warnings.slice(0, 40),
       warnings_truncated: warnings.length > 40 ? true : undefined,
-      tool_result_compacted: unitCards.length > 40 || warnings.length > 40 ? true : undefined,
+      tool_result_compacted: unitCards.length > 40 || warnings.length > 40 || costExpenseTable.length > 240 ? true : undefined,
     }
 
     const serialized = JSON.stringify(compacted, null, 2)

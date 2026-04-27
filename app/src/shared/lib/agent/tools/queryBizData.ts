@@ -67,7 +67,7 @@ export const queryBizDataTool: RegisteredTool = {
           },
           sheet_codes: {
             type: 'array',
-            description: '报表 sheet 代码过滤。主报表: 1.1, 1.2, 2.1, 2.2, 2.3；成本分析: 6.1, 6.2, 7.1, 7.2。留空则查询所有。',
+            description: '报表 sheet 代码过滤。主报表: 1.x/2.x；成本分析: 3.x=tuwei, 4.x=fone。留空则查询所有。',
             items: { type: 'string' },
           },
           limit: {

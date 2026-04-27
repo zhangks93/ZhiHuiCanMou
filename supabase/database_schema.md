@@ -314,14 +314,14 @@ Last updated: 2026-04-23
 ---
 
 ### 10. edu_biz_report
-**Purpose**: 25学年经营数据报表（fone年初定稿版 / 突围版），涵盖 sheets 1.1/1.2/2.1/2.2/2.3 + 成本分析 6.1/6.2/7.1/7.2
+**Purpose**: 25学年经营数据报表（fone年初定稿版 / 突围版），涵盖 sheets 1.x/2.x + 成本分析 3.x/4.x
 **RLS Enabled**: No
 **Row Count**: 11,477
 **Comment**: 25学年经营数据报表（含节点层级关系）
 
 #### Columns
 - `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
-- `sheet_code` (text): Sheet编号：1.1/1.2/2.1/2.2/2.3/6.1/6.2/7.1/7.2
+- `sheet_code` (text): Sheet编号：1.x/2.x/3.x/4.x，其中 3.x 为突围成本分析，4.x 为 fone 成本分析
 - `report_type` (text): 报表类型 (fone, tuwei)
 - `period_type` (text): 期间类型 (cumulative, monthly)
 - `period` (text): 数据期间，如 <202603, 202602, 202601-202602
@@ -357,8 +357,8 @@ Last updated: 2026-04-23
 - Sheet 2.1: 25学1-2月底稿（突围版）→ report_type=tuwei, period_type=cumulative
 - Sheet 2.2: 25学年1月底稿（突围版）→ report_type=tuwei, period_type=monthly
 - Sheet 2.3: 25学年2月底稿（突围版）→ report_type=tuwei, period_type=monthly
-- Sheet 6.1-6.2: 成本分析（fone版）→ labor_cost, salary, social_insurance, housing_fund, labor_service_fee, other_labor_cost
-- Sheet 7.1-7.2: 成本分析（突围版）→ vehicle_expense, energy_expense, travel_expense, entertainment_expense
+- Sheet 3.x: 成本分析（突围版）→ labor_cost, salary, social_insurance, housing_fund, labor_service_fee, other_labor_cost, vehicle_expense, energy_expense, travel_expense, entertainment_expense
+- Sheet 4.x: 成本分析（fone版）→ labor_cost, salary, social_insurance, housing_fund, labor_service_fee, other_labor_cost, vehicle_expense, energy_expense, travel_expense, entertainment_expense
 
 #### Import Script
 `scripts/import_biz_data.py` — reads from `docs/data/25学年经营数据.xlsx`
@@ -450,7 +450,7 @@ feishu_departments (242 rows)
 
 edu_org_hierarchy (153 rows)        ← 组织层级映射表
     ↓ (node_name, soft relation)
-edu_biz_report (11,477 rows)        ← 经营数据报表 (sheets 1.1-2.3 + 6.1-7.2)
+edu_biz_report (11,477 rows)        ← 经营数据报表 (sheets 1.x/2.x + 3.x/4.x 成本分析)
 edu_biz_monthly_plan (1,498 rows)   ← 突围计划分月版 (sheet 3)
   ↑ Import source: docs/data/25学年经营数据.xlsx
 ```

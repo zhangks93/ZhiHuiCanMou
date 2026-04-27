@@ -7,7 +7,7 @@
 
 > 使用规则：
 > - 完整报告必须优先调用 `query_business_report_pack`，不得用多次零散查数替代报告包。
-> - 报告正文应使用工具返回的 `summary_cards`、`target_vs_actual_table`、`composition_table`、`unit_cards`、`monthly_actual_table`、`variance_rankings`、`warnings`。
+> - 报告正文应使用工具返回的 `summary_cards`、`target_vs_actual_table`、`composition_table`、`unit_cards`、`monthly_actual_table`、`cost_expense_summary`、`cost_expense_table`、`variance_rankings`、`warnings`。
 > - 第 3/4/5 节必须渲染 `manual_fill_sections` 中的占位表，禁止编造专项数据。
 > - 当月、上月、累计必须分开表达；`fone` 和 `tuwei` 口径不可混写。
 > - 百分比字段由小数展示为百分比，例如 `0.84` 写作 `84%`。
@@ -91,6 +91,15 @@
 必须输出：
 
 > 【人工补充】当前系统未接入业务报告所需核心费用明细，如办公用品费、咨询/维修/服务费等。本章节需业务人员补充后复核。系统已有部分费用类经营指标只能作为参考，不能替代该专项表。
+
+先使用 `cost_expense_summary` 和 `cost_expense_table` 输出“系统可取费用指标参考表”，至少覆盖：
+- 人力成本及工资、社保、公积金、劳务费等明细。
+- 餐饮支出、物资销售成本、其他支出、营业外支出。
+- 车辆费用、能耗费、差旅费、业务招待费。
+
+表后说明：
+- 费用类经营指标低于或等于目标为好，超目标需按对象和指标点名。
+- 该参考表不能替代核心费用专项表，但不得因为专项表需人工补充而省略系统已有费用指标。
 
 渲染 `manual_fill_sections.core_expenses.table_markdown`。
 

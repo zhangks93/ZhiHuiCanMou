@@ -57,11 +57,14 @@ export interface UnitCard {
   level_2: string | null
   cumulative: TargetVsActualRow
   monthly: TargetVsActualRow
+  cost_expense_metrics?: ReportMetricValue[]
   warnings: string[]
   suggested_analysis_points: string[]
 }
 
 export interface RankingRow {
+  metric?: string
+  metric_label?: string
   node_name: string
   node_kind?: string
   level_1?: string | null
@@ -70,6 +73,23 @@ export interface RankingRow {
   share?: number | null
   diff?: number | null
   completion_rate?: number | null
+}
+
+export interface CostExpenseRow extends ReportMetricValue {
+  report_type: ReportType
+  period_scope: PeriodScope
+  node_name: string
+  node_kind: string
+  level_1: string | null
+  level_2: string | null
+  status: ReportStatus
+}
+
+export interface MetricCoverage {
+  expected_auto_metrics: string[]
+  available_auto_metrics: string[]
+  missing_auto_metrics: string[]
+  note: string
 }
 
 export interface ManualFillSection {
@@ -115,11 +135,17 @@ export interface BusinessReportPack {
   composition_table: CompositionRow[]
   unit_cards: UnitCard[]
   monthly_actual_table: TargetVsActualRow[]
+  cost_expense_summary: CostExpenseRow[]
+  cost_expense_table: CostExpenseRow[]
+  metric_coverage: MetricCoverage
   variance_rankings: {
     revenue_gap_top: RankingRow[]
     profit_gap_top: RankingRow[]
     revenue_contribution_top: RankingRow[]
     profit_contribution_top: RankingRow[]
+    labor_cost_over_budget_top: RankingRow[]
+    expense_over_budget_top: RankingRow[]
+    low_gross_margin_top: RankingRow[]
   }
   manual_fill_sections: {
     receivables: ManualFillSection
