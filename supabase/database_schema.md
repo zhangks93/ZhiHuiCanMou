@@ -1,6 +1,6 @@
 # Supabase Database Schema
 
-Last updated: 2026-04-23
+Last updated: 2026-04-27
 
 ## Tables Overview
 
@@ -439,6 +439,25 @@ Idempotent (clears and re-imports).
 
 ---
 
+### 13. Fee Effect Analysis Tables
+**Purpose**: Store only the 4 fee-effect analysis sheets from `费效分析0414.xlsx` for person summary, person travel project summary, person hospitality project summary, and project ROI summary.
+**RLS Enabled**: No
+**Row Count**: dynamic
+
+#### Tables
+- `fee_effect_import_batches`: One import batch per workbook import, including source file name/hash, period range, row counts, and import timestamp
+- `fee_effect_person_summary`: Sheet 1.1 person-level signing contribution, travel, hospitality, and total expense
+- `fee_effect_person_travel_projects`: Sheet 1.2 person × MDM project travel summary
+- `fee_effect_person_hospitality_projects`: Sheet 1.3 person × MDM project × hospitality type summary
+- `fee_effect_project_summary`: Sheet 2 project-level contract, profit, travel, hospitality, bonus, total expense, and first-year ROI
+
+#### Import Script
+`scripts/import_fee_effect.py` — reads from `private-data/费效分析0414.xlsx`, computes workbook formula-equivalent values, and writes only the 4 analysis sheets above. Raw workbook detail sheets are not persisted.
+
+Idempotent by default (clears and re-imports fee-effect batches). Use `--no-clear` to append a new batch.
+
+---
+
 ## Database Relationships
 
 ```
@@ -463,11 +482,17 @@ Tables with RLS enabled:
 - `feishu_departments`
 - `feishu_members`
 - `attendance_records`
+- `edu_biz_report`
+- `edu_biz_monthly_plan`
+- `edu_org_hierarchy`
+- `edu_strategy_budget_plan`
+- `business_trips`
 
 Tables without RLS:
 - `schedule_items`
 - `edu_logistics_biz_data`
-- `business_trips`
-- `edu_biz_report`
-- `edu_biz_monthly_plan`
-- `edu_org_hierarchy`
+- `fee_effect_import_batches`
+- `fee_effect_person_summary`
+- `fee_effect_person_travel_projects`
+- `fee_effect_person_hospitality_projects`
+- `fee_effect_project_summary`

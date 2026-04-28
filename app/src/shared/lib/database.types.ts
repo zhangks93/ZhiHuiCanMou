@@ -110,6 +110,231 @@ export type Database = {
         }
         Relationships: []
       }
+      fee_effect_import_batches: {
+        Row: {
+          created_at: string
+          id: string
+          imported_at: string
+          period_end: string
+          period_start: string
+          person_hospitality_row_count: number
+          person_summary_row_count: number
+          person_travel_row_count: number
+          project_summary_row_count: number
+          source_file_hash: string
+          source_file_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          imported_at?: string
+          period_end: string
+          period_start: string
+          person_hospitality_row_count?: number
+          person_summary_row_count?: number
+          person_travel_row_count?: number
+          project_summary_row_count?: number
+          source_file_hash: string
+          source_file_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          imported_at?: string
+          period_end?: string
+          period_start?: string
+          person_hospitality_row_count?: number
+          person_summary_row_count?: number
+          person_travel_row_count?: number
+          project_summary_row_count?: number
+          source_file_hash?: string
+          source_file_name?: string
+        }
+        Relationships: []
+      }
+      fee_effect_person_hospitality_projects: {
+        Row: {
+          batch_id: string
+          created_at: string
+          department: string | null
+          guest_count: number
+          hospitality_type: string
+          hospitality_total_amount: number
+          id: string
+          mdm_project_name: string
+          per_capita_amount: number | null
+          person_name: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          department?: string | null
+          guest_count?: number
+          hospitality_type: string
+          hospitality_total_amount?: number
+          id?: string
+          mdm_project_name: string
+          per_capita_amount?: number | null
+          person_name: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          department?: string | null
+          guest_count?: number
+          hospitality_type?: string
+          hospitality_total_amount?: number
+          id?: string
+          mdm_project_name?: string
+          per_capita_amount?: number | null
+          person_name?: string
+        }
+        Relationships: []
+      }
+      fee_effect_person_summary: {
+        Row: {
+          batch_id: string
+          created_at: string
+          department: string | null
+          hospitality_total_amount: number
+          id: string
+          person_name: string
+          signing_profit_amount: number
+          signing_revenue_amount: number
+          total_expense_amount: number
+          travel_allowance_amount: number
+          travel_lodging_amount: number
+          travel_total_amount: number
+          travel_transportation_amount: number
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          department?: string | null
+          hospitality_total_amount?: number
+          id?: string
+          person_name: string
+          signing_profit_amount?: number
+          signing_revenue_amount?: number
+          total_expense_amount?: number
+          travel_allowance_amount?: number
+          travel_lodging_amount?: number
+          travel_total_amount?: number
+          travel_transportation_amount?: number
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          department?: string | null
+          hospitality_total_amount?: number
+          id?: string
+          person_name?: string
+          signing_profit_amount?: number
+          signing_revenue_amount?: number
+          total_expense_amount?: number
+          travel_allowance_amount?: number
+          travel_lodging_amount?: number
+          travel_total_amount?: number
+          travel_transportation_amount?: number
+        }
+        Relationships: []
+      }
+      fee_effect_person_travel_projects: {
+        Row: {
+          batch_id: string
+          created_at: string
+          department: string | null
+          id: string
+          mdm_project_name: string
+          person_name: string
+          travel_allowance_amount: number
+          travel_lodging_amount: number
+          travel_total_amount: number
+          travel_transportation_amount: number
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          department?: string | null
+          id?: string
+          mdm_project_name: string
+          person_name: string
+          travel_allowance_amount?: number
+          travel_lodging_amount?: number
+          travel_total_amount?: number
+          travel_transportation_amount?: number
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          department?: string | null
+          id?: string
+          mdm_project_name?: string
+          person_name?: string
+          travel_allowance_amount?: number
+          travel_lodging_amount?: number
+          travel_total_amount?: number
+          travel_transportation_amount?: number
+        }
+        Relationships: []
+      }
+      fee_effect_project_summary: {
+        Row: {
+          batch_id: string
+          created_at: string
+          first_year_contract_amount: number
+          first_year_profit_amount: number
+          first_year_roi: number | null
+          hospitality_total_amount: number
+          id: string
+          launch_date: string | null
+          paid_market_bonus_amount: number
+          project_tag: string
+          region: string | null
+          total_expense_amount: number
+          travel_allowance_amount: number
+          travel_lodging_amount: number
+          travel_total_amount: number
+          travel_transportation_amount: number
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          first_year_contract_amount?: number
+          first_year_profit_amount?: number
+          first_year_roi?: number | null
+          hospitality_total_amount?: number
+          id?: string
+          launch_date?: string | null
+          paid_market_bonus_amount?: number
+          project_tag: string
+          region?: string | null
+          total_expense_amount?: number
+          travel_allowance_amount?: number
+          travel_lodging_amount?: number
+          travel_total_amount?: number
+          travel_transportation_amount?: number
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          first_year_contract_amount?: number
+          first_year_profit_amount?: number
+          first_year_roi?: number | null
+          hospitality_total_amount?: number
+          id?: string
+          launch_date?: string | null
+          paid_market_bonus_amount?: number
+          project_tag?: string
+          region?: string | null
+          total_expense_amount?: number
+          travel_allowance_amount?: number
+          travel_lodging_amount?: number
+          travel_total_amount?: number
+          travel_transportation_amount?: number
+        }
+        Relationships: []
+      }
       edu_biz_monthly_plan: {
         Row: {
           created_at: string | null

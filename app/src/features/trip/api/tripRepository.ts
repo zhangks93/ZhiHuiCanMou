@@ -13,6 +13,12 @@ export interface BusinessTrip {
   department: string
 }
 
+export type FeeEffectBatch = Tables<'fee_effect_import_batches'>
+export type FeeEffectPersonSummary = Tables<'fee_effect_person_summary'>
+export type FeeEffectProjectSummary = Tables<'fee_effect_project_summary'>
+export type FeeEffectPersonTravelProject = Tables<'fee_effect_person_travel_projects'>
+export type FeeEffectPersonHospitalityProject = Tables<'fee_effect_person_hospitality_projects'>
+
 type BusinessTripRow = Tables<'business_trips'>
 
 function normalizeBusinessTrip(row: BusinessTripRow): BusinessTrip {
@@ -38,4 +44,63 @@ export async function fetchBusinessTrips() {
   if (error) throw error
 
   return (data ?? []).map(normalizeBusinessTrip)
+}
+
+export async function fetchFeeEffectBatches(): Promise<FeeEffectBatch[]> {
+  const { data, error } = await supabase
+    .from('fee_effect_import_batches')
+    .select('*')
+    .order('imported_at', { ascending: false })
+
+  if (error) throw error
+
+  return data ?? []
+}
+
+export async function fetchFeeEffectPersonSummaries(batchId: string): Promise<FeeEffectPersonSummary[]> {
+  const { data, error } = await supabase
+    .from('fee_effect_person_summary')
+    .select('*')
+    .eq('batch_id', batchId)
+    .order('total_expense_amount', { ascending: false, nullsFirst: false })
+
+  if (error) throw error
+
+  return data ?? []
+}
+
+export async function fetchFeeEffectProjectSummaries(batchId: string): Promise<FeeEffectProjectSummary[]> {
+  const { data, error } = await supabase
+    .from('fee_effect_project_summary')
+    .select('*')
+    .eq('batch_id', batchId)
+    .order('total_expense_amount', { ascending: false, nullsFirst: false })
+
+  if (error) throw error
+
+  return data ?? []
+}
+
+export async function fetchFeeEffectPersonTravelProjects(batchId: string): Promise<FeeEffectPersonTravelProject[]> {
+  const { data, error } = await supabase
+    .from('fee_effect_person_travel_projects')
+    .select('*')
+    .eq('batch_id', batchId)
+    .order('travel_total_amount', { ascending: false, nullsFirst: false })
+
+  if (error) throw error
+
+  return data ?? []
+}
+
+export async function fetchFeeEffectPersonHospitalityProjects(batchId: string): Promise<FeeEffectPersonHospitalityProject[]> {
+  const { data, error } = await supabase
+    .from('fee_effect_person_hospitality_projects')
+    .select('*')
+    .eq('batch_id', batchId)
+    .order('hospitality_total_amount', { ascending: false, nullsFirst: false })
+
+  if (error) throw error
+
+  return data ?? []
 }

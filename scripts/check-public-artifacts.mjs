@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const SENSITIVE_KEYWORDS = ['经营数据', '商机', '考勤', '出差', '组织标签']
+const SENSITIVE_KEYWORDS = ['经营数据', '商机', '考勤', '出差', '组织标签', '费效']
 const blockedExtensions = new Set(['.xls', '.xlsx'])
 
 function parseArgs(argv) {

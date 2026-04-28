@@ -8,6 +8,7 @@ const requiredRlsTables = new Set([
   'edu_biz_monthly_plan',
   'edu_org_hierarchy',
   'edu_strategy_budget_plan',
+  'business_trips',
 ])
 const rlsEnabledTables = new Set()
 const policyTables = new Set()
