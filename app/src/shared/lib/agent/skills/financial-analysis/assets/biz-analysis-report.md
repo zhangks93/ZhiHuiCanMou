@@ -7,10 +7,11 @@
 
 > 使用规则：
 > - 完整报告必须优先调用 `query_business_report_pack`，不得用多次零散查数替代报告包。
-> - 报告正文应使用工具返回的 `summary_cards`、`target_vs_actual_table`、`composition_table`、`unit_cards`、`monthly_actual_table`、`cost_expense_summary`、`cost_expense_table`、`variance_rankings`、`warnings`。
+> - 报告正文应使用工具返回的 `scope_profile`、`data_completeness_matrix`、`summary_cards`、`target_vs_actual_table`、`direct_children_table`、`key_descendant_table`、`leaf_exception_table`、`unit_cards`、`monthly_actual_table`、`cost_expense_summary`、`cost_expense_table`、`variance_rankings`、`warnings`。
 > - 第 3/4/5 节必须渲染 `manual_fill_sections` 中的占位表，禁止编造专项数据。
 > - 当月、上月、累计必须分开表达；`fone` 和 `tuwei` 口径不可混写。
 > - 百分比字段由小数展示为百分比，例如 `0.84` 写作 `84%`。
+> - 写作前先查看 `scope_profile.recommended_report_focus` 和 `data_completeness_matrix`。集团层级重点看结构和贡献；区域/中心层级重点看下属单元差异；叶子节点重点看自身目标达成、趋势和费用风险。
 
 ---
 
@@ -30,10 +31,11 @@
 
 ### 1.2 明细构成与贡献
 
-使用 `composition_table` 和 `variance_rankings` 输出：
+优先使用 `direct_children_table`，并结合 `key_descendant_table`、`leaf_exception_table` 和 `variance_rankings` 输出：
 - 构成表：区域/中心/业务单元收入、利润、占比、完成率。
 - 缺口排行：收入缺口 TOP、利润缺口 TOP。
 - 贡献排行：收入贡献 TOP、利润贡献 TOP。
+- 若当前对象没有足够直接子级，使用重点后代和叶子异常表补足分析颗粒度。
 
 表后必须说明增长点、拖累点和结构质量。
 
@@ -55,6 +57,7 @@
 使用 `unit_cards` 输出区域/中心小表。数据充足时至少列 3 个单位；不足 3 个则全部列出。
 
 每个重点单位至少说明：
+- `selection_reason`，即该单位为什么被纳入重点分析。
 - 累计收入完成率。
 - 累计税前利润完成率。
 - 当月是否出现利润为负、完成率过低或其他预警。

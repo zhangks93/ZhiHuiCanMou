@@ -7,15 +7,18 @@
 - 专项章节无数据时，是否输出人工补充占位，而不是删掉或编造？
 
 ## 数据完整性
+- 是否先查看 `data_completeness_matrix`，并按 available / partial / missing / manual_required 调整结论强度？
 - 是否同时覆盖当月、上月、累计？
 - 是否同时覆盖 fone 和 tuwei？
 - 是否包含 actual、target、completion_rate、diff？
 - 是否出现口径混写？
 
 ## 颗粒度
+- 是否使用 `scope_profile` 判断当前是集团、区域、中心还是叶子节点，并调整分析颗粒度？
 - 是否至少输出集团/目标节点总表、构成表、区域/中心小表、当月完成表？
 - 是否点名具体区域/中心/业务单元？
 - 是否有 TOP 缺口和 TOP 贡献？
+- `unit_cards` 中的重点单位是否说明了 `selection_reason`？
 
 ## 业务判断
 - 每张核心表后是否有判断？

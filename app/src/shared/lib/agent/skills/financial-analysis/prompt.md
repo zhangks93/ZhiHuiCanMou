@@ -316,6 +316,9 @@
 - 若完整报告模板里的某些字段未命中，先按模板原始指标名显式重试，不得因为首次查询漏传指标而直接写 `【数据库暂无此数据】`
 - 口径不一致：先提示风险，再输出有限结论
 - 完整报告中，`query_business_report_pack` 返回的 `cost_expense_summary`、`cost_expense_table`、`variance_rankings.*expense*` 必须优先用于成本费用分析；不得把系统已有成本费用指标写成待补。
+- 完整报告中，必须先使用 `scope_profile` 判断当前组织层级，再决定颗粒度：集团看区域/中心结构与贡献，区域/中心看下属单元差异，叶子节点看自身目标达成、趋势和费用风险。
+- 完整报告中，必须先查看 `data_completeness_matrix`。对 `partial` 或 `missing` 的章节降低结论强度；对 `manual_required` 的章节保留人工补充占位，不得编造。
+- 完整报告中，`direct_children_table` 是首选构成表；当直接子级不足或需要穿透时，补充使用 `key_descendant_table` 和 `leaf_exception_table`。`unit_cards.selection_reason` 必须用于说明为什么点名该单位。
 - `manual_fill_sections.core_expenses` 只代表办公用品费、咨询/维修/服务费等核心费用专项明细需人工补充，不代表人力成本、物资成本、车辆费用、能耗费、差旅费、招待费等经营指标不可取。
 
 ---

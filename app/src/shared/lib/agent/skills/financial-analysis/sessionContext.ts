@@ -40,6 +40,13 @@ function deriveScopeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysi
       const firstMatch = topMatches[0] as Record<string, unknown> | undefined
       const matchCount = typeof result?.match_count === 'number' ? result.match_count : topMatches.length
       const suggestedMode = result?.suggested_filter_mode
+      const confidence = result?.confidence === 'high' || result?.confidence === 'medium' || result?.confidence === 'low'
+        ? result.confidence
+        : matchCount === 1
+          ? 'high'
+          : canonicalScope?.level_1 || canonicalScope?.level_2
+            ? 'medium'
+            : 'low'
 
       return {
         mode: suggestedMode === 'node_name' || suggestedMode === 'level_1' || suggestedMode === 'level_2'
@@ -55,11 +62,20 @@ function deriveScopeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysi
             ? String((groupedSummary[0] as Record<string, unknown>).level_1)
             : undefined,
         level_2: typeof canonicalScope?.level_2 === 'string' ? canonicalScope.level_2 : undefined,
-        confidence: matchCount === 1 ? 'high' : 'medium',
+        confidence,
       }
     }
 
     if (toolCall.name === 'query_with_hierarchy' || toolCall.name === 'query_biz_data' || toolCall.name === 'query_business_report_pack') {
+      const result = safeJsonParse(toolCall.result)
+      if (
+        Array.isArray(result?.candidates) ||
+        String(result?.message ?? '').includes('匹配到多个') ||
+        String(result?.message ?? '').includes('未找到')
+      ) {
+        continue
+      }
+
       const nodeNameArg = typeof toolCall.arguments.node_name === 'string'
         ? toolCall.arguments.node_name.trim()
         : ''

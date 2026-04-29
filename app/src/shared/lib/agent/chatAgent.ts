@@ -314,24 +314,69 @@ function compactBusinessReportPackResult(content: string): string {
     const unitCards = Array.isArray(parsed.unit_cards) ? parsed.unit_cards : []
     const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : []
     const costExpenseTable = Array.isArray(parsed.cost_expense_table) ? parsed.cost_expense_table : []
+    const directChildrenTable = Array.isArray(parsed.direct_children_table) ? parsed.direct_children_table : []
+    const keyDescendantTable = Array.isArray(parsed.key_descendant_table) ? parsed.key_descendant_table : []
+    const leafExceptionTable = Array.isArray(parsed.leaf_exception_table) ? parsed.leaf_exception_table : []
 
     const compacted = {
       ...parsed,
-      unit_cards: unitCards.slice(0, 40),
-      unit_cards_truncated: unitCards.length > 40 ? true : undefined,
-      original_unit_card_count: unitCards.length > 40 ? unitCards.length : undefined,
-      cost_expense_table: costExpenseTable.slice(0, 240),
-      cost_expense_table_truncated: costExpenseTable.length > 240 ? true : undefined,
-      original_cost_expense_row_count: costExpenseTable.length > 240 ? costExpenseTable.length : undefined,
-      warnings: warnings.slice(0, 40),
-      warnings_truncated: warnings.length > 40 ? true : undefined,
-      tool_result_compacted: unitCards.length > 40 || warnings.length > 40 || costExpenseTable.length > 240 ? true : undefined,
+      direct_children_table: directChildrenTable.slice(0, 60),
+      direct_children_table_truncated: directChildrenTable.length > 60 ? true : undefined,
+      key_descendant_table: keyDescendantTable.slice(0, 40),
+      key_descendant_table_truncated: keyDescendantTable.length > 40 ? true : undefined,
+      leaf_exception_table: leafExceptionTable.slice(0, 40),
+      leaf_exception_table_truncated: leafExceptionTable.length > 40 ? true : undefined,
+      unit_cards: unitCards.slice(0, 80),
+      unit_cards_truncated: unitCards.length > 80 ? true : undefined,
+      original_unit_card_count: unitCards.length > 80 ? unitCards.length : undefined,
+      cost_expense_table: costExpenseTable.slice(0, 320),
+      cost_expense_table_truncated: costExpenseTable.length > 320 ? true : undefined,
+      original_cost_expense_row_count: costExpenseTable.length > 320 ? costExpenseTable.length : undefined,
+      warnings: warnings.slice(0, 80),
+      warnings_truncated: warnings.length > 80 ? true : undefined,
+      tool_result_compacted: unitCards.length > 80
+        || warnings.length > 80
+        || costExpenseTable.length > 320
+        || directChildrenTable.length > 60
+        || keyDescendantTable.length > 40
+        || leafExceptionTable.length > 40
+        ? true
+        : undefined,
     }
 
     const serialized = JSON.stringify(compacted, null, 2)
-    return serialized.length <= MAX_TOOL_RESULT_CHAR_BUDGET * 2
-      ? serialized
-      : truncateText(serialized, MAX_TOOL_RESULT_CHAR_BUDGET * 2, 'business report pack exceeded model context budget')
+    if (serialized.length <= MAX_TOOL_RESULT_CHAR_BUDGET * 2) {
+      return serialized
+    }
+
+    const evidenceFirst = {
+      metadata: parsed.metadata,
+      scope_profile: parsed.scope_profile,
+      coverage: parsed.coverage,
+      data_completeness_matrix: parsed.data_completeness_matrix,
+      summary_cards: parsed.summary_cards,
+      target_vs_actual_table: parsed.target_vs_actual_table,
+      monthly_actual_table: parsed.monthly_actual_table,
+      direct_children_table: directChildrenTable.slice(0, 40),
+      key_descendant_table: keyDescendantTable.slice(0, 30),
+      leaf_exception_table: leafExceptionTable.slice(0, 30),
+      unit_cards: unitCards.slice(0, 50),
+      cost_expense_summary: parsed.cost_expense_summary,
+      cost_expense_table: costExpenseTable.slice(0, 160),
+      metric_coverage: parsed.metric_coverage,
+      variance_rankings: parsed.variance_rankings,
+      warnings: warnings.slice(0, 60),
+      manual_fill_sections: parsed.manual_fill_sections,
+      tool_result_compacted: true,
+      compaction_note: '明细长表已压缩，但保留了范围画像、覆盖矩阵、排行、预警、重点单位和人工补充章节。',
+      original_unit_card_count: unitCards.length,
+      original_cost_expense_row_count: costExpenseTable.length,
+    }
+
+    const fallbackSerialized = JSON.stringify(evidenceFirst, null, 2)
+    return fallbackSerialized.length <= MAX_TOOL_RESULT_CHAR_BUDGET * 2
+      ? fallbackSerialized
+      : truncateText(fallbackSerialized, MAX_TOOL_RESULT_CHAR_BUDGET * 2, 'business report pack evidence summary exceeded model context budget')
   } catch {
     return truncateText(content, MAX_TOOL_RESULT_CHAR_BUDGET * 2, 'business report pack exceeded model context budget')
   }

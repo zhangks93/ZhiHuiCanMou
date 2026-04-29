@@ -8,10 +8,13 @@
 
 若该工具返回：
 - `coverage.core_biz_data = missing`：不得生成完整报告，只输出缺数说明。
+- `scope_profile`：必须据此调整分析颗粒度。集团层级写结构和贡献；区域/中心层级写下属单元差异；叶子层级写自身目标达成、趋势和费用风险。
+- `data_completeness_matrix`：必须先用于判断哪些章节可直接写、哪些只能有限结论、哪些必须人工补充。
 - `coverage.receivables = manual_required`：第 3 节输出人工补充占位。
 - `coverage.cash_plan = manual_required`：第 4 节输出人工补充占位。
 - `coverage.core_expenses = manual_required`：第 5 节输出人工补充占位。
 - `warnings` 非空：必须在报告正文和管理层关注事项中体现。
+- `direct_children_table` / `key_descendant_table` / `leaf_exception_table` 非空：第 1.2 节优先使用直接子级表，再用重点后代和叶子异常表补充。
 - `cost_expense_summary` / `cost_expense_table` 非空：第 5 节必须先输出系统可取费用指标参考表，再输出人工补充占位。
 - `metric_coverage.missing_auto_metrics` 非空：生成正文前应先说明自动指标覆盖缺口；若是报告关键指标，必须补查一次或降低结论强度。
 

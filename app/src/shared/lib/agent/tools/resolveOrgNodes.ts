@@ -102,10 +102,16 @@ export const resolveOrgNodesTool: RegisteredTool = {
     }))
 
     const canonicalScope = inferCanonicalScope(rows)
+    const confidence = rows.length === 1
+      ? 'high'
+      : canonicalScope.level_2 || canonicalScope.level_1
+        ? 'medium'
+        : 'low'
 
     return JSON.stringify({
       keyword,
       match_count: rows.length,
+      confidence,
       suggested_filter_mode: rows.length === 1 ? 'node_name' : canonicalScope.level_2 ? 'level_2' : canonicalScope.level_1 ? 'level_1' : 'node_name',
       canonical_scope: canonicalScope,
       top_matches: rows.slice(0, 8).map(row => ({

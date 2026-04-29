@@ -55,6 +55,7 @@ export interface UnitCard {
   node_kind: string
   level_1: string | null
   level_2: string | null
+  selection_reason?: string
   cumulative: TargetVsActualRow
   monthly: TargetVsActualRow
   cost_expense_metrics?: ReportMetricValue[]
@@ -100,6 +101,27 @@ export interface ManualFillSection {
   table_markdown: string
 }
 
+export interface ScopeProfile {
+  scope_name: string
+  node_kind: string
+  level_1: string | null
+  level_2: string | null
+  direct_child_count: number
+  descendant_count: number
+  leaf_count: number
+  recommended_report_focus: string[]
+}
+
+export interface DataCompletenessMatrixRow {
+  section: string
+  period_scope: PeriodScope | 'cross_period' | 'manual'
+  report_type: ReportType | 'both' | 'not_applicable'
+  required_fields: string[]
+  status: 'available' | 'partial' | 'missing' | 'manual_required'
+  missing_fields: string[]
+  handling: string
+}
+
 export interface BusinessReportWarning {
   severity: WarningSeverity
   section: string
@@ -117,6 +139,7 @@ export interface BusinessReportPack {
     generated_at: string
     unit: '万元'
   }
+  scope_profile: ScopeProfile
   coverage: {
     core_biz_data: 'available' | 'partial' | 'missing'
     monthly_plan: 'available' | 'partial' | 'missing'
@@ -133,10 +156,14 @@ export interface BusinessReportPack {
   summary_cards: SummaryCard[]
   target_vs_actual_table: TargetVsActualRow[]
   composition_table: CompositionRow[]
+  direct_children_table: CompositionRow[]
+  key_descendant_table: CompositionRow[]
+  leaf_exception_table: CompositionRow[]
   unit_cards: UnitCard[]
   monthly_actual_table: TargetVsActualRow[]
   cost_expense_summary: CostExpenseRow[]
   cost_expense_table: CostExpenseRow[]
+  data_completeness_matrix: DataCompletenessMatrixRow[]
   metric_coverage: MetricCoverage
   variance_rankings: {
     revenue_gap_top: RankingRow[]

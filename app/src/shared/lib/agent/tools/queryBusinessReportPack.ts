@@ -22,12 +22,14 @@ import type {
   BusinessReportWarning,
   CompositionRow,
   CostExpenseRow,
+  DataCompletenessMatrixRow,
   ManualFillSection,
   MetricCoverage,
   PeriodScope,
   RankingRow,
   ReportMetricValue,
   ReportType,
+  ScopeProfile,
   SummaryCard,
   TargetVsActualRow,
   UnitCard,
@@ -323,6 +325,96 @@ function buildCompositionRows(root: EnrichedBizDataNode | null, allNodes: Enrich
   })
 }
 
+function buildCompositionRow(
+  node: EnrichedBizDataNode,
+  root: EnrichedBizDataNode | null,
+  reportType: ReportType,
+  label?: string
+): CompositionRow {
+  const revenue = node.metrics.revenue
+  const profit = node.metrics.pretax_profit
+  const totalRevenue = root?.metrics.revenue?.actual ?? null
+  const totalProfit = root?.metrics.pretax_profit?.actual ?? null
+  const revenueCompletion = reportType === 'fone' ? revenue?.completion_fone ?? null : revenue?.completion_tuwei ?? null
+  const profitCompletion = reportType === 'fone' ? profit?.completion_fone ?? null : profit?.completion_tuwei ?? null
+
+  return {
+    level_1: node.orgHierarchy.level_1,
+    level_2: node.orgHierarchy.level_2,
+    node_name: node.node_name,
+    node_kind: getNodeKind(node),
+    revenue_actual: revenue?.actual ?? null,
+    revenue_share: contributionShare(revenue?.actual ?? null, totalRevenue),
+    revenue_completion_rate: revenueCompletion,
+    pretax_profit_actual: profit?.actual ?? null,
+    pretax_profit_share: contributionShare(profit?.actual ?? null, totalProfit),
+    pretax_profit_completion_rate: profitCompletion,
+    business_judgement: `${label ? `${label}：` : ''}收入完成率${formatPctForJudgement(revenueCompletion)}，税前利润完成率${formatPctForJudgement(profitCompletion)}。`,
+  }
+}
+
+function buildKeyDescendantRows(root: EnrichedBizDataNode | null, allNodes: EnrichedBizDataNode[], reportType: ReportType): CompositionRow[] {
+  if (!root) return []
+  const descendants = flattenSubtree(root, allNodes).filter(node => node.node_name !== root.node_name)
+  const seen = new Set<string>()
+  const addRows = (nodes: EnrichedBizDataNode[], label: string) => nodes
+    .filter(node => {
+      const key = `${getNodeKind(node)}:${node.node_name}:${node.orgHierarchy.level_1 ?? ''}:${node.orgHierarchy.level_2 ?? ''}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .map(node => buildCompositionRow(node, root, reportType, label))
+
+  const revenueContribution = [...descendants]
+    .filter(node => node.metrics.revenue?.actual != null)
+    .sort((a, b) => (b.metrics.revenue?.actual ?? 0) - (a.metrics.revenue?.actual ?? 0))
+    .slice(0, 8)
+  const profitGap = [...descendants]
+    .filter(node => {
+      const diffValue = reportType === 'fone'
+        ? node.metrics.pretax_profit?.diff_fone
+        : node.metrics.pretax_profit?.diff_tuwei
+      return diffValue != null
+    })
+    .sort((a, b) => {
+      const left = reportType === 'fone' ? a.metrics.pretax_profit?.diff_fone : a.metrics.pretax_profit?.diff_tuwei
+      const right = reportType === 'fone' ? b.metrics.pretax_profit?.diff_fone : b.metrics.pretax_profit?.diff_tuwei
+      return (left ?? 0) - (right ?? 0)
+    })
+    .slice(0, 8)
+
+  return [
+    ...addRows(revenueContribution, '收入贡献重点'),
+    ...addRows(profitGap, '利润缺口重点'),
+  ].slice(0, 16)
+}
+
+function buildLeafExceptionRows(root: EnrichedBizDataNode | null, allNodes: EnrichedBizDataNode[], reportType: ReportType): CompositionRow[] {
+  if (!root) return []
+  return flattenSubtree(root, allNodes)
+    .filter(node => {
+      if (node.node_name === root.node_name) return false
+      if (getNodeKind(node) !== 'leaf' && getNodeKind(node) !== 'orphan') return false
+      const profitCompletion = reportType === 'fone'
+        ? node.metrics.pretax_profit?.completion_fone
+        : node.metrics.pretax_profit?.completion_tuwei
+      const revenueCompletion = reportType === 'fone'
+        ? node.metrics.revenue?.completion_fone
+        : node.metrics.revenue?.completion_tuwei
+      return (profitCompletion != null && profitCompletion < 0.8)
+        || (revenueCompletion != null && revenueCompletion < 0.8)
+        || (node.metrics.pretax_profit?.actual ?? 0) < 0
+    })
+    .sort((a, b) => {
+      const left = reportType === 'fone' ? a.metrics.pretax_profit?.completion_fone : a.metrics.pretax_profit?.completion_tuwei
+      const right = reportType === 'fone' ? b.metrics.pretax_profit?.completion_fone : b.metrics.pretax_profit?.completion_tuwei
+      return (left ?? Number.POSITIVE_INFINITY) - (right ?? Number.POSITIVE_INFINITY)
+    })
+    .slice(0, 20)
+    .map(node => buildCompositionRow(node, root, reportType, '叶子节点异常'))
+}
+
 function findNodeByName(nodes: EnrichedBizDataNode[], nodeName: string): EnrichedBizDataNode | null {
   return nodes.find(node => node.node_name === nodeName) ?? null
 }
@@ -337,10 +429,44 @@ function buildUnitCards(params: {
   maxUnits: number
 }): UnitCard[] {
   const cumulativeSubtree = flattenSubtree(params.cumulativeRoot, params.cumulativeNodes)
-  return cumulativeSubtree
+  const candidates = cumulativeSubtree
     .filter(node => node.node_name !== params.cumulativeRoot?.node_name)
-    .slice(0, params.maxUnits)
     .map(node => {
+      const revenue = node.metrics.revenue
+      const profit = node.metrics.pretax_profit
+      const revenueCompletion = params.reportType === 'fone' ? revenue?.completion_fone : revenue?.completion_tuwei
+      const profitCompletion = params.reportType === 'fone' ? profit?.completion_fone : profit?.completion_tuwei
+      const revenueDiff = params.reportType === 'fone' ? revenue?.diff_fone : revenue?.diff_tuwei
+      const profitDiff = params.reportType === 'fone' ? profit?.diff_fone : profit?.diff_tuwei
+      const expenseOverrun = COST_EXPENSE_DETAIL_METRICS.reduce((sum, metric) => {
+        const value = node.metrics[metric]
+        const diffValue = params.reportType === 'fone' ? value?.diff_fone : value?.diff_tuwei
+        return sum + Math.max(0, diffValue ?? 0)
+      }, 0)
+      const riskScore = [
+        profitCompletion != null && profitCompletion < 0.8 ? 40 : 0,
+        revenueCompletion != null && revenueCompletion < 0.8 ? 25 : 0,
+        (profit?.actual ?? 0) < 0 ? 35 : 0,
+        expenseOverrun > 0 ? 15 : 0,
+      ].reduce((sum, value) => sum + value, 0)
+      const contributionScore = Math.abs(revenue?.actual ?? 0) + Math.abs(profit?.actual ?? 0)
+      const gapScore = Math.abs(Math.min(0, revenueDiff ?? 0)) + Math.abs(Math.min(0, profitDiff ?? 0))
+      const selectionScore = riskScore * 1_000_000 + gapScore * 1_000 + contributionScore
+      const selectionReason = riskScore > 0
+        ? '风险优先'
+        : gapScore > 0
+          ? '缺口优先'
+          : contributionScore > 0
+            ? '贡献优先'
+            : '层级覆盖'
+
+      return { node, selectionScore, selectionReason }
+    })
+    .sort((a, b) => b.selectionScore - a.selectionScore)
+
+  return candidates
+    .slice(0, params.maxUnits)
+    .map(({ node, selectionReason }) => {
       const monthlyNode = findNodeByName(params.monthNodes, node.node_name)
       const monthlyRow = buildTargetVsActualRow(monthlyNode, params.reportType, 'monthly')
       const cumulativeRow = buildTargetVsActualRow(node, params.reportType, 'cumulative')
@@ -361,6 +487,7 @@ function buildUnitCards(params: {
         node_kind: getNodeKind(node),
         level_1: node.orgHierarchy.level_1,
         level_2: node.orgHierarchy.level_2,
+        selection_reason: selectionReason,
         cumulative: cumulativeRow,
         monthly: monthlyRow,
         cost_expense_metrics: cumulativeCostMetrics,
@@ -371,6 +498,126 @@ function buildUnitCards(params: {
         ],
       }
     })
+}
+
+function buildScopeProfile(root: EnrichedBizDataNode | null, allNodes: EnrichedBizDataNode[]): ScopeProfile {
+  const descendants = flattenSubtree(root, allNodes).filter(node => node.node_name !== root?.node_name)
+  const directChildren = root ? getChildren(root, allNodes) : []
+  const leafCount = descendants.filter(node => {
+    const kind = getNodeKind(node)
+    return kind === 'leaf' || kind === 'orphan'
+  }).length
+  const nodeKind = root ? getNodeKind(root) : 'missing'
+  const recommendedReportFocus = nodeKind === 'total'
+    ? ['集团结构与贡献', '区域/中心差异', '重点缺口和费用风险']
+    : nodeKind === 'level1'
+      ? ['下属中心/业务单元完成情况', '重点项目拖累点', '费用与利润转化']
+      : nodeKind === 'level2'
+        ? ['明细单位完成情况', '低毛利和费用超支节点', '当月对累计目标影响']
+        : ['本节点目标达成', '当月/累计趋势', '费用和人工补充事项']
+
+  return {
+    scope_name: root?.node_name ?? '未匹配节点',
+    node_kind: nodeKind,
+    level_1: root?.orgHierarchy.level_1 ?? null,
+    level_2: root?.orgHierarchy.level_2 ?? null,
+    direct_child_count: directChildren.length,
+    descendant_count: descendants.length,
+    leaf_count: leafCount,
+    recommended_report_focus: recommendedReportFocus,
+  }
+}
+
+function getAvailableFields(row: TargetVsActualRow): string[] {
+  return Object.entries(row)
+    .filter(([key, value]) => key !== 'node_name' && key !== 'report_type' && key !== 'period_scope' && value != null)
+    .map(([key]) => key)
+}
+
+function buildDataCompletenessMatrix(params: {
+  targetVsActualTable: TargetVsActualRow[]
+  compositionTable: CompositionRow[]
+  unitCards: UnitCard[]
+  costExpenseTable: CostExpenseRow[]
+  coverage: BusinessReportPack['coverage']
+  metricCoverage: MetricCoverage
+}): DataCompletenessMatrixRow[] {
+  const targetRows = params.targetVsActualTable
+  const requiredTargetFields = [
+    'revenue_actual',
+    'revenue_target',
+    'revenue_completion_rate',
+    'revenue_diff',
+    'pretax_profit_actual',
+    'pretax_profit_target',
+    'pretax_profit_completion_rate',
+    'pretax_profit_diff',
+  ]
+  const matrix: DataCompletenessMatrixRow[] = []
+
+  for (const periodScope of ['monthly', 'cumulative'] as const) {
+    for (const reportType of ['fone', 'tuwei'] as const) {
+      const row = targetRows.find(item => item.period_scope === periodScope && item.report_type === reportType)
+      const availableFields = row ? getAvailableFields(row) : []
+      const missingFields = requiredTargetFields.filter(field => !availableFields.includes(field))
+      matrix.push({
+        section: '目标对标总表',
+        period_scope: periodScope,
+        report_type: reportType,
+        required_fields: requiredTargetFields,
+        status: !row ? 'missing' : missingFields.length === 0 ? 'available' : 'partial',
+        missing_fields: missingFields,
+        handling: missingFields.length === 0 ? '可直接写入报告' : '写作时降低结论强度，并提示缺失字段',
+      })
+    }
+  }
+
+  matrix.push({
+    section: '明细构成与贡献',
+    period_scope: 'cumulative',
+    report_type: 'both',
+    required_fields: ['composition_table', 'variance_rankings', 'unit_cards'],
+    status: params.compositionTable.length > 0 && params.unitCards.length > 0 ? 'available' : 'partial',
+    missing_fields: [
+      params.compositionTable.length > 0 ? '' : 'composition_table',
+      params.unitCards.length > 0 ? '' : 'unit_cards',
+    ].filter(Boolean),
+    handling: '优先使用直接子级表；若子级不足，使用重点后代和叶子异常表补充',
+  })
+
+  matrix.push({
+    section: '成本费用参考',
+    period_scope: 'cross_period',
+    report_type: 'both',
+    required_fields: COST_EXPENSE_METRICS,
+    status: params.costExpenseTable.length > 0 ? 'available' : 'missing',
+    missing_fields: params.costExpenseTable.length > 0 ? [] : COST_EXPENSE_METRICS,
+    handling: '系统可取费用指标必须先输出，不能写成专项待补',
+  })
+
+  matrix.push({
+    section: '自动指标覆盖',
+    period_scope: 'cross_period',
+    report_type: 'both',
+    required_fields: params.metricCoverage.expected_auto_metrics,
+    status: params.metricCoverage.missing_auto_metrics.length === 0 ? 'available' : 'partial',
+    missing_fields: params.metricCoverage.missing_auto_metrics,
+    handling: params.metricCoverage.missing_auto_metrics.length === 0 ? '核心自动指标均有返回记录' : '关键指标缺失时需降低结论强度',
+  })
+
+  for (const gap of params.coverage.gaps) {
+    matrix.push({
+      section: gap.section,
+      period_scope: 'manual',
+      report_type: 'not_applicable',
+      required_fields: gap.field.split('/'),
+      status: 'manual_required',
+      missing_fields: gap.field.split('/'),
+      handling: '保留人工补充占位表，禁止编造',
+    })
+  }
+
+  return matrix
 }
 
 function rankingRow(
@@ -704,6 +951,10 @@ export const queryBusinessReportPackTool: RegisteredTool = {
 
     const preferredReportType: ReportType = reportTypes.includes('tuwei') ? 'tuwei' : reportTypes[0]
     const summaryCards = buildSummaryCards({ monthRoot, previousRoot, cumulativeRoot, reportTypes, labelMap })
+    const targetVsActualTable = buildTargetVsActualTable(monthRoot, cumulativeRoot, reportTypes)
+    const directChildrenTable = buildCompositionRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType)
+    const keyDescendantTable = buildKeyDescendantRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType)
+    const leafExceptionTable = buildLeafExceptionRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType)
     const costExpenseSummary = [
       ...buildCostExpenseRows({
         root: monthRoot,
@@ -747,6 +998,21 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       reportType: preferredReportType,
       maxUnits,
     })
+    const coverage = buildCoverage({
+      monthReports,
+      previousReports,
+      cumulativeReports,
+      monthlyPlanCount: monthlyPlans.length,
+    })
+    const metricCoverage = buildMetricCoverage([...monthReports, ...previousReports, ...cumulativeReports])
+    const dataCompletenessMatrix = buildDataCompletenessMatrix({
+      targetVsActualTable,
+      compositionTable: directChildrenTable,
+      unitCards,
+      costExpenseTable,
+      coverage,
+      metricCoverage,
+    })
 
     const pack: BusinessReportPack = {
       metadata: {
@@ -757,20 +1023,20 @@ export const queryBusinessReportPackTool: RegisteredTool = {
         generated_at: new Date().toISOString(),
         unit: '万元',
       },
-      coverage: buildCoverage({
-        monthReports,
-        previousReports,
-        cumulativeReports,
-        monthlyPlanCount: monthlyPlans.length,
-      }),
+      scope_profile: buildScopeProfile(cumulativeRoot ?? monthRoot, cumulativeResolved.allNodes),
+      coverage,
       summary_cards: summaryCards,
-      target_vs_actual_table: buildTargetVsActualTable(monthRoot, cumulativeRoot, reportTypes),
-      composition_table: buildCompositionRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType),
+      target_vs_actual_table: targetVsActualTable,
+      composition_table: directChildrenTable,
+      direct_children_table: directChildrenTable,
+      key_descendant_table: keyDescendantTable,
+      leaf_exception_table: leafExceptionTable,
       unit_cards: unitCards,
       monthly_actual_table: reportTypes.map(reportType => buildTargetVsActualRow(monthRoot, reportType, 'monthly')),
       cost_expense_summary: costExpenseSummary,
       cost_expense_table: costExpenseTable,
-      metric_coverage: buildMetricCoverage([...monthReports, ...previousReports, ...cumulativeReports]),
+      data_completeness_matrix: dataCompletenessMatrix,
+      metric_coverage: metricCoverage,
       variance_rankings: buildRankings(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType, labelMap),
       manual_fill_sections: buildManualFillSections(),
       warnings: buildWarnings({ unitCards, summaryCards, costExpenseRows: costExpenseTable }),
