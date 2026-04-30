@@ -20,10 +20,12 @@ import {
 import type {
   BusinessReportPack,
   BusinessReportWarning,
+  BusinessReportWritingBrief,
   CompositionRow,
   CostExpenseRow,
   DataCompletenessMatrixRow,
   ManualFillSection,
+  MissingDataNote,
   MetricCoverage,
   PeriodScope,
   RankingRow,
@@ -669,11 +671,102 @@ function buildDataCompletenessMatrix(params: {
       required_fields: gap.field.split('/'),
       status: 'manual_required',
       missing_fields: gap.field.split('/'),
-      handling: '保留人工补充占位表，禁止编造',
+      handling: '在报告结尾集中说明需人工补充，禁止编造；正文不渲染大面积占位表',
     })
   }
 
   return matrix
+}
+
+function formatBriefNumber(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '无数据'
+  return value.toFixed(2)
+}
+
+function formatBriefPct(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '无数据'
+  return `${(value * 100).toFixed(1)}%`
+}
+
+function periodScopeLabel(scope: PeriodScope): string {
+  return scope === 'monthly' ? '当月' : '累计'
+}
+
+function reportTypeLabel(reportType: ReportType): string {
+  return reportType === 'fone' ? '年初预算口径' : '突围考核口径'
+}
+
+function buildWritingBrief(params: {
+  scopeProfile: BusinessReportPack['scope_profile']
+  summaryCards: BusinessReportPack['summary_cards']
+  targetVsActualTable: BusinessReportPack['target_vs_actual_table']
+  directChildrenTable: BusinessReportPack['direct_children_table']
+  unitCards: BusinessReportPack['unit_cards']
+  costExpenseSummary: BusinessReportPack['cost_expense_summary']
+  varianceRankings: BusinessReportPack['variance_rankings']
+  warnings: BusinessReportPack['warnings']
+}): BusinessReportWritingBrief {
+  const targetRows = params.targetVsActualTable
+    .filter(row => row.report_type === 'tuwei' || row.report_type === 'fone')
+    .slice(0, 4)
+
+  const executiveSummaryPoints = targetRows.map(row => {
+    const label = `${reportTypeLabel(row.report_type)}${periodScopeLabel(row.period_scope)}`
+    return `${label}：营业收入${formatBriefNumber(row.revenue_actual)}万元，完成率${formatBriefPct(row.revenue_completion_rate)}，差额${formatBriefNumber(row.revenue_diff)}万元；税前利润${formatBriefNumber(row.pretax_profit_actual)}万元，完成率${formatBriefPct(row.pretax_profit_completion_rate)}，差额${formatBriefNumber(row.pretax_profit_diff)}万元。`
+  })
+
+  const targetGapPoints = [
+    ...params.varianceRankings.revenue_gap_top.slice(0, 5).map(row =>
+      `${row.node_name}收入缺口${formatBriefNumber(row.diff)}万元，完成率${formatBriefPct(row.completion_rate)}。`
+    ),
+    ...params.varianceRankings.profit_gap_top.slice(0, 5).map(row =>
+      `${row.node_name}税前利润缺口${formatBriefNumber(row.diff)}万元，完成率${formatBriefPct(row.completion_rate)}。`
+    ),
+  ]
+
+  const structurePoints = params.directChildrenTable.slice(0, 8).map(row =>
+    `${row.node_name}收入${formatBriefNumber(row.revenue_actual)}万元，占比${formatBriefPct(row.revenue_share)}，税前利润${formatBriefNumber(row.pretax_profit_actual)}万元，占比${formatBriefPct(row.pretax_profit_share)}。`
+  )
+
+  const unitRiskPoints = params.unitCards.slice(0, 8).map(card => {
+    const warnings = card.warnings.length ? `风险：${card.warnings.join('；')}` : '暂无红黄风险。'
+    return `${card.node_name}（${card.selection_reason || '重点单位'}）：累计收入完成率${formatBriefPct(card.cumulative.revenue_completion_rate)}，累计税前利润完成率${formatBriefPct(card.cumulative.pretax_profit_completion_rate)}，${warnings}`
+  })
+
+  const costExpensePoints = [
+    ...params.costExpenseSummary
+      .filter(row => row.status === 'risk' || row.status === 'watch')
+      .slice(0, 8)
+      .map(row =>
+        `${reportTypeLabel(row.report_type)}${periodScopeLabel(row.period_scope)}${row.metric_label}完成率${formatBriefPct(row.completion_rate)}，差额${formatBriefNumber(row.diff)}万元。`
+      ),
+    ...params.varianceRankings.expense_over_budget_top.slice(0, 5).map(row =>
+      `${row.node_name}${row.metric_label || '费用'}超预算${formatBriefNumber(row.diff)}万元，完成率${formatBriefPct(row.completion_rate)}。`
+    ),
+  ]
+
+  const riskActionPoints = params.warnings
+    .filter(warning => warning.section !== '专项数据覆盖')
+    .slice(0, 10)
+    .map(warning => `${warning.severity}：${warning.node_name ? `${warning.node_name}，` : ''}${warning.message}`)
+
+  return {
+    focus: params.scopeProfile.recommended_report_focus,
+    executive_summary_points: executiveSummaryPoints,
+    target_gap_points: targetGapPoints,
+    structure_points: structurePoints,
+    cost_expense_points: costExpensePoints,
+    risk_action_points: [...unitRiskPoints, ...riskActionPoints].slice(0, 12),
+  }
+}
+
+function buildMissingDataNotes(coverage: BusinessReportPack['coverage']): MissingDataNote[] {
+  return coverage.gaps.map(gap => ({
+    section: gap.section,
+    reason: gap.reason,
+    fields: gap.field.split('/'),
+    handling: 'closing_note',
+  }))
 }
 
 function rankingRow(
@@ -1084,6 +1177,18 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       metricCoverage,
     })
     const warnings = buildWarnings({ unitCards, summaryCards, costExpenseRows: costExpenseTable })
+    const scopeProfile = buildScopeProfile(cumulativeRoot ?? monthRoot, cumulativeResolved.allNodes)
+    const varianceRankings = buildRankings(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType, labelMap)
+    const writingBrief = buildWritingBrief({
+      scopeProfile,
+      summaryCards,
+      targetVsActualTable,
+      directChildrenTable,
+      unitCards,
+      costExpenseSummary,
+      varianceRankings,
+      warnings,
+    })
 
     const pack: BusinessReportPack = {
       metadata: {
@@ -1101,7 +1206,8 @@ export const queryBusinessReportPackTool: RegisteredTool = {
           warnings: warnings.length,
         },
       },
-      scope_profile: buildScopeProfile(cumulativeRoot ?? monthRoot, cumulativeResolved.allNodes),
+      scope_profile: scopeProfile,
+      writing_brief: writingBrief,
       coverage,
       summary_cards: summaryCards,
       target_vs_actual_table: targetVsActualTable,
@@ -1117,7 +1223,8 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       cost_expense_table: costExpenseTable,
       data_completeness_matrix: dataCompletenessMatrix,
       metric_coverage: metricCoverage,
-      variance_rankings: buildRankings(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType, labelMap),
+      missing_data_notes: buildMissingDataNotes(coverage),
+      variance_rankings: varianceRankings,
       manual_fill_sections: buildManualFillSections(),
       warnings,
     }

@@ -8,40 +8,36 @@
 
 若该工具返回：
 - `coverage.core_biz_data = missing`：不得生成完整报告，只输出缺数说明。
+- `writing_brief`：优先作为写作素材，先写结论，再用明细表支撑。
 - `scope_profile`：必须据此调整分析颗粒度。集团层级写结构和贡献；区域/中心层级写下属单元差异；叶子层级写自身目标达成、趋势和费用风险。
-- `data_completeness_matrix`：必须先用于判断哪些章节可直接写、哪些只能有限结论、哪些必须人工补充。
-- `coverage.receivables = manual_required`：第 3 节输出人工补充占位。
-- `coverage.cash_plan = manual_required`：第 4 节输出人工补充占位。
-- `coverage.core_expenses = manual_required`：第 5 节输出人工补充占位。
+- `data_completeness_matrix`：用于判断哪些章节可直接写、哪些只能有限结论、哪些只放在结尾数据限制说明。
 - `warnings` 非空：必须在报告正文和管理层关注事项中体现。
-- `direct_children_table` / `key_descendant_table` / `leaf_exception_table` 非空：第 1.2 节优先使用直接子级表，再用重点后代和叶子异常表补充。
-- `cost_expense_summary` / `cost_expense_table` 非空：第 5 节必须先输出系统可取费用指标参考表，再输出人工补充占位。
-- `metric_coverage.missing_auto_metrics` 非空：生成正文前应先说明自动指标覆盖缺口；若是报告关键指标，必须补查一次或降低结论强度。
+- `direct_children_table` / `key_descendant_table` / `leaf_exception_table` 非空：优先使用直接子级表，再用重点后代和叶子异常表补充。
+- `cost_expense_summary` / `cost_expense_table` 非空：必须输出系统可取费用指标分析，不得写成待补。
+- `metric_coverage.missing_auto_metrics` 非空：生成正文前应说明自动指标覆盖缺口；若是报告关键指标，降低结论强度。
+- `missing_data_notes` 非空：只在报告结尾集中说明，不在正文渲染大面积占位表。
 
 ## 2. 章节要求
 
-终稿必须采用：
-1. 对标后勤集团考核努力目标的经营情况
-2. 实际情况
-3. 应收账款回款情况
-4. 资金计划执行情况
-5. 当月核心费用支出情况
-6. 管理层关注事项与后续动作
+终稿默认采用弹性结构：
+1. 经营摘要
+2. 目标对标与实际完成
+3. 组织结构、贡献与拖累
+4. 成本费用与效率
+5. 风险判断与后续动作
+6. 数据限制与待补说明
 
-除非用户明确要求摘要版，不得改成“经营摘要 + 建议”的短报告。
+允许根据组织层级和数据完整度合并或删除小节，但不得省略核心经营判断。
 
-## 3. 表格数量要求
+## 3. 表格要求
 
-数据充足时，至少输出：
-- 目标对标总表 1 张
-- 明细构成表 1 张
-- 区域/中心累计完成小表 3 张以上，若实际少于 3 个单位则全部输出
-- 当月完成情况表 1 张
-- 系统可取成本费用指标参考表 1 张
-- 应收回款人工补充表 1 张
-- 资金计划人工补充表 1 张
-- 核心费用人工补充表 1 张
-- 管理动作表 1 张
+数据充足时，优先输出：
+- 目标对标总表 1 张。
+- 构成、贡献或缺口表 1-2 张。
+- 重点单位表或风险动作表 1 张。
+- 成本费用或效率表 1 张。
+
+表格服务于判断，不为凑数量而输出。缺少专项数据时，不输出 `【人工补充】` 占位表。
 
 ## 4. 文字密度要求
 
@@ -51,19 +47,20 @@
 - 分析必须包含数字、对象、原因或风险。
 - 不允许只复述表格。
 
-## 5. 人工补充章节要求
+## 5. 缺失数据处理
 
-对于人工补充章节，必须包含：
-- “当前系统未接入该专项数据”的说明。
-- 占位表。
-- 业务人员需要补充的字段。
-- “补数后需复核”的提示。
+对于系统当前不可自动获取的数据：
+- 不编造。
+- 不在正文输出大量待补占位符。
+- 在结尾“数据限制与待补说明”集中列出缺失字段、原因和补数后需复核的事项。
 
-核心费用专项明细虽然需要人工补充，但系统已有的成本费用经营指标必须先作为参考输出；禁止把 `labor_cost`、`salary`、`material_cost`、`vehicle_expense`、`energy_expense`、`travel_expense`、`entertainment_expense` 等自动指标写成 `【待补】`。
+核心费用专项明细虽然需要人工补充，但系统已有的成本费用经营指标必须先作为参考输出；禁止把 `labor_cost`、`salary`、`material_cost`、`vehicle_expense`、`energy_expense`、`travel_expense`、`entertainment_expense` 等自动指标写成待补。
 
 ## 6. 图表交付
 
-只有用户明确要求图表，或模板/当前任务要求保留图表结构化配置时，才读取 `chart-guidance.md` 并输出 chart spec JSON。图表必须由已返回数据支撑，不得用占位图凑数。
+默认不输出图表 JSON。
+
+只有用户明确要求“图表配置 / chart spec / JSON 图表 / 离线绘图配置”时，才读取 `chart-guidance.md` 并输出 chart spec JSON。普通完整报告只输出文字、数字和 Markdown 表格。
 
 ## 7. 自审
 

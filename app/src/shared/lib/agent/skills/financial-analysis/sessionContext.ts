@@ -225,7 +225,7 @@ function deriveReportMode(
     chartGuidanceLoaded: previous?.chartGuidanceLoaded || chartGuidanceLoaded,
     loadedPaths,
     chartOutputMode:
-      previous?.chartOutputMode || templatePath || previous?.templatePath || chartGuidanceLoaded
+      previous?.chartOutputMode || chartGuidanceLoaded
         ? 'structured_chart_spec_json'
         : undefined,
   }

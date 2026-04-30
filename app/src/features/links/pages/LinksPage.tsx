@@ -14,7 +14,6 @@ import { logger } from '@/shared/lib/logger'
 const systemLinks = [
   { icon: Shield, name: '安全管理系统', url: env.links.safety },
   { icon: Leaf, name: '青禾链', url: env.links.qinghe },
-  { icon: Store, name: '海鼎系统', url: env.links.haiding },
   { icon: UtensilsCrossed, name: '智慧餐饮系统', url: env.links.catering },
   { icon: ClipboardList, name: 'CRM 系统', url: env.links.crm },
   { icon: Telescope, name: '观海1号', url: env.links.guanhai },
@@ -25,6 +24,16 @@ const boardLinks = [
     icon: KanbanSquare,
     name: '人事管理云',
     url: 'https://hailiang.feishu.cn/app/JTv8b4oPQassQKsHYBwcuFEmnFc?pageId=pgeNv1I5170puLXI',
+  },
+  {
+    icon: KanbanSquare,
+    name: '供应链精益管理',
+    url: 'https://hailiang.feishu.cn/app/CPPwbLKCHatdCIsvm4Pc5c5fn2b?pageId=pgeQDmgBh2NXsxiU',
+  },
+  {
+    icon: KanbanSquare,
+    name: '干部排班表',
+    url: 'https://hailiang.feishu.cn/file/KBMnbg2YCoFtA1xVbYrc70sgnYe',
   },
 ]
 
@@ -99,7 +108,7 @@ export function Links() {
 
   return (
     <div className="app-page">
-      {renderLinkGrid('系统', '当前已有的 6 个系统入口。', systemLinks)}
+      {renderLinkGrid('系统', '当前已有的 5个系统入口。', systemLinks)}
       {renderLinkGrid('看板', '常用业务看板入口。', boardLinks)}
     </div>
   )

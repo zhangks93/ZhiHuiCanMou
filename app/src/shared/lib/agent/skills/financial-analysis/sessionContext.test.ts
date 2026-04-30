@@ -113,7 +113,25 @@ describe('financial analysis session context', () => {
 
     expect(context.reportMode?.templateLoaded).toBe(true)
     expect(context.reportMode?.reportGenerationLoaded).toBe(true)
-    expect(context.reportMode?.chartOutputMode).toBe('structured_chart_spec_json')
+    expect(context.reportMode?.chartOutputMode).toBeUndefined()
     expect(context.intent?.goal).toBe('report')
+  })
+
+  it('only enables chart output mode after chart guidance is loaded', () => {
+    const context = updateFinancialAnalysisSessionContext({
+      userMessage: user('生成图表配置'),
+      assistantMessage: assistant([
+        {
+          id: 'tool-1',
+          name: 'read_file',
+          arguments: { path: '/assets/financial-analysis/references/chart-guidance.md' },
+          status: 'success',
+          result: '# chart guidance',
+        },
+      ]),
+    })
+
+    expect(context.reportMode?.chartGuidanceLoaded).toBe(true)
+    expect(context.reportMode?.chartOutputMode).toBe('structured_chart_spec_json')
   })
 })

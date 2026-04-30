@@ -1,4 +1,4 @@
-# 后勤集团经营分析报告模板
+# 后勤集团经营分析报告写作模板
 
 **汇报单位**：以 `query_business_report_pack.metadata.scope_name` 为准  
 **统计周期**：当月 `metadata.month`，累计 `metadata.cumulative_period`  
@@ -7,122 +7,92 @@
 
 > 使用规则：
 > - 完整报告必须优先调用 `query_business_report_pack`，不得用多次零散查数替代报告包。
-> - 报告正文应使用工具返回的 `scope_profile`、`data_completeness_matrix`、`summary_cards`、`target_vs_actual_table`、`direct_children_table`、`key_descendant_table`、`leaf_exception_table`、`unit_cards`、`monthly_actual_table`、`cost_expense_summary`、`cost_expense_table`、`variance_rankings`、`warnings`。
-> - 第 3/4/5 节必须渲染 `manual_fill_sections` 中的占位表，禁止编造专项数据。
+> - 报告正文优先使用 `writing_brief`、`scope_profile`、`summary_cards`、`target_vs_actual_table`、`direct_children_table`、`unit_cards`、`cost_expense_summary`、`cost_expense_table`、`variance_rankings`、`warnings`。
+> - 模板是写作框架，不是必须逐字照搬的固定目录。允许根据组织层级、数据完整度和用户要求合并、删减或调整小节。
 > - 当月、上月、累计必须分开表达；`fone` 和 `tuwei` 口径不可混写。
 > - 百分比字段由小数展示为百分比，例如 `0.84` 写作 `84%`。
-> - 写作前先查看 `scope_profile.recommended_report_focus` 和 `data_completeness_matrix`。集团层级重点看结构和贡献；区域/中心层级重点看下属单元差异；叶子节点重点看自身目标达成、趋势和费用风险。
+> - 不输出图表 JSON；除非用户明确要求图表配置。
+> - 应收、资金计划、核心费用专项明细等系统取不到的数据，不在正文输出大量占位表，只在结尾集中说明。
 
 ---
 
-## 1. 对标后勤集团考核努力目标的经营情况
+## 1. 经营摘要
 
-### 1.1 目标对标总表
-
-使用 `target_vs_actual_table` 输出 fone/tuwei 的当月和累计目标对标表。至少包含：
-- 营业收入实际、目标、完成率、差额
-- 税前利润实际、目标、完成率、差额
-
-表后必须输出 2-5 条判断：
-- 对照努力目标的整体完成状态。
+用 3-6 条要点先写清本期核心判断。优先引用 `writing_brief.executive_summary_points`，并补充经营含义：
+- 收入和税前利润是否达成目标。
 - 收入完成与利润完成是否匹配。
-- 缺口是集中在收入端、利润端，还是两者同步承压。
+- 主要增长点、拖累点和风险点。
+- 当前状态对累计目标或后续月份的影响。
+
+---
+
+## 2. 目标对标与实际完成
+
+使用 `target_vs_actual_table` 或 `summary_cards` 输出 fone/tuwei 的当月和累计目标对标表。至少覆盖：
+- 营业收入实际、目标、完成率、差额。
+- 税前利润实际、目标、完成率、差额。
+
+表后写 2-5 条判断：
+- 对照努力目标的整体完成状态。
+- 收入端缺口和利润端缺口的相对大小。
+- 利润转化是否弱于收入兑现。
 - 黄色/红色预警必须点名对象和指标。
 
-### 1.2 明细构成与贡献
+---
 
-优先使用 `direct_children_table`，并结合 `key_descendant_table`、`leaf_exception_table` 和 `variance_rankings` 输出：
-- 构成表：区域/中心/业务单元收入、利润、占比、完成率。
-- 缺口排行：收入缺口 TOP、利润缺口 TOP。
-- 贡献排行：收入贡献 TOP、利润贡献 TOP。
-- 若当前对象没有足够直接子级，使用重点后代和叶子异常表补足分析颗粒度。
+## 3. 组织结构、贡献与拖累
 
-表后必须说明增长点、拖累点和结构质量。
+先查看 `scope_profile.recommended_report_focus` 决定颗粒度：
+- 集团层级：重点写区域/中心结构、贡献排行、缺口排行和结构质量。
+- 区域/中心层级：重点写直接下级差异、重点项目/业务单元拖累和费用压力。
+- 叶子节点：不强行输出下级构成，重点写自身目标达成、当月/累计变化和费用风险。
+
+可使用：
+- `direct_children_table`：首选构成表。
+- `key_descendant_table`、`leaf_exception_table`：直接子级不足或需要穿透时补充。
+- `variance_rankings`：输出收入/利润缺口 TOP、贡献 TOP。
+- `unit_cards.selection_reason`：说明为什么点名该单位。
+
+表后必须说明增长点、拖累点和结构质量，不只复述表格。
 
 ---
 
-## 2. 实际情况
+## 4. 成本费用与效率
 
-### 2.1 当月完成情况
-
-使用 `monthly_actual_table` 输出当月实际情况，至少覆盖 fone 和 tuwei 两种口径下的营业收入、税前利润。
-
-表后必须分析：
-- 当月收入和税前利润完成状态。
-- 与上月相比的变化方向，优先使用 `summary_cards.mom`。
-- 当月表现对累计目标的支撑或拖累。
-
-### 2.2 区域/中心累计完成情况
-
-使用 `unit_cards` 输出区域/中心小表。数据充足时至少列 3 个单位；不足 3 个则全部列出。
-
-每个重点单位至少说明：
-- `selection_reason`，即该单位为什么被纳入重点分析。
-- 累计收入完成率。
-- 累计税前利润完成率。
-- 当月是否出现利润为负、完成率过低或其他预警。
-- 后续关注点。
-
----
-
-## 3. 应收账款回款情况
-
-必须输出：
-
-> 【人工补充】当前系统未接入应收账款、回款、账龄和合同维度数据，本章节需业务人员补充后复核。
-
-渲染 `manual_fill_sections.receivables.table_markdown`。
-
-表后说明业务人员需补充字段，并提示补数后复核回款率、账龄风险和整改动作。
-
----
-
-## 4. 资金计划执行情况
-
-必须输出：
-
-> 【人工补充】当前系统未接入资金计划预算、实际收支、现金净流量和奖惩测算数据，本章节需业务人员补充后复核。
-
-渲染 `manual_fill_sections.cash_plan.table_markdown`。
-
-表后说明业务人员需补充字段，并提示补数后复核现金流偏差和奖惩影响。
-
----
-
-## 5. 当月核心费用支出情况
-
-必须输出：
-
-> 【人工补充】当前系统未接入业务报告所需核心费用明细，如办公用品费、咨询/维修/服务费等。本章节需业务人员补充后复核。系统已有部分费用类经营指标只能作为参考，不能替代该专项表。
-
-先使用 `cost_expense_summary` 和 `cost_expense_table` 输出“系统可取费用指标参考表”，至少覆盖：
+使用 `cost_expense_summary`、`cost_expense_table`、`variance_rankings.expense_over_budget_top` 输出系统可取的成本费用和效率指标。优先覆盖：
 - 人力成本及工资、社保、公积金、劳务费等明细。
 - 餐饮支出、物资销售成本、其他支出、营业外支出。
 - 车辆费用、能耗费、差旅费、业务招待费。
+- 人力成本率、人均营收、一元创收、一元创利等效率指标。
 
-表后说明：
-- 费用类经营指标低于或等于目标为好，超目标需按对象和指标点名。
-- 该参考表不能替代核心费用专项表，但不得因为专项表需人工补充而省略系统已有费用指标。
-
-渲染 `manual_fill_sections.core_expenses.table_markdown`。
-
-表后说明：
-- 系统可取的费用类经营指标只能作为经营参考。
-- 核心费用专项表需业务侧补充后再判断预算偏差和风险等级。
+写作要求：
+- 费用类经营指标通常低于或等于目标为好，超目标需点名对象和指标。
+- 不把系统已有费用指标写成待补。
+- 对无法自动取得的专项费用明细，只在结尾数据限制中说明。
 
 ---
 
-## 6. 管理层关注事项与后续动作
+## 5. 风险判断与后续动作
 
-使用 `warnings`、`variance_rankings`、`unit_cards.warnings` 输出管理动作表。
+使用 `warnings`、`unit_cards.warnings`、`writing_brief.risk_action_points` 输出管理动作表。
 
 建议表头：
 
 | 关注事项 | 对象 | 证据 | 风险等级 | 后续动作 |
 |---|---|---|---|---|
-| 【根据 warnings 填写】 | 【节点/章节】 | 【指标、完成率、差额】 | 【红/黄/提示】 | 【具体动作】 |
 
 本节必须：
 - 引用前文具体数据或预警，不写泛泛建议。
-- 区分收入兑现、利润转化、成本刚性、专项补数四类动作。
-- 对人工补充章节明确“补数后复核”。
+- 区分收入兑现、利润转化、成本刚性、效率改善、专项补数五类动作。
+- 动作表达要具体，避免“加强管理、持续关注”这类空话单独出现。
+
+---
+
+## 6. 数据限制与待补说明
+
+仅当 `missing_data_notes`、`coverage.gaps` 或 `data_completeness_matrix` 显示缺数时输出本节。
+
+写法：
+- 用 2-5 条短说明列出系统未接入的数据源或字段。
+- 对应收账款回款、资金计划执行、核心费用专项明细，只说明“需业务侧补充后复核”，不渲染大面积 `【人工补充】` 占位表。
+- 数据不足时降低结论强度，但不要删除已可自动生成的核心经营分析。

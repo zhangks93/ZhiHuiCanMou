@@ -154,6 +154,22 @@ export interface BusinessReportWarning {
   evidence: Record<string, unknown>
 }
 
+export interface BusinessReportWritingBrief {
+  focus: string[]
+  executive_summary_points: string[]
+  target_gap_points: string[]
+  structure_points: string[]
+  cost_expense_points: string[]
+  risk_action_points: string[]
+}
+
+export interface MissingDataNote {
+  section: string
+  reason: string
+  fields: string[]
+  handling: 'closing_note'
+}
+
 export interface BusinessReportPack {
   metadata: {
     scope_name: string
@@ -171,6 +187,7 @@ export interface BusinessReportPack {
     }
   }
   scope_profile: ScopeProfile
+  writing_brief?: BusinessReportWritingBrief
   coverage: {
     core_biz_data: 'available' | 'partial' | 'missing'
     monthly_plan: 'available' | 'partial' | 'missing'
@@ -198,6 +215,7 @@ export interface BusinessReportPack {
   cost_expense_table: CostExpenseRow[]
   data_completeness_matrix: DataCompletenessMatrixRow[]
   metric_coverage: MetricCoverage
+  missing_data_notes?: MissingDataNote[]
   variance_rankings: {
     revenue_gap_top: RankingRow[]
     profit_gap_top: RankingRow[]

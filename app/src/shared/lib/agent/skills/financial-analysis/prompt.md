@@ -72,7 +72,7 @@
    - 再补读一次 `/assets/financial-analysis/references/analysis-method.md`
    - 完整报告默认应补读该文件，不要只在结尾润色时临时想起
 
-5. 用户要求图表，或完整报告需要在末尾输出结构化图表配置时：
+5. 只有用户明确要求图表配置、chart spec 或 JSON 图表时：
    - 首次进入图表阶段时读取 `/assets/financial-analysis/references/chart-guidance.md`
 
 除上述触发外，不要一次性读取全部 references。
@@ -218,7 +218,7 @@
 - 全年预测
 - 责任部门、责任人、完成时点
 
-完整报告中，应收账款回款、资金计划执行、当月核心费用支出不得跳过，必须输出人工补充占位表；其他不可取数据明确标注数据限制。
+完整报告中，应收账款回款、资金计划执行、核心费用专项明细等不可取数据不得编造；缺失内容在报告结尾集中说明补数要求，不在正文输出大量待补占位表。
 
 ---
 
@@ -233,7 +233,7 @@
 6. 完整报告直接使用报告包；其他分析查询时优先按模板梳理出的指标清单一次或分组查询，不能遗漏模板已出现的关键指标名
 7. 先做数据完整性检查；若模板中某指标未返回，先按该指标名补查后，才能判断是否真缺数
 8. 再进入分析或写作；若是完整报告，再加载对应写作规范
-9. 若需要图表，再加载图表规范
+9. 只有用户明确要求图表配置时，再加载图表规范
 
 当月、上月、累计之间如无依赖，应优先并行查询；`fone` 与 `tuwei` 也应优先并行。
 
@@ -264,7 +264,7 @@
 
 ## 完整报告
 
-完整报告的详细结构、写作要求、自审要求、图表结构化配置要求，不在主提示中重复展开。
+完整报告的详细结构、写作要求和自审要求，不在主提示中重复展开。普通完整报告只输出文字、数字和 Markdown 表格。
 
 当用户要求完整报告、月报、markdown 报告或汇报材料时，必须：
 1. 先读取模板 `/assets/financial-analysis/biz-analysis-report.md`
@@ -274,7 +274,7 @@
 5. 再读取 `references/data-requirements.md`
 6. 默认读取 `references/analysis-method.md`
 7. 调用 `query_business_report_pack`
-8. 需要图表时读取 `references/chart-guidance.md`
+8. 只有用户明确要求图表配置时读取 `references/chart-guidance.md`
 9. 上述文件若本任务中已读过，不得重复读取同一路径，直接复用
 10. 输出前先自审，再只展示终稿
 11. 结尾给出后续可继续支持的动作建议
@@ -283,7 +283,8 @@
 - 不得把核心章节压缩成 1-2 句结论
 - 不得只罗列表格不写经营含义
 - 不得只写“是否达标”，还要写偏差原因、结构质量、阶段性/结构性判断和后续影响
-- 第 3/4/5 节必须输出人工补充占位表，不得删除，也不得编造专项数据
+- 不输出图表 JSON，除非用户明确要求图表配置
+- 对系统取不到的专项数据，只在结尾集中说明，不输出大量人工补充占位表
 
 ## 结尾推荐动作
 
@@ -317,7 +318,7 @@
 - 口径不一致：先提示风险，再输出有限结论
 - 完整报告中，`query_business_report_pack` 返回的 `cost_expense_summary`、`cost_expense_table`、`variance_rankings.*expense*` 必须优先用于成本费用分析；不得把系统已有成本费用指标写成待补。
 - 完整报告中，必须先使用 `scope_profile` 判断当前组织层级，再决定颗粒度：集团看区域/中心结构与贡献，区域/中心看下属单元差异，叶子节点看自身目标达成、趋势和费用风险。
-- 完整报告中，必须先查看 `data_completeness_matrix`。对 `partial` 或 `missing` 的章节降低结论强度；对 `manual_required` 的章节保留人工补充占位，不得编造。
+- 完整报告中，必须先查看 `writing_brief` 和 `data_completeness_matrix`。对 `partial` 或 `missing` 的章节降低结论强度；对 `manual_required` 的专项数据只在结尾集中说明，不得编造。
 - 完整报告中，`direct_children_table` 是首选构成表；当直接子级不足或需要穿透时，补充使用 `key_descendant_table` 和 `leaf_exception_table`。`unit_cards.selection_reason` 必须用于说明为什么点名该单位。
 - `manual_fill_sections.core_expenses` 只代表办公用品费、咨询/维修/服务费等核心费用专项明细需人工补充，不代表人力成本、物资成本、车辆费用、能耗费、差旅费、招待费等经营指标不可取。
 

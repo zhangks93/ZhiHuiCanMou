@@ -83,6 +83,7 @@ export interface FinancialAnalysisSessionContext {
     analysisMethodLoaded?: boolean
     chartGuidanceLoaded?: boolean
     loadedPaths?: string[]
+    /** Only set after explicit chart/spec guidance is loaded; report templates alone must not enable chart JSON output. */
     chartOutputMode?: 'structured_chart_spec_json'
   }
   dataContext?: FinancialAnalysisRuntimeDataContext
