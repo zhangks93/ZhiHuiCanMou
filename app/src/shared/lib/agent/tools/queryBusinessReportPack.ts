@@ -29,6 +29,8 @@ import type {
   RankingRow,
   ReportMetricValue,
   ReportType,
+  OrganizationCoverageRow,
+  OrganizationMetricRow,
   ScopeProfile,
   SummaryCard,
   TargetVsActualRow,
@@ -64,6 +66,7 @@ const COST_EXPENSE_METRICS: MetricCategory[] = [
   'labor_cost_rate',
 ]
 const COST_EXPENSE_DETAIL_METRICS = COST_EXPENSE_METRICS.filter(metric => metric !== 'labor_cost_rate')
+const ALL_REPORT_METRICS = DEFAULT_REPORT_METRICS
 
 const FALLBACK_METRIC_LABELS: Record<MetricCategory, string> = {
   revenue: '营业收入',
@@ -208,6 +211,21 @@ function flattenSubtree(root: EnrichedBizDataNode | null, allNodes: EnrichedBizD
     getChildren(node, allNodes).forEach(visit)
   }
   visit(root)
+  return result
+}
+
+function collectSubtreeWithDepth(root: EnrichedBizDataNode | null, allNodes: EnrichedBizDataNode[], maxDepth?: number): Array<{
+  node: EnrichedBizDataNode
+  depth: number
+}> {
+  if (!root) return []
+  const result: Array<{ node: EnrichedBizDataNode; depth: number }> = []
+  const visit = (node: EnrichedBizDataNode, depth: number) => {
+    if (maxDepth !== undefined && depth > maxDepth) return
+    result.push({ node, depth })
+    getChildren(node, allNodes).forEach(child => visit(child, depth + 1))
+  }
+  visit(root, 0)
   return result
 }
 
@@ -411,8 +429,46 @@ function buildLeafExceptionRows(root: EnrichedBizDataNode | null, allNodes: Enri
       const right = reportType === 'fone' ? b.metrics.pretax_profit?.completion_fone : b.metrics.pretax_profit?.completion_tuwei
       return (left ?? Number.POSITIVE_INFINITY) - (right ?? Number.POSITIVE_INFINITY)
     })
-    .slice(0, 20)
     .map(node => buildCompositionRow(node, root, reportType, '叶子节点异常'))
+}
+
+function buildOrganizationTwoLevelTable(root: EnrichedBizDataNode | null, allNodes: EnrichedBizDataNode[]): OrganizationCoverageRow[] {
+  return collectSubtreeWithDepth(root, allNodes, 2).map(({ node, depth }) => ({
+    node_name: node.node_name,
+    node_kind: getNodeKind(node),
+    level_1: node.orgHierarchy.level_1,
+    level_2: node.orgHierarchy.level_2,
+    depth_from_scope: depth,
+    child_count: getChildren(node, allNodes).length,
+    revenue_actual: node.metrics.revenue?.actual ?? null,
+    pretax_profit_actual: node.metrics.pretax_profit?.actual ?? null,
+    labor_cost_actual: node.metrics.labor_cost?.actual ?? null,
+    gross_margin_actual: node.metrics.gross_margin?.actual ?? null,
+  }))
+}
+
+function buildAllMetricRows(params: {
+  root: EnrichedBizDataNode | null
+  allNodes: EnrichedBizDataNode[]
+  reportTypes: ReportType[]
+  periodScope: PeriodScope
+  labelMap: Map<MetricCategory, string>
+}): OrganizationMetricRow[] {
+  return collectSubtreeWithDepth(params.root, params.allNodes).flatMap(({ node, depth }) =>
+    params.reportTypes.flatMap(reportType =>
+      ALL_REPORT_METRICS.map(metric => ({
+        ...metricValue(node, metric, reportType, params.labelMap),
+        report_type: reportType,
+        period_scope: params.periodScope,
+        node_name: node.node_name,
+        node_kind: getNodeKind(node),
+        level_1: node.orgHierarchy.level_1,
+        level_2: node.orgHierarchy.level_2,
+        depth_from_scope: depth,
+        within_required_two_levels: depth <= 2,
+      }))
+    )
+  )
 }
 
 function findNodeByName(nodes: EnrichedBizDataNode[], nodeName: string): EnrichedBizDataNode | null {
@@ -699,7 +755,6 @@ function buildCostExpenseRows(params: {
   reportTypes: ReportType[]
   periodScope: PeriodScope
   labelMap: Map<MetricCategory, string>
-  maxRows?: number
 }): CostExpenseRow[] {
   if (!params.root) return []
   const nodes = [params.root, ...flattenSubtree(params.root, params.allNodes).filter(node => node.node_name !== params.root?.node_name)]
@@ -724,7 +779,7 @@ function buildCostExpenseRows(params: {
     }
   }
 
-  return rows.slice(0, params.maxRows ?? 300)
+  return rows
 }
 
 function buildMetricCoverage(reports: EduBizReport[]): MetricCoverage {
@@ -835,7 +890,7 @@ function buildWarnings(params: {
     },
   })
 
-  return warnings.slice(0, 40)
+  return warnings
 }
 
 function buildCoverage(params: {
@@ -868,7 +923,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
     function: {
       name: 'query_business_report_pack',
       description:
-        '生成完整月度经营分析报告所需的数据包。一次性返回 fone/tuwei、当月/上月/累计、组织构成、差异排行、风险预警和人工补充章节占位。适用于经营分析报告、月报、汇报材料。',
+        '生成完整月度经营分析报告所需的数据包。一次性返回 fone/tuwei、当月/上月/累计、全量指标明细、提问组织下至少两层组织数据、组织构成、差异排行、风险预警和人工补充章节占位。适用于经营分析报告、月报、汇报材料。',
       parameters: {
         type: 'object',
         properties: {
@@ -953,6 +1008,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
     const summaryCards = buildSummaryCards({ monthRoot, previousRoot, cumulativeRoot, reportTypes, labelMap })
     const targetVsActualTable = buildTargetVsActualTable(monthRoot, cumulativeRoot, reportTypes)
     const directChildrenTable = buildCompositionRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType)
+    const organizationTwoLevelTable = buildOrganizationTwoLevelTable(cumulativeRoot, cumulativeResolved.allNodes)
     const keyDescendantTable = buildKeyDescendantRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType)
     const leafExceptionTable = buildLeafExceptionRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType)
     const costExpenseSummary = [
@@ -962,7 +1018,6 @@ export const queryBusinessReportPackTool: RegisteredTool = {
         reportTypes,
         periodScope: 'monthly',
         labelMap,
-        maxRows: 80,
       }),
       ...buildCostExpenseRows({
         root: cumulativeRoot,
@@ -970,7 +1025,6 @@ export const queryBusinessReportPackTool: RegisteredTool = {
         reportTypes,
         periodScope: 'cumulative',
         labelMap,
-        maxRows: 80,
       }),
     ].filter(row => row.node_name === (cumulativeRoot?.node_name ?? monthRoot?.node_name))
     const costExpenseTable = [
@@ -982,6 +1036,22 @@ export const queryBusinessReportPackTool: RegisteredTool = {
         labelMap,
       }),
       ...buildCostExpenseRows({
+        root: cumulativeRoot,
+        allNodes: cumulativeResolved.allNodes,
+        reportTypes,
+        periodScope: 'cumulative',
+        labelMap,
+      }),
+    ]
+    const allMetricTable = [
+      ...buildAllMetricRows({
+        root: monthRoot,
+        allNodes: monthResolved.ok ? monthResolved.allNodes : [],
+        reportTypes,
+        periodScope: 'monthly',
+        labelMap,
+      }),
+      ...buildAllMetricRows({
         root: cumulativeRoot,
         allNodes: cumulativeResolved.allNodes,
         reportTypes,
@@ -1013,6 +1083,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       coverage,
       metricCoverage,
     })
+    const warnings = buildWarnings({ unitCards, summaryCards, costExpenseRows: costExpenseTable })
 
     const pack: BusinessReportPack = {
       metadata: {
@@ -1022,6 +1093,13 @@ export const queryBusinessReportPackTool: RegisteredTool = {
         cumulative_period: cumulativePeriod,
         generated_at: new Date().toISOString(),
         unit: '万元',
+        row_counts: {
+          organization_two_level_table: organizationTwoLevelTable.length,
+          all_metric_table: allMetricTable.length,
+          cost_expense_table: costExpenseTable.length,
+          unit_cards: unitCards.length,
+          warnings: warnings.length,
+        },
       },
       scope_profile: buildScopeProfile(cumulativeRoot ?? monthRoot, cumulativeResolved.allNodes),
       coverage,
@@ -1029,6 +1107,8 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       target_vs_actual_table: targetVsActualTable,
       composition_table: directChildrenTable,
       direct_children_table: directChildrenTable,
+      organization_two_level_table: organizationTwoLevelTable,
+      all_metric_table: allMetricTable,
       key_descendant_table: keyDescendantTable,
       leaf_exception_table: leafExceptionTable,
       unit_cards: unitCards,
@@ -1039,7 +1119,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       metric_coverage: metricCoverage,
       variance_rankings: buildRankings(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType, labelMap),
       manual_fill_sections: buildManualFillSections(),
-      warnings: buildWarnings({ unitCards, summaryCards, costExpenseRows: costExpenseTable }),
+      warnings,
     }
 
     return JSON.stringify(pack, null, 2)

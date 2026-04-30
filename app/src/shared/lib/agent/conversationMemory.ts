@@ -7,6 +7,7 @@ const MAX_CONTENT_SNIPPET = 240
 const MAX_SUMMARY_LINES = 12
 const MAX_ARTIFACTS = 24
 const MAX_ARTIFACT_PAYLOAD = 50000
+const MAX_BUSINESS_REPORT_PACK_ARTIFACT_PAYLOAD = 1000000
 const MAX_MEMORY_ARTIFACT_LINES = 4
 const MAX_QUERY_TOKENS = 12
 
@@ -123,12 +124,15 @@ function upsertArtifacts(
     }
 
     const artifactId = toolCall.artifactId || crypto.randomUUID()
+    const payloadMaxChars = toolCall.name === 'query_business_report_pack'
+      ? MAX_BUSINESS_REPORT_PACK_ARTIFACT_PAYLOAD
+      : MAX_ARTIFACT_PAYLOAD
     const artifact: ConversationArtifact = {
       id: artifactId,
       toolName: toolCall.name,
       title: buildArtifactTitle(toolCall),
       summary: buildArtifactSummary(toolCall),
-      payload: cleanText(toolCall.result, MAX_ARTIFACT_PAYLOAD),
+      payload: cleanText(toolCall.result, payloadMaxChars),
       createdAt: Date.now(),
       sourceMessageId: assistantMessage.id,
     }

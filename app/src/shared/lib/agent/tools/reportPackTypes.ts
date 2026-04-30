@@ -86,6 +86,30 @@ export interface CostExpenseRow extends ReportMetricValue {
   status: ReportStatus
 }
 
+export interface OrganizationMetricRow extends ReportMetricValue {
+  report_type: ReportType
+  period_scope: PeriodScope
+  node_name: string
+  node_kind: string
+  level_1: string | null
+  level_2: string | null
+  depth_from_scope: number
+  within_required_two_levels: boolean
+}
+
+export interface OrganizationCoverageRow {
+  node_name: string
+  node_kind: string
+  level_1: string | null
+  level_2: string | null
+  depth_from_scope: number
+  child_count: number
+  revenue_actual: number | null
+  pretax_profit_actual: number | null
+  labor_cost_actual: number | null
+  gross_margin_actual: number | null
+}
+
 export interface MetricCoverage {
   expected_auto_metrics: string[]
   available_auto_metrics: string[]
@@ -138,6 +162,13 @@ export interface BusinessReportPack {
     cumulative_period: string
     generated_at: string
     unit: '万元'
+    row_counts: {
+      organization_two_level_table: number
+      all_metric_table: number
+      cost_expense_table: number
+      unit_cards: number
+      warnings: number
+    }
   }
   scope_profile: ScopeProfile
   coverage: {
@@ -157,6 +188,8 @@ export interface BusinessReportPack {
   target_vs_actual_table: TargetVsActualRow[]
   composition_table: CompositionRow[]
   direct_children_table: CompositionRow[]
+  organization_two_level_table: OrganizationCoverageRow[]
+  all_metric_table: OrganizationMetricRow[]
   key_descendant_table: CompositionRow[]
   leaf_exception_table: CompositionRow[]
   unit_cards: UnitCard[]
