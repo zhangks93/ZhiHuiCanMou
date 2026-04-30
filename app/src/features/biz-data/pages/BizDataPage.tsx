@@ -11,6 +11,7 @@ import { HierarchyLevelFilter, type LevelVisibility } from '../components/Hierar
 import { TableView } from '../components/TableView'
 import {
   DataEmptyState,
+  DataErrorState,
   DataLoadingState,
 } from '@/shared/components/data-state'
 import { useBizDataViewModel } from '../hooks/useBizDataViewModel'
@@ -48,8 +49,12 @@ function normalizeDrillDownPath(
 
 export function BizDataPage() {
   const {
-    dataLoading,
+    monthsLoading,
     nodes,
+    dataError,
+    monthsError,
+    isInitializing,
+    isRefreshing,
     reportType,
     setReportType,
     periodType,
@@ -72,6 +77,7 @@ export function BizDataPage() {
     level3: true,
   })
   const effectiveDrillDownPath = useMemo(() => normalizeDrillDownPath(drillDownPath, nodes), [drillDownPath, nodes])
+  const statusError = monthsError ?? dataError
   const chartViewFallback = (
     <div className="biz-content-area">
       <div className="flex items-center justify-center h-[460px]">
@@ -89,7 +95,9 @@ export function BizDataPage() {
             <PeriodTypeToggle value={periodType} onChange={setPeriodType} />
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
           </div>
-          {availableMonths.length > 0 && (
+          {monthsLoading ? (
+            <div className="text-caption text-[var(--color-text-muted)]">加载期间...</div>
+          ) : availableMonths.length > 0 && (
             <div className="w-full xl:ml-auto xl:w-auto">
               <MonthSelector
                 value={selectedMonth}
@@ -118,16 +126,32 @@ export function BizDataPage() {
         </div>
       </section>
 
+      {statusError ? <DataErrorState message={statusError} /> : null}
+
       <div className="relative min-w-0 min-h-0 h-full">
-        {dataLoading ? (
-          <div className="biz-content-area">
-            <DataLoadingState label="加载经营数据..." />
+        {isRefreshing ? (
+          <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-full border border-[var(--color-border)] bg-white/90 px-3 py-1 text-caption text-[var(--color-text-muted)] shadow-sm">
+            正在刷新...
           </div>
-        ) : nodes.length === 0 ? (
+        ) : null}
+
+        {isInitializing ? (
+          <div className="biz-content-area">
+            <DataLoadingState label={monthsLoading ? '加载可用期间...' : '加载经营数据...'} />
+          </div>
+        ) : !statusError && availableMonths.length === 0 ? (
+          <div className="biz-content-area">
+            <DataEmptyState
+              title="暂无可用期间"
+              description={`${reportType === 'fone' ? 'fone' : '突围'} · ${periodType === 'cumulative' ? '累计数据' : '月度数据'}尚未导入`}
+              action={<AlertTriangle size={18} className="text-warning-700 opacity-60" />}
+            />
+          </div>
+        ) : !statusError && nodes.length === 0 ? (
           <div className="biz-content-area">
             <DataEmptyState
               title="暂无经营数据"
-              description={`${periodType === 'cumulative' ? '累计数据' : '月度数据'} · 请检查数据库或切换期间类型`}
+              description={`${selectedMonth || '当前期间'} · ${periodType === 'cumulative' ? '累计数据' : '月度数据'}尚未导入或无匹配记录`}
               action={<AlertTriangle size={18} className="text-warning-700 opacity-60" />}
             />
           </div>

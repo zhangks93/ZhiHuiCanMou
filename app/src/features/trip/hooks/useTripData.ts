@@ -14,6 +14,8 @@ import {
   type FeeEffectProjectSummary,
 } from '../api/tripRepository'
 
+export type FeeEffectSheetMode = 'personSummary' | 'personTravel' | 'personHospitality' | 'projectSummary'
+
 function isOngoingTrip(trip: BusinessTrip, referenceDate: Date) {
   if (!trip.start_time || !trip.end_time) return false
   const start = new Date(trip.start_time)
@@ -37,6 +39,9 @@ export function useTripData() {
   const [personHospitalityProjects, setPersonHospitalityProjects] = useState<FeeEffectPersonHospitalityProject[]>([])
   const [loading, setLoading] = useState(true)
   const [feeEffectLoading, setFeeEffectLoading] = useState(false)
+  const [loadingSheetMode, setLoadingSheetMode] = useState<FeeEffectSheetMode | null>(null)
+  const [activeSheetMode, setActiveSheetMode] = useState<FeeEffectSheetMode>('personSummary')
+  const [loadedSheetKeys, setLoadedSheetKeys] = useState<Set<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -73,32 +78,51 @@ export function useTripData() {
     }
   }, [])
 
+  const selectedSheetKey = useMemo(
+    () => `${selectedFeeEffectBatchId}:${activeSheetMode}`,
+    [activeSheetMode, selectedFeeEffectBatchId],
+  )
+
   useEffect(() => {
     if (!selectedFeeEffectBatchId) {
       setPersonSummaries([])
       setProjectSummaries([])
       setPersonTravelProjects([])
       setPersonHospitalityProjects([])
+      setLoadedSheetKeys(new Set())
       return
     }
 
     let cancelled = false
 
     async function loadFeeEffectData() {
+      if (loadedSheetKeys.has(selectedSheetKey)) {
+        return
+      }
+
       try {
         setFeeEffectLoading(true)
+        setLoadingSheetMode(activeSheetMode)
         setError(null)
-        const [people, projects, travelProjects, hospitalityProjects] = await Promise.all([
-          fetchFeeEffectPersonSummaries(selectedFeeEffectBatchId),
-          fetchFeeEffectProjectSummaries(selectedFeeEffectBatchId),
-          fetchFeeEffectPersonTravelProjects(selectedFeeEffectBatchId),
-          fetchFeeEffectPersonHospitalityProjects(selectedFeeEffectBatchId),
-        ])
+        const rows = activeSheetMode === 'personTravel'
+          ? await fetchFeeEffectPersonTravelProjects(selectedFeeEffectBatchId)
+          : activeSheetMode === 'personHospitality'
+            ? await fetchFeeEffectPersonHospitalityProjects(selectedFeeEffectBatchId)
+            : activeSheetMode === 'projectSummary'
+              ? await fetchFeeEffectProjectSummaries(selectedFeeEffectBatchId)
+              : await fetchFeeEffectPersonSummaries(selectedFeeEffectBatchId)
+
         if (cancelled) return
-        setPersonSummaries(people)
-        setProjectSummaries(projects)
-        setPersonTravelProjects(travelProjects)
-        setPersonHospitalityProjects(hospitalityProjects)
+        if (activeSheetMode === 'personTravel') {
+          setPersonTravelProjects(rows as FeeEffectPersonTravelProject[])
+        } else if (activeSheetMode === 'personHospitality') {
+          setPersonHospitalityProjects(rows as FeeEffectPersonHospitalityProject[])
+        } else if (activeSheetMode === 'projectSummary') {
+          setProjectSummaries(rows as FeeEffectProjectSummary[])
+        } else {
+          setPersonSummaries(rows as FeeEffectPersonSummary[])
+        }
+        setLoadedSheetKeys((current) => new Set(current).add(selectedSheetKey))
       } catch (loadError) {
         if (!cancelled) {
           console.error('[Trip] Fee effect fetch failed:', loadError)
@@ -107,6 +131,7 @@ export function useTripData() {
       } finally {
         if (!cancelled) {
           setFeeEffectLoading(false)
+          setLoadingSheetMode(null)
         }
       }
     }
@@ -116,7 +141,7 @@ export function useTripData() {
     return () => {
       cancelled = true
     }
-  }, [selectedFeeEffectBatchId])
+  }, [activeSheetMode, loadedSheetKeys, selectedFeeEffectBatchId, selectedSheetKey])
 
   const ongoingTrips = useMemo(() => {
     const today = new Date()
@@ -152,11 +177,16 @@ export function useTripData() {
     ongoingTrips,
     loading,
     feeEffectLoading,
+    loadingSheetMode,
+    activeSheetLoading: feeEffectLoading && loadingSheetMode === activeSheetMode,
+    activeSheetLoaded: loadedSheetKeys.has(selectedSheetKey),
     error,
     feeEffectBatches,
     selectedFeeEffectBatch,
     selectedFeeEffectBatchId,
     setSelectedFeeEffectBatchId,
+    activeSheetMode,
+    setActiveSheetMode,
     feeEffectOverview,
     personSummaries,
     projectSummaries,

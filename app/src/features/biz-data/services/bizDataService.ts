@@ -18,6 +18,60 @@ type NodeMetricValue = NonNullable<EnrichedBizDataNode['metrics'][MetricCategory
 type NodeKind = 'total' | 'level1' | 'level2' | 'leaf' | 'orphan'
 export type HierarchyNodeKind = NodeKind
 
+const CACHE_TTL_MS = 5 * 60 * 1000
+const BIZ_REPORT_SELECT = [
+  'id',
+  'sheet_code',
+  'report_type',
+  'period_type',
+  'period',
+  'period_yoy',
+  'node_name',
+  'sort_order',
+  'metric_category',
+  'metric_category_cn',
+  'actual_value',
+  'budget_value',
+  'completion_rate',
+  'diff_value',
+  'yoy_value',
+  'created_at',
+].join(', ')
+
+interface CacheEntry<T> {
+  value: T
+  expiresAt: number
+}
+
+const memoryCache = new Map<string, CacheEntry<unknown>>()
+const pendingRequests = new Map<string, Promise<unknown>>()
+
+async function cachedRequest<T>(key: string, loader: () => Promise<T>, ttlMs = CACHE_TTL_MS): Promise<T> {
+  const cached = memoryCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value as T
+  }
+
+  const pending = pendingRequests.get(key)
+  if (pending) {
+    return pending as Promise<T>
+  }
+
+  const request = loader()
+    .then((value) => {
+      memoryCache.set(key, { value, expiresAt: Date.now() + ttlMs })
+      pendingRequests.delete(key)
+      return value
+    })
+    .catch((error) => {
+      pendingRequests.delete(key)
+      throw error
+    })
+
+  pendingRequests.set(key, request)
+  return request
+}
+
 export interface NestedBizDataNode {
   node_name: string
   sort_order: number
@@ -305,75 +359,90 @@ export async function fetchBizReport(options: BizDataQueryOptions = {}) {
     sheetCodes,
   } = options
 
-  const PAGE_SIZE = 1000
-  let allReportData: EduBizReport[] = []
-  let page = 0
-  let hasMore = true
+  const cacheKey = [
+    'biz-report',
+    period ?? '',
+    periodType,
+    reportTypes.join(','),
+    sheetCodes?.join(',') ?? '',
+  ].join('|')
 
-  while (hasMore) {
-    let query = supabase
-      .from('edu_biz_report')
-      .select('*')
-      .eq('period_type', periodType)
-      .order('sort_order')
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+  return cachedRequest(cacheKey, async () => {
+    const PAGE_SIZE = 1000
+    let allReportData: EduBizReport[] = []
+    let page = 0
+    let hasMore = true
 
-    if (period) query = query.eq('period', period)
-    if (reportTypes.length > 0) query = query.in('report_type', reportTypes)
-    if (sheetCodes && sheetCodes.length > 0) query = query.in('sheet_code', sheetCodes)
+    while (hasMore) {
+      let query = supabase
+        .from('edu_biz_report')
+        .select(BIZ_REPORT_SELECT)
+        .eq('period_type', periodType)
+        .order('sort_order')
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-    const { data: pageData, error } = await query
-    if (error) throw error
+      if (period) query = query.eq('period', period)
+      if (reportTypes.length > 0) query = query.in('report_type', reportTypes)
+      if (sheetCodes && sheetCodes.length > 0) query = query.in('sheet_code', sheetCodes)
 
-    if (pageData && pageData.length > 0) {
-      allReportData = allReportData.concat(pageData as unknown as EduBizReport[])
-      hasMore = pageData.length === PAGE_SIZE
-      page += 1
-    } else {
-      hasMore = false
+      const { data: pageData, error } = await query
+      if (error) throw error
+
+      if (pageData && pageData.length > 0) {
+        allReportData = allReportData.concat(pageData as unknown as EduBizReport[])
+        hasMore = pageData.length === PAGE_SIZE
+        page += 1
+      } else {
+        hasMore = false
+      }
     }
-  }
 
-  const { data: hierarchyData, error: hierarchyError } = await supabase
-    .from('edu_org_hierarchy')
-    .select('node_name, level_0, level_1, level_2')
-    .range(0, 999)
+    const hierarchyData = await cachedRequest('edu-org-hierarchy', async () => {
+      const { data, error } = await supabase
+        .from('edu_org_hierarchy')
+        .select('node_name, level_0, level_1, level_2')
+        .range(0, 999)
 
-  if (hierarchyError) throw hierarchyError
+      if (error) throw error
+      return data ?? []
+    })
 
-  const hierarchyMap = new Map((hierarchyData ?? []).map(row => [row.node_name, row]))
+    const hierarchyMap = new Map(hierarchyData.map(row => [row.node_name, row]))
 
-  return allReportData.map(row => ({
-    ...row,
-    org_hierarchy: hierarchyMap.get(row.node_name) ?? null,
-  })) as EduBizReport[]
+    return allReportData.map(row => ({
+      ...row,
+      org_hierarchy: hierarchyMap.get(row.node_name) ?? null,
+    })) as EduBizReport[]
+  })
 }
 
 export async function fetchMonthlyPlan() {
-  const PAGE_SIZE = 1000
-  let allData: EduBizMonthlyPlan[] = []
-  let page = 0
-  let hasMore = true
+  return cachedRequest('edu-biz-monthly-plan', async () => {
+    const PAGE_SIZE = 1000
+    let allData: EduBizMonthlyPlan[] = []
+    let page = 0
+    let hasMore = true
 
-  while (hasMore) {
-    const { data: pageData, error } = await supabase
-      .from('edu_biz_monthly_plan')
-      .select('*')
-      .order('sort_order')
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+    while (hasMore) {
+      const { data: pageData, error } = await supabase
+        .from('edu_biz_monthly_plan')
+        .select('*')
+        .order('sort_order')
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-    if (error) throw error
+      if (error) throw error
 
-    if (pageData && pageData.length > 0) {
-      allData = allData.concat(pageData as unknown as EduBizMonthlyPlan[])
-      hasMore = pageData.length === PAGE_SIZE
-      page += 1
-    } else {
-      hasMore = false
+      if (pageData && pageData.length > 0) {
+        allData = allData.concat(pageData as unknown as EduBizMonthlyPlan[])
+        hasMore = pageData.length === PAGE_SIZE
+        page += 1
+      } else {
+        hasMore = false
+      }
     }
-  }
 
-  return allData as EduBizMonthlyPlan[]
+    return allData as EduBizMonthlyPlan[]
+  })
 }
 
 export async function fetchStrategyBudgetPlan() {
@@ -408,15 +477,12 @@ export async function fetchAvailableMonths(
   periodType: 'cumulative' | 'monthly',
   reportType: 'fone' | 'tuwei'
 ) {
-  try {
-    return await fetchDistinctColumnValues('edu_biz_report', 'period', {
+  return cachedRequest(`available-months|${periodType}|${reportType}`, () =>
+    fetchDistinctColumnValues('edu_biz_report', 'period', {
       periodType,
       reportType,
     })
-  } catch (error) {
-    console.error('Failed to fetch months:', error)
-    return []
-  }
+  )
 }
 
 const aggregatedTreeCache = new WeakMap<EnrichedBizDataNode[], EnrichedBizDataNode[]>()

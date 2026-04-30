@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { AppPagination } from '@/shared/ui/AppPagination'
-import { DataEmptyState, DataErrorState } from '@/shared/components/data-state'
+import { DataEmptyState, DataErrorState, DataLoadingState } from '@/shared/components/data-state'
 import { useTripData } from '../hooks/useTripData'
 import type {
   FeeEffectPersonHospitalityProject,
@@ -387,13 +387,17 @@ export function TripPage() {
   const {
     loading,
     error,
+    activeSheetLoading,
+    activeSheetLoaded,
+    activeSheetMode,
+    setActiveSheetMode,
     feeEffectBatches,
     personSummaries,
     projectSummaries,
     personTravelProjects,
     personHospitalityProjects,
   } = useTripData()
-  const [sheetMode, setSheetMode] = useState<SheetMode>('personSummary')
+  const sheetMode = activeSheetMode as SheetMode
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [expandedTreeKeys, setExpandedTreeKeys] = useState<Set<string>>(() => new Set())
@@ -441,7 +445,7 @@ export function TripPage() {
   }, [collapsedTreeKeys, expandedTreeKeys, treeRows])
 
   const handleSheetModeChange = (mode: SheetMode) => {
-    setSheetMode(mode)
+    setActiveSheetMode(mode)
     setPage(1)
     setExpandedTreeKeys(new Set())
   }
@@ -628,76 +632,86 @@ export function TripPage() {
               </div>
             </div>
 
-            <div className="space-y-2 px-3 py-3 lg:hidden">
-              {isPersonTreeMode
-                ? visibleTreeRows.map((row) => (
-                  <div key={row.key} className="rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">{renderTreeLabel(row)}</div>
-                      <span className="rounded-full bg-accent-50 px-2.5 py-1 text-caption font-semibold text-accent">
-                        {'total_expense_amount' in row.metrics
-                          ? formatAmount(row.metrics.total_expense_amount)
-                          : 'travel_total_amount' in row.metrics
-                            ? formatAmount(row.metrics.travel_total_amount)
-                            : formatAmount(row.metrics.hospitality_total_amount)}
-                      </span>
-                    </div>
-                  </div>
-                ))
-                : pagedRows.map((row, index) => (
-                  <MobileSheetCard key={`${sheetMode}-${index}`} mode={sheetMode} row={row} />
-                ))}
-            </div>
-
-            <div className="app-table-scroll hidden lg:block">
-              {sheetMode === 'projectSummary' ? (
-                <table className="app-data-table">
-                  <thead>
-                    <tr>
-                      <th className="text-left">项目标签</th>
-                      <th className="text-left">区域</th>
-                      <th className="text-right">立项时间</th>
-                      <th className="text-right">首年合同额</th>
-                      <th className="text-right">首年利润</th>
-                      <th className="text-right">差旅合计</th>
-                      <th className="text-right">招待费</th>
-                      <th className="text-right">市场奖金</th>
-                      <th className="text-right">费用合计</th>
-                      <th className="text-right">ROI</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(pagedRows as FeeEffectProjectSummary[]).map((row) => (
-                      <tr key={row.id}>
-                        <td className="app-cell-strong">{row.project_tag}</td>
-                        <td className="app-cell-muted">{row.region ?? '-'}</td>
-                        <td className="app-cell-muted app-cell-numeric text-right">{formatDate(row.launch_date)}</td>
-                        <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.first_year_contract_amount)}</td>
-                        <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.first_year_profit_amount)}</td>
-                        <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.travel_total_amount)}</td>
-                        <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.hospitality_total_amount)}</td>
-                        <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.paid_market_bonus_amount)}</td>
-                        <td className="app-cell-strong app-cell-numeric text-right">{formatAmount(row.total_expense_amount)}</td>
-                        <td className="app-cell-strong app-cell-numeric text-right">{formatRatio(row.first_year_roi)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : sheetMode === 'personHospitality' ? (
-                renderPersonHospitalityTreeTable()
-              ) : sheetMode === 'personTravel' ? (
-                renderPersonTravelTreeTable()
-              ) : (
-                renderPersonSummaryTreeTable()
-              )}
-            </div>
-
-            {filteredRows.length === 0 ? (
-              <DataEmptyState title="暂无匹配数据" description="请切换 sheet 或调整搜索条件。" />
+            {!activeSheetLoaded && !error ? (
+              <DataLoadingState label="加载当前 sheet 数据..." />
             ) : (
-              isPersonTreeMode ? null : (
-                <AppPagination page={safePage} total={filteredRows.length} pageSize={PAGE_SIZE} onChange={setPage} />
-              )
+              <>
+                {activeSheetLoading ? (
+                  <div className="px-3 pt-3 text-caption text-[var(--color-text-muted)]">正在刷新当前 sheet...</div>
+                ) : null}
+
+                <div className="space-y-2 px-3 py-3 lg:hidden">
+                  {isPersonTreeMode
+                    ? visibleTreeRows.map((row) => (
+                      <div key={row.key} className="rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">{renderTreeLabel(row)}</div>
+                          <span className="rounded-full bg-accent-50 px-2.5 py-1 text-caption font-semibold text-accent">
+                            {'total_expense_amount' in row.metrics
+                              ? formatAmount(row.metrics.total_expense_amount)
+                              : 'travel_total_amount' in row.metrics
+                                ? formatAmount(row.metrics.travel_total_amount)
+                                : formatAmount(row.metrics.hospitality_total_amount)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                    : pagedRows.map((row, index) => (
+                      <MobileSheetCard key={`${sheetMode}-${index}`} mode={sheetMode} row={row} />
+                    ))}
+                </div>
+
+                <div className="app-table-scroll hidden lg:block">
+                  {sheetMode === 'projectSummary' ? (
+                    <table className="app-data-table">
+                      <thead>
+                        <tr>
+                          <th className="text-left">项目标签</th>
+                          <th className="text-left">区域</th>
+                          <th className="text-right">立项时间</th>
+                          <th className="text-right">首年合同额</th>
+                          <th className="text-right">首年利润</th>
+                          <th className="text-right">差旅合计</th>
+                          <th className="text-right">招待费</th>
+                          <th className="text-right">市场奖金</th>
+                          <th className="text-right">费用合计</th>
+                          <th className="text-right">ROI</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(pagedRows as FeeEffectProjectSummary[]).map((row) => (
+                          <tr key={row.id}>
+                            <td className="app-cell-strong">{row.project_tag}</td>
+                            <td className="app-cell-muted">{row.region ?? '-'}</td>
+                            <td className="app-cell-muted app-cell-numeric text-right">{formatDate(row.launch_date)}</td>
+                            <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.first_year_contract_amount)}</td>
+                            <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.first_year_profit_amount)}</td>
+                            <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.travel_total_amount)}</td>
+                            <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.hospitality_total_amount)}</td>
+                            <td className="app-cell-muted app-cell-numeric text-right">{formatAmount(row.paid_market_bonus_amount)}</td>
+                            <td className="app-cell-strong app-cell-numeric text-right">{formatAmount(row.total_expense_amount)}</td>
+                            <td className="app-cell-strong app-cell-numeric text-right">{formatRatio(row.first_year_roi)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : sheetMode === 'personHospitality' ? (
+                    renderPersonHospitalityTreeTable()
+                  ) : sheetMode === 'personTravel' ? (
+                    renderPersonTravelTreeTable()
+                  ) : (
+                    renderPersonSummaryTreeTable()
+                  )}
+                </div>
+
+                {filteredRows.length === 0 ? (
+                  <DataEmptyState title="暂无匹配数据" description={query ? '请调整搜索条件。' : '当前 sheet 暂无数据。'} />
+                ) : (
+                  isPersonTreeMode ? null : (
+                    <AppPagination page={safePage} total={filteredRows.length} pageSize={PAGE_SIZE} onChange={setPage} />
+                  )
+                )}
+              </>
             )}
           </section>
         </>
