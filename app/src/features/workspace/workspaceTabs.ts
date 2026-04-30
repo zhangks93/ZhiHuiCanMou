@@ -1,5 +1,4 @@
 export const WORKSPACE_TAB_LABELS = {
-  briefing: '简报',
   schedule: '日程',
   inbox: '收件箱',
   links: '链接',
@@ -8,7 +7,7 @@ export const WORKSPACE_TAB_LABELS = {
 export type WorkspaceTab = keyof typeof WORKSPACE_TAB_LABELS
 
 export function getWorkspaceTabs(enabledModuleIds: string[]): WorkspaceTab[] {
-  const availableTabs: WorkspaceTab[] = ['briefing']
+  const availableTabs: WorkspaceTab[] = []
 
   if (enabledModuleIds.includes('schedule')) {
     availableTabs.push('schedule', 'inbox')

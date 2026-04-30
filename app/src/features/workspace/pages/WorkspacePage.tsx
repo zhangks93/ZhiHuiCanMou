@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { buildWorkspaceHref } from '@/app/config/constants'
 import { useEnabledModules } from '@/app/hooks/useEnabledModules'
-import { ManagerBriefingPage } from '@/features/dashboard'
 import { LinksPage } from '@/features/links'
 import { ScheduleInboxPage, SchedulePage } from '@/features/schedule'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
@@ -35,9 +34,7 @@ export function WorkspacePage() {
 
   return (
     <TabbedPageShell tabs={tabItems}>
-      {activeTab === 'briefing' ? (
-        <ManagerBriefingPage />
-      ) : activeTab === 'schedule' ? (
+      {activeTab === 'schedule' ? (
         <SchedulePage />
       ) : activeTab === 'inbox' ? (
         <ScheduleInboxPage />
