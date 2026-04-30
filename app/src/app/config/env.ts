@@ -27,9 +27,9 @@ const defaultLinks = {
   qinghe: 'https://lms.hailiangedu.com/logistics-saas-center/',
   haiding: 'https://machining.hailiangedu.com/',
   catering: 'https://i.hailiangedu.com/login?sysCode=catering-admin',
-  crm: 'https://www.fxiaoke.com/',
+  crm: 'https://www.fxiaoke.com/XV/UI/manage#crmmanage/=/module-rolemanage',
   guanhai:
-    'https://hailiang.feishu.cn/base/HdVSbRRs3ahb1fsxId6cpyEunSg?table=tblxumeOS2l72YkL&view=vewjPpI3IC',
+    'https://data.hailiang.com/product/view.htm?module=dashboard&productId=ead5bf08-234d-45c6-958e-1ff55aa4db22&workspaceView=false&menuId=26bd0ccc-c236-4ad2-ac4b-4d70fc63c371',
 } as const
 
 export const env = {
