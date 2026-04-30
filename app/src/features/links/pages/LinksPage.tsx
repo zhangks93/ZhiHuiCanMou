@@ -4,7 +4,6 @@ import {
   KanbanSquare,
   Leaf,
   Shield,
-  Store,
   Telescope,
   UtensilsCrossed,
 } from 'lucide-react'
