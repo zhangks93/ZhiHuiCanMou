@@ -120,7 +120,7 @@ export const MODULE_NAV_CONFIG: Record<string, Omit<ModuleNavConfig, 'id'>> = {
     sortOrder: 21,
   },
   trip: {
-    label: '出差',
+    label: '差旅',
     routePath: '/trip',
     section: 'data',
     icon: Plane,

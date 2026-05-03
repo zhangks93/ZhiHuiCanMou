@@ -18,6 +18,7 @@ export type FeeEffectPersonSummary = Tables<'fee_effect_person_summary'>
 export type FeeEffectProjectSummary = Tables<'fee_effect_project_summary'>
 export type FeeEffectPersonTravelProject = Tables<'fee_effect_person_travel_projects'>
 export type FeeEffectPersonHospitalityProject = Tables<'fee_effect_person_hospitality_projects'>
+export type EduOrgHierarchyRow = Pick<Tables<'edu_org_hierarchy'>, 'node_name' | 'level_0' | 'level_1' | 'level_2'>
 
 type BusinessTripRow = Tables<'business_trips'>
 
@@ -51,6 +52,17 @@ export async function fetchFeeEffectBatches(): Promise<FeeEffectBatch[]> {
     .from('fee_effect_import_batches')
     .select('*')
     .order('imported_at', { ascending: false })
+
+  if (error) throw error
+
+  return data ?? []
+}
+
+export async function fetchEduOrgHierarchy(): Promise<EduOrgHierarchyRow[]> {
+  const { data, error } = await supabase
+    .from('edu_org_hierarchy')
+    .select('node_name, level_0, level_1, level_2')
+    .order('node_name')
 
   if (error) throw error
 

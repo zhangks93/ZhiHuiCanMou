@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   fetchBusinessTrips,
+  fetchEduOrgHierarchy,
   fetchFeeEffectBatches,
   fetchFeeEffectPersonHospitalityProjects,
   fetchFeeEffectPersonSummaries,
   fetchFeeEffectPersonTravelProjects,
   fetchFeeEffectProjectSummaries,
   type BusinessTrip,
+  type EduOrgHierarchyRow,
   type FeeEffectBatch,
   type FeeEffectPersonHospitalityProject,
   type FeeEffectPersonSummary,
@@ -32,6 +34,7 @@ function sumBy<T>(rows: T[], getValue: (row: T) => number | null | undefined) {
 export function useTripData() {
   const [trips, setTrips] = useState<BusinessTrip[]>([])
   const [feeEffectBatches, setFeeEffectBatches] = useState<FeeEffectBatch[]>([])
+  const [orgHierarchyRows, setOrgHierarchyRows] = useState<EduOrgHierarchyRow[]>([])
   const [selectedFeeEffectBatchId, setSelectedFeeEffectBatchId] = useState('')
   const [personSummaries, setPersonSummaries] = useState<FeeEffectPersonSummary[]>([])
   const [projectSummaries, setProjectSummaries] = useState<FeeEffectProjectSummary[]>([])
@@ -51,13 +54,15 @@ export function useTripData() {
       try {
         setLoading(true)
         setError(null)
-        const [tripRecords, batches] = await Promise.all([
+        const [tripRecords, batches, hierarchyRows] = await Promise.all([
           fetchBusinessTrips(),
           fetchFeeEffectBatches(),
+          fetchEduOrgHierarchy(),
         ])
         if (cancelled) return
         setTrips(tripRecords)
         setFeeEffectBatches(batches)
+        setOrgHierarchyRows(hierarchyRows)
         setSelectedFeeEffectBatchId((current) => current || batches[0]?.id || '')
       } catch (loadError) {
         if (!cancelled) {
@@ -182,6 +187,7 @@ export function useTripData() {
     activeSheetLoaded: loadedSheetKeys.has(selectedSheetKey),
     error,
     feeEffectBatches,
+    orgHierarchyRows,
     selectedFeeEffectBatch,
     selectedFeeEffectBatchId,
     setSelectedFeeEffectBatchId,

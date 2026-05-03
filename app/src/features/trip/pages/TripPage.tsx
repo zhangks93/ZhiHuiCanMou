@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { AppPagination } from '@/shared/ui/AppPagination'
@@ -9,6 +9,7 @@ import type {
   FeeEffectPersonSummary,
   FeeEffectPersonTravelProject,
   FeeEffectProjectSummary,
+  EduOrgHierarchyRow,
 } from '../api/tripRepository'
 
 const PAGE_SIZE = 12
@@ -49,20 +50,26 @@ type TreeMetrics = PersonSummaryMetrics | PersonTravelMetrics | PersonHospitalit
 interface TreeRow {
   key: string
   level: TreeLevel
+  depth: number
   department: string
+  departmentPath: string[]
   personName?: string
   projectName?: string
   hospitalityType?: string | null
   metrics: TreeMetrics
+  personCount?: number
+  detailCount?: number
   children?: TreeRow[]
 }
 
 const SHEET_TABS: Array<{ mode: SheetMode; label: string }> = [
-  { mode: 'personSummary', label: '1.1 人员汇总' },
-  { mode: 'personTravel', label: '1.2 人员差旅' },
-  { mode: 'personHospitality', label: '1.3 人员招待' },
-  { mode: 'projectSummary', label: '2 项目汇总' },
+  { mode: 'personSummary', label: '人员汇总' },
+  { mode: 'personTravel', label: '人员差旅' },
+  { mode: 'personHospitality', label: '人员招待' },
+  { mode: 'projectSummary', label: '项目汇总' },
 ]
+
+const ROOT_DEPARTMENT = '海亮智汇后勤集团'
 
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return '-'
@@ -99,6 +106,57 @@ function getDepartment(value: string | null | undefined) {
 
 function getPersonName(value: string | null | undefined) {
   return value?.trim() || '未命名'
+}
+
+function normalizeLookupKey(value: string | null | undefined) {
+  return (value ?? '').trim().replace(/\s+/g, '').toLocaleLowerCase()
+}
+
+function uniquePath(parts: Array<string | null | undefined>) {
+  const path: string[] = []
+  parts.forEach((part) => {
+    const value = part?.trim()
+    if (value && path[path.length - 1] !== value) path.push(value)
+  })
+  return path
+}
+
+function buildOrgHierarchyLookup(rows: EduOrgHierarchyRow[]) {
+  const lookup = new Map<string, string[]>()
+  const setIfAbsent = (key: string, path: string[]) => {
+    if (key && path.length > 0 && !lookup.has(key)) lookup.set(key, path)
+  }
+
+  rows.forEach((row) => {
+    const nodePath = uniquePath([row.level_0, row.level_1, row.level_2, row.node_name])
+    const level1Path = uniquePath([row.level_0, row.level_1])
+    const level2Path = uniquePath([row.level_0, row.level_1, row.level_2])
+
+    setIfAbsent(normalizeLookupKey(row.node_name), nodePath)
+    setIfAbsent(normalizeLookupKey(row.level_1), level1Path)
+    setIfAbsent(normalizeLookupKey(row.level_2), level2Path)
+  })
+
+  return lookup
+}
+
+function getDepartmentPath(value: string | null | undefined, orgLookup: Map<string, string[]>) {
+  const department = getDepartment(value)
+  if (department === '未分部门') return [ROOT_DEPARTMENT, '未分部门']
+
+  const splitPath = department
+    .split(/\s*[-－—–>/>｜|\\]+\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (splitPath.length > 1) {
+    return splitPath[0] === ROOT_DEPARTMENT ? splitPath : [ROOT_DEPARTMENT, ...splitPath]
+  }
+
+  const exactPath = orgLookup.get(normalizeLookupKey(department))
+  if (exactPath?.length) return exactPath
+
+  return [ROOT_DEPARTMENT, department]
 }
 
 function createPersonSummaryMetrics(): PersonSummaryMetrics {
@@ -149,23 +207,37 @@ function addPersonHospitalityMetrics(target: PersonHospitalityMetrics, row: FeeE
   target.per_capita_amount = target.guest_count > 0 ? target.hospitality_total_amount / target.guest_count : null
 }
 
+function addTreeMetrics(metrics: TreeMetrics, row: SheetRow, mode: SheetMode) {
+  if (mode === 'personSummary') {
+    addPersonSummaryMetrics(metrics as PersonSummaryMetrics, row as FeeEffectPersonSummary)
+  } else if (mode === 'personTravel') {
+    addPersonTravelMetrics(metrics as PersonTravelMetrics, row as FeeEffectPersonTravelProject)
+  } else if (mode === 'personHospitality') {
+    addPersonHospitalityMetrics(metrics as PersonHospitalityMetrics, row as FeeEffectPersonHospitalityProject)
+  }
+}
+
+function createTreeMetrics(mode: SheetMode): TreeMetrics {
+  if (mode === 'personTravel') return createPersonTravelMetrics()
+  if (mode === 'personHospitality') return createPersonHospitalityMetrics()
+  return createPersonSummaryMetrics()
+}
+
+function getTreeAmount(row: TreeRow) {
+  if ('total_expense_amount' in row.metrics) return row.metrics.total_expense_amount
+  if ('travel_total_amount' in row.metrics) return row.metrics.travel_total_amount
+  return row.metrics.hospitality_total_amount
+}
+
 function sortTreeRows(rows: TreeRow[]): TreeRow[] {
   return rows
     .sort((a, b) => {
       if (a.level === 'department' && b.level === 'department') {
-        return a.department.localeCompare(b.department, 'zh-CN')
+        return getTreeAmount(b) - getTreeAmount(a) || a.department.localeCompare(b.department, 'zh-CN')
       }
 
-      const amountA = 'total_expense_amount' in a.metrics
-        ? a.metrics.total_expense_amount
-        : 'travel_total_amount' in a.metrics
-          ? a.metrics.travel_total_amount
-          : a.metrics.hospitality_total_amount
-      const amountB = 'total_expense_amount' in b.metrics
-        ? b.metrics.total_expense_amount
-        : 'travel_total_amount' in b.metrics
-          ? b.metrics.travel_total_amount
-          : b.metrics.hospitality_total_amount
+      const amountA = getTreeAmount(a)
+      const amountB = getTreeAmount(b)
       return amountB - amountA
     })
     .map((row) => ({
@@ -174,149 +246,126 @@ function sortTreeRows(rows: TreeRow[]): TreeRow[] {
     }))
 }
 
-function buildPersonSummaryTree(rows: FeeEffectPersonSummary[]): TreeRow[] {
-  const departments = new Map<string, TreeRow>()
-  const people = new Map<string, TreeRow>()
+function finalizeDepartmentMeta(row: TreeRow): TreeRow {
+  if (row.level !== 'department') return row
 
-  rows.forEach((row) => {
-    const department = getDepartment(row.department)
-    const personName = getPersonName(row.person_name)
-    const departmentKey = `department:${department}`
-    const personKey = `${departmentKey}:person:${personName}`
+  const people = new Set<string>()
+  let detailCount = 0
 
-    if (!departments.has(departmentKey)) {
-      departments.set(departmentKey, {
-        key: departmentKey,
-        level: 'department',
-        department,
-        metrics: createPersonSummaryMetrics(),
-        children: [],
-      })
-    }
+  const visit = (current: TreeRow) => {
+    if (current.level === 'person' && current.personName) people.add(`${current.departmentPath.join('/')}|${current.personName}`)
+    if (current.level === 'detail') detailCount += 1
+    current.children?.forEach(visit)
+  }
 
-    if (!people.has(personKey)) {
-      const personRow: TreeRow = {
-        key: personKey,
-        level: 'person',
-        department,
-        personName,
-        metrics: createPersonSummaryMetrics(),
-      }
-      people.set(personKey, personRow)
-      departments.get(departmentKey)?.children?.push(personRow)
-    }
-
-    addPersonSummaryMetrics(departments.get(departmentKey)?.metrics as PersonSummaryMetrics, row)
-    addPersonSummaryMetrics(people.get(personKey)?.metrics as PersonSummaryMetrics, row)
-  })
-
-  return sortTreeRows(Array.from(departments.values()))
+  row.children?.forEach(visit)
+  row.personCount = people.size
+  row.detailCount = detailCount
+  row.children = row.children?.map(finalizeDepartmentMeta)
+  return row
 }
 
-function buildPersonTravelTree(rows: FeeEffectPersonTravelProject[]): TreeRow[] {
+function buildPersonTree(
+  rows: Array<FeeEffectPersonSummary | FeeEffectPersonTravelProject | FeeEffectPersonHospitalityProject>,
+  mode: Exclude<SheetMode, 'projectSummary'>,
+  orgLookup: Map<string, string[]>
+): TreeRow[] {
   const departments = new Map<string, TreeRow>()
   const people = new Map<string, TreeRow>()
 
   rows.forEach((row) => {
-    const department = getDepartment(row.department)
+    const departmentPath = getDepartmentPath(row.department, orgLookup)
+    const department = departmentPath[departmentPath.length - 1] ?? '未分部门'
     const personName = getPersonName(row.person_name)
-    const departmentKey = `department:${department}`
-    const personKey = `${departmentKey}:person:${personName}`
+    let parentDepartment: TreeRow | null = null
 
-    if (!departments.has(departmentKey)) {
-      departments.set(departmentKey, {
-        key: departmentKey,
-        level: 'department',
-        department,
-        metrics: createPersonTravelMetrics(),
-        children: [],
-      })
-    }
+    departmentPath.forEach((part, index) => {
+      const path = departmentPath.slice(0, index + 1)
+      const departmentKey = `department:${path.join('/')}`
+      if (!departments.has(departmentKey)) {
+        const departmentRow: TreeRow = {
+          key: departmentKey,
+          level: 'department',
+          depth: index,
+          department: part,
+          departmentPath: path,
+          metrics: createTreeMetrics(mode),
+          children: [],
+        }
+        departments.set(departmentKey, departmentRow)
+        parentDepartment?.children?.push(departmentRow)
+      }
+
+      addTreeMetrics(departments.get(departmentKey)?.metrics as TreeMetrics, row, mode)
+      parentDepartment = departments.get(departmentKey) ?? null
+    })
+
+    const leafDepartment = departments.get(`department:${departmentPath.join('/')}`)
+    if (!leafDepartment) return
+
+    const departmentKey = leafDepartment.key
+    const personKey = `${departmentKey}:person:${personName}`
 
     if (!people.has(personKey)) {
       const personRow: TreeRow = {
         key: personKey,
         level: 'person',
+        depth: departmentPath.length,
         department,
+        departmentPath,
         personName,
-        metrics: createPersonTravelMetrics(),
-        children: [],
+        metrics: createTreeMetrics(mode),
+        children: mode === 'personSummary' ? undefined : [],
       }
       people.set(personKey, personRow)
-      departments.get(departmentKey)?.children?.push(personRow)
+      leafDepartment.children?.push(personRow)
     }
 
-    addPersonTravelMetrics(departments.get(departmentKey)?.metrics as PersonTravelMetrics, row)
-    addPersonTravelMetrics(people.get(personKey)?.metrics as PersonTravelMetrics, row)
-    people.get(personKey)?.children?.push({
-      key: `${personKey}:detail:${row.id}`,
-      level: 'detail',
-      department,
-      personName,
-      projectName: row.mdm_project_name ?? '-',
-      metrics: {
-        travel_transportation_amount: row.travel_transportation_amount ?? 0,
-        travel_lodging_amount: row.travel_lodging_amount ?? 0,
-        travel_allowance_amount: row.travel_allowance_amount ?? 0,
-        travel_total_amount: row.travel_total_amount ?? 0,
-      },
-    })
-  })
+    addTreeMetrics(people.get(personKey)?.metrics as TreeMetrics, row, mode)
 
-  return sortTreeRows(Array.from(departments.values()))
-}
-
-function buildPersonHospitalityTree(rows: FeeEffectPersonHospitalityProject[]): TreeRow[] {
-  const departments = new Map<string, TreeRow>()
-  const people = new Map<string, TreeRow>()
-
-  rows.forEach((row) => {
-    const department = getDepartment(row.department)
-    const personName = getPersonName(row.person_name)
-    const departmentKey = `department:${department}`
-    const personKey = `${departmentKey}:person:${personName}`
-
-    if (!departments.has(departmentKey)) {
-      departments.set(departmentKey, {
-        key: departmentKey,
-        level: 'department',
+    if (mode === 'personTravel') {
+      const travelRow = row as FeeEffectPersonTravelProject
+      people.get(personKey)?.children?.push({
+        key: `${personKey}:detail:${travelRow.id}`,
+        level: 'detail',
+        depth: departmentPath.length + 1,
         department,
-        metrics: createPersonHospitalityMetrics(),
-        children: [],
+        departmentPath,
+        personName,
+        projectName: travelRow.mdm_project_name ?? '-',
+        metrics: {
+          travel_transportation_amount: travelRow.travel_transportation_amount ?? 0,
+          travel_lodging_amount: travelRow.travel_lodging_amount ?? 0,
+          travel_allowance_amount: travelRow.travel_allowance_amount ?? 0,
+          travel_total_amount: travelRow.travel_total_amount ?? 0,
+        },
+      })
+    } else if (mode === 'personHospitality') {
+      const hospitalityRow = row as FeeEffectPersonHospitalityProject
+      people.get(personKey)?.children?.push({
+        key: `${personKey}:detail:${hospitalityRow.id}`,
+        level: 'detail',
+        depth: departmentPath.length + 1,
+        department,
+        departmentPath,
+        personName,
+        projectName: hospitalityRow.mdm_project_name ?? '-',
+        hospitalityType: hospitalityRow.hospitality_type,
+        metrics: {
+          guest_count: hospitalityRow.guest_count ?? 0,
+          hospitality_total_amount: hospitalityRow.hospitality_total_amount ?? 0,
+          per_capita_amount: hospitalityRow.per_capita_amount ?? null,
+        },
       })
     }
-
-    if (!people.has(personKey)) {
-      const personRow: TreeRow = {
-        key: personKey,
-        level: 'person',
-        department,
-        personName,
-        metrics: createPersonHospitalityMetrics(),
-        children: [],
-      }
-      people.set(personKey, personRow)
-      departments.get(departmentKey)?.children?.push(personRow)
-    }
-
-    addPersonHospitalityMetrics(departments.get(departmentKey)?.metrics as PersonHospitalityMetrics, row)
-    addPersonHospitalityMetrics(people.get(personKey)?.metrics as PersonHospitalityMetrics, row)
-    people.get(personKey)?.children?.push({
-      key: `${personKey}:detail:${row.id}`,
-      level: 'detail',
-      department,
-      personName,
-      projectName: row.mdm_project_name ?? '-',
-      hospitalityType: row.hospitality_type,
-      metrics: {
-        guest_count: row.guest_count ?? 0,
-        hospitality_total_amount: row.hospitality_total_amount ?? 0,
-        per_capita_amount: row.per_capita_amount ?? null,
-      },
-    })
   })
 
-  return sortTreeRows(Array.from(departments.values()))
+  const rootKey = `department:${ROOT_DEPARTMENT}`
+  const roots = departments.has(rootKey)
+    ? [departments.get(rootKey)!]
+    : Array.from(departments.values()).filter((row) => row.depth === 0)
+
+  return sortTreeRows(roots.map(finalizeDepartmentMeta))
 }
 
 function flattenTreeRows(rows: TreeRow[], collapsedKeys: Set<string>): TreeRow[] {
@@ -391,6 +440,7 @@ export function TripPage() {
     activeSheetLoaded,
     activeSheetMode,
     setActiveSheetMode,
+    orgHierarchyRows,
     feeEffectBatches,
     personSummaries,
     projectSummaries,
@@ -403,6 +453,7 @@ export function TripPage() {
   const [expandedTreeKeys, setExpandedTreeKeys] = useState<Set<string>>(() => new Set())
 
   const normalizedQuery = query.trim().toLowerCase()
+  const orgHierarchyLookup = useMemo(() => buildOrgHierarchyLookup(orgHierarchyRows), [orgHierarchyRows])
 
   const activeRows = useMemo<SheetRow[]>(() => {
     if (sheetMode === 'personTravel') return personTravelProjects
@@ -414,10 +465,11 @@ export function TripPage() {
   const filteredRows = useMemo(() => {
     return activeRows.filter((row) => {
       if ('project_tag' in row) return includesQuery([row.project_tag, row.region], normalizedQuery)
-      if ('mdm_project_name' in row) return includesQuery([row.person_name, row.department, row.mdm_project_name], normalizedQuery)
-      return includesQuery([row.person_name, row.department], normalizedQuery)
+      const departmentPath = getDepartmentPath('department' in row ? row.department : null, orgHierarchyLookup)
+      if ('mdm_project_name' in row) return includesQuery([row.person_name, row.department, row.mdm_project_name, ...departmentPath], normalizedQuery)
+      return includesQuery([row.person_name, row.department, ...departmentPath], normalizedQuery)
     })
-  }, [activeRows, normalizedQuery])
+  }, [activeRows, normalizedQuery, orgHierarchyLookup])
 
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
   const safePage = Math.min(page, pageCount)
@@ -426,23 +478,38 @@ export function TripPage() {
 
   const treeRows = useMemo(() => {
     if (sheetMode === 'personTravel') {
-      return buildPersonTravelTree(filteredRows as FeeEffectPersonTravelProject[])
+      return buildPersonTree(filteredRows as FeeEffectPersonTravelProject[], 'personTravel', orgHierarchyLookup)
     }
     if (sheetMode === 'personHospitality') {
-      return buildPersonHospitalityTree(filteredRows as FeeEffectPersonHospitalityProject[])
+      return buildPersonTree(filteredRows as FeeEffectPersonHospitalityProject[], 'personHospitality', orgHierarchyLookup)
     }
     if (sheetMode === 'personSummary') {
-      return buildPersonSummaryTree(filteredRows as FeeEffectPersonSummary[])
+      return buildPersonTree(filteredRows as FeeEffectPersonSummary[], 'personSummary', orgHierarchyLookup)
     }
     return []
-  }, [filteredRows, sheetMode])
+  }, [filteredRows, orgHierarchyLookup, sheetMode])
 
   const collapsedTreeKeys = useMemo(() => collectExpandableTreeKeys(treeRows), [treeRows])
 
+  useEffect(() => {
+    setExpandedTreeKeys((current) => {
+      const next = new Set(current)
+      let changed = false
+      treeRows.forEach((row) => {
+        if (!next.has(row.key)) {
+          next.add(row.key)
+          changed = true
+        }
+      })
+      return changed ? next : current
+    })
+  }, [treeRows])
+
   const visibleTreeRows = useMemo(() => {
+    if (normalizedQuery) return flattenTreeRows(treeRows, new Set())
     const collapsedKeys = new Set(Array.from(collapsedTreeKeys).filter((key) => !expandedTreeKeys.has(key)))
     return flattenTreeRows(treeRows, collapsedKeys)
-  }, [collapsedTreeKeys, expandedTreeKeys, treeRows])
+  }, [collapsedTreeKeys, expandedTreeKeys, normalizedQuery, treeRows])
 
   const handleSheetModeChange = (mode: SheetMode) => {
     setActiveSheetMode(mode)
@@ -471,14 +538,14 @@ export function TripPage() {
   const renderTreeLabel = (row: TreeRow) => {
     const hasChildren = Boolean(row.children?.length)
     const isCollapsed = hasChildren && !expandedTreeKeys.has(row.key)
-    const indent = row.level === 'department' ? 0 : row.level === 'person' ? 24 : 48
+    const indent = row.depth * 20
     const label = row.level === 'department'
       ? row.department
       : row.level === 'person'
         ? row.personName
         : row.projectName
     const meta = row.level === 'department'
-      ? `${row.children?.length ?? 0} 人`
+      ? `${row.personCount ?? 0} 人`
       : row.level === 'person' && row.children?.length
         ? `${row.children.length} 项`
         : row.hospitalityType ?? ''
@@ -716,7 +783,7 @@ export function TripPage() {
           </section>
         </>
       ) : (
-        <DataEmptyState title="暂无费效数据" description="请先运行费效分析导入脚本，再回到出差页查看费用与ROI。" />
+        <DataEmptyState title="暂无费效数据" description="请先运行费效分析导入脚本，再回到差旅页查看费用与ROI。" />
       )}
     </div>
   )
