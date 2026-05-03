@@ -9,10 +9,10 @@
 }
 
 const accentMap = {
-  default: 'bg-[rgba(95,127,188,0.10)] text-[var(--color-accent-hover)]',
-  success: 'bg-[rgba(15,159,110,0.10)] text-[#08724d]',
-  warning: 'bg-[rgba(217,119,6,0.10)] text-[#a55406]',
-  error: 'bg-[rgba(220,38,38,0.08)] text-[#b42318]',
+  default: 'bg-[var(--color-selected-bg)] text-[var(--color-accent-hover)]',
+  success: 'bg-success-100 text-[var(--color-success-text)]',
+  warning: 'bg-warning-100 text-[var(--color-warning-text)]',
+  error: 'bg-error-100 text-[var(--color-error-text)]',
 }
 
 export function StatCard({
@@ -54,7 +54,7 @@ export function StatCard({
       </div>
 
       {trend ? (
-        <div className={`mt-1.5 text-caption font-medium ${trendUp ? 'text-[#08724d]' : 'text-[#b42318]'}`}>
+        <div className={`mt-1.5 text-caption font-medium ${trendUp ? 'text-[var(--color-success-text)]' : 'text-[var(--color-error-text)]'}`}>
           {trend}
         </div>
       ) : null}

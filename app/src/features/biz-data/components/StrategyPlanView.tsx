@@ -270,7 +270,7 @@ export function StrategyPlanView() {
     })
 
     return [...staticColumns, ...yearColumns]
-  }, [pivotMetric, pivotYears])
+  }, [pivotYears])
 
   const pivotTable = useReactTable({
     data: pivotRows,

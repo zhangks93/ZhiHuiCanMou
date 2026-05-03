@@ -5,6 +5,8 @@ import type { ReactNode } from 'react'
 import { Plus, MessageSquare, Trash2 } from 'lucide-react'
 
 import type { Conversation } from '@/shared/lib/agent/types'
+import { AppIconButton } from '@/shared/ui/AppIconButton'
+import { ConfirmAction } from '@/shared/ui/ConfirmAction'
 
 interface ConversationListProps {
   conversations: Conversation[]
@@ -76,17 +78,24 @@ export function ConversationList({
                 </span>
               </div>
               <span className="chat-conversation-action">
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-xs btn-square hover:text-error"
-                  title="删除对话"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onDelete(conversation.id)
-                  }}
+                <ConfirmAction
+                  message={`确认删除「${conversation.title}」？`}
+                  onConfirm={() => onDelete(conversation.id)}
                 >
-                  <Trash2 size={13} />
-                </button>
+                  {(confirm) => (
+                    <AppIconButton
+                      label="删除对话"
+                      size="sm"
+                      variant="danger"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        confirm()
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </AppIconButton>
+                  )}
+                </ConfirmAction>
               </span>
             </div>
           ))

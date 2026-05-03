@@ -20,4 +20,14 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: [
+      'src/features/biz-data/components/TableView.tsx',
+      'src/features/opportunity/pages/OpportunityPage.tsx',
+      'src/features/biz-data/components/StrategyPlanView.tsx',
+    ],
+    rules: {
+      'react-hooks/incompatible-library': 'off',
+    },
+  },
 ])

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { AppPagination } from '@/shared/ui/AppPagination'
@@ -489,27 +489,18 @@ export function TripPage() {
     return []
   }, [filteredRows, orgHierarchyLookup, sheetMode])
 
-  const collapsedTreeKeys = useMemo(() => collectExpandableTreeKeys(treeRows), [treeRows])
-
-  useEffect(() => {
-    setExpandedTreeKeys((current) => {
-      const next = new Set(current)
-      let changed = false
-      treeRows.forEach((row) => {
-        if (!next.has(row.key)) {
-          next.add(row.key)
-          changed = true
-        }
-      })
-      return changed ? next : current
-    })
-  }, [treeRows])
+  const expandableTreeKeys = useMemo(() => collectExpandableTreeKeys(treeRows), [treeRows])
+  const effectiveExpandedTreeKeys = useMemo(() => {
+    const next = new Set(expandableTreeKeys)
+    expandedTreeKeys.forEach((key) => next.add(key))
+    return next
+  }, [expandableTreeKeys, expandedTreeKeys])
 
   const visibleTreeRows = useMemo(() => {
     if (normalizedQuery) return flattenTreeRows(treeRows, new Set())
-    const collapsedKeys = new Set(Array.from(collapsedTreeKeys).filter((key) => !expandedTreeKeys.has(key)))
+    const collapsedKeys = new Set(Array.from(expandableTreeKeys).filter((key) => !effectiveExpandedTreeKeys.has(key)))
     return flattenTreeRows(treeRows, collapsedKeys)
-  }, [collapsedTreeKeys, expandedTreeKeys, normalizedQuery, treeRows])
+  }, [effectiveExpandedTreeKeys, expandableTreeKeys, normalizedQuery, treeRows])
 
   const handleSheetModeChange = (mode: SheetMode) => {
     setActiveSheetMode(mode)
@@ -537,7 +528,7 @@ export function TripPage() {
 
   const renderTreeLabel = (row: TreeRow) => {
     const hasChildren = Boolean(row.children?.length)
-    const isCollapsed = hasChildren && !expandedTreeKeys.has(row.key)
+    const isCollapsed = hasChildren && !effectiveExpandedTreeKeys.has(row.key)
     const indent = row.depth * 20
     const label = row.level === 'department'
       ? row.department

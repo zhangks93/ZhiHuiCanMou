@@ -3,6 +3,9 @@ import { Calendar, Plus, Trash2, FileText, X, Sun, Sunset, Moon, ChevronDown, Up
 import { useAuth } from '@/app/hooks/useAuth'
 import { supabase } from '@/shared/lib/supabase'
 import { useScheduleData } from '../hooks/useScheduleData'
+import { AppButton } from '@/shared/ui/AppButton'
+import { AppIconButton } from '@/shared/ui/AppIconButton'
+import { ConfirmAction } from '@/shared/ui/ConfirmAction'
 import {
   createScheduleTransfer,
   listScheduleTransferRecipients,
@@ -302,9 +305,9 @@ function AddModal({
           </div>
           <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="地点（可选）" className="input input-bordered w-full text-body" />
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="描述（可选）" className="textarea textarea-bordered w-full text-body" rows={2} />
-          <button onClick={handleSave} disabled={saving || !title.trim() || Boolean(timeError)} className="btn btn-primary btn-sm w-full">
+          <AppButton onClick={handleSave} disabled={saving || !title.trim() || Boolean(timeError)} variant="primary" size="sm" className="w-full">
             {saving ? '保存中...' : '添加'}
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
@@ -351,8 +354,8 @@ function NotesModal({
         />
         <p className="text-caption text-gray-400 mt-1 mb-3">会议纪要将被 AI 分析助手用于提供更精准的业务洞察</p>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn btn-ghost btn-sm">取消</button>
-          <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">{saving ? '保存中...' : '保存'}</button>
+          <AppButton onClick={onClose} variant="ghost" size="sm">取消</AppButton>
+          <AppButton onClick={handleSave} disabled={saving} variant="primary" size="sm">{saving ? '保存中...' : '保存'}</AppButton>
         </div>
       </div>
     </div>
@@ -503,15 +506,16 @@ function ShareModal({
           ) : null}
 
           <div className="flex justify-end gap-2">
-            <button onClick={onClose} className="btn btn-ghost btn-sm">取消</button>
-            <button
+            <AppButton onClick={onClose} variant="ghost" size="sm">取消</AppButton>
+            <AppButton
               onClick={() => void handleSubmit()}
               disabled={saving || !selectedRecipientId || selectedItemIds.length === 0}
-              className="btn btn-primary btn-sm gap-1.5"
+              variant="primary"
+              size="sm"
             >
               <Send size={14} />
               {saving ? '发送中...' : `发送 ${selectedItemIds.length} 条`}
-            </button>
+            </AppButton>
           </div>
         </div>
       </div>
@@ -639,9 +643,9 @@ export function SchedulePage() {
               </h3>
             </div>
             <div className="flex w-full gap-1 sm:w-auto">
-              <button onClick={() => setWeekOffset((value) => value - 1)} className="btn btn-ghost btn-xs">‹</button>
-              <button onClick={() => { setWeekOffset(0); setSelectedDate(fmtDate(today)) }} className="btn btn-ghost btn-xs text-caption">今天</button>
-              <button onClick={() => setWeekOffset((value) => value + 1)} className="btn btn-ghost btn-xs">›</button>
+              <AppButton onClick={() => setWeekOffset((value) => value - 1)} variant="ghost" size="sm">‹</AppButton>
+              <AppButton onClick={() => { setWeekOffset(0); setSelectedDate(fmtDate(today)) }} variant="ghost" size="sm">今天</AppButton>
+              <AppButton onClick={() => setWeekOffset((value) => value + 1)} variant="ghost" size="sm">›</AppButton>
             </div>
           </div>
           <div className="mb-4 grid grid-cols-7 gap-2">
@@ -665,22 +669,24 @@ export function SchedulePage() {
               )
             })}
           </div>
-          <button onClick={() => setShowAdd(true)} className="btn btn-primary btn-sm w-full gap-1.5">
+          <AppButton onClick={() => setShowAdd(true)} variant="primary" size="sm" className="w-full">
             <Plus size={14} /> 添加日程
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             onClick={() => {
               setShareResult(null)
               setShowShare(true)
             }}
             disabled={items.length === 0}
-            className="btn btn-ghost btn-sm mt-2 w-full gap-1.5 border border-[var(--color-border)]"
+            variant="secondary"
+            size="sm"
+            className="mt-2 w-full"
           >
             <Send size={14} /> 发送给同事
-          </button>
-          <button onClick={handleImportClick} disabled={importing} className="btn btn-ghost btn-sm mt-2 w-full gap-1.5 border border-[var(--color-border)]">
+          </AppButton>
+          <AppButton onClick={handleImportClick} disabled={importing} variant="secondary" size="sm" className="mt-2 w-full">
             <Upload size={14} /> {importing ? '导入中...' : '导入飞书日程'}
-          </button>
+          </AppButton>
           <input
             ref={fileInputRef}
             type="file"
@@ -748,12 +754,19 @@ export function SchedulePage() {
                             )}
                           </div>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <button onClick={() => setNotesItem(item)} className="p-1.5 hover:bg-accent/10 rounded text-accent" title="会议纪要">
+                            <AppIconButton label="会议纪要" size="sm" variant="secondary" onClick={() => setNotesItem(item)}>
                               <FileText size={14} />
-                            </button>
-                            <button onClick={() => void deleteScheduleItem(item.id)} className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-400" title="删除">
-                              <Trash2 size={14} />
-                            </button>
+                            </AppIconButton>
+                            <ConfirmAction
+                              message={`确认删除「${item.title}」？`}
+                              onConfirm={() => void deleteScheduleItem(item.id)}
+                            >
+                              {(confirm) => (
+                                <AppIconButton label="删除日程" size="sm" variant="danger" onClick={confirm}>
+                                  <Trash2 size={14} />
+                                </AppIconButton>
+                              )}
+                            </ConfirmAction>
                           </div>
                         </div>
                       ))}
