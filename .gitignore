@@ -1,6 +1,7 @@
 /private-data/
 /docs/data/
 /.pages-artifact/
+/reports/quality/
 *.xls
 *.xlsx
 ~$*
