@@ -14,6 +14,107 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_monthly_records_v2: {
+        Row: {
+          absence_amount: number
+          actual_work_amount: number
+          approved_leave_amount: number
+          attendance_rate: number
+          attendance_type: string
+          created_at: string
+          department_full_path: string[]
+          department_path: string[]
+          employee_name: string
+          employee_no: string
+          expected_work_amount: number
+          id: string
+          late_30_to_120_count: number
+          late_total_count: number
+          late_under_30_count: number
+          makeup_clock_count: number
+          member_id: string | null
+          missing_clock_count: number
+          normal_work_amount: number
+          qualified_attendance_amount: number
+          raw_metrics: Json
+          source_file_hash: string
+          source_file_name: string
+          source_row_number: number
+          source_sheet_name: string
+          updated_at: string
+          work_unit: string
+          year_month: number
+        }
+        Insert: {
+          absence_amount?: number
+          actual_work_amount?: number
+          approved_leave_amount?: number
+          attendance_rate?: number
+          attendance_type: string
+          created_at?: string
+          department_full_path?: string[]
+          department_path?: string[]
+          employee_name: string
+          employee_no: string
+          expected_work_amount?: number
+          id?: string
+          late_30_to_120_count?: number
+          late_total_count?: number
+          late_under_30_count?: number
+          makeup_clock_count?: number
+          member_id?: string | null
+          missing_clock_count?: number
+          normal_work_amount?: number
+          qualified_attendance_amount?: number
+          raw_metrics?: Json
+          source_file_hash: string
+          source_file_name: string
+          source_row_number: number
+          source_sheet_name: string
+          updated_at?: string
+          work_unit: string
+          year_month: number
+        }
+        Update: {
+          absence_amount?: number
+          actual_work_amount?: number
+          approved_leave_amount?: number
+          attendance_rate?: number
+          attendance_type?: string
+          created_at?: string
+          department_full_path?: string[]
+          department_path?: string[]
+          employee_name?: string
+          employee_no?: string
+          expected_work_amount?: number
+          id?: string
+          late_30_to_120_count?: number
+          late_total_count?: number
+          late_under_30_count?: number
+          makeup_clock_count?: number
+          member_id?: string | null
+          missing_clock_count?: number
+          normal_work_amount?: number
+          qualified_attendance_amount?: number
+          raw_metrics?: Json
+          source_file_hash?: string
+          source_file_name?: string
+          source_row_number?: number
+          source_sheet_name?: string
+          updated_at?: string
+          work_unit?: string
+          year_month?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_monthly_records_v2_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "feishu_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           absent_days: number | null

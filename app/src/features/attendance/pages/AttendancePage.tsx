@@ -1,11 +1,13 @@
-import { Fragment } from 'react'
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Clock, User } from 'lucide-react'
-import { useAttendanceData } from '../hooks/useAttendanceData'
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Clock, Search, User } from 'lucide-react'
+import { AppLoading } from '@/shared/ui/AppLoading'
+import { DataEmptyState, DataErrorState } from '@/shared/components/data-state'
+import { useAttendanceData, type AttendanceTreeRow } from '../hooks/useAttendanceData'
 
-function RateBadge({ rate }: { rate: number }) {
-  const style = rate >= 95 ? 'bg-green-100 text-green-700' : rate >= 90 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-  return <span className={`rounded font-medium text-caption px-2 py-0.5 ${style}`}>{rate.toFixed(1)}%</span>
-}
+const RATE_TONE = {
+  success: 'bg-success-100 text-success-700',
+  warning: 'bg-warning-100 text-warning-700',
+  danger: 'bg-error-100 text-error-700',
+} as const
 
 const STAT_TONE = {
   blue: 'bg-accent-50 text-accent',
@@ -13,6 +15,43 @@ const STAT_TONE = {
   yellow: 'bg-warning-100 text-warning-700',
   red: 'bg-error-100 text-error-700',
 } as const
+
+function formatMonth(ym: number) {
+  const year = Math.floor(ym / 100)
+  const month = ym % 100
+  return `${year}年${month}月`
+}
+
+function formatPercent(value: number) {
+  return `${(value * 100).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%`
+}
+
+function formatNumber(value: number) {
+  return value.toLocaleString('zh-CN', { maximumFractionDigits: 0 })
+}
+
+function getRateTone(rate: number): keyof typeof RATE_TONE {
+  if (rate >= 0.98) return 'success'
+  if (rate >= 0.95) return 'warning'
+  return 'danger'
+}
+
+function RateBadge({ rate }: { rate: number }) {
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${RATE_TONE[getRateTone(rate)]}`}>
+      {formatPercent(rate)}
+    </span>
+  )
+}
+
+function WorkTypeBadge({ type }: { type: string | undefined }) {
+  const label = type === 'standard_day' ? '按天' : type === 'comprehensive_hour' ? '按小时' : '部门'
+  return (
+    <span className="rounded-full bg-[rgba(15,23,42,0.06)] px-2 py-0.5 text-caption font-medium text-[var(--color-text-muted)]">
+      {label}
+    </span>
+  )
+}
 
 function StatCard({ icon: Icon, label, value, color = 'blue' }: {
   icon: React.ElementType
@@ -26,282 +65,213 @@ function StatCard({ icon: Icon, label, value, color = 'blue' }: {
         <Icon size={18} strokeWidth={2.2} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-caption font-semibold uppercase tracking-[0.14em] text-gray-500">
-          {label}
-        </div>
-        <div className="mt-1 truncate text-title font-semibold leading-none text-gray-800">
-          {value}
-        </div>
+        <div className="text-caption font-semibold uppercase tracking-[0.14em] text-gray-500">{label}</div>
+        <div className="mt-1 truncate text-title font-semibold leading-none text-gray-800">{value}</div>
       </div>
     </div>
   )
 }
 
-function MemberAttendanceCard({ member }: {
-  member: {
-    id: string
-    member_name: string
-    employee_no: string | null
-    job_title: string | null
-    expected_days: number
-    actual_days: number
-    rate: number
-    leave_days: number
-    late_times: number
-    early_leave_times: number
-    absent_days: number
+function getRowLabelMeta(row: AttendanceTreeRow) {
+  if (row.level === 'member') {
+    return [row.member?.employee_no, row.member?.attendance_type === 'standard_day' ? '按天岗位' : '按小时岗位']
+      .filter(Boolean)
+      .join(' · ')
   }
+  return ''
+}
+
+function TreeLabel({ row, expanded, expandable, onToggle }: {
+  row: AttendanceTreeRow
+  expanded: boolean
+  expandable: boolean
+  onToggle: (key: string) => void
 }) {
   return (
-    <div className="rounded-2xl border border-[rgba(148,163,184,0.12)] bg-white/92 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-medium text-[var(--color-text-strong)]">{member.member_name}</div>
-          <div className="mt-1 text-caption text-[var(--color-text-muted)]">
-            {[member.employee_no, member.job_title].filter(Boolean).join(' · ') || '暂无岗位信息'}
-          </div>
+    <div className="biz-data-table__business-cell-content" style={{ paddingLeft: `${row.depth * 18}px` }}>
+      {expandable ? (
+        <button
+          type="button"
+          onClick={() => onToggle(row.key)}
+          className="rounded-md p-0.5 transition-colors hover:bg-[rgba(34,197,94,0.08)]"
+        >
+          {expanded ? (
+            <ChevronDown size={14} className="text-[var(--color-text-muted)]" />
+          ) : (
+            <ChevronRight size={14} className="text-[var(--color-text-muted)]" />
+          )}
+        </button>
+      ) : (
+        <span className="w-[18px]" />
+      )}
+      <div className="min-w-0">
+        <div className={`truncate ${row.level === 'member' ? 'font-normal text-[var(--color-text)]' : 'font-medium text-[var(--color-text-strong)]'}`}>
+          {row.name}
         </div>
-        <RateBadge rate={member.rate} />
+        {getRowLabelMeta(row) ? (
+          <div className="mt-0.5 truncate text-caption text-[var(--color-text-muted)]">{getRowLabelMeta(row)}</div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function MobileAttendanceCard({ row, expanded, expandable, onToggle }: {
+  row: AttendanceTreeRow
+  expanded: boolean
+  expandable: boolean
+  onToggle: (key: string) => void
+}) {
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <TreeLabel row={row} expanded={expanded} expandable={expandable} onToggle={onToggle} />
+        </div>
+        <RateBadge rate={row.metrics.averageAttendanceRate} />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">应出勤 {member.expected_days.toFixed(1)}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">实出勤 {member.actual_days.toFixed(1)}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">请假 {member.leave_days.toFixed(1)}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到/早退 {member.late_times + member.early_leave_times}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到 {member.late_times}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">旷工 {member.absent_days.toFixed(1)}</div>
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">人数 {formatNumber(row.metrics.employeeCount)}</div>
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到人数 {formatNumber(row.metrics.lateEmployeeCount)}</div>
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到次数 {formatNumber(row.metrics.lateTotalCount)}</div>
       </div>
+    </>
+  )
+
+  return (
+    <div className={`rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4 ${row.level !== 'member' ? 'shadow-[0_8px_24px_rgba(15,23,42,0.04)]' : ''}`}>
+      {content}
     </div>
   )
 }
 
 export function AttendancePage() {
   const {
-    summaries,
     loading,
+    error,
     selectedMonth,
     setSelectedMonth,
     availableMonths,
-    expandedDept,
-    memberRecords,
-    loadingMembers,
-    toggleDepartment,
+    expandedKeys,
+    query,
+    setQuery,
+    visibleRows,
+    expandableKeys,
+    toggleRow,
     overallStats,
   } = useAttendanceData()
 
-  const attendanceRate = overallStats.expectedDays > 0
-    ? (overallStats.actualDays / overallStats.expectedDays) * 100
-    : 0
-
-  if (loading && summaries.length === 0) {
-    return (
-      <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-10 text-center shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
-        <Clock size={40} className="mx-auto text-gray-300 animate-spin" />
-        <p className="mt-4 text-gray-400">加载中...</p>
-      </div>
-    )
-  }
-
-  const formatMonth = (ym: number) => {
-    const year = Math.floor(ym / 100)
-    const month = ym % 100
-    return `${year}年${month}月`
+  if (loading && visibleRows.length === 0) {
+    return <AppLoading label="加载考勤数据..." variant="block" />
   }
 
   return (
     <div className="app-page">
+      {error ? <DataErrorState message={error} /> : null}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard icon={User} label="统计人数" value={overallStats.employeeCount} color="blue" />
+        <StatCard icon={User} label="统计人数" value={formatNumber(overallStats.employeeCount)} color="blue" />
         <StatCard
           icon={CheckCircle2}
           label="整体出勤率"
-          value={`${attendanceRate.toFixed(1)}%`}
-          color={attendanceRate >= 95 ? 'green' : attendanceRate >= 90 ? 'yellow' : 'red'}
+          value={formatPercent(overallStats.averageAttendanceRate)}
+          color={overallStats.averageAttendanceRate >= 0.98 ? 'green' : overallStats.averageAttendanceRate >= 0.95 ? 'yellow' : 'red'}
         />
-        <StatCard icon={AlertCircle} label="迟到/早退" value={overallStats.totalLate + overallStats.totalEarly} color="yellow" />
-        <StatCard icon={Clock} label="请假天数" value={overallStats.totalLeave.toFixed(1)} color="blue" />
+        <StatCard icon={AlertCircle} label="迟到人数" value={formatNumber(overallStats.lateEmployeeCount)} color="yellow" />
+        <StatCard icon={Clock} label="迟到/早退次数" value={formatNumber(overallStats.lateTotalCount)} color="yellow" />
       </div>
 
       <section className="app-table-shell">
         <div className="app-table-toolbar">
-          <div className="app-table-title">
-            <Clock size={18} className="text-[var(--color-text-muted)]" />
-            <h3>部门考勤汇总</h3>
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+            <div className="app-table-title">
+              <Clock size={18} className="text-[var(--color-text-muted)]" />
+              <h3>部门考勤树</h3>
+              <span className="app-table-meta">{overallStats.departmentCount} 个部门节点</span>
+            </div>
+
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <label className="relative w-full sm:w-[240px]">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                <input
+                  type="text"
+                  placeholder="搜索部门、姓名、工号..."
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  className="app-filter-control app-filter-search-input h-9"
+                />
+              </label>
+
+              {availableMonths.length > 0 && selectedMonth ? (
+                <select
+                  value={selectedMonth}
+                  onChange={(event) => setSelectedMonth(Number(event.target.value))}
+                  className="app-filter-control app-filter-select h-9 w-full sm:w-[150px]"
+                >
+                  {availableMonths.map((month) => (
+                    <option key={month} value={month}>{formatMonth(month)}</option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
           </div>
-          {availableMonths.length > 0 && (
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="select select-sm ml-auto w-full sm:w-auto sm:min-w-[180px]"
-            >
-              {availableMonths.map((month) => (
-                <option key={month} value={month}>{formatMonth(month)}</option>
-              ))}
-            </select>
-          )}
         </div>
-        <div className="lg:hidden space-y-3 px-3 py-3">
-          {summaries.map((summary) => (
-            <div
-              key={summary.department_id}
-              className="rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4"
-            >
-              <button
-                type="button"
-                className="flex w-full items-start justify-between gap-3 text-left"
-                onClick={() => void toggleDepartment(summary.department_id)}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 font-medium text-[var(--color-text-strong)]">
-                    {expandedDept === summary.department_id ? (
-                      <ChevronDown size={16} className="text-[var(--color-text-muted)]" />
-                    ) : (
-                      <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
-                    )}
-                    <span className="truncate">{summary.department_name}</span>
-                  </div>
-                  <div className="mt-1 text-caption text-[var(--color-text-muted)]">
-                    {summary.parent_name || '无上级部门'}
-                  </div>
-                </div>
-                <RateBadge rate={summary.rate} />
-              </button>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
-                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">人数 {summary.employee_count}</div>
-                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">应出勤 {summary.total_expected.toFixed(1)}</div>
-                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">实出勤 {summary.total_actual.toFixed(1)}</div>
-                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">请假 {summary.total_leave.toFixed(1)}</div>
-                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到/早退 {summary.total_late + summary.total_early}</div>
-                <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">旷工 {summary.total_absent.toFixed(1)}</div>
-              </div>
-
-              {expandedDept === summary.department_id && (
-                <div className="mt-3 rounded-2xl bg-[rgba(15,23,42,0.03)] p-3">
-                  {loadingMembers ? (
-                    <div className="py-4 text-center text-[var(--color-text-muted)]">加载中...</div>
-                  ) : memberRecords.length > 0 ? (
-                    <div className="space-y-2">
-                      {memberRecords.map((member) => (
-                        <MemberAttendanceCard key={member.id} member={member} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center text-[var(--color-text-muted)]">暂无成员记录</div>
-                  )}
-                </div>
-              )}
-            </div>
+        <div className="space-y-2 px-3 py-3 lg:hidden">
+          {visibleRows.map((row) => (
+            <MobileAttendanceCard
+              key={row.key}
+              row={row}
+              expanded={expandedKeys.has(row.key) || Boolean(query.trim())}
+              expandable={expandableKeys.has(row.key)}
+              onToggle={toggleRow}
+            />
           ))}
-          {summaries.length === 0 && !loading && (
-            <div className="py-8 text-center text-[var(--color-text-muted)]">
-              暂无考勤数据
-            </div>
-          )}
         </div>
+
         <div className="app-table-scroll hidden lg:block">
-          <table className="app-data-table">
+          <table className="app-data-table app-data-table-compact">
             <thead>
               <tr>
-                <th className="text-left">部门</th>
-                <th className="text-left">上级部门</th>
-                <th className="text-center">人数</th>
-                <th className="text-right">应出勤</th>
-                <th className="text-right">实出勤</th>
+                <th className="text-left">部门 / 人员</th>
+                <th className="text-center">类型</th>
+                <th className="text-right">人数</th>
+                <th className="text-right">日岗</th>
+                <th className="text-right">时岗</th>
                 <th className="text-center">出勤率</th>
-                <th className="text-right">请假</th>
-                <th className="text-right">迟到</th>
-                <th className="text-right">早退</th>
-                <th className="text-right">旷工</th>
+                <th className="text-right">迟到人数</th>
+                <th className="text-right">30分内</th>
+                <th className="text-right">30分-2小时</th>
               </tr>
             </thead>
             <tbody>
-              {summaries.map((summary) => (
-                <Fragment key={summary.department_id}>
-                  <tr
-                    className="app-data-row-interactive"
-                    onClick={() => void toggleDepartment(summary.department_id)}
-                  >
-                    <td className="font-medium text-[var(--color-text-strong)]">
-                      <div className="flex items-center gap-2">
-                        {expandedDept === summary.department_id ? (
-                          <ChevronDown size={16} className="text-[var(--color-text-muted)]" />
-                        ) : (
-                          <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
-                        )}
-                        {summary.department_name}
-                      </div>
-                    </td>
-                    <td className="app-cell-muted">{summary.parent_name || '-'}</td>
-                    <td className="app-cell-muted app-cell-numeric text-center">{summary.employee_count}</td>
-                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_expected.toFixed(1)}</td>
-                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_actual.toFixed(1)}</td>
-                    <td className="text-center"><RateBadge rate={summary.rate} /></td>
-                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_leave.toFixed(1)}</td>
-                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_late}</td>
-                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_early}</td>
-                    <td className="app-cell-muted app-cell-numeric text-right">{summary.total_absent.toFixed(1)}</td>
-                  </tr>
-                  {expandedDept === summary.department_id && (
-                    <tr className="app-data-row-emphasis app-data-row-static">
-                      <td colSpan={10} className="p-0">
-                        <div className="px-6 py-4">
-                          {loadingMembers ? (
-                            <div className="py-4 text-center text-[var(--color-text-muted)]">加载中...</div>
-                          ) : memberRecords.length > 0 ? (
-                            <div className="app-table-subtable app-table-scroll">
-                              <table className="app-data-table app-data-table-compact">
-                                <thead>
-                                  <tr>
-                                    <th className="text-left">姓名</th>
-                                    <th className="text-left">工号</th>
-                                    <th className="text-left">职位</th>
-                                    <th className="text-right">应出勤</th>
-                                    <th className="text-right">实出勤</th>
-                                    <th className="text-center">出勤率</th>
-                                    <th className="text-right">请假</th>
-                                    <th className="text-right">迟到</th>
-                                    <th className="text-right">早退</th>
-                                    <th className="text-right">旷工</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {memberRecords.map((member) => (
-                                    <tr key={member.id}>
-                                      <td className="app-cell-strong">{member.member_name}</td>
-                                      <td className="app-cell-muted">{member.employee_no}</td>
-                                      <td className="app-cell-muted">{member.job_title || '-'}</td>
-                                      <td className="app-cell-muted app-cell-numeric text-right">{member.expected_days.toFixed(1)}</td>
-                                      <td className="app-cell-muted app-cell-numeric text-right">{member.actual_days.toFixed(1)}</td>
-                                      <td className="text-center">
-                                        <RateBadge rate={member.rate} />
-                                      </td>
-                                      <td className="app-cell-muted app-cell-numeric text-right">{member.leave_days.toFixed(1)}</td>
-                                      <td className="app-cell-muted app-cell-numeric text-right">{member.late_times}</td>
-                                      <td className="app-cell-muted app-cell-numeric text-right">{member.early_leave_times}</td>
-                                      <td className="app-cell-muted app-cell-numeric text-right">{member.absent_days.toFixed(1)}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="py-4 text-center text-[var(--color-text-muted)]">暂无成员记录</div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+              {visibleRows.map((row) => (
+                <tr key={row.key} className={row.level !== 'member' ? 'app-data-row-emphasis' : undefined}>
+                  <td className="biz-data-table__business-cell">
+                    <TreeLabel
+                      row={row}
+                      expanded={expandedKeys.has(row.key) || Boolean(query.trim())}
+                      expandable={expandableKeys.has(row.key)}
+                      onToggle={toggleRow}
+                    />
+                  </td>
+                  <td className="text-center"><WorkTypeBadge type={row.member?.attendance_type} /></td>
+                  <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.employeeCount)}</td>
+                  <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.dayEmployeeCount)}</td>
+                  <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.hourEmployeeCount)}</td>
+                  <td className="text-center"><RateBadge rate={row.metrics.averageAttendanceRate} /></td>
+                  <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.lateEmployeeCount)}</td>
+                  <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.lateUnder30Count)}</td>
+                  <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.late30To120Count)}</td>
+                </tr>
               ))}
             </tbody>
           </table>
-          {summaries.length === 0 && !loading && (
-            <div className="py-8 text-center text-[var(--color-text-muted)]">
-              暂无考勤数据
-            </div>
-          )}
         </div>
+
+        {visibleRows.length === 0 && !loading ? (
+          <DataEmptyState title="暂无考勤数据" description={query ? '请调整搜索条件。' : '请先导入人资月度考勤文件。'} />
+        ) : null}
       </section>
     </div>
   )

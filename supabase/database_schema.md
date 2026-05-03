@@ -1,6 +1,6 @@
 # Supabase Database Schema
 
-Last updated: 2026-04-27
+Last updated: 2026-05-03
 
 ## Tables Overview
 
@@ -292,6 +292,7 @@ Last updated: 2026-04-27
 **Purpose**: Attendance records linked to Feishu members and departments
 **RLS Enabled**: Yes
 **Row Count**: 369
+**Status**: Legacy table. The attendance tab now reads `attendance_monthly_records_v2`.
 
 #### Columns
 - `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
@@ -313,7 +314,48 @@ Last updated: 2026-04-27
 
 ---
 
-### 10. edu_biz_report
+### 10. attendance_monthly_records_v2
+**Purpose**: HR monthly attendance records for both standard day-based and comprehensive hour-based roles
+**RLS Enabled**: Yes
+**Row Count**: dynamic
+
+#### Columns
+- `id` (uuid, PK): Unique identifier, default: gen_random_uuid()
+- `year_month` (integer): Attendance month, format YYYYMM
+- `attendance_type` (text): `standard_day` or `comprehensive_hour`
+- `employee_no` (text): Employee number from HR workbook
+- `employee_name` (text): Employee name from HR workbook
+- `member_id` (uuid, nullable): Optional matched Feishu member ID
+- `work_unit` (text): `day` or `hour`
+- `department_path` (text[]): Display department path starting at `海亮智汇后勤集团`
+- `department_full_path` (text[]): Raw Excel department1-department8 path
+- `expected_work_amount` (numeric): Expected attendance amount in the row unit
+- `normal_work_amount` (numeric): Normal work amount used for attendance-rate coverage
+- `actual_work_amount` (numeric): Raw actual attendance amount from HR workbook
+- `approved_leave_amount` (numeric): Leave amount treated as compliant attendance coverage
+- `absence_amount` (numeric): Absence amount from HR workbook
+- `qualified_attendance_amount` (numeric): `min(expected, normal + approved leave)`
+- `attendance_rate` (numeric): Qualified attendance amount divided by expected amount, capped through the qualified amount
+- `late_under_30_count` (integer): Late/early count within 30 minutes
+- `late_30_to_120_count` (integer): Late/early count over 30 minutes and within 2 hours
+- `late_total_count` (integer): Total late/early count shown by the attendance tab
+- `missing_clock_count` (integer): Missing clock count
+- `makeup_clock_count` (integer): Makeup clock count
+- `source_file_name`, `source_sheet_name`, `source_row_number`, `source_file_hash`: Import source metadata
+- `raw_metrics` (jsonb): Non-empty source metric cells retained for audit
+- `created_at`, `updated_at` (timestamptz): Timestamps
+
+#### Constraints and Indexes
+- Unique: `(year_month, employee_no, attendance_type)`
+- Checks: `attendance_type IN ('standard_day', 'comprehensive_hour')`, `work_unit IN ('day', 'hour')`
+- Indexes: `year_month`, `attendance_type`, `employee_no`, GIN on `department_path`
+
+#### Import Script
+`scripts/import_attendance_v2.py` — reads HR monthly attendance workbooks, parses month from the file name, and replaces the imported month/type slice before inserting.
+
+---
+
+### 11. edu_biz_report
 **Purpose**: 25学年经营数据报表（fone年初定稿版 / 突围版），涵盖 sheets 1.x/2.x + 成本分析 3.x/4.x
 **RLS Enabled**: No
 **Row Count**: 11,477
@@ -367,7 +409,7 @@ Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table
 
 ---
 
-### 11. edu_biz_monthly_plan
+### 12. edu_biz_monthly_plan
 **Purpose**: 25学年1-6月突围计划分月版，涵盖 sheet 3
 **RLS Enabled**: No
 **Row Count**: 1,498
@@ -397,7 +439,7 @@ Idempotent (clears and re-imports). Use LEFT JOIN with `edu_org_hierarchy` table
 
 ---
 
-### 12. edu_org_hierarchy
+### 13. edu_org_hierarchy
 **Purpose**: 组织层级映射表 - 定义业务单元的组织层级结构
 **RLS Enabled**: No
 **Row Count**: 153
@@ -439,7 +481,7 @@ Idempotent (clears and re-imports).
 
 ---
 
-### 13. Fee Effect Analysis Tables
+### 14. Fee Effect Analysis Tables
 **Purpose**: Store only the 4 fee-effect analysis sheets from `费效分析0414.xlsx` for person summary, person travel project summary, person hospitality project summary, and project ROI summary.
 **RLS Enabled**: No
 **Row Count**: dynamic
