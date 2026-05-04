@@ -394,6 +394,19 @@ function collectExpandableTreeKeys(rows: TreeRow[]) {
   return keys
 }
 
+function collectDefaultExpandedTreeKeys(rows: TreeRow[]) {
+  const keys = new Set<string>()
+
+  rows.forEach((row) => {
+    if (row.children?.length && row.depth < 1) {
+      keys.add(row.key)
+    }
+    collectDefaultExpandedTreeKeys(row.children ?? []).forEach((key) => keys.add(key))
+  })
+
+  return keys
+}
+
 function MobileSheetCard({ mode, row }: { mode: SheetMode; row: SheetRow }) {
   const title =
     'project_tag' in row
@@ -451,6 +464,7 @@ export function TripPage() {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [expandedTreeKeys, setExpandedTreeKeys] = useState<Set<string>>(() => new Set())
+  const [collapsedTreeKeys, setCollapsedTreeKeys] = useState<Set<string>>(() => new Set())
 
   const normalizedQuery = query.trim().toLowerCase()
   const orgHierarchyLookup = useMemo(() => buildOrgHierarchyLookup(orgHierarchyRows), [orgHierarchyRows])
@@ -490,11 +504,13 @@ export function TripPage() {
   }, [filteredRows, orgHierarchyLookup, sheetMode])
 
   const expandableTreeKeys = useMemo(() => collectExpandableTreeKeys(treeRows), [treeRows])
+  const defaultExpandedTreeKeys = useMemo(() => collectDefaultExpandedTreeKeys(treeRows), [treeRows])
   const effectiveExpandedTreeKeys = useMemo(() => {
-    const next = new Set(expandableTreeKeys)
+    const next = new Set(defaultExpandedTreeKeys)
     expandedTreeKeys.forEach((key) => next.add(key))
+    collapsedTreeKeys.forEach((key) => next.delete(key))
     return next
-  }, [expandableTreeKeys, expandedTreeKeys])
+  }, [collapsedTreeKeys, defaultExpandedTreeKeys, expandedTreeKeys])
 
   const visibleTreeRows = useMemo(() => {
     if (normalizedQuery) return flattenTreeRows(treeRows, new Set())
@@ -506,24 +522,40 @@ export function TripPage() {
     setActiveSheetMode(mode)
     setPage(1)
     setExpandedTreeKeys(new Set())
+    setCollapsedTreeKeys(new Set())
   }
 
   const handleQueryChange = (value: string) => {
     setQuery(value)
     setPage(1)
     setExpandedTreeKeys(new Set())
+    setCollapsedTreeKeys(new Set())
   }
 
   const toggleTreeRow = (key: string) => {
-    setExpandedTreeKeys((current) => {
-      const next = new Set(current)
-      if (next.has(key)) {
+    if (effectiveExpandedTreeKeys.has(key)) {
+      setExpandedTreeKeys((current) => {
+        const next = new Set(current)
         next.delete(key)
-      } else {
+        return next
+      })
+      setCollapsedTreeKeys((current) => {
+        const next = new Set(current)
         next.add(key)
-      }
-      return next
-    })
+        return next
+      })
+    } else {
+      setExpandedTreeKeys((current) => {
+        const next = new Set(current)
+        next.add(key)
+        return next
+      })
+      setCollapsedTreeKeys((current) => {
+        const next = new Set(current)
+        next.delete(key)
+        return next
+      })
+    }
   }
 
   const renderTreeLabel = (row: TreeRow) => {

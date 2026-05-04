@@ -4,6 +4,7 @@ import {
   getCoreRowModel,
   getExpandedRowModel,
   type ColumnDef,
+  type ExpandedState,
   type Row,
 } from '@tanstack/react-table'
 import {
@@ -105,6 +106,7 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
     return window.innerWidth <= MOBILE_BREAKPOINT
   })
   const [rowHeights, setRowHeights] = useState<Record<string, number>>({})
+  const [expanded, setExpanded] = useState<ExpandedState>({})
   const tableShellRef = useRef<HTMLDivElement | null>(null)
   const tableMetricsHeaderViewportRef = useRef<HTMLDivElement | null>(null)
   const tableFixedBodyViewportRef = useRef<HTMLDivElement | null>(null)
@@ -192,24 +194,49 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
     },
   ], [])
 
+  const getVisibleSubRows = useCallback((row: EnrichedBizDataNode) => {
+    const children = childrenIndex.getChildren(row)
+    return children.filter((child) => {
+      const level = getNodeLevel(child)
+      if (level === 1) return showLevels.level1
+      if (level === 2) return showLevels.level2
+      if (level === 3) return showLevels.level3
+      return true
+    })
+  }, [childrenIndex, showLevels])
+
+  const defaultExpanded = useMemo<ExpandedState>(() => {
+    const next: ExpandedState = {}
+
+    const collect = (rows: EnrichedBizDataNode[], parentId = '') => {
+      rows.forEach((row, index) => {
+        const rowId = parentId ? `${parentId}.${index}` : `${index}`
+        const children = getVisibleSubRows(row)
+        if (children.length > 0 && rowId.split('.').length <= 1) {
+          next[rowId] = true
+          collect(children, rowId)
+        }
+      })
+    }
+
+    collect(filteredRootNodes)
+    return next
+  }, [filteredRootNodes, getVisibleSubRows])
+
+  useEffect(() => {
+    setExpanded(defaultExpanded)
+  }, [defaultExpanded])
+
   const table = useReactTable({
     data: filteredRootNodes,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
-    getSubRows: (row) => {
-      const children = childrenIndex.getChildren(row)
-      return children.filter((child) => {
-        const level = getNodeLevel(child)
-        if (level === 1) return showLevels.level1
-        if (level === 2) return showLevels.level2
-        if (level === 3) return showLevels.level3
-        return true
-      })
+    getSubRows: getVisibleSubRows,
+    state: {
+      expanded,
     },
-    initialState: {
-      expanded: {},
-    },
+    onExpandedChange: setExpanded,
   })
 
   const visibleRows = table.getRowModel().rows
