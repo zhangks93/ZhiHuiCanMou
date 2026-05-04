@@ -7,9 +7,13 @@ import type { NestedBizDataNode } from '@/features/biz-data/services/bizDataServ
 import {
   aggregateByNode,
   buildNestedHierarchy,
+  buildOrgPath,
+  buildOrgScopeKey,
   buildNestedSubtree,
+  buildNestedSubtreeByScopeKey,
   fetchBizReport,
   fetchMonthlyPlan,
+  findHierarchyNodeByScopeKey,
   findHierarchyNodeMatches,
   getNodeKind,
 } from '@/features/biz-data/services/bizDataService'
@@ -46,6 +50,7 @@ const METRIC_SET = new Set<string>(METRIC_CATEGORY_ENUM)
 
 type QueryWithHierarchyArgs = {
   node_name: string
+  org_scope_key?: string
   report_type: 'fone' | 'tuwei'
   period_type: 'cumulative' | 'monthly'
   period: string
@@ -67,6 +72,8 @@ type MetricSnapshot = {
 
 type SerializedTreeNode = {
   node_name: string
+  org_scope_key: string
+  org_path: string[]
   node_kind: NestedBizDataNode['node_kind']
   sort_order: number
   org_hierarchy: NestedBizDataNode['orgHierarchy']
@@ -79,6 +86,7 @@ function validateArgs(args: Record<string, unknown>):
   | { ok: true; values: QueryWithHierarchyArgs }
   | { ok: false; message: string } {
   const node_name = args.node_name
+  const org_scope_key = args.org_scope_key
   const report_type = args.report_type
   const period_type = args.period_type
   const period = args.period
@@ -88,6 +96,10 @@ function validateArgs(args: Record<string, unknown>):
 
   if (typeof node_name !== 'string') {
     return { ok: false, message: 'node_name 必须为字符串，传空字符串可返回整棵树' }
+  }
+
+  if (org_scope_key !== undefined && (typeof org_scope_key !== 'string' || !org_scope_key.trim())) {
+    return { ok: false, message: 'org_scope_key 如传入，必须为非空字符串' }
   }
 
   if (report_type !== 'fone' && report_type !== 'tuwei') {
@@ -130,6 +142,7 @@ function validateArgs(args: Record<string, unknown>):
     ok: true,
     values: {
       node_name,
+      org_scope_key: org_scope_key?.trim(),
       report_type,
       period_type,
       period: period.trim(),
@@ -203,6 +216,8 @@ function serializeTreeNode(
 
   return {
     node_name: node.node_name,
+    org_scope_key: node.org_scope_key,
+    org_path: node.org_path,
     node_kind: node.node_kind,
     sort_order: node.sort_order,
     org_hierarchy: node.orgHierarchy,
@@ -227,13 +242,17 @@ export const queryWithHierarchyTool: RegisteredTool = {
     function: {
       name: 'query_with_hierarchy',
       description:
-        '完全按经营 tab 页表格的数据口径查询经营数据。输入 report_type、period_type、period、node_name，返回与经营表格同源聚合后的完整树状数据。node_name 传具体组织节点名称时返回该节点及全部子节点；传空字符串时返回整棵树。默认返回全部指标，也可用 metric_categories 和 sheet_codes 缩小范围。',
+        '完全按经营 tab 页表格的数据口径查询经营数据。输入 report_type、period_type、period，以及 node_name 或 org_scope_key，返回与经营表格同源聚合后的完整树状数据。org_scope_key 可精确定位同名组织；node_name 传具体组织节点名称时若有歧义会返回候选；传空字符串时返回整棵树。',
       parameters: {
         type: 'object',
         properties: {
           node_name: {
             type: 'string',
-            description: '组织节点名称。支持精确匹配和模糊匹配；传空字符串 "" 表示返回整棵组织指标树。',
+            description: '组织节点名称。支持精确匹配和模糊匹配；传空字符串 "" 表示返回整棵组织指标树。若已通过 resolve_org_nodes 得到 org_scope_key，应同时传 org_scope_key。',
+          },
+          org_scope_key: {
+            type: 'string',
+            description: '可选。组织稳定路径键，例如“智汇后勤集团 / 广州区域 / 餐饮中心 / 某项目”。用于精确定位同名组织，优先级高于 node_name。',
           },
           report_type: {
             type: 'string',
@@ -282,6 +301,7 @@ export const queryWithHierarchyTool: RegisteredTool = {
 
     const {
       node_name,
+      org_scope_key,
       report_type,
       period_type,
       period,
@@ -290,7 +310,7 @@ export const queryWithHierarchyTool: RegisteredTool = {
       max_depth,
     } = validated.values
 
-    const effectiveMaxDepth = max_depth ?? (node_name.trim() === '' ? 2 : 4)
+    const effectiveMaxDepth = max_depth ?? (node_name.trim() === '' && !org_scope_key ? 2 : 4)
 
     const reports = await fetchBizReport({
       period,
@@ -304,6 +324,7 @@ export const queryWithHierarchyTool: RegisteredTool = {
         message: '未找到匹配的经营数据',
         query_echo: {
           node_name,
+          org_scope_key: org_scope_key ?? null,
           report_type,
           period_type,
           period,
@@ -319,7 +340,7 @@ export const queryWithHierarchyTool: RegisteredTool = {
     const aggregatedNodes = aggregateByNode(foneReports, tuweiReports, monthlyPlans)
     const labelMap = buildMetricLabelMap(reports)
 
-    if (node_name.trim() === '') {
+    if (node_name.trim() === '' && !org_scope_key) {
       const fullTree = buildNestedHierarchy(aggregatedNodes)
 
       return JSON.stringify({
@@ -335,6 +356,7 @@ export const queryWithHierarchyTool: RegisteredTool = {
         },
         query: {
           node_name: '',
+          org_scope_key: null,
           metric_categories: metric_categories ?? null,
           sheet_codes: sheet_codes ?? null,
           max_depth: effectiveMaxDepth,
@@ -344,12 +366,17 @@ export const queryWithHierarchyTool: RegisteredTool = {
       })
     }
 
-    const matches = findHierarchyNodeMatches(aggregatedNodes, node_name)
+    const scopedNode = org_scope_key ? findHierarchyNodeByScopeKey(aggregatedNodes, org_scope_key) : null
+    const matches = scopedNode
+      ? [{ node: scopedNode, matchType: 'org_scope_key' as const }]
+      : findHierarchyNodeMatches(aggregatedNodes, node_name)
+
     if (matches.length === 0) {
       return JSON.stringify({
         message: '未找到匹配的组织节点',
         query_echo: {
           node_name,
+          org_scope_key: org_scope_key ?? null,
           report_type,
           period_type,
           period,
@@ -362,12 +389,15 @@ export const queryWithHierarchyTool: RegisteredTool = {
         message: '匹配到多个组织节点，请提供更精确的 node_name',
         query_echo: {
           node_name,
+          org_scope_key: org_scope_key ?? null,
           report_type,
           period_type,
           period,
         },
         candidates: matches.slice(0, 20).map(match => ({
           node_name: match.node.node_name,
+          org_scope_key: buildOrgScopeKey(match.node),
+          org_path: buildOrgPath(match.node),
           node_kind: getNodeKind(match.node),
           match_type: match.matchType,
           org_hierarchy: match.node.orgHierarchy,
@@ -377,13 +407,16 @@ export const queryWithHierarchyTool: RegisteredTool = {
     }
 
     const matched = matches[0]
-    const subtree = buildNestedSubtree(aggregatedNodes, matched.node.node_name)
+    const subtree = org_scope_key
+      ? buildNestedSubtreeByScopeKey(aggregatedNodes, org_scope_key)
+      : buildNestedSubtree(aggregatedNodes, matched.node.node_name)
 
     if (!subtree) {
       return JSON.stringify({
         message: '组织节点已匹配，但构建树状数据失败',
         query_echo: {
           node_name,
+          org_scope_key: org_scope_key ?? null,
           matched_node_name: matched.node.node_name,
           report_type,
           period_type,
@@ -400,6 +433,8 @@ export const queryWithHierarchyTool: RegisteredTool = {
         query_mode: 'subtree',
         returned_max_depth: effectiveMaxDepth,
         matched_node_name: matched.node.node_name,
+        matched_org_scope_key: buildOrgScopeKey(matched.node),
+        matched_org_path: buildOrgPath(matched.node),
         matched_node_kind: getNodeKind(matched.node),
         match_type: matched.matchType,
         total_tree_nodes: countTreeNodes(subtree),
@@ -407,6 +442,7 @@ export const queryWithHierarchyTool: RegisteredTool = {
       },
       query: {
         node_name,
+        org_scope_key: org_scope_key ?? null,
         metric_categories: metric_categories ?? null,
         sheet_codes: sheet_codes ?? null,
         max_depth: effectiveMaxDepth,

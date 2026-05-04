@@ -74,6 +74,8 @@ async function cachedRequest<T>(key: string, loader: () => Promise<T>, ttlMs = C
 
 export interface NestedBizDataNode {
   node_name: string
+  org_scope_key: string
+  org_path: string[]
   sort_order: number
   node_kind: HierarchyNodeKind
   hierarchy: EnrichedBizDataNode['hierarchy']
@@ -245,6 +247,23 @@ function inferNodeKind(node: EnrichedBizDataNode): NodeKind {
 
 function normalizeNodeName(value: string): string {
   return value.trim().toLocaleLowerCase()
+}
+
+function normalizeOrgScopePart(value: string | null | undefined): string {
+  return (value ?? '').trim()
+}
+
+export function buildOrgPath(node: Pick<EnrichedBizDataNode, 'node_name' | 'orgHierarchy'>): string[] {
+  const { level_0, level_1, level_2 } = node.orgHierarchy
+  const parts = [level_0, level_1, level_2, node.node_name]
+    .map(normalizeOrgScopePart)
+    .filter((part): part is string => part.length > 0)
+
+  return parts.filter((part, index) => index === 0 || part !== parts[index - 1])
+}
+
+export function buildOrgScopeKey(node: Pick<EnrichedBizDataNode, 'node_name' | 'orgHierarchy'>): string {
+  return buildOrgPath(node).join(' / ')
 }
 
 function isLeafSourceNode(node: EnrichedBizDataNode): boolean {
@@ -775,6 +794,8 @@ function buildNestedNode(
 
   return {
     node_name: node.node_name,
+    org_scope_key: buildOrgScopeKey(node),
+    org_path: buildOrgPath(node),
     sort_order: node.sort_order,
     node_kind: inferNodeKind(node),
     hierarchy: { ...node.hierarchy },
@@ -800,7 +821,17 @@ export function buildNestedHierarchy(nodes: EnrichedBizDataNode[]): NestedBizDat
 
 export interface HierarchyNodeMatch {
   node: EnrichedBizDataNode
-  matchType: 'exact' | 'contains'
+  matchType: 'org_scope_key' | 'exact' | 'contains'
+}
+
+export function findHierarchyNodeByScopeKey(
+  nodes: EnrichedBizDataNode[],
+  orgScopeKey: string
+): EnrichedBizDataNode | null {
+  const normalizedKey = normalizeNodeName(orgScopeKey)
+  if (!normalizedKey) return null
+
+  return buildTreeWithAggregation(nodes).find(node => normalizeNodeName(buildOrgScopeKey(node)) === normalizedKey) ?? null
 }
 
 export function findHierarchyNodeMatches(
@@ -827,6 +858,18 @@ export function buildNestedSubtree(
 ): NestedBizDataNode | null {
   const allNodes = buildTreeWithAggregation(nodes)
   const root = allNodes.find(node => node.node_name === rootNodeName)
+
+  if (!root) return null
+
+  return buildNestedNode(root, allNodes)
+}
+
+export function buildNestedSubtreeByScopeKey(
+  nodes: EnrichedBizDataNode[],
+  orgScopeKey: string
+): NestedBizDataNode | null {
+  const allNodes = buildTreeWithAggregation(nodes)
+  const root = allNodes.find(node => normalizeNodeName(buildOrgScopeKey(node)) === normalizeNodeName(orgScopeKey))
 
   if (!root) return null
 

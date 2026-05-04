@@ -60,6 +60,34 @@ export function inferPreviousMonth(month: string): string {
   return `${previous.getFullYear()}${String(previous.getMonth() + 1).padStart(2, '0')}`
 }
 
+export function inferCumulativeToMonthPeriod(month: string): string {
+  const match = /^(\d{4})(\d{2})$/.exec(month)
+  if (!match) return month
+
+  const year = Number(match[1])
+  const monthNo = Number(match[2])
+  if (!Number.isInteger(year) || !Number.isInteger(monthNo) || monthNo < 1 || monthNo > 12) {
+    return month
+  }
+
+  const next = new Date(year, monthNo, 1)
+  return `<${next.getFullYear()}${String(next.getMonth() + 1).padStart(2, '0')}`
+}
+
+export function inferSchoolYearTargetPeriod(month: string): string {
+  const match = /^(\d{4})(\d{2})$/.exec(month)
+  if (!match) return month
+
+  const year = Number(match[1])
+  const monthNo = Number(match[2])
+  if (!Number.isInteger(year) || !Number.isInteger(monthNo) || monthNo < 1 || monthNo > 12) {
+    return month
+  }
+
+  const schoolYearEndYear = monthNo >= 7 ? year + 1 : year
+  return `<${schoolYearEndYear}07`
+}
+
 export function safeNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }

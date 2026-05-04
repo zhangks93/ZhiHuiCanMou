@@ -2,9 +2,12 @@ import type { RegisteredTool, ToolDefinition } from '../types'
 import type { EduBizReport, EnrichedBizDataNode, MetricCategory } from '@/features/biz-data/types'
 import {
   aggregateByNode,
+  buildOrgPath,
+  buildOrgScopeKey,
   buildTreeWithAggregation,
   fetchBizReport,
   fetchMonthlyPlan,
+  findHierarchyNodeByScopeKey,
   findHierarchyNodeMatches,
   getChildren,
   getNodeKind,
@@ -13,7 +16,9 @@ import {
   contributionShare,
   DEFAULT_REPORT_METRICS,
   formatPctForJudgement,
+  inferCumulativeToMonthPeriod,
   inferPreviousMonth,
+  inferSchoolYearTargetPeriod,
   LOWER_IS_BETTER_METRICS,
   statusByCompletion,
 } from './reportCalculations'
@@ -41,9 +46,11 @@ import type {
 
 type QueryBusinessReportPackArgs = {
   node_name?: string
+  org_scope_key?: string
   month: string
   previous_month?: string
-  cumulative_period: string
+  cumulative_period?: string
+  school_year_target_period?: string
   report_types?: ReportType[]
   max_units?: number
 }
@@ -103,13 +110,19 @@ function validateArgs(args: Record<string, unknown>):
   | { ok: false; message: string } {
   const month = args.month
   const cumulativePeriod = args.cumulative_period
+  const schoolYearTargetPeriod = args.school_year_target_period
   const previousMonth = args.previous_month
   const nodeName = args.node_name
+  const orgScopeKey = args.org_scope_key
   const reportTypes = args.report_types
   const maxUnits = args.max_units
 
   if (nodeName !== undefined && typeof nodeName !== 'string') {
     return { ok: false, message: 'node_name 如传入，必须为字符串；传空字符串表示集团整体' }
+  }
+
+  if (orgScopeKey !== undefined && (typeof orgScopeKey !== 'string' || !orgScopeKey.trim())) {
+    return { ok: false, message: 'org_scope_key 如传入，必须为非空字符串' }
   }
 
   if (typeof month !== 'string' || !month.trim()) {
@@ -120,8 +133,12 @@ function validateArgs(args: Record<string, unknown>):
     return { ok: false, message: 'previous_month 如传入，必须为非空字符串' }
   }
 
-  if (typeof cumulativePeriod !== 'string' || !cumulativePeriod.trim()) {
-    return { ok: false, message: 'cumulative_period 必须为非空字符串，且必须使用 Runtime Data Context 中合法 cumulative period' }
+  if (cumulativePeriod !== undefined && (typeof cumulativePeriod !== 'string' || !cumulativePeriod.trim())) {
+    return { ok: false, message: 'cumulative_period 如传入，必须为非空字符串，且必须使用 Runtime Data Context 中合法 cumulative period' }
+  }
+
+  if (schoolYearTargetPeriod !== undefined && (typeof schoolYearTargetPeriod !== 'string' || !schoolYearTargetPeriod.trim())) {
+    return { ok: false, message: 'school_year_target_period 如传入，必须为非空字符串，且必须使用 Runtime Data Context 中合法 cumulative period' }
   }
 
   if (reportTypes !== undefined) {
@@ -143,9 +160,11 @@ function validateArgs(args: Record<string, unknown>):
     ok: true,
     values: {
       node_name: nodeName?.trim() ?? '',
+      org_scope_key: orgScopeKey?.trim(),
       month: month.trim(),
       previous_month: previousMonth?.trim(),
-      cumulative_period: cumulativePeriod.trim(),
+      cumulative_period: cumulativePeriod?.trim(),
+      school_year_target_period: schoolYearTargetPeriod?.trim(),
       report_types: reportTypes as ReportType[] | undefined,
       max_units: maxUnits as number | undefined,
     },
@@ -169,12 +188,22 @@ function aggregateReportNodes(reports: EduBizReport[], monthlyPlans: Awaited<Ret
   return aggregateByNode(foneReports, tuweiReports, monthlyPlans)
 }
 
-function resolveRootNode(nodes: EnrichedBizDataNode[], nodeName: string):
+function resolveRootNode(nodes: EnrichedBizDataNode[], nodeName: string, orgScopeKey?: string):
   | { ok: true; root: EnrichedBizDataNode | null; allNodes: EnrichedBizDataNode[] }
   | { ok: false; message: string; candidates?: unknown[] } {
   if (!nodes.length) return { ok: true, root: null, allNodes: [] }
 
   const allNodes = buildTreeWithAggregation(nodes)
+  if (orgScopeKey) {
+    const scopedRoot = findHierarchyNodeByScopeKey(nodes, orgScopeKey)
+    if (!scopedRoot) return { ok: false, message: '未找到匹配 org_scope_key 的组织节点' }
+    return {
+      ok: true,
+      root: allNodes.find(node => buildOrgScopeKey(node) === buildOrgScopeKey(scopedRoot)) ?? scopedRoot,
+      allNodes,
+    }
+  }
+
   if (!nodeName.trim()) {
     const root = allNodes.find(node => getNodeKind(node) === 'total') ?? allNodes[0] ?? null
     return { ok: true, root, allNodes }
@@ -190,6 +219,8 @@ function resolveRootNode(nodes: EnrichedBizDataNode[], nodeName: string):
       message: '匹配到多个组织节点，请提供更精确的 node_name',
       candidates: matches.slice(0, 20).map(match => ({
         node_name: match.node.node_name,
+        org_scope_key: buildOrgScopeKey(match.node),
+        org_path: buildOrgPath(match.node),
         node_kind: getNodeKind(match.node),
         match_type: match.matchType,
         org_hierarchy: match.node.orgHierarchy,
@@ -283,7 +314,8 @@ function buildTargetVsActualRow(
 function buildSummaryCards(params: {
   monthRoot: EnrichedBizDataNode | null
   previousRoot: EnrichedBizDataNode | null
-  cumulativeRoot: EnrichedBizDataNode | null
+  cumulativeToMonthRoot: EnrichedBizDataNode | null
+  schoolYearTargetRoot: EnrichedBizDataNode | null
   reportTypes: ReportType[]
   labelMap: Map<MetricCategory, string>
 }): SummaryCard[] {
@@ -298,22 +330,36 @@ function buildSummaryCards(params: {
         status: statusByCompletion(monthlyMetric.completion_rate, LOWER_IS_BETTER_METRICS.has(metric)),
       })
 
-      const cumulativeMetric = metricValue(params.cumulativeRoot, metric, reportType, params.labelMap)
+      const cumulativeMetric = metricValue(params.cumulativeToMonthRoot, metric, reportType, params.labelMap)
       rows.push({
         ...cumulativeMetric,
         report_type: reportType,
-        period_scope: 'cumulative',
+        period_scope: 'cumulative_to_month',
         status: statusByCompletion(cumulativeMetric.completion_rate, LOWER_IS_BETTER_METRICS.has(metric)),
+      })
+
+      const schoolYearMetric = metricValue(params.schoolYearTargetRoot, metric, reportType, params.labelMap)
+      rows.push({
+        ...schoolYearMetric,
+        report_type: reportType,
+        period_scope: 'school_year_target',
+        status: statusByCompletion(schoolYearMetric.completion_rate, LOWER_IS_BETTER_METRICS.has(metric)),
       })
     }
   }
   return rows
 }
 
-function buildTargetVsActualTable(monthRoot: EnrichedBizDataNode | null, cumulativeRoot: EnrichedBizDataNode | null, reportTypes: ReportType[]) {
+function buildTargetVsActualTable(
+  monthRoot: EnrichedBizDataNode | null,
+  cumulativeToMonthRoot: EnrichedBizDataNode | null,
+  schoolYearTargetRoot: EnrichedBizDataNode | null,
+  reportTypes: ReportType[]
+) {
   return reportTypes.flatMap(reportType => [
     buildTargetVsActualRow(monthRoot, reportType, 'monthly'),
-    buildTargetVsActualRow(cumulativeRoot, reportType, 'cumulative'),
+    buildTargetVsActualRow(cumulativeToMonthRoot, reportType, 'cumulative_to_month'),
+    buildTargetVsActualRow(schoolYearTargetRoot, reportType, 'school_year_target'),
   ])
 }
 
@@ -689,7 +735,9 @@ function formatBriefPct(value: number | null | undefined): string {
 }
 
 function periodScopeLabel(scope: PeriodScope): string {
-  return scope === 'monthly' ? '当月' : '累计'
+  if (scope === 'monthly') return '当月'
+  if (scope === 'school_year_target') return '学年目标累计'
+  return '截至当月累计'
 }
 
 function reportTypeLabel(reportType: ReportType): string {
@@ -926,8 +974,8 @@ function buildWarnings(params: {
     .forEach(card => {
       warnings.push({
         severity: card.status === 'risk' ? 'red' : card.status === 'watch' ? 'yellow' : 'info',
-        section: card.period_scope === 'monthly' ? '当月核心指标' : '累计核心指标',
-        message: `${card.report_type} ${card.metric_label}${card.period_scope === 'monthly' ? '当月' : '累计'}完成状态为 ${card.status}。`,
+        section: card.period_scope === 'monthly' ? '当月核心指标' : `${periodScopeLabel(card.period_scope)}核心指标`,
+        message: `${card.report_type} ${card.metric_label}${periodScopeLabel(card.period_scope)}完成状态为 ${card.status}。`,
         evidence: {
           metric: card.metric,
           actual: card.actual,
@@ -959,9 +1007,9 @@ function buildWarnings(params: {
     .forEach(row => {
       warnings.push({
         severity: row.status === 'risk' ? 'red' : 'yellow',
-        section: row.period_scope === 'monthly' ? '当月成本费用' : '累计成本费用',
+        section: row.period_scope === 'monthly' ? '当月成本费用' : `${periodScopeLabel(row.period_scope)}成本费用`,
         node_name: row.node_name,
-        message: `${row.report_type} ${row.node_name}${row.period_scope === 'monthly' ? '当月' : '累计'}${row.metric_label}完成状态为 ${row.status}。`,
+        message: `${row.report_type} ${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}完成状态为 ${row.status}。`,
         evidence: {
           metric: row.metric,
           actual: row.actual,
@@ -989,15 +1037,17 @@ function buildWarnings(params: {
 function buildCoverage(params: {
   monthReports: EduBizReport[]
   previousReports: EduBizReport[]
-  cumulativeReports: EduBizReport[]
+  cumulativeToMonthReports: EduBizReport[]
+  schoolYearTargetReports: EduBizReport[]
   monthlyPlanCount: number
 }): BusinessReportPack['coverage'] {
   const hasMonthly = params.monthReports.length > 0
   const hasPrevious = params.previousReports.length > 0
-  const hasCumulative = params.cumulativeReports.length > 0
-  const availableCount = [hasMonthly, hasPrevious, hasCumulative].filter(Boolean).length
+  const hasCumulativeToMonth = params.cumulativeToMonthReports.length > 0
+  const hasSchoolYearTarget = params.schoolYearTargetReports.length > 0
+  const availableCount = [hasMonthly, hasPrevious, hasCumulativeToMonth, hasSchoolYearTarget].filter(Boolean).length
   return {
-    core_biz_data: availableCount === 3 ? 'available' : availableCount > 0 ? 'partial' : 'missing',
+    core_biz_data: availableCount === 4 ? 'available' : availableCount > 0 ? 'partial' : 'missing',
     monthly_plan: params.monthlyPlanCount > 0 ? 'available' : 'missing',
     receivables: 'manual_required',
     cash_plan: 'manual_required',
@@ -1016,13 +1066,17 @@ export const queryBusinessReportPackTool: RegisteredTool = {
     function: {
       name: 'query_business_report_pack',
       description:
-        '生成完整月度经营分析报告所需的数据包。一次性返回 fone/tuwei、当月/上月/累计、全量指标明细、提问组织下至少两层组织数据、组织构成、差异排行、风险预警和人工补充章节占位。适用于经营分析报告、月报、汇报材料。',
+        '生成完整月度经营分析报告所需的数据包。一次性返回 fone/tuwei、当月/上月/截至当月累计/学年目标累计、全量指标明细、提问组织下至少两层组织数据、组织构成、差异排行、风险预警和人工补充章节占位。适用于经营分析报告、月报、汇报材料。',
       parameters: {
         type: 'object',
         properties: {
           node_name: {
             type: 'string',
-            description: '组织节点名称。传空字符串表示集团整体/整棵树。',
+            description: '组织节点名称。传空字符串表示集团整体/整棵树。若已通过 resolve_org_nodes 得到 org_scope_key，应同时传 org_scope_key。',
+          },
+          org_scope_key: {
+            type: 'string',
+            description: '可选。组织稳定路径键，用于精确定位同名组织，优先级高于 node_name。',
           },
           month: {
             type: 'string',
@@ -1034,7 +1088,11 @@ export const queryBusinessReportPackTool: RegisteredTool = {
           },
           cumulative_period: {
             type: 'string',
-            description: '累计期间，必须使用 Runtime Data Context 中合法 cumulative period。',
+            description: '可选。兼容旧参数，表示截至当月累计期间；不传时按 month 自动推导，如 202603 -> <202604。',
+          },
+          school_year_target_period: {
+            type: 'string',
+            description: '可选。学年目标累计期间；不传时按教育学年自动推导，如 202603 -> <202607。',
           },
           report_types: {
             type: 'array',
@@ -1046,7 +1104,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
             description: '最多返回多少个 unit_cards，默认 60。',
           },
         },
-        required: ['month', 'cumulative_period'],
+        required: ['month'],
       } as ToolDefinition['function']['parameters'],
     },
   },
@@ -1056,54 +1114,77 @@ export const queryBusinessReportPackTool: RegisteredTool = {
     if (!validated.ok) return JSON.stringify({ error: validated.message }, null, 2)
 
     const nodeName = validated.values.node_name ?? ''
+    const orgScopeKey = validated.values.org_scope_key
     const month = validated.values.month
     const previousMonth = validated.values.previous_month || inferPreviousMonth(month)
-    const cumulativePeriod = validated.values.cumulative_period
+    const cumulativeToMonthPeriod = validated.values.cumulative_period || inferCumulativeToMonthPeriod(month)
+    const schoolYearTargetPeriod = validated.values.school_year_target_period || inferSchoolYearTargetPeriod(month)
     const reportTypes: ReportType[] = validated.values.report_types?.length ? validated.values.report_types : ['fone', 'tuwei']
     const maxUnits = validated.values.max_units ?? 60
 
-    const [monthReports, previousReports, cumulativeReports, monthlyPlans] = await Promise.all([
+    const [monthReports, previousReports, cumulativeToMonthReports, schoolYearTargetReports, monthlyPlans] = await Promise.all([
       fetchBizReport({ period: month, periodType: 'monthly', reportTypes }),
       fetchBizReport({ period: previousMonth, periodType: 'monthly', reportTypes }),
-      fetchBizReport({ period: cumulativePeriod, periodType: 'cumulative', reportTypes }),
+      fetchBizReport({ period: cumulativeToMonthPeriod, periodType: 'cumulative', reportTypes }),
+      fetchBizReport({ period: schoolYearTargetPeriod, periodType: 'cumulative', reportTypes }),
       fetchMonthlyPlan(),
     ])
 
-    const labelMap = buildMetricLabelMap([...monthReports, ...previousReports, ...cumulativeReports])
+    const labelMap = buildMetricLabelMap([...monthReports, ...previousReports, ...cumulativeToMonthReports, ...schoolYearTargetReports])
     const monthNodes = aggregateReportNodes(monthReports, monthlyPlans)
     const previousNodes = aggregateReportNodes(previousReports, monthlyPlans)
-    const cumulativeNodes = aggregateReportNodes(cumulativeReports, monthlyPlans)
+    const cumulativeToMonthNodes = aggregateReportNodes(cumulativeToMonthReports, monthlyPlans)
+    const schoolYearTargetNodes = aggregateReportNodes(schoolYearTargetReports, monthlyPlans)
 
-    const cumulativeResolved = resolveRootNode(cumulativeNodes, nodeName)
-    if (!cumulativeResolved.ok) {
+    const cumulativeToMonthResolved = resolveRootNode(cumulativeToMonthNodes, nodeName, orgScopeKey)
+    if (!cumulativeToMonthResolved.ok) {
       return JSON.stringify({
-        message: cumulativeResolved.message,
-        query_echo: { node_name: nodeName, month, previous_month: previousMonth, cumulative_period: cumulativePeriod, report_types: reportTypes },
-        candidates: cumulativeResolved.candidates,
+        message: cumulativeToMonthResolved.message,
+        query_echo: {
+          node_name: nodeName,
+          org_scope_key: orgScopeKey ?? null,
+          month,
+          previous_month: previousMonth,
+          cumulative_to_month_period: cumulativeToMonthPeriod,
+          school_year_target_period: schoolYearTargetPeriod,
+          report_types: reportTypes,
+        },
+        candidates: cumulativeToMonthResolved.candidates,
       }, null, 2)
     }
 
-    const resolvedNodeName = cumulativeResolved.root?.node_name ?? nodeName
-    const monthResolved = resolveRootNode(monthNodes, resolvedNodeName)
-    const previousResolved = resolveRootNode(previousNodes, resolvedNodeName)
+    const resolvedNodeName = cumulativeToMonthResolved.root?.node_name ?? nodeName
+    const resolvedOrgScopeKey = cumulativeToMonthResolved.root ? buildOrgScopeKey(cumulativeToMonthResolved.root) : orgScopeKey
+    const monthResolved = resolveRootNode(monthNodes, resolvedNodeName, resolvedOrgScopeKey)
+    const previousResolved = resolveRootNode(previousNodes, resolvedNodeName, resolvedOrgScopeKey)
+    const schoolYearTargetResolved = resolveRootNode(schoolYearTargetNodes, resolvedNodeName, resolvedOrgScopeKey)
     const monthRoot = monthResolved.ok ? monthResolved.root : null
     const previousRoot = previousResolved.ok ? previousResolved.root : null
-    const cumulativeRoot = cumulativeResolved.root
+    const cumulativeToMonthRoot = cumulativeToMonthResolved.root
+    const schoolYearTargetRoot = schoolYearTargetResolved.ok ? schoolYearTargetResolved.root : null
 
-    if (!monthRoot && !cumulativeRoot) {
+    if (!monthRoot && !cumulativeToMonthRoot && !schoolYearTargetRoot) {
       return JSON.stringify({
         message: '未找到可用于生成报告的经营数据',
-        query_echo: { node_name: nodeName, month, previous_month: previousMonth, cumulative_period: cumulativePeriod, report_types: reportTypes },
+        query_echo: {
+          node_name: nodeName,
+          org_scope_key: orgScopeKey ?? null,
+          month,
+          previous_month: previousMonth,
+          cumulative_to_month_period: cumulativeToMonthPeriod,
+          school_year_target_period: schoolYearTargetPeriod,
+          report_types: reportTypes,
+        },
       }, null, 2)
     }
 
     const preferredReportType: ReportType = reportTypes.includes('tuwei') ? 'tuwei' : reportTypes[0]
-    const summaryCards = buildSummaryCards({ monthRoot, previousRoot, cumulativeRoot, reportTypes, labelMap })
-    const targetVsActualTable = buildTargetVsActualTable(monthRoot, cumulativeRoot, reportTypes)
-    const directChildrenTable = buildCompositionRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType)
-    const organizationTwoLevelTable = buildOrganizationTwoLevelTable(cumulativeRoot, cumulativeResolved.allNodes)
-    const keyDescendantTable = buildKeyDescendantRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType)
-    const leafExceptionTable = buildLeafExceptionRows(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType)
+    const summaryCards = buildSummaryCards({ monthRoot, previousRoot, cumulativeToMonthRoot, schoolYearTargetRoot, reportTypes, labelMap })
+    const targetVsActualTable = buildTargetVsActualTable(monthRoot, cumulativeToMonthRoot, schoolYearTargetRoot, reportTypes)
+    const directChildrenTable = buildCompositionRows(cumulativeToMonthRoot, cumulativeToMonthResolved.allNodes, preferredReportType)
+    const organizationTwoLevelTable = buildOrganizationTwoLevelTable(cumulativeToMonthRoot, cumulativeToMonthResolved.allNodes)
+    const keyDescendantTable = buildKeyDescendantRows(cumulativeToMonthRoot, cumulativeToMonthResolved.allNodes, preferredReportType)
+    const leafExceptionTable = buildLeafExceptionRows(cumulativeToMonthRoot, cumulativeToMonthResolved.allNodes, preferredReportType)
     const costExpenseSummary = [
       ...buildCostExpenseRows({
         root: monthRoot,
@@ -1113,13 +1194,20 @@ export const queryBusinessReportPackTool: RegisteredTool = {
         labelMap,
       }),
       ...buildCostExpenseRows({
-        root: cumulativeRoot,
-        allNodes: cumulativeResolved.allNodes,
+        root: cumulativeToMonthRoot,
+        allNodes: cumulativeToMonthResolved.allNodes,
         reportTypes,
-        periodScope: 'cumulative',
+        periodScope: 'cumulative_to_month',
         labelMap,
       }),
-    ].filter(row => row.node_name === (cumulativeRoot?.node_name ?? monthRoot?.node_name))
+      ...buildCostExpenseRows({
+        root: schoolYearTargetRoot,
+        allNodes: schoolYearTargetResolved.ok ? schoolYearTargetResolved.allNodes : [],
+        reportTypes,
+        periodScope: 'school_year_target',
+        labelMap,
+      }),
+    ].filter(row => row.node_name === (cumulativeToMonthRoot?.node_name ?? schoolYearTargetRoot?.node_name ?? monthRoot?.node_name))
     const costExpenseTable = [
       ...buildCostExpenseRows({
         root: monthRoot,
@@ -1129,10 +1217,17 @@ export const queryBusinessReportPackTool: RegisteredTool = {
         labelMap,
       }),
       ...buildCostExpenseRows({
-        root: cumulativeRoot,
-        allNodes: cumulativeResolved.allNodes,
+        root: cumulativeToMonthRoot,
+        allNodes: cumulativeToMonthResolved.allNodes,
         reportTypes,
-        periodScope: 'cumulative',
+        periodScope: 'cumulative_to_month',
+        labelMap,
+      }),
+      ...buildCostExpenseRows({
+        root: schoolYearTargetRoot,
+        allNodes: schoolYearTargetResolved.ok ? schoolYearTargetResolved.allNodes : [],
+        reportTypes,
+        periodScope: 'school_year_target',
         labelMap,
       }),
     ]
@@ -1145,29 +1240,37 @@ export const queryBusinessReportPackTool: RegisteredTool = {
         labelMap,
       }),
       ...buildAllMetricRows({
-        root: cumulativeRoot,
-        allNodes: cumulativeResolved.allNodes,
+        root: cumulativeToMonthRoot,
+        allNodes: cumulativeToMonthResolved.allNodes,
         reportTypes,
-        periodScope: 'cumulative',
+        periodScope: 'cumulative_to_month',
+        labelMap,
+      }),
+      ...buildAllMetricRows({
+        root: schoolYearTargetRoot,
+        allNodes: schoolYearTargetResolved.ok ? schoolYearTargetResolved.allNodes : [],
+        reportTypes,
+        periodScope: 'school_year_target',
         labelMap,
       }),
     ]
     const unitCards = buildUnitCards({
       monthRoot,
       previousRoot,
-      cumulativeRoot,
+      cumulativeRoot: cumulativeToMonthRoot,
       monthNodes: monthResolved.ok ? monthResolved.allNodes : [],
-      cumulativeNodes: cumulativeResolved.allNodes,
+      cumulativeNodes: cumulativeToMonthResolved.allNodes,
       reportType: preferredReportType,
       maxUnits,
     })
     const coverage = buildCoverage({
       monthReports,
       previousReports,
-      cumulativeReports,
+      cumulativeToMonthReports,
+      schoolYearTargetReports,
       monthlyPlanCount: monthlyPlans.length,
     })
-    const metricCoverage = buildMetricCoverage([...monthReports, ...previousReports, ...cumulativeReports])
+    const metricCoverage = buildMetricCoverage([...monthReports, ...previousReports, ...cumulativeToMonthReports, ...schoolYearTargetReports])
     const dataCompletenessMatrix = buildDataCompletenessMatrix({
       targetVsActualTable,
       compositionTable: directChildrenTable,
@@ -1177,8 +1280,8 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       metricCoverage,
     })
     const warnings = buildWarnings({ unitCards, summaryCards, costExpenseRows: costExpenseTable })
-    const scopeProfile = buildScopeProfile(cumulativeRoot ?? monthRoot, cumulativeResolved.allNodes)
-    const varianceRankings = buildRankings(cumulativeRoot, cumulativeResolved.allNodes, preferredReportType, labelMap)
+    const scopeProfile = buildScopeProfile(cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot, cumulativeToMonthResolved.allNodes)
+    const varianceRankings = buildRankings(cumulativeToMonthRoot, cumulativeToMonthResolved.allNodes, preferredReportType, labelMap)
     const writingBrief = buildWritingBrief({
       scopeProfile,
       summaryCards,
@@ -1192,10 +1295,14 @@ export const queryBusinessReportPackTool: RegisteredTool = {
 
     const pack: BusinessReportPack = {
       metadata: {
-        scope_name: cumulativeRoot?.node_name ?? monthRoot?.node_name ?? (nodeName || '智汇后勤集团'),
+        scope_name: cumulativeToMonthRoot?.node_name ?? schoolYearTargetRoot?.node_name ?? monthRoot?.node_name ?? (nodeName || '智汇后勤集团'),
+        org_scope_key: (cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot) ? buildOrgScopeKey((cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot)!) : resolvedOrgScopeKey ?? null,
+        org_path: (cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot) ? buildOrgPath((cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot)!) : [],
         month,
         previous_month: previousMonth,
-        cumulative_period: cumulativePeriod,
+        cumulative_period: cumulativeToMonthPeriod,
+        cumulative_to_month_period: cumulativeToMonthPeriod,
+        school_year_target_period: schoolYearTargetPeriod,
         generated_at: new Date().toISOString(),
         unit: '万元',
         row_counts: {

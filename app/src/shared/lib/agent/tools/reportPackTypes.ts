@@ -1,7 +1,7 @@
 import type { MetricCategory } from '@/features/biz-data/types'
 
 export type ReportType = 'fone' | 'tuwei'
-export type PeriodScope = 'monthly' | 'cumulative'
+export type PeriodScope = 'monthly' | 'cumulative' | 'cumulative_to_month' | 'school_year_target'
 export type ReportStatus = 'good' | 'watch' | 'risk' | 'missing'
 export type WarningSeverity = 'red' | 'yellow' | 'info'
 
@@ -173,9 +173,13 @@ export interface MissingDataNote {
 export interface BusinessReportPack {
   metadata: {
     scope_name: string
+    org_scope_key?: string | null
+    org_path?: string[]
     month: string
     previous_month: string
     cumulative_period: string
+    cumulative_to_month_period: string
+    school_year_target_period: string
     generated_at: string
     unit: '万元'
     row_counts: {

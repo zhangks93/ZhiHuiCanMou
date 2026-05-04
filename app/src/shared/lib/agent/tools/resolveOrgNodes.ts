@@ -2,6 +2,8 @@
 
 import type { RegisteredTool } from '../types'
 import { supabase } from '@/shared/lib/supabase'
+import { buildOrgPath, buildOrgScopeKey, getNodeKind } from '@/features/biz-data/services/bizDataService'
+import type { EnrichedBizDataNode } from '@/features/biz-data/types'
 
 interface OrgRow {
   node_name: string
@@ -22,12 +24,46 @@ function inferCanonicalScope(rows: OrgRow[]) {
   }
 }
 
+function toNode(row: OrgRow): EnrichedBizDataNode {
+  return {
+    node_name: row.node_name,
+    sort_order: 0,
+    hierarchy: {
+      center_region: null,
+      business_segment: null,
+      report_level1: null,
+      report_level2: null,
+      is_aggregated: false,
+      aggregation_level: null,
+    },
+    orgHierarchy: {
+      level_0: row.level_0,
+      level_1: row.level_1,
+      level_2: row.level_2,
+    },
+    metrics: {},
+  }
+}
+
+function serializeOrgRow(row: OrgRow) {
+  const node = toNode(row)
+  return {
+    node_name: row.node_name,
+    org_scope_key: buildOrgScopeKey(node),
+    org_path: buildOrgPath(node),
+    node_kind: getNodeKind(node),
+    level_0: row.level_0,
+    level_1: row.level_1,
+    level_2: row.level_2,
+  }
+}
+
 export const resolveOrgNodesTool: RegisteredTool = {
   definition: {
     type: 'function',
     function: {
       name: 'resolve_org_nodes',
-      description: '当用户给出的组织名称存在歧义时，定位匹配的组织节点或层级范围。支持按 level_0、level_1、level_2、node_name 或任意层级模糊匹配，返回候选节点、分组汇总和建议过滤方式。',
+      description: '当用户给出的组织名称存在歧义时，定位匹配的组织节点或层级范围。支持按 level_0、level_1、level_2、node_name 或任意层级模糊匹配，返回候选节点、稳定 org_scope_key、完整路径和建议过滤方式。',
       parameters: {
         type: 'object',
         properties: {
@@ -98,8 +134,8 @@ export const resolveOrgNodesTool: RegisteredTool = {
       level_0: group.level_0,
       level_1: level1,
       level_2_list: [...group.level_2s],
-      node_count: group.count,
-    }))
+        node_count: group.count,
+      }))
 
     const canonicalScope = inferCanonicalScope(rows)
     const confidence = rows.length === 1
@@ -114,16 +150,11 @@ export const resolveOrgNodesTool: RegisteredTool = {
       confidence,
       suggested_filter_mode: rows.length === 1 ? 'node_name' : canonicalScope.level_2 ? 'level_2' : canonicalScope.level_1 ? 'level_1' : 'node_name',
       canonical_scope: canonicalScope,
-      top_matches: rows.slice(0, 8).map(row => ({
-        node_name: row.node_name,
-        level_0: row.level_0,
-        level_1: row.level_1,
-        level_2: row.level_2,
-      })),
+      top_matches: rows.slice(0, 8).map(serializeOrgRow),
       grouped_summary: groupedSummary,
       guidance: rows.length === 1
-        ? '可直接使用该 node_name 查询经营数据。'
-        : '若匹配较多，优先使用 level_1 或 level_2 过滤；如需精确查询，再使用具体 node_name。',
+        ? '后续经营数据查询优先传 org_scope_key；node_name 仅用于兼容。'
+        : '若匹配较多，先让用户从 top_matches 中选择 org_scope_key，再查询经营数据，避免同名节点混淆。',
     }, null, 2)
   },
 }
