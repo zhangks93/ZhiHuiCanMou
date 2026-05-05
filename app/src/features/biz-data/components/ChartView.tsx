@@ -71,7 +71,7 @@ export function ChartView({
 
       return dataPoint
     })
-  }, [currentLevelNodes, selectedMetrics, budgetField])
+  }, [currentLevelNodes, selectedMetrics, budgetField, actualField])
 
   const handleBarClick = (data: { name?: string } | undefined) => {
     if (!data?.name) return

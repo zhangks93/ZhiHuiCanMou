@@ -2,6 +2,9 @@
 /docs/data/
 /.pages-artifact/
 /reports/quality/
+/supabase/.temp/
+__pycache__/
+*.pyc
 *.xls
 *.xlsx
 ~$*
