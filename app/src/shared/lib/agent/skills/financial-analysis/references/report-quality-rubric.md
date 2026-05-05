@@ -10,7 +10,7 @@
 ## 数据完整性
 - 是否先查看 `writing_brief` 和 `data_completeness_matrix`？
 - 是否同时覆盖当月、上月、累计中的可用数据？
-- 是否同时覆盖 fone 和 tuwei？
+- 是否同时覆盖学年预算和突围考核，且正文未暴露内部英文口径？
 - 是否包含 actual、target、completion_rate、diff？
 - 是否出现口径混写？
 

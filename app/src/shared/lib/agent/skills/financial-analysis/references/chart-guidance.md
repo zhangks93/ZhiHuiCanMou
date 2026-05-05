@@ -49,7 +49,7 @@
 - `series`
 
 其中：
-- `scope` 明确统计口径与期间，例如 `fone-monthly-202602`
+- `scope` 明确统计口径与期间，例如“学年预算-当月-202602”
 - `dimension` 明确横轴或分类维度，例如 `metric_category`、`node_name`、`expense_type`
 - `metrics` 明确图中使用的指标键
 - `series` 中必须包含可直接绘图的数据点

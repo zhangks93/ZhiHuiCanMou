@@ -4,6 +4,8 @@ export type ReportType = 'fone' | 'tuwei'
 export type PeriodScope = 'monthly' | 'cumulative' | 'cumulative_to_month' | 'school_year_target'
 export type ReportStatus = 'good' | 'watch' | 'risk' | 'missing'
 export type WarningSeverity = 'red' | 'yellow' | 'info'
+export type GoalProbability = '已达成' | '较高' | '中等' | '较低' | '数据不足'
+export type GoalRiskLevel = '低' | '中' | '高' | '需补数'
 
 export interface ReportMetricValue {
   metric: MetricCategory
@@ -34,6 +36,49 @@ export interface TargetVsActualRow {
   pretax_profit_target: number | null
   pretax_profit_completion_rate: number | null
   pretax_profit_diff: number | null
+}
+
+export interface MetricComparisonWideRow {
+  period_scope: PeriodScope
+  node_name: string
+  node_kind?: string
+  level_1?: string | null
+  level_2?: string | null
+  metric: MetricCategory
+  metric_label: string
+  actual: number | null
+  yoy: number | null
+  mom?: number | null
+  school_year_budget_target: number | null
+  school_year_budget_completion_rate: number | null
+  school_year_budget_diff: number | null
+  school_year_budget_status: ReportStatus
+  breakthrough_assessment_target: number | null
+  breakthrough_assessment_completion_rate: number | null
+  breakthrough_assessment_diff: number | null
+  breakthrough_assessment_status: ReportStatus
+}
+
+export interface SchoolYearGoalAssessmentRow {
+  period_scope: 'school_year_target'
+  node_name: string
+  metric: 'revenue' | 'pretax_profit'
+  metric_label: string
+  actual: number | null
+  school_year_progress_rate: number
+  school_year_budget_target: number | null
+  school_year_budget_completion_rate: number | null
+  school_year_budget_diff: number | null
+  school_year_budget_progress_gap: number | null
+  school_year_budget_probability: GoalProbability
+  school_year_budget_risk: GoalRiskLevel
+  breakthrough_assessment_target: number | null
+  breakthrough_assessment_completion_rate: number | null
+  breakthrough_assessment_diff: number | null
+  breakthrough_assessment_progress_gap: number | null
+  breakthrough_assessment_probability: GoalProbability
+  breakthrough_assessment_risk: GoalRiskLevel
+  judgement: string
 }
 
 export interface CompositionRow {
@@ -84,6 +129,12 @@ export interface CostExpenseRow extends ReportMetricValue {
   level_1: string | null
   level_2: string | null
   status: ReportStatus
+}
+
+export interface CostExpenseWideRow extends MetricComparisonWideRow {
+  node_kind: string
+  level_1: string | null
+  level_2: string | null
 }
 
 export interface OrganizationMetricRow extends ReportMetricValue {
@@ -156,6 +207,7 @@ export interface BusinessReportWarning {
 
 export interface BusinessReportWritingBrief {
   focus: string[]
+  school_year_goal_points: string[]
   executive_summary_points: string[]
   target_gap_points: string[]
   structure_points: string[]
@@ -207,6 +259,8 @@ export interface BusinessReportPack {
   }
   summary_cards: SummaryCard[]
   target_vs_actual_table: TargetVsActualRow[]
+  metric_comparison_wide_table: MetricComparisonWideRow[]
+  school_year_goal_assessment_table: SchoolYearGoalAssessmentRow[]
   composition_table: CompositionRow[]
   direct_children_table: CompositionRow[]
   organization_two_level_table: OrganizationCoverageRow[]
@@ -217,6 +271,7 @@ export interface BusinessReportPack {
   monthly_actual_table: TargetVsActualRow[]
   cost_expense_summary: CostExpenseRow[]
   cost_expense_table: CostExpenseRow[]
+  cost_expense_wide_table: CostExpenseWideRow[]
   data_completeness_matrix: DataCompletenessMatrixRow[]
   metric_coverage: MetricCoverage
   missing_data_notes?: MissingDataNote[]

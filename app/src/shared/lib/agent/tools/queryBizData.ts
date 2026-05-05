@@ -53,7 +53,7 @@ export const queryBizDataTool: RegisteredTool = {
           },
           report_type: {
             type: 'string',
-            description: '报表类型：fone=年初预算, tuwei=突围考核',
+            description: '报表类型：fone=学年预算, tuwei=突围考核',
             enum: ['fone', 'tuwei'],
           },
           period_type: {

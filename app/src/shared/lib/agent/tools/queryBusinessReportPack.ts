@@ -15,11 +15,13 @@ import {
 import {
   contributionShare,
   DEFAULT_REPORT_METRICS,
+  assessGoalProbability,
   formatPctForJudgement,
   inferCumulativeToMonthPeriod,
   inferPreviousMonth,
   inferSchoolYearTargetPeriod,
   LOWER_IS_BETTER_METRICS,
+  schoolYearProgressRate,
   statusByCompletion,
 } from './reportCalculations'
 import type {
@@ -28,8 +30,10 @@ import type {
   BusinessReportWritingBrief,
   CompositionRow,
   CostExpenseRow,
+  CostExpenseWideRow,
   DataCompletenessMatrixRow,
   ManualFillSection,
+  MetricComparisonWideRow,
   MissingDataNote,
   MetricCoverage,
   PeriodScope,
@@ -39,6 +43,7 @@ import type {
   OrganizationCoverageRow,
   OrganizationMetricRow,
   ScopeProfile,
+  SchoolYearGoalAssessmentRow,
   SummaryCard,
   TargetVsActualRow,
   UnitCard,
@@ -76,6 +81,7 @@ const COST_EXPENSE_METRICS: MetricCategory[] = [
 ]
 const COST_EXPENSE_DETAIL_METRICS = COST_EXPENSE_METRICS.filter(metric => metric !== 'labor_cost_rate')
 const ALL_REPORT_METRICS = DEFAULT_REPORT_METRICS
+const CORE_TARGET_METRICS: Array<'revenue' | 'pretax_profit'> = ['revenue', 'pretax_profit']
 
 const FALLBACK_METRIC_LABELS: Record<MetricCategory, string> = {
   revenue: '营业收入',
@@ -287,6 +293,203 @@ function metricValue(
     yoy: value?.yoy ?? null,
     mom: actual != null && previousActual != null ? actual - previousActual : null,
   }
+}
+
+function reportTypeLabel(reportType: ReportType): string {
+  return reportType === 'fone' ? '学年预算' : '突围考核'
+}
+
+function periodScopeLabel(scope: PeriodScope): string {
+  if (scope === 'monthly') return '当月'
+  if (scope === 'school_year_target') return '学年目标累计'
+  return '截至当月累计'
+}
+
+function getReportTypeFields(
+  value: EnrichedBizDataNode['metrics'][MetricCategory] | undefined,
+  reportType: ReportType,
+  lowerIsBetter = false
+): {
+  target: number | null
+  completionRate: number | null
+  diff: number | null
+  status: ReturnType<typeof statusByCompletion>
+} {
+  const target = reportType === 'fone' ? value?.budget_fone ?? null : value?.budget_tuwei ?? null
+  const completionRate = reportType === 'fone' ? value?.completion_fone ?? null : value?.completion_tuwei ?? null
+  const diff = reportType === 'fone' ? value?.diff_fone ?? null : value?.diff_tuwei ?? null
+  return {
+    target,
+    completionRate,
+    diff,
+    status: statusByCompletion(completionRate, lowerIsBetter),
+  }
+}
+
+function buildMetricComparisonWideRow(params: {
+  node: EnrichedBizDataNode | null
+  previousNode?: EnrichedBizDataNode | null
+  metric: MetricCategory
+  periodScope: PeriodScope
+  labelMap: Map<MetricCategory, string>
+}): MetricComparisonWideRow {
+  const value = params.node?.metrics[params.metric]
+  const previousValue = params.previousNode?.metrics[params.metric]
+  const lowerIsBetter = LOWER_IS_BETTER_METRICS.has(params.metric)
+  const schoolYearBudget = getReportTypeFields(value, 'fone', lowerIsBetter)
+  const breakthroughAssessment = getReportTypeFields(value, 'tuwei', lowerIsBetter)
+  const actual = value?.actual ?? null
+  const previousActual = previousValue?.actual
+
+  return {
+    period_scope: params.periodScope,
+    node_name: params.node?.node_name ?? '未匹配节点',
+    node_kind: params.node ? getNodeKind(params.node) : undefined,
+    level_1: params.node?.orgHierarchy.level_1 ?? null,
+    level_2: params.node?.orgHierarchy.level_2 ?? null,
+    metric: params.metric,
+    metric_label: params.labelMap.get(params.metric) ?? params.metric,
+    actual,
+    yoy: value?.yoy ?? null,
+    mom: actual != null && previousActual != null ? actual - previousActual : null,
+    school_year_budget_target: schoolYearBudget.target,
+    school_year_budget_completion_rate: schoolYearBudget.completionRate,
+    school_year_budget_diff: schoolYearBudget.diff,
+    school_year_budget_status: schoolYearBudget.status,
+    breakthrough_assessment_target: breakthroughAssessment.target,
+    breakthrough_assessment_completion_rate: breakthroughAssessment.completionRate,
+    breakthrough_assessment_diff: breakthroughAssessment.diff,
+    breakthrough_assessment_status: breakthroughAssessment.status,
+  }
+}
+
+function buildMetricComparisonWideTable(params: {
+  monthRoot: EnrichedBizDataNode | null
+  previousRoot: EnrichedBizDataNode | null
+  cumulativeToMonthRoot: EnrichedBizDataNode | null
+  schoolYearTargetRoot: EnrichedBizDataNode | null
+  metrics: MetricCategory[]
+  labelMap: Map<MetricCategory, string>
+}): MetricComparisonWideRow[] {
+  return [
+    ...params.metrics.map(metric => buildMetricComparisonWideRow({
+      node: params.monthRoot,
+      previousNode: params.previousRoot,
+      metric,
+      periodScope: 'monthly',
+      labelMap: params.labelMap,
+    })),
+    ...params.metrics.map(metric => buildMetricComparisonWideRow({
+      node: params.cumulativeToMonthRoot,
+      metric,
+      periodScope: 'cumulative_to_month',
+      labelMap: params.labelMap,
+    })),
+    ...params.metrics.map(metric => buildMetricComparisonWideRow({
+      node: params.schoolYearTargetRoot,
+      metric,
+      periodScope: 'school_year_target',
+      labelMap: params.labelMap,
+    })),
+  ].filter(row =>
+    row.actual != null
+    || row.school_year_budget_target != null
+    || row.school_year_budget_completion_rate != null
+    || row.breakthrough_assessment_target != null
+    || row.breakthrough_assessment_completion_rate != null
+  )
+}
+
+function buildCostExpenseWideTable(params: {
+  costExpenseRows: CostExpenseRow[]
+}): CostExpenseWideRow[] {
+  const byKey = new Map<string, CostExpenseRow[]>()
+  params.costExpenseRows.forEach(row => {
+    const key = [
+      row.period_scope,
+      row.node_name,
+      row.metric,
+      row.node_kind,
+      row.level_1 ?? '',
+      row.level_2 ?? '',
+    ].join('|')
+    byKey.set(key, [...(byKey.get(key) ?? []), row])
+  })
+
+  return [...byKey.values()].map(rows => {
+    const base = rows[0]
+    const schoolYearBudget = rows.find(row => row.report_type === 'fone')
+    const breakthroughAssessment = rows.find(row => row.report_type === 'tuwei')
+    return {
+      period_scope: base.period_scope,
+      node_name: base.node_name,
+      node_kind: base.node_kind,
+      level_1: base.level_1,
+      level_2: base.level_2,
+      metric: base.metric,
+      metric_label: base.metric_label,
+      actual: base.actual,
+      yoy: base.yoy,
+      mom: base.mom,
+      school_year_budget_target: schoolYearBudget?.target ?? null,
+      school_year_budget_completion_rate: schoolYearBudget?.completion_rate ?? null,
+      school_year_budget_diff: schoolYearBudget?.diff ?? null,
+      school_year_budget_status: schoolYearBudget?.status ?? 'missing',
+      breakthrough_assessment_target: breakthroughAssessment?.target ?? null,
+      breakthrough_assessment_completion_rate: breakthroughAssessment?.completion_rate ?? null,
+      breakthrough_assessment_diff: breakthroughAssessment?.diff ?? null,
+      breakthrough_assessment_status: breakthroughAssessment?.status ?? 'missing',
+    }
+  })
+}
+
+function buildSchoolYearGoalAssessmentTable(params: {
+  schoolYearTargetRoot: EnrichedBizDataNode | null
+  month: string
+  labelMap: Map<MetricCategory, string>
+}): SchoolYearGoalAssessmentRow[] {
+  const progressRate = schoolYearProgressRate(params.month)
+  return CORE_TARGET_METRICS.map(metric => {
+    const value = params.schoolYearTargetRoot?.metrics[metric]
+    const actual = value?.actual ?? null
+    const schoolYearBudget = getReportTypeFields(value, 'fone')
+    const breakthroughAssessment = getReportTypeFields(value, 'tuwei')
+    const schoolYearBudgetAssessment = assessGoalProbability({
+      completionRate: schoolYearBudget.completionRate,
+      progressRate,
+      actual,
+      metric,
+    })
+    const breakthroughAssessmentResult = assessGoalProbability({
+      completionRate: breakthroughAssessment.completionRate,
+      progressRate,
+      actual,
+      metric,
+    })
+    const metricLabel = params.labelMap.get(metric) ?? FALLBACK_METRIC_LABELS[metric]
+
+    return {
+      period_scope: 'school_year_target',
+      node_name: params.schoolYearTargetRoot?.node_name ?? '未匹配节点',
+      metric,
+      metric_label: metricLabel,
+      actual,
+      school_year_progress_rate: progressRate,
+      school_year_budget_target: schoolYearBudget.target,
+      school_year_budget_completion_rate: schoolYearBudget.completionRate,
+      school_year_budget_diff: schoolYearBudget.diff,
+      school_year_budget_progress_gap: schoolYearBudgetAssessment.progressGap,
+      school_year_budget_probability: schoolYearBudgetAssessment.probability,
+      school_year_budget_risk: schoolYearBudgetAssessment.risk,
+      breakthrough_assessment_target: breakthroughAssessment.target,
+      breakthrough_assessment_completion_rate: breakthroughAssessment.completionRate,
+      breakthrough_assessment_diff: breakthroughAssessment.diff,
+      breakthrough_assessment_progress_gap: breakthroughAssessmentResult.progressGap,
+      breakthrough_assessment_probability: breakthroughAssessmentResult.probability,
+      breakthrough_assessment_risk: breakthroughAssessmentResult.risk,
+      judgement: `${metricLabel}学年目标进度为${formatBriefPct(progressRate)}，学年预算达成概率${schoolYearBudgetAssessment.probability}、风险${schoolYearBudgetAssessment.risk}；突围考核达成概率${breakthroughAssessmentResult.probability}、风险${breakthroughAssessmentResult.risk}。`,
+    }
+  })
 }
 
 function buildTargetVsActualRow(
@@ -659,16 +862,19 @@ function buildDataCompletenessMatrix(params: {
   ]
   const matrix: DataCompletenessMatrixRow[] = []
 
-  for (const periodScope of ['monthly', 'cumulative'] as const) {
+  for (const periodScope of ['monthly', 'cumulative_to_month', 'school_year_target'] as const) {
     for (const reportType of ['fone', 'tuwei'] as const) {
       const row = targetRows.find(item => item.period_scope === periodScope && item.report_type === reportType)
+      const effectiveRequiredFields = periodScope === 'school_year_target'
+        ? requiredTargetFields.filter(field => field.startsWith('revenue_') || field.startsWith('pretax_profit_'))
+        : requiredTargetFields
       const availableFields = row ? getAvailableFields(row) : []
-      const missingFields = requiredTargetFields.filter(field => !availableFields.includes(field))
+      const missingFields = effectiveRequiredFields.filter(field => !availableFields.includes(field))
       matrix.push({
         section: '目标对标总表',
         period_scope: periodScope,
         report_type: reportType,
-        required_fields: requiredTargetFields,
+        required_fields: effectiveRequiredFields,
         status: !row ? 'missing' : missingFields.length === 0 ? 'available' : 'partial',
         missing_fields: missingFields,
         handling: missingFields.length === 0 ? '可直接写入报告' : '写作时降低结论强度，并提示缺失字段',
@@ -734,26 +940,21 @@ function formatBriefPct(value: number | null | undefined): string {
   return `${(value * 100).toFixed(1)}%`
 }
 
-function periodScopeLabel(scope: PeriodScope): string {
-  if (scope === 'monthly') return '当月'
-  if (scope === 'school_year_target') return '学年目标累计'
-  return '截至当月累计'
-}
-
-function reportTypeLabel(reportType: ReportType): string {
-  return reportType === 'fone' ? '年初预算口径' : '突围考核口径'
-}
-
 function buildWritingBrief(params: {
   scopeProfile: BusinessReportPack['scope_profile']
   summaryCards: BusinessReportPack['summary_cards']
   targetVsActualTable: BusinessReportPack['target_vs_actual_table']
+  schoolYearGoalAssessmentTable: BusinessReportPack['school_year_goal_assessment_table']
   directChildrenTable: BusinessReportPack['direct_children_table']
   unitCards: BusinessReportPack['unit_cards']
   costExpenseSummary: BusinessReportPack['cost_expense_summary']
   varianceRankings: BusinessReportPack['variance_rankings']
   warnings: BusinessReportPack['warnings']
 }): BusinessReportWritingBrief {
+  const schoolYearGoalPoints = params.schoolYearGoalAssessmentTable.map(row =>
+    `${row.metric_label}学年目标：实际${formatBriefNumber(row.actual)}万元，学年预算完成率${formatBriefPct(row.school_year_budget_completion_rate)}、达成概率${row.school_year_budget_probability}、风险${row.school_year_budget_risk}；突围考核完成率${formatBriefPct(row.breakthrough_assessment_completion_rate)}、达成概率${row.breakthrough_assessment_probability}、风险${row.breakthrough_assessment_risk}。`
+  )
+
   const targetRows = params.targetVsActualTable
     .filter(row => row.report_type === 'tuwei' || row.report_type === 'fone')
     .slice(0, 4)
@@ -800,6 +1001,7 @@ function buildWritingBrief(params: {
 
   return {
     focus: params.scopeProfile.recommended_report_focus,
+    school_year_goal_points: schoolYearGoalPoints,
     executive_summary_points: executiveSummaryPoints,
     target_gap_points: targetGapPoints,
     structure_points: structurePoints,
@@ -975,7 +1177,7 @@ function buildWarnings(params: {
       warnings.push({
         severity: card.status === 'risk' ? 'red' : card.status === 'watch' ? 'yellow' : 'info',
         section: card.period_scope === 'monthly' ? '当月核心指标' : `${periodScopeLabel(card.period_scope)}核心指标`,
-        message: `${card.report_type} ${card.metric_label}${periodScopeLabel(card.period_scope)}完成状态为 ${card.status}。`,
+        message: `${reportTypeLabel(card.report_type)}${card.metric_label}${periodScopeLabel(card.period_scope)}完成状态为 ${card.status}。`,
         evidence: {
           metric: card.metric,
           actual: card.actual,
@@ -1009,7 +1211,7 @@ function buildWarnings(params: {
         severity: row.status === 'risk' ? 'red' : 'yellow',
         section: row.period_scope === 'monthly' ? '当月成本费用' : `${periodScopeLabel(row.period_scope)}成本费用`,
         node_name: row.node_name,
-        message: `${row.report_type} ${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}完成状态为 ${row.status}。`,
+        message: `${reportTypeLabel(row.report_type)}${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}完成状态为 ${row.status}。`,
         evidence: {
           metric: row.metric,
           actual: row.actual,
@@ -1066,7 +1268,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
     function: {
       name: 'query_business_report_pack',
       description:
-        '生成完整月度经营分析报告所需的数据包。一次性返回 fone/tuwei、当月/上月/截至当月累计/学年目标累计、全量指标明细、提问组织下至少两层组织数据、组织构成、差异排行、风险预警和人工补充章节占位。适用于经营分析报告、月报、汇报材料。',
+        '生成完整月度经营分析报告所需的数据包。一次性返回学年预算与突围考核、当月/上月/截至当月累计/学年目标累计、宽表、全量指标明细、提问组织下至少两层组织数据、组织构成、差异排行、风险预警和人工补充章节占位。适用于经营分析报告、月报、汇报材料。',
       parameters: {
         type: 'object',
         properties: {
@@ -1096,7 +1298,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
           },
           report_types: {
             type: 'array',
-            description: '报表口径，默认同时返回 fone 和 tuwei。',
+            description: '报表口径，默认同时返回学年预算与突围考核。内部枚举：fone=学年预算，tuwei=突围考核。',
             items: { type: 'string', enum: ['fone', 'tuwei'] },
           },
           max_units: {
@@ -1181,6 +1383,19 @@ export const queryBusinessReportPackTool: RegisteredTool = {
     const preferredReportType: ReportType = reportTypes.includes('tuwei') ? 'tuwei' : reportTypes[0]
     const summaryCards = buildSummaryCards({ monthRoot, previousRoot, cumulativeToMonthRoot, schoolYearTargetRoot, reportTypes, labelMap })
     const targetVsActualTable = buildTargetVsActualTable(monthRoot, cumulativeToMonthRoot, schoolYearTargetRoot, reportTypes)
+    const metricComparisonWideTable = buildMetricComparisonWideTable({
+      monthRoot,
+      previousRoot,
+      cumulativeToMonthRoot,
+      schoolYearTargetRoot,
+      metrics: SUMMARY_METRICS,
+      labelMap,
+    })
+    const schoolYearGoalAssessmentTable = buildSchoolYearGoalAssessmentTable({
+      schoolYearTargetRoot,
+      month,
+      labelMap,
+    })
     const directChildrenTable = buildCompositionRows(cumulativeToMonthRoot, cumulativeToMonthResolved.allNodes, preferredReportType)
     const organizationTwoLevelTable = buildOrganizationTwoLevelTable(cumulativeToMonthRoot, cumulativeToMonthResolved.allNodes)
     const keyDescendantTable = buildKeyDescendantRows(cumulativeToMonthRoot, cumulativeToMonthResolved.allNodes, preferredReportType)
@@ -1231,6 +1446,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
         labelMap,
       }),
     ]
+    const costExpenseWideTable = buildCostExpenseWideTable({ costExpenseRows: costExpenseTable })
     const allMetricTable = [
       ...buildAllMetricRows({
         root: monthRoot,
@@ -1286,6 +1502,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       scopeProfile,
       summaryCards,
       targetVsActualTable,
+      schoolYearGoalAssessmentTable,
       directChildrenTable,
       unitCards,
       costExpenseSummary,
@@ -1318,6 +1535,8 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       coverage,
       summary_cards: summaryCards,
       target_vs_actual_table: targetVsActualTable,
+      metric_comparison_wide_table: metricComparisonWideTable,
+      school_year_goal_assessment_table: schoolYearGoalAssessmentTable,
       composition_table: directChildrenTable,
       direct_children_table: directChildrenTable,
       organization_two_level_table: organizationTwoLevelTable,
@@ -1328,6 +1547,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       monthly_actual_table: reportTypes.map(reportType => buildTargetVsActualRow(monthRoot, reportType, 'monthly')),
       cost_expense_summary: costExpenseSummary,
       cost_expense_table: costExpenseTable,
+      cost_expense_wide_table: costExpenseWideTable,
       data_completeness_matrix: dataCompletenessMatrix,
       metric_coverage: metricCoverage,
       missing_data_notes: buildMissingDataNotes(coverage),

@@ -1,5 +1,5 @@
 import type { MetricCategory } from '@/features/biz-data/types'
-import type { ReportStatus } from './reportPackTypes'
+import type { GoalProbability, GoalRiskLevel, ReportStatus } from './reportPackTypes'
 
 export const DEFAULT_REPORT_METRICS: MetricCategory[] = [
   'revenue',
@@ -86,6 +86,55 @@ export function inferSchoolYearTargetPeriod(month: string): string {
 
   const schoolYearEndYear = monthNo >= 7 ? year + 1 : year
   return `<${schoolYearEndYear}07`
+}
+
+export function schoolYearProgressRate(month: string): number {
+  const match = /^(\d{4})(\d{2})$/.exec(month)
+  if (!match) return 1
+
+  const monthNo = Number(match[2])
+  if (!Number.isInteger(monthNo) || monthNo < 1 || monthNo > 12) {
+    return 1
+  }
+
+  const schoolYearMonthIndex = monthNo >= 7 ? monthNo - 6 : monthNo + 6
+  return schoolYearMonthIndex / 12
+}
+
+export function assessGoalProbability(params: {
+  completionRate: number | null
+  progressRate: number
+  actual: number | null
+  metric: 'revenue' | 'pretax_profit'
+}): { probability: GoalProbability; risk: GoalRiskLevel; progressGap: number | null } {
+  if (params.completionRate == null || !Number.isFinite(params.completionRate)) {
+    return { probability: '数据不足', risk: '需补数', progressGap: null }
+  }
+
+  const progressGap = params.completionRate - params.progressRate
+  let probability: GoalProbability
+  let risk: GoalRiskLevel
+
+  if (params.completionRate >= 1) {
+    probability = '已达成'
+    risk = '低'
+  } else if (progressGap >= 0.05) {
+    probability = '较高'
+    risk = '低'
+  } else if (progressGap >= -0.05) {
+    probability = '中等'
+    risk = '中'
+  } else {
+    probability = '较低'
+    risk = '高'
+  }
+
+  if (params.metric === 'pretax_profit' && (params.actual ?? 0) < 0) {
+    risk = '高'
+    if (probability !== '已达成') probability = '较低'
+  }
+
+  return { probability, risk, progressGap }
 }
 
 export function safeNumber(value: unknown): number | null {

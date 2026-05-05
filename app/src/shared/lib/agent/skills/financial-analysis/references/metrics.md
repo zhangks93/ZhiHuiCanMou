@@ -6,7 +6,7 @@
 
 当用户只是问“某部门 / 某期间 / 某指标是多少”时：
 - 优先只查询用户点名指标
-- 未明确 `report_type` 时，默认先查 `fone`
+- 未明确 `report_type` 时，默认先查学年预算（内部参数 `fone`）
 - 未明确期间类型时，默认先查 `monthly`
 - 若同一次要查多个指标，优先用一次 `metric_categories` 查询完成
 - 若用户要的只是单节点单指标结果，允许直接用 `query_biz_data` 返回更扁平的结果；若还需要层级或子节点结构，再用 `query_with_hierarchy`
@@ -20,8 +20,9 @@
   - 传空字符串 `""`：返回整棵组织树
 - `metric_categories`：可选，**字符串数组**；不传则返回当前范围内全部可用指标。
 - `report_type`：
-  - `fone` = 年初预算
-  - `tuwei` = 突围考核
+  - 内部参数 `fone` = 学年预算
+  - 内部参数 `tuwei` = 突围考核
+  - 最终报告正文不得输出内部参数名，只写“学年预算”“突围考核”
 - `period_type`：
   - `monthly`
   - `cumulative`

@@ -136,20 +136,20 @@ async function fetchOrgLevel1(): Promise<string[]> {
 }
 
 const SHEET_CODE_LABELS: Record<string, string> = {
-  '1.1': '主报表-累计(fone)',
-  '1.2': '主报表-进度(fone)',
-  '1.3': '主报表-2月(fone)',
-  '1.4': '主报表-3月(fone)',
-  '2.1': '主报表-累计(tuwei)',
-  '2.2': '主报表-1月(tuwei)',
-  '2.3': '主报表-2月(tuwei)',
-  '2.4': '主报表-3月(tuwei)',
-  '3.1': '成本分析-累计(tuwei)',
-  '3.2': '成本分析-2月(tuwei)',
-  '3.3': '成本分析-3月(tuwei)',
-  '4.1': '成本分析-累计(fone)',
-  '4.2': '成本分析-2月(fone)',
-  '4.3': '成本分析-3月(fone)',
+  '1.1': '主报表-累计（学年预算）',
+  '1.2': '主报表-进度（学年预算）',
+  '1.3': '主报表-2月（学年预算）',
+  '1.4': '主报表-3月（学年预算）',
+  '2.1': '主报表-累计（突围考核）',
+  '2.2': '主报表-1月（突围考核）',
+  '2.3': '主报表-2月（突围考核）',
+  '2.4': '主报表-3月（突围考核）',
+  '3.1': '成本分析-累计（突围考核）',
+  '3.2': '成本分析-2月（突围考核）',
+  '3.3': '成本分析-3月（突围考核）',
+  '4.1': '成本分析-累计（学年预算）',
+  '4.2': '成本分析-2月（学年预算）',
+  '4.3': '成本分析-3月（学年预算）',
 }
 
 async function fetchSheetCodes(): Promise<{ code: string; label: string }[]> {
@@ -227,13 +227,13 @@ export function buildFinancialAnalysisRuntimeContextBlock(
     `- monthly_periods: ${dataContext.monthlyPeriods.join(', ') || 'none'}`,
     `- cumulative_periods: ${dataContext.cumulativePeriods.join(', ') || 'none'}`,
     `- monthly_plan_months: ${dataContext.monthlyPlanMonths.join(', ') || 'none'}`,
-    `- report_types: ${dataContext.reportTypes.join(', ')}`,
+    `- report_types: ${dataContext.reportTypes.join(', ')} (internal only: fone=学年预算, tuwei=突围考核；final reports must use Chinese labels only)`,
     `- sheet_codes: ${dataContext.sheetCodes.map(item => `${item.code}(${item.label})`).join(', ') || 'none'}`,
     `- org_level_1: ${dataContext.orgLevel1.join(', ') || 'none'}`,
     `- metrics_preview: ${metricPreview}`,
     '- data_available: revenue, gross_profit, gross_margin, pretax_profit, pretax_margin, labor_cost with detail breakdown, available expense metrics, headcount, per_capita_revenue, labor_cost_rate, revenue_creation, profit_creation, budget value, completion_rate, diff, year_over_year, monthly_plan',
     '- data_manual_required: 应收账款回款情况, 资金计划执行情况, 核心费用专项明细',
     '- data_not_available: 合同签约/在手订单, 项目进度, 全年预测, 责任人/完成时点',
-    '- guidance: use only listed period/month values exactly as provided in runtime context; for cumulative queries do not invent next-month periods and do not assume a formula if the runtime list does not contain it. For complete business reports, prefer query_business_report_pack and use writing_brief first when present. Do not invent values for receivables, cash plan execution, or core expense detail sections; summarize unavailable manual data in a closing data-limitations note instead of rendering large placeholder tables. For lightweight lookup and non-report analysis, prefer query_with_hierarchy and treat its returned tree as the primary analysis structure: query a specific node to get its full subtree, or use node_name="" to get the full tree. Analyze parent-child relations directly from tree/children instead of flattening first. In analysis, use returned target_value/completion_rate/diff/yoy fields explicitly and compute rollups, ratios, MoM/YoY deltas, contribution shares, and other derivable values before writing the report. If yoy is already returned, treat it as the prior-period comparison value and do not query the same metric again by moving the month back one year unless yoy is missing and the user explicitly asks for backfill. Do not repeat an identical tool call once a result has already been returned; reuse the existing result and continue analysis. For whole-group analysis, start from the returned top levels and only drill down when a real analysis need remains. Bind every completion_rate/diff/yoy/judgement to either monthly or cumulative scope explicitly, and split monthly vs cumulative sections when both are discussed. In full analysis/report mode, include both labor cost and available expense details such as catering_expense, material_cost, vehicle_expense, energy_expense, travel_expense, entertainment_expense, and other_expense by default unless the user clearly asks for a narrower scope. In report mode, output text, numbers, and Markdown tables by default; deliver structured chart spec JSON only when the user explicitly asks for chart configuration.',
+    '- guidance: use only listed period/month values exactly as provided in runtime context; for cumulative queries do not invent next-month periods and do not assume a formula if the runtime list does not contain it. For complete business reports, prefer query_business_report_pack and use writing_brief first when present. Prefer metric_comparison_wide_table, school_year_goal_assessment_table, and cost_expense_wide_table for report tables; use target_vs_actual_table or cost_expense_table only as fallback detail. Do not invent values for receivables, cash plan execution, or core expense detail sections; summarize unavailable manual data in a closing data-limitations note instead of rendering large placeholder tables. For lightweight lookup and non-report analysis, prefer query_with_hierarchy and treat its returned tree as the primary analysis structure: query a specific node to get its full subtree, or use node_name="" to get the full tree. Analyze parent-child relations directly from tree/children instead of flattening first. In analysis, use returned target_value/completion_rate/diff/yoy fields explicitly and compute rollups, ratios, MoM/YoY deltas, contribution shares, and other derivable values before writing the report. If yoy is already returned, treat it as the prior-period comparison value and do not query the same metric again by moving the month back one year unless yoy is missing and the user explicitly asks for backfill. Do not repeat an identical tool call once a result has already been returned; reuse the existing result and continue analysis. For whole-group analysis, start from the returned top levels and only drill down when a real analysis need remains. Bind every completion_rate/diff/yoy/judgement to either monthly or cumulative scope explicitly, and split monthly vs cumulative sections when both are discussed. In full analysis/report mode, include both labor cost and available expense details such as catering_expense, material_cost, vehicle_expense, energy_expense, travel_expense, entertainment_expense, and other_expense by default unless the user clearly asks for a narrower scope. In final report text, headings, tables, and warnings, never write fone or tuwei; use 学年预算 and 突围考核. In report mode, output text, numbers, and Markdown tables by default; deliver structured chart spec JSON only when the user explicitly asks for chart configuration.',
   ].join('\n')
 }
