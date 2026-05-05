@@ -82,8 +82,8 @@ function pickCoreArgs(name: string, args: Record<string, unknown>): Record<strin
     resolve_org_nodes: ['keyword', 'level'],
     query_with_hierarchy: ['node_name', 'report_type', 'period_type', 'period', 'metric_categories', 'sheet_codes'],
     query_business_report_pack: ['node_name', 'month', 'previous_month', 'cumulative_period', 'report_types', 'max_units'],
+    compose_business_report: ['node_name', 'month', 'previous_month', 'cumulative_period', 'report_types', 'max_units'],
     query_biz_data: ['node_name', 'metric_category', 'metric_categories', 'report_type', 'period_type', 'period', 'sheet_codes'],
-    query_monthly_plan: ['node_name', 'metric_category', 'month', 'months'],
     audit_business_report: ['markdown'],
     read_file: ['path'],
   }
@@ -333,11 +333,11 @@ function prepareToolResultForModel(name: string, content: string): string {
     return compactHierarchyResult(content)
   }
 
-  if (name === 'query_business_report_pack') {
+  if (name === 'query_business_report_pack' || name === 'compose_business_report') {
     return compactBusinessReportPackResult(content)
   }
 
-  if (name === 'query_biz_data' || name === 'query_monthly_plan' || name === 'resolve_org_nodes' || name === 'audit_business_report') {
+  if (name === 'query_biz_data' || name === 'resolve_org_nodes' || name === 'audit_business_report') {
     return compactQueryRowsResult(content)
   }
 

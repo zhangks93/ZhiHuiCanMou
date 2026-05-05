@@ -53,7 +53,7 @@ function sortPeriodsDesc(values: string[]): string[] {
 }
 
 async function fetchDistinctValues(
-  table: 'edu_biz_report' | 'edu_biz_monthly_plan',
+  table: 'edu_biz_report',
   column: 'period' | 'month' | 'sheet_code'
 ): Promise<string[]> {
   const PAGE_SIZE = 1000
@@ -114,14 +114,6 @@ async function fetchPeriods(periodType: 'monthly' | 'cumulative'): Promise<strin
   return sortPeriodsDesc([...values])
 }
 
-async function fetchMonthlyPlanMonths(): Promise<string[]> {
-  try {
-    return sortPeriodsDesc(await fetchDistinctValues('edu_biz_monthly_plan', 'month'))
-  } catch (error) {
-    throw new Error(`加载月度计划月份失败: ${getErrorMessage(error, '未知数据库错误')}`)
-  }
-}
-
 async function fetchOrgLevel1(): Promise<string[]> {
   const { data, error } = await supabase
     .from('edu_org_hierarchy')
@@ -164,10 +156,9 @@ async function fetchSheetCodes(): Promise<{ code: string; label: string }[]> {
 }
 
 async function buildRuntimeDataContext(): Promise<FinancialAnalysisRuntimeDataContext> {
-  const [monthlyPeriods, cumulativePeriods, monthlyPlanMonths, orgLevel1, sheetCodes] = await Promise.all([
+  const [monthlyPeriods, cumulativePeriods, orgLevel1, sheetCodes] = await Promise.all([
     fetchPeriods('monthly'),
     fetchPeriods('cumulative'),
-    fetchMonthlyPlanMonths(),
     fetchOrgLevel1(),
     fetchSheetCodes(),
   ])
@@ -177,7 +168,6 @@ async function buildRuntimeDataContext(): Promise<FinancialAnalysisRuntimeDataCo
     latestCumulativePeriod: cumulativePeriods[0],
     monthlyPeriods,
     cumulativePeriods,
-    monthlyPlanMonths,
     reportTypes: ['fone', 'tuwei'],
     metrics: Object.entries(METRIC_LABELS).map(([key, label]) => ({ key, label })),
     orgLevel1,
@@ -226,12 +216,11 @@ export function buildFinancialAnalysisRuntimeContextBlock(
     `- latest_cumulative_period: ${dataContext.latestCumulativePeriod || 'unknown'}`,
     `- monthly_periods: ${dataContext.monthlyPeriods.join(', ') || 'none'}`,
     `- cumulative_periods: ${dataContext.cumulativePeriods.join(', ') || 'none'}`,
-    `- monthly_plan_months: ${dataContext.monthlyPlanMonths.join(', ') || 'none'}`,
     `- report_types: ${dataContext.reportTypes.join(', ')} (内部口径枚举，仅用于工具参数；终稿只能写学年预算、突围考核)`,
     `- sheet_codes: ${dataContext.sheetCodes.map(item => `${item.code}(${item.label})`).join(', ') || 'none'}`,
     `- org_level_1: ${dataContext.orgLevel1.join(', ') || 'none'}`,
     `- metrics_preview: ${metricPreview}`,
-    '- data_available: 核心经营指标、利润率、人力成本及明细、可用费用指标、人效指标、目标值、完成率、差额、同比、月度计划',
+    '- data_available: 核心经营指标、利润率、人力成本及明细、可用费用指标、人效指标、目标值、完成率、差额、同比',
     '- data_manual_required: 应收账款回款情况, 资金计划执行情况, 核心费用专项明细',
     '- data_not_available: 合同签约/在手订单, 项目进度, 全年预测, 责任人/完成时点',
     '- guidance: 只能使用上下文列出的合法期间；累计期间不能自行推导不存在的值。完整报告优先使用报告包和写作素材，表格优先使用目标对标宽表、学年目标表、两层组织表和成本费用宽表。不得编造应收、资金计划或专项费用明细，只能在结尾说明补数限制。轻量查数和非报告分析优先使用层级查询结果，直接分析返回的树形父子关系。分析中必须使用返回的实际值、目标值、完成率、差额、同比，并在写作前计算可推导的汇总、占比、环比、同比和贡献。完整报告必须区分当月、截至当月累计和学年目标累计；当月实际值可合并，累计实际值必须按学年预算和突围考核分别展示。完整报告必须至少下钻两层组织并给出具体数字。终稿的标题、正文、表头、预警和说明只能使用中文，不得出现英文、内部字段名、工具字段名、数据表名或内部口径枚举。',

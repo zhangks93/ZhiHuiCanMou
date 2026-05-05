@@ -4,7 +4,7 @@
 
 ## 1. 数据主线
 
-完整报告必须优先调用 `query_business_report_pack`。若 `coverage.core_biz_data = missing`，不得生成完整报告，只输出缺数说明。
+完整报告必须优先使用 `query_business_report_pack` 作为主数据源。若可用工具包含 `compose_business_report`，优先调用该工具；它会内部调用 `query_business_report_pack`、分章写作、合并并审核。若 `coverage.core_biz_data = missing`，不得生成完整报告，只输出缺数说明。
 
 报告包字段使用优先级：
 - 先看写作素材、章节简报和证据台账。
@@ -53,3 +53,11 @@
 1. 按 `report-quality-rubric.md` 自审。
 2. 调用 `audit_business_report` 审核 Markdown 初稿。
 3. 修复 error 级问题；warning 级问题若因数据缺失无法修复，在数据限制中说明。
+
+## 6. 分章 worker 模式
+
+当使用 `compose_business_report` 时，报告由总控工具拆成章节 worker 写作：
+- 总控只查一次报告包；章节 worker 不得直接查询业务数据。
+- 章节 worker 只使用对应 `section_briefs`、`evidence_ledger` 和裁剪后的表格。
+- worker 输出的章节由总控按固定顺序合并，再执行质量审核。
+- 若某个章节 worker 失败，总控使用证据台账生成保守章节，不得中断整份报告。

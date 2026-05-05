@@ -66,7 +66,12 @@ function deriveScopeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysi
       }
     }
 
-    if (toolCall.name === 'query_with_hierarchy' || toolCall.name === 'query_biz_data' || toolCall.name === 'query_business_report_pack') {
+    if (
+      toolCall.name === 'query_with_hierarchy' ||
+      toolCall.name === 'query_biz_data' ||
+      toolCall.name === 'query_business_report_pack' ||
+      toolCall.name === 'compose_business_report'
+    ) {
       const result = safeJsonParse(toolCall.result)
       if (
         Array.isArray(result?.candidates) ||
@@ -103,15 +108,7 @@ function deriveTimeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysis
     const toolCall = toolCalls[index]
     if (toolCall.status !== 'success') continue
 
-    if (toolCall.name === 'query_monthly_plan') {
-      return {
-        periodType: 'monthly',
-        period: typeof toolCall.arguments.month === 'string' ? toolCall.arguments.month : undefined,
-        confidence: 'high',
-      }
-    }
-
-    if (toolCall.name === 'query_business_report_pack') {
+    if (toolCall.name === 'query_business_report_pack' || toolCall.name === 'compose_business_report') {
       return {
         periodType: 'monthly',
         period: typeof toolCall.arguments.month === 'string' ? toolCall.arguments.month : undefined,

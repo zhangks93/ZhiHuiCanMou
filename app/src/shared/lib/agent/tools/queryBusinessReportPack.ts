@@ -6,7 +6,6 @@ import {
   buildOrgScopeKey,
   buildTreeWithAggregation,
   fetchBizReport,
-  fetchMonthlyPlan,
   findHierarchyNodeByScopeKey,
   findHierarchyNodeMatches,
   getChildren,
@@ -196,10 +195,10 @@ function buildMetricLabelMap(reports: EduBizReport[]): Map<MetricCategory, strin
   return labelMap
 }
 
-function aggregateReportNodes(reports: EduBizReport[], monthlyPlans: Awaited<ReturnType<typeof fetchMonthlyPlan>>): EnrichedBizDataNode[] {
+function aggregateReportNodes(reports: EduBizReport[]): EnrichedBizDataNode[] {
   const foneReports = reports.filter(row => row.report_type === 'fone')
   const tuweiReports = reports.filter(row => row.report_type === 'tuwei')
-  return aggregateByNode(foneReports, tuweiReports, monthlyPlans)
+  return aggregateByNode(foneReports, tuweiReports, [])
 }
 
 function resolveRootNode(nodes: EnrichedBizDataNode[], nodeName: string, orgScopeKey?: string):
@@ -1310,7 +1309,6 @@ function buildCoverage(params: {
   previousReports: EduBizReport[]
   cumulativeToMonthReports: EduBizReport[]
   schoolYearTargetReports: EduBizReport[]
-  monthlyPlanCount: number
 }): BusinessReportPack['coverage'] {
   const hasMonthly = params.monthReports.length > 0
   const hasPrevious = params.previousReports.length > 0
@@ -1319,7 +1317,6 @@ function buildCoverage(params: {
   const availableCount = [hasMonthly, hasPrevious, hasCumulativeToMonth, hasSchoolYearTarget].filter(Boolean).length
   return {
     core_biz_data: availableCount === 4 ? 'available' : availableCount > 0 ? 'partial' : 'missing',
-    monthly_plan: params.monthlyPlanCount > 0 ? 'available' : 'missing',
     receivables: 'manual_required',
     cash_plan: 'manual_required',
     core_expenses: 'manual_required',
@@ -1393,19 +1390,18 @@ export const queryBusinessReportPackTool: RegisteredTool = {
     const reportTypes: ReportType[] = validated.values.report_types?.length ? validated.values.report_types : ['fone', 'tuwei']
     const maxUnits = validated.values.max_units ?? 60
 
-    const [monthReports, previousReports, cumulativeToMonthReports, schoolYearTargetReports, monthlyPlans] = await Promise.all([
+    const [monthReports, previousReports, cumulativeToMonthReports, schoolYearTargetReports] = await Promise.all([
       fetchBizReport({ period: month, periodType: 'monthly', reportTypes }),
       fetchBizReport({ period: previousMonth, periodType: 'monthly', reportTypes }),
       fetchBizReport({ period: cumulativeToMonthPeriod, periodType: 'cumulative', reportTypes }),
       fetchBizReport({ period: schoolYearTargetPeriod, periodType: 'cumulative', reportTypes }),
-      fetchMonthlyPlan(),
     ])
 
     const labelMap = buildMetricLabelMap([...monthReports, ...previousReports, ...cumulativeToMonthReports, ...schoolYearTargetReports])
-    const monthNodes = aggregateReportNodes(monthReports, monthlyPlans)
-    const previousNodes = aggregateReportNodes(previousReports, monthlyPlans)
-    const cumulativeToMonthNodes = aggregateReportNodes(cumulativeToMonthReports, monthlyPlans)
-    const schoolYearTargetNodes = aggregateReportNodes(schoolYearTargetReports, monthlyPlans)
+    const monthNodes = aggregateReportNodes(monthReports)
+    const previousNodes = aggregateReportNodes(previousReports)
+    const cumulativeToMonthNodes = aggregateReportNodes(cumulativeToMonthReports)
+    const schoolYearTargetNodes = aggregateReportNodes(schoolYearTargetReports)
 
     const cumulativeToMonthResolved = resolveRootNode(cumulativeToMonthNodes, nodeName, orgScopeKey)
     if (!cumulativeToMonthResolved.ok) {
@@ -1553,7 +1549,6 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       previousReports,
       cumulativeToMonthReports,
       schoolYearTargetReports,
-      monthlyPlanCount: monthlyPlans.length,
     })
     const metricCoverage = buildMetricCoverage([...monthReports, ...previousReports, ...cumulativeToMonthReports, ...schoolYearTargetReports])
     const dataCompletenessMatrix = buildDataCompletenessMatrix({

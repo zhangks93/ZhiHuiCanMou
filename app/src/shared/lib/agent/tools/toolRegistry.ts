@@ -5,19 +5,19 @@ import type { RegisteredTool } from '../types'
 import { resolveOrgNodesTool } from './resolveOrgNodes'
 import { queryWithHierarchyTool } from './queryWithHierarchy'
 import { queryBusinessReportPackTool } from './queryBusinessReportPack'
-import { queryMonthlyPlanTool } from './queryMonthlyPlan'
 import { queryBizDataTool } from './queryBizData'
 import { readFileTool } from './readFile'
 import { auditBusinessReportTool } from './auditBusinessReport'
+import { composeBusinessReportTool } from './composeBusinessReport'
 
 /** All available tools indexed by function name */
 const toolMap: Record<string, RegisteredTool> = {
   resolve_org_nodes: resolveOrgNodesTool,
   query_with_hierarchy: queryWithHierarchyTool,
   query_business_report_pack: queryBusinessReportPackTool,
-  query_monthly_plan: queryMonthlyPlanTool,
   query_biz_data: queryBizDataTool,
   audit_business_report: auditBusinessReportTool,
+  compose_business_report: composeBusinessReportTool,
   read_file: readFileTool,
 }
 

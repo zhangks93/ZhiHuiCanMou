@@ -103,7 +103,7 @@ function buildArtifactSummary(toolCall: ToolCallRecord): string {
 function shouldCaptureArtifact(toolCall: ToolCallRecord): boolean {
   if (toolCall.status !== 'success' || !toolCall.result) return false
   if (toolCall.name === 'read_file') return true
-  return toolCall.result.length > 600 || ['query_with_hierarchy', 'query_business_report_pack', 'query_biz_data', 'query_monthly_plan', 'resolve_org_nodes'].includes(toolCall.name)
+  return toolCall.result.length > 600 || ['query_with_hierarchy', 'query_business_report_pack', 'query_biz_data', 'resolve_org_nodes'].includes(toolCall.name)
 }
 
 function upsertArtifacts(

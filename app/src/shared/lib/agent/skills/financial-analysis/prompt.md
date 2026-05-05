@@ -64,6 +64,7 @@
 规则：
 - 普通分析默认覆盖学年预算与突围考核、当月 / 上月 / 截至当月累计，并覆盖核心经营指标与可用费用项。
 - 完整报告必须使用 `query_business_report_pack` 作为主数据源，不用多次零散查数替代。
+- 若工具列表中存在 `compose_business_report`，完整报告 / 月报 / 汇报材料优先调用 `compose_business_report`；该工具会在内部使用 `query_business_report_pack`，仍满足主数据源约束。
 - 完整报告普通输出只包含文字、数字和 Markdown 表格；除非用户明确要求图表配置，否则不输出 chart JSON。
 - 完整报告终稿必须全中文。标题、正文、表头、风险等级、状态描述和数据限制说明均不得出现英文、内部字段名、工具字段名、数据表名或内部口径枚举。
 
@@ -92,10 +93,9 @@
 
 优先顺序：
 1. `resolve_org_nodes`（必要时）
-2. 完整报告 / 月报 / 汇报材料：`query_business_report_pack`
+2. 完整报告 / 月报 / 汇报材料：优先 `compose_business_report`；不可用或需手工修复时回退 `query_business_report_pack`
 3. 轻量查数和非报告分析：`query_with_hierarchy`
-4. 月度计划问题：`query_monthly_plan`
-5. 兜底：`query_biz_data`
+4. 兜底：`query_biz_data`
 
 使用 `query_with_hierarchy` 时，直接分析返回的 `tree / children`，不要先打平成零散明细再重建层级。相同参数工具调用只允许一次，已有结果必须复用。
 
@@ -136,11 +136,12 @@
 
 执行顺序：
 1. 读取完整报告所需 reference。
-2. 调用 `query_business_report_pack`。
-3. 先查看写作素材、数据完整度矩阵、质量契约、章节简报、证据台账和断言规则。
-4. 基于证据台账和章节简报生成初稿。
-5. 调用 `audit_business_report` 审核 Markdown。
-6. 修正 error 级问题后只展示终稿；warning 级问题若因数据缺失无法修复，在“数据限制与待补说明”中说明。
+2. 优先调用 `compose_business_report`。该工具返回 `passed=true` 时，只输出其中的 `markdown`，不要输出工具 JSON、审核摘要、内部字段名或英文键名。
+3. 若 `compose_business_report` 不可用或未通过审核，再调用 `query_business_report_pack`。
+4. 先查看写作素材、数据完整度矩阵、质量契约、章节简报、证据台账和断言规则。
+5. 基于证据台账和章节简报生成初稿。
+6. 调用 `audit_business_report` 审核 Markdown。
+7. 修正 error 级问题后只展示终稿；warning 级问题若因数据缺失无法修复，在“数据限制与待补说明”中说明。
 
 完整报告默认是详版经营分析材料，除非用户明确要求摘要版 / 简版。不得只输出表格，不得只写是否达标，不得把核心章节压成 1-2 句。
 组织结构、贡献与拖累章节必须至少下钻两层；如果报告包中存在第二层下属，正文必须点名第二层节点并给出收入、税前利润、人力成本或毛利率等具体数字。不能只展示提问部门的直接下属。

@@ -44,7 +44,6 @@
 - `completion_rate`
 - `diff`
 - `yoy`
-- `monthly_plan`
 
 这些字段已返回时，应优先直接使用。
 

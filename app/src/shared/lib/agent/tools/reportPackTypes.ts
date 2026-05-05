@@ -321,7 +321,6 @@ export interface BusinessReportPack {
   writing_brief?: BusinessReportWritingBrief
   coverage: {
     core_biz_data: 'available' | 'partial' | 'missing'
-    monthly_plan: 'available' | 'partial' | 'missing'
     receivables: 'manual_required'
     cash_plan: 'manual_required'
     core_expenses: 'manual_required'

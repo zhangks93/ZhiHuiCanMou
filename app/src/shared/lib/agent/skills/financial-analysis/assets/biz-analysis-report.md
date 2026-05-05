@@ -3,7 +3,7 @@
 **汇报单位**：`query_business_report_pack.metadata.scope_name`  
 **统计周期**：当月 `metadata.month`；截至当月累计 `metadata.cumulative_to_month_period`；学年目标累计 `metadata.school_year_target_period`  
 **数据单位**：万元  
-**数据来源**：系统经营数据、月度计划数据和组织层级数据
+**数据来源**：系统经营数据和组织层级数据
 
 > 模板是写作框架，可按组织层级和数据完整度合并小节。字段选择和硬约束以报告生成规范和质量契约为准。
 > 终稿不得出现英文、内部字段名、工具名、数据表名或枚举值；所有状态必须写成中文，如“达标”“关注”“风险”“缺数”。

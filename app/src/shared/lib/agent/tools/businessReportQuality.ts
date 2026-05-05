@@ -49,7 +49,6 @@ const FORBIDDEN_TERMS = [
   'risk',
   'missing',
   'edu_biz_report',
-  'edu_biz_monthly_plan',
   'edu_org_hierarchy',
   'metric_comparison_wide_table',
   'school_year_goal_assessment_table',

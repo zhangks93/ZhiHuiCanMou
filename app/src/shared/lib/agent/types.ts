@@ -40,7 +40,6 @@ export interface FinancialAnalysisRuntimeDataContext {
   latestCumulativePeriod?: string
   monthlyPeriods: string[]
   cumulativePeriods: string[]
-  monthlyPlanMonths: string[]
   reportTypes: string[]
   metrics: FinancialAnalysisRuntimeMetric[]
   orgLevel1: string[]

@@ -49,7 +49,6 @@ function basePack(overrides: Partial<BusinessReportPack> = {}): BusinessReportPa
     },
     coverage: {
       core_biz_data: 'available',
-      monthly_plan: 'available',
       receivables: 'manual_required',
       cash_plan: 'manual_required',
       core_expenses: 'manual_required',

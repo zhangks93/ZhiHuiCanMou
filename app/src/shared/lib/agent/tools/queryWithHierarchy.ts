@@ -12,7 +12,6 @@ import {
   buildNestedSubtree,
   buildNestedSubtreeByScopeKey,
   fetchBizReport,
-  fetchMonthlyPlan,
   findHierarchyNodeByScopeKey,
   findHierarchyNodeMatches,
   getNodeKind,
@@ -67,7 +66,6 @@ type MetricSnapshot = {
   completion_rate: number | null
   diff: number | null
   yoy: number | null
-  monthly_plan?: Record<string, number>
 }
 
 type SerializedTreeNode = {
@@ -196,7 +194,6 @@ function serializeMetrics(
         completion_rate,
         diff,
         yoy: metric.yoy,
-        monthly_plan: metric.monthly_plan,
       }
     })
     .sort((a, b) => a.metric.localeCompare(b.metric))
@@ -334,10 +331,9 @@ export const queryWithHierarchyTool: RegisteredTool = {
       })
     }
 
-    const monthlyPlans = await fetchMonthlyPlan()
     const foneReports = report_type === 'fone' ? reports : []
     const tuweiReports = report_type === 'tuwei' ? reports : []
-    const aggregatedNodes = aggregateByNode(foneReports, tuweiReports, monthlyPlans)
+    const aggregatedNodes = aggregateByNode(foneReports, tuweiReports, [])
     const labelMap = buildMetricLabelMap(reports)
 
     if (node_name.trim() === '' && !org_scope_key) {
