@@ -66,7 +66,11 @@ function basePack(overrides: Partial<BusinessReportPack> = {}): BusinessReportPa
       metric: 'revenue',
       metric_label: '营业收入',
       actual: 100,
+      school_year_budget_actual: 100,
+      breakthrough_assessment_actual: 100,
       yoy: 90,
+      school_year_budget_yoy: 90,
+      breakthrough_assessment_yoy: 90,
       mom: 10,
       school_year_budget_target: 95,
       school_year_budget_completion_rate: 1.05,
@@ -82,7 +86,9 @@ function basePack(overrides: Partial<BusinessReportPack> = {}): BusinessReportPa
       node_name: '后勤管理中心',
       metric: 'revenue',
       metric_label: '营业收入',
-      actual: 800,
+      actual: null,
+      school_year_budget_actual: 800,
+      breakthrough_assessment_actual: 760,
       school_year_progress_rate: 0.75,
       school_year_budget_target: 1000,
       school_year_budget_completion_rate: 0.8,
@@ -128,7 +134,11 @@ function basePack(overrides: Partial<BusinessReportPack> = {}): BusinessReportPa
       metric: 'labor_cost',
       metric_label: '人力成本',
       actual: 40,
+      school_year_budget_actual: 40,
+      breakthrough_assessment_actual: 40,
       yoy: 38,
+      school_year_budget_yoy: 38,
+      breakthrough_assessment_yoy: 38,
       mom: 2,
       school_year_budget_target: 35,
       school_year_budget_completion_rate: 1.14,
@@ -169,7 +179,7 @@ function basePack(overrides: Partial<BusinessReportPack> = {}): BusinessReportPa
     warnings: [{
       severity: 'yellow',
       section: '当月核心指标',
-      message: '学年预算营业收入当月完成状态为 watch。',
+      message: '学年预算营业收入当月完成状态为关注。',
       evidence: { metric: 'revenue' },
     }],
   }
@@ -207,6 +217,61 @@ describe('business report quality', () => {
     const result = validateBusinessReportOutput('## 经营摘要与学年目标判断\nfone 口径表现较好。', pack)
     expect(result.passed).toBe(false)
     expect(result.findings.some(item => item.code === 'forbidden_term_present')).toBe(true)
+  })
+
+  it('flags latin letters and source table names in markdown output', () => {
+    const pack = basePack()
+    pack.quality_contract = buildBusinessReportQualityContract(pack)
+    const result = validateBusinessReportOutput([
+      '## 经营摘要与学年目标判断',
+      '数据来自 edu_biz_report，状态 good。',
+      '## 目标对标与实际完成',
+      '## 组织结构、贡献与拖累',
+      '一号食堂收入五十万元。',
+      '## 成本费用与效率',
+      '## 风险判断与后续动作',
+      '## 数据限制与待补说明',
+    ].join('\n'), pack)
+
+    expect(result.passed).toBe(false)
+    expect(result.findings.some(item => item.code === 'forbidden_term_present')).toBe(true)
+    expect(result.findings.some(item => item.code === 'latin_letters_present')).toBe(true)
+  })
+
+  it('requires second-level organization description when available', () => {
+    const base = basePack()
+    const pack = basePack({
+      organization_two_level_table: [
+        ...base.organization_two_level_table,
+        {
+          node_name: '二号食堂',
+          node_kind: 'leaf',
+          level_1: '后勤管理中心',
+          level_2: '餐饮中心',
+          depth_from_scope: 2,
+          child_count: 0,
+          revenue_actual: 30,
+          pretax_profit_actual: -2,
+          labor_cost_actual: 12,
+          gross_margin_actual: 0.2,
+        },
+      ],
+    })
+    pack.quality_contract = buildBusinessReportQualityContract(pack)
+
+    const result = validateBusinessReportOutput([
+      '## 经营摘要与学年目标判断',
+      '学年预算和突围考核均需关注。',
+      '## 目标对标与实际完成',
+      '## 组织结构、贡献与拖累',
+      '组织层级存在分化，但这里只写一级。',
+      '## 成本费用与效率',
+      '## 风险判断与后续动作',
+      '## 数据限制与待补说明',
+    ].join('\n'), pack)
+
+    expect(result.passed).toBe(false)
+    expect(result.findings.some(item => item.code === 'second_level_org_not_described')).toBe(true)
   })
 
   it('requires manual data to be placed in limitations section', () => {

@@ -73,6 +73,8 @@ export interface BizDataNode {
   metrics: {
     [K in MetricCategory]?: {
       actual: number | null
+      actual_fone: number | null
+      actual_tuwei: number | null
       budget_fone: number | null
       budget_tuwei: number | null
       completion_fone: number | null
@@ -80,6 +82,8 @@ export interface BizDataNode {
       diff_fone: number | null
       diff_tuwei: number | null
       yoy: number | null
+      yoy_fone: number | null
+      yoy_tuwei: number | null
       monthly_plan?: Record<string, number>
     }
   }

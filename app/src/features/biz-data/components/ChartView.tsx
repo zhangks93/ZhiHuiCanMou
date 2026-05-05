@@ -35,6 +35,7 @@ export function ChartView({
   onDrillDownPathChange,
 }: ChartViewProps) {
   const budgetField = reportType === 'fone' ? 'budget_fone' : 'budget_tuwei'
+  const actualField = reportType === 'fone' ? 'actual_fone' : 'actual_tuwei'
   const captionFont = 'var(--font-size-caption)'
   const bodyFont = 'var(--font-size-body)'
   const bodyFontFamily = 'var(--font-family-body)'
@@ -64,7 +65,7 @@ export function ChartView({
 
       selectedMetrics.forEach((metric) => {
         const metricData = node.metrics[metric]
-        dataPoint[`${metric}_actual`] = metricData?.actual ?? null
+        dataPoint[`${metric}_actual`] = metricData?.[actualField] ?? metricData?.actual ?? null
         dataPoint[`${metric}_budget`] = metricData?.[budgetField] ?? null
       })
 

@@ -164,6 +164,8 @@ const SYNTHETIC_SORT_ORDER = {
 function createEmptyMetric(): NodeMetricValue {
   return {
     actual: null,
+    actual_fone: null,
+    actual_tuwei: null,
     budget_fone: null,
     budget_tuwei: null,
     completion_fone: null,
@@ -171,6 +173,8 @@ function createEmptyMetric(): NodeMetricValue {
     diff_fone: null,
     diff_tuwei: null,
     yoy: null,
+    yoy_fone: null,
+    yoy_tuwei: null,
   }
 }
 
@@ -323,20 +327,28 @@ function aggregateMetrics(children: EnrichedBizDataNode[]): EnrichedBizDataNode[
         )
       : undefined
 
-    const actual = sumNumbers(values.map(metric => metric.actual))
+    const actual_fone = sumNumbers(values.map(metric => metric.actual_fone ?? metric.actual))
+    const actual_tuwei = sumNumbers(values.map(metric => metric.actual_tuwei ?? metric.actual))
+    const actual = actual_fone ?? actual_tuwei
     const budget_fone = sumNumbers(values.map(metric => metric.budget_fone))
     const budget_tuwei = sumNumbers(values.map(metric => metric.budget_tuwei))
-    const yoy = sumNumbers(values.map(metric => metric.yoy))
+    const yoy_fone = sumNumbers(values.map(metric => metric.yoy_fone ?? metric.yoy))
+    const yoy_tuwei = sumNumbers(values.map(metric => metric.yoy_tuwei ?? metric.yoy))
+    const yoy = yoy_fone ?? yoy_tuwei
 
     aggregated[category] = {
       actual,
+      actual_fone,
+      actual_tuwei,
       budget_fone,
       budget_tuwei,
-      completion_fone: safeCompletionRate(actual, budget_fone),
-      completion_tuwei: safeCompletionRate(actual, budget_tuwei),
-      diff_fone: safeDiff(actual, budget_fone),
-      diff_tuwei: safeDiff(actual, budget_tuwei),
+      completion_fone: safeCompletionRate(actual_fone, budget_fone),
+      completion_tuwei: safeCompletionRate(actual_tuwei, budget_tuwei),
+      diff_fone: safeDiff(actual_fone, budget_fone),
+      diff_tuwei: safeDiff(actual_tuwei, budget_tuwei),
       yoy,
+      yoy_fone,
+      yoy_tuwei,
       monthly_plan,
     }
   }
@@ -350,20 +362,28 @@ function aggregateMetrics(children: EnrichedBizDataNode[]): EnrichedBizDataNode[
 
     if (!numerator || !denominator) continue
 
-    const actual = divideOrNull(numerator.actual, denominator.actual)
+    const actual_fone = divideOrNull(numerator.actual_fone ?? numerator.actual, denominator.actual_fone ?? denominator.actual)
+    const actual_tuwei = divideOrNull(numerator.actual_tuwei ?? numerator.actual, denominator.actual_tuwei ?? denominator.actual)
+    const actual = actual_fone ?? actual_tuwei
     const budget_fone = divideOrNull(numerator.budget_fone, denominator.budget_fone)
     const budget_tuwei = divideOrNull(numerator.budget_tuwei, denominator.budget_tuwei)
-    const yoy = divideOrNull(numerator.yoy, denominator.yoy)
+    const yoy_fone = divideOrNull(numerator.yoy_fone ?? numerator.yoy, denominator.yoy_fone ?? denominator.yoy)
+    const yoy_tuwei = divideOrNull(numerator.yoy_tuwei ?? numerator.yoy, denominator.yoy_tuwei ?? denominator.yoy)
+    const yoy = yoy_fone ?? yoy_tuwei
 
     aggregated[category] = {
       actual,
+      actual_fone,
+      actual_tuwei,
       budget_fone,
       budget_tuwei,
-      completion_fone: safeCompletionRate(actual, budget_fone),
-      completion_tuwei: safeCompletionRate(actual, budget_tuwei),
-      diff_fone: safeDiff(actual, budget_fone),
-      diff_tuwei: safeDiff(actual, budget_tuwei),
+      completion_fone: safeCompletionRate(actual_fone, budget_fone),
+      completion_tuwei: safeCompletionRate(actual_tuwei, budget_tuwei),
+      diff_fone: safeDiff(actual_fone, budget_fone),
+      diff_tuwei: safeDiff(actual_tuwei, budget_tuwei),
       yoy,
+      yoy_fone,
+      yoy_tuwei,
     }
   }
 
@@ -532,20 +552,24 @@ export function aggregateByNode(
     const node = ensureNode(row)
     const metric = getMetric(node, row.metric_category)
     metric.actual = row.actual_value
+    metric.actual_fone = row.actual_value
     metric.budget_fone = row.budget_value
     metric.completion_fone = row.completion_rate
     metric.diff_fone = row.diff_value
     metric.yoy = row.yoy_value
+    metric.yoy_fone = row.yoy_value
   }
 
   for (const row of tuweiReports) {
     const node = ensureNode(row)
     const metric = getMetric(node, row.metric_category)
     if (metric.actual == null) metric.actual = row.actual_value
+    metric.actual_tuwei = row.actual_value
     metric.budget_tuwei = row.budget_value
     metric.completion_tuwei = row.completion_rate
     metric.diff_tuwei = row.diff_value
     if (metric.yoy == null) metric.yoy = row.yoy_value
+    metric.yoy_tuwei = row.yoy_value
   }
 
   for (const plan of monthlyPlans) {

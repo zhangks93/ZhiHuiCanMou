@@ -11,10 +11,14 @@ export interface ReportMetricValue {
   metric: MetricCategory
   metric_label: string
   actual: number | null
+  actual_fone?: number | null
+  actual_tuwei?: number | null
   target: number | null
   completion_rate: number | null
   diff: number | null
   yoy: number | null
+  yoy_fone?: number | null
+  yoy_tuwei?: number | null
   mom?: number | null
 }
 
@@ -47,7 +51,11 @@ export interface MetricComparisonWideRow {
   metric: MetricCategory
   metric_label: string
   actual: number | null
+  school_year_budget_actual?: number | null
+  breakthrough_assessment_actual?: number | null
   yoy: number | null
+  school_year_budget_yoy?: number | null
+  breakthrough_assessment_yoy?: number | null
   mom?: number | null
   school_year_budget_target: number | null
   school_year_budget_completion_rate: number | null
@@ -65,6 +73,8 @@ export interface SchoolYearGoalAssessmentRow {
   metric: 'revenue' | 'pretax_profit'
   metric_label: string
   actual: number | null
+  school_year_budget_actual?: number | null
+  breakthrough_assessment_actual?: number | null
   school_year_progress_rate: number
   school_year_budget_target: number | null
   school_year_budget_completion_rate: number | null

@@ -21,7 +21,7 @@
 
 ## 4. 输出检查
 - [ ] 输出包含经营含义，不只复述数字。
-- [ ] 完整报告已使用 `writing_brief`、`section_briefs`、`evidence_ledger` 和 `quality_contract`。
+- [ ] 完整报告已使用写作素材、章节简报、证据台账和质量契约。
 - [ ] 完整报告终稿前已调用 `audit_business_report`，并修复 error 级问题。
 - [ ] 图表配置仅在用户明确要求时输出。
 - [ ] 结尾给出 1-3 个强相关下一步动作。

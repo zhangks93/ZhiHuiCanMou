@@ -41,7 +41,32 @@ const REQUIRED_TABLES = [
   'cost_expense_wide_table',
 ]
 
-const FORBIDDEN_TERMS = ['fone', 'tuwei', '【待补】', '【人工补充】']
+const FORBIDDEN_TERMS = [
+  'fone',
+  'tuwei',
+  'watch',
+  'good',
+  'risk',
+  'missing',
+  'edu_biz_report',
+  'edu_biz_monthly_plan',
+  'edu_org_hierarchy',
+  'metric_comparison_wide_table',
+  'school_year_goal_assessment_table',
+  'organization_two_level_table',
+  'direct_children_table',
+  'key_descendant_table',
+  'leaf_exception_table',
+  'cost_expense_wide_table',
+  'target_vs_actual_table',
+  'writing_brief',
+  'quality_contract',
+  'evidence_ledger',
+  'data_completeness_matrix',
+  'coverage',
+  '【待补】',
+  '【人工补充】',
+]
 const MANUAL_DATA_SECTIONS = ['应收账款回款情况', '资金计划执行情况', '核心费用专项明细']
 const PERIOD_SCOPE_LABELS = ['当月', '截至当月累计', '学年目标累计']
 
@@ -62,6 +87,13 @@ function periodScopeLabel(value: string | undefined): string {
   return '未标明期间'
 }
 
+function reportStatusLabel(value: string | undefined): string {
+  if (value === 'good') return '达标'
+  if (value === 'watch') return '关注'
+  if (value === 'risk') return '风险'
+  return '缺数'
+}
+
 function pushMetricEvidence(
   ledger: BusinessReportEvidenceItem[],
   row: MetricComparisonWideRow,
@@ -78,11 +110,14 @@ function pushMetricEvidence(
     metric_label: row.metric_label,
     period_scope: row.period_scope,
     report_type: 'both',
-    actual: row.actual,
+    actual: row.actual ?? row.school_year_budget_actual ?? row.breakthrough_assessment_actual,
     evidence_text:
-      `${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}实际值${formatNumber(row.actual)}；` +
-      `学年预算完成率${formatPct(row.school_year_budget_completion_rate)}、差额${formatNumber(row.school_year_budget_diff)}；` +
-      `突围考核完成率${formatPct(row.breakthrough_assessment_completion_rate)}、差额${formatNumber(row.breakthrough_assessment_diff)}。`,
+      row.period_scope === 'monthly'
+        ? `${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}实际值${formatNumber(row.actual)}；` +
+          `学年预算完成率${formatPct(row.school_year_budget_completion_rate)}、差额${formatNumber(row.school_year_budget_diff)}；` +
+          `突围考核完成率${formatPct(row.breakthrough_assessment_completion_rate)}、差额${formatNumber(row.breakthrough_assessment_diff)}。`
+        : `${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}学年预算实际值${formatNumber(row.school_year_budget_actual)}、完成率${formatPct(row.school_year_budget_completion_rate)}、差额${formatNumber(row.school_year_budget_diff)}；` +
+          `突围考核实际值${formatNumber(row.breakthrough_assessment_actual)}、完成率${formatPct(row.breakthrough_assessment_completion_rate)}、差额${formatNumber(row.breakthrough_assessment_diff)}。`,
   })
 }
 
@@ -105,8 +140,8 @@ function pushSchoolYearEvidence(
     actual: row.actual,
     evidence_text:
       `${row.metric_label}学年进度${formatPct(row.school_year_progress_rate)}；` +
-      `学年预算达成概率${row.school_year_budget_probability}、风险${row.school_year_budget_risk}；` +
-      `突围考核达成概率${row.breakthrough_assessment_probability}、风险${row.breakthrough_assessment_risk}。`,
+      `学年预算实际值${formatNumber(row.school_year_budget_actual ?? row.actual)}、达成概率${row.school_year_budget_probability}、风险${row.school_year_budget_risk}；` +
+      `突围考核实际值${formatNumber(row.breakthrough_assessment_actual ?? row.actual)}、达成概率${row.breakthrough_assessment_probability}、风险${row.breakthrough_assessment_risk}。`,
   })
 }
 
@@ -157,8 +192,11 @@ export function buildBusinessReportEvidenceLedger(pack: BusinessReportPack): Bus
       report_type: 'both',
       actual: row.actual,
       evidence_text:
-        `${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}实际值${formatNumber(row.actual)}；` +
-        `学年预算状态${row.school_year_budget_status}，突围考核状态${row.breakthrough_assessment_status}。`,
+        row.period_scope === 'monthly'
+          ? `${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}实际值${formatNumber(row.actual)}；` +
+            `学年预算状态${reportStatusLabel(row.school_year_budget_status)}，突围考核状态${reportStatusLabel(row.breakthrough_assessment_status)}。`
+          : `${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}学年预算实际值${formatNumber(row.school_year_budget_actual)}、状态${reportStatusLabel(row.school_year_budget_status)}；` +
+            `突围考核实际值${formatNumber(row.breakthrough_assessment_actual)}、状态${reportStatusLabel(row.breakthrough_assessment_status)}。`,
     })
   })
 
@@ -376,6 +414,15 @@ export function validateBusinessReportPack(pack: BusinessReportPack): ReportQual
       code: 'organization_two_level_table_missing',
       message: '缺少两层组织经营表，组织结构章节需要说明无法继续展开。',
     })
+  } else if (
+    pack.scope_profile.descendant_count > pack.scope_profile.direct_child_count &&
+    !pack.organization_two_level_table.some(row => row.depth_from_scope >= 2)
+  ) {
+    addFinding(findings, {
+      severity: 'error',
+      code: 'organization_second_level_missing',
+      message: '存在二级下属数据，但报告包未返回下钻第二层经营数据。',
+    })
   }
 
   const hasErrors = findings.some(item => item.severity === 'error')
@@ -406,7 +453,7 @@ export function validateBusinessReportOutput(markdown: string, pack?: BusinessRe
   }
 
   for (const term of contract.forbidden_terms) {
-    if (text.includes(term)) {
+    if (new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(text)) {
       addFinding(findings, {
         severity: 'error',
         code: 'forbidden_term_present',
@@ -414,6 +461,15 @@ export function validateBusinessReportOutput(markdown: string, pack?: BusinessRe
         evidence: { term },
       })
     }
+  }
+
+  const markdownWithoutUrls = text.replace(/https?:\/\/\S+/g, '')
+  if (/[A-Za-z]/.test(markdownWithoutUrls)) {
+    addFinding(findings, {
+      severity: 'error',
+      code: 'latin_letters_present',
+      message: '报告正文出现英文字符，终稿必须全部使用中文表达。',
+    })
   }
 
   if (!hasAny(text, contract.required_chinese_report_type_labels)) {
@@ -441,6 +497,18 @@ export function validateBusinessReportOutput(markdown: string, pack?: BusinessRe
       code: 'two_level_org_analysis_weak',
       message: '报告包包含两层组织数据，但正文未明显体现组织层级分析。',
     })
+  }
+
+  if (pack && pack.organization_two_level_table.some(row => row.depth_from_scope >= 2)) {
+    const secondLevelRows = pack.organization_two_level_table.filter(row => row.depth_from_scope >= 2)
+    const mentionedSecondLevelRows = secondLevelRows.filter(row => text.includes(row.node_name))
+    if (mentionedSecondLevelRows.length === 0) {
+      addFinding(findings, {
+        severity: 'error',
+        code: 'second_level_org_not_described',
+        message: '报告包包含第二层下钻组织数据，但正文未描述任何第二层节点。',
+      })
+    }
   }
 
   const manualTermsInBody = MANUAL_DATA_SECTIONS.filter(section => text.includes(section))

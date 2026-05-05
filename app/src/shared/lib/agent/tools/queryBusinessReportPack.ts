@@ -288,17 +288,28 @@ function metricValue(
   const target = reportType === 'fone' ? value?.budget_fone : value?.budget_tuwei
   const completionRate = reportType === 'fone' ? value?.completion_fone : value?.completion_tuwei
   const diff = reportType === 'fone' ? value?.diff_fone : value?.diff_tuwei
-  const previousActual = previousValue?.actual
-  const actual = value?.actual ?? null
+  const actual = reportType === 'fone'
+    ? value?.actual_fone ?? value?.actual ?? null
+    : value?.actual_tuwei ?? value?.actual ?? null
+  const previousActual = reportType === 'fone'
+    ? previousValue?.actual_fone ?? previousValue?.actual
+    : previousValue?.actual_tuwei ?? previousValue?.actual
+  const yoy = reportType === 'fone'
+    ? value?.yoy_fone ?? value?.yoy ?? null
+    : value?.yoy_tuwei ?? value?.yoy ?? null
 
   return {
     metric,
     metric_label: labelMap.get(metric) ?? metric,
     actual,
+    actual_fone: value?.actual_fone ?? value?.actual ?? null,
+    actual_tuwei: value?.actual_tuwei ?? value?.actual ?? null,
     target: target ?? null,
     completion_rate: completionRate ?? null,
     diff: diff ?? null,
-    yoy: value?.yoy ?? null,
+    yoy,
+    yoy_fone: value?.yoy_fone ?? value?.yoy ?? null,
+    yoy_tuwei: value?.yoy_tuwei ?? value?.yoy ?? null,
     mom: actual != null && previousActual != null ? actual - previousActual : null,
   }
 }
@@ -311,6 +322,19 @@ function periodScopeLabel(scope: PeriodScope): string {
   if (scope === 'monthly') return '当月'
   if (scope === 'school_year_target') return '学年目标累计'
   return '截至当月累计'
+}
+
+function reportStatusLabel(status: ReturnType<typeof statusByCompletion>): string {
+  if (status === 'good') return '达标'
+  if (status === 'watch') return '关注'
+  if (status === 'risk') return '风险'
+  return '缺数'
+}
+
+function warningSeverityLabel(severity: BusinessReportWarning['severity']): string {
+  if (severity === 'red') return '红色预警'
+  if (severity === 'yellow') return '黄色预警'
+  return '提示'
 }
 
 function getReportTypeFields(
@@ -346,8 +370,14 @@ function buildMetricComparisonWideRow(params: {
   const lowerIsBetter = LOWER_IS_BETTER_METRICS.has(params.metric)
   const schoolYearBudget = getReportTypeFields(value, 'fone', lowerIsBetter)
   const breakthroughAssessment = getReportTypeFields(value, 'tuwei', lowerIsBetter)
-  const actual = value?.actual ?? null
-  const previousActual = previousValue?.actual
+  const schoolYearBudgetActual = value?.actual_fone ?? value?.actual ?? null
+  const breakthroughAssessmentActual = value?.actual_tuwei ?? value?.actual ?? null
+  const schoolYearBudgetYoy = value?.yoy_fone ?? value?.yoy ?? null
+  const breakthroughAssessmentYoy = value?.yoy_tuwei ?? value?.yoy ?? null
+  const actual = params.periodScope === 'monthly'
+    ? schoolYearBudgetActual ?? breakthroughAssessmentActual
+    : null
+  const previousActual = previousValue?.actual_fone ?? previousValue?.actual_tuwei ?? previousValue?.actual
 
   return {
     period_scope: params.periodScope,
@@ -358,7 +388,11 @@ function buildMetricComparisonWideRow(params: {
     metric: params.metric,
     metric_label: params.labelMap.get(params.metric) ?? params.metric,
     actual,
-    yoy: value?.yoy ?? null,
+    school_year_budget_actual: schoolYearBudgetActual,
+    breakthrough_assessment_actual: breakthroughAssessmentActual,
+    yoy: params.periodScope === 'monthly' ? schoolYearBudgetYoy ?? breakthroughAssessmentYoy : null,
+    school_year_budget_yoy: schoolYearBudgetYoy,
+    breakthrough_assessment_yoy: breakthroughAssessmentYoy,
     mom: actual != null && previousActual != null ? actual - previousActual : null,
     school_year_budget_target: schoolYearBudget.target,
     school_year_budget_completion_rate: schoolYearBudget.completionRate,
@@ -428,6 +462,11 @@ function buildCostExpenseWideTable(params: {
     const base = rows[0]
     const schoolYearBudget = rows.find(row => row.report_type === 'fone')
     const breakthroughAssessment = rows.find(row => row.report_type === 'tuwei')
+    const schoolYearBudgetActual = schoolYearBudget?.actual ?? base.actual
+    const breakthroughAssessmentActual = breakthroughAssessment?.actual ?? base.actual
+    const actual = base.period_scope === 'monthly'
+      ? schoolYearBudgetActual ?? breakthroughAssessmentActual
+      : null
     return {
       period_scope: base.period_scope,
       node_name: base.node_name,
@@ -436,8 +475,12 @@ function buildCostExpenseWideTable(params: {
       level_2: base.level_2,
       metric: base.metric,
       metric_label: base.metric_label,
-      actual: base.actual,
-      yoy: base.yoy,
+      actual,
+      school_year_budget_actual: schoolYearBudgetActual,
+      breakthrough_assessment_actual: breakthroughAssessmentActual,
+      yoy: base.period_scope === 'monthly' ? schoolYearBudget?.yoy ?? breakthroughAssessment?.yoy ?? base.yoy : null,
+      school_year_budget_yoy: schoolYearBudget?.yoy ?? base.yoy,
+      breakthrough_assessment_yoy: breakthroughAssessment?.yoy ?? base.yoy,
       mom: base.mom,
       school_year_budget_target: schoolYearBudget?.target ?? null,
       school_year_budget_completion_rate: schoolYearBudget?.completion_rate ?? null,
@@ -459,19 +502,21 @@ function buildSchoolYearGoalAssessmentTable(params: {
   const progressRate = schoolYearProgressRate(params.month)
   return CORE_TARGET_METRICS.map(metric => {
     const value = params.schoolYearTargetRoot?.metrics[metric]
-    const actual = value?.actual ?? null
+    const schoolYearBudgetActual = value?.actual_fone ?? value?.actual ?? null
+    const breakthroughAssessmentActual = value?.actual_tuwei ?? value?.actual ?? null
+    const actual = null
     const schoolYearBudget = getReportTypeFields(value, 'fone')
     const breakthroughAssessment = getReportTypeFields(value, 'tuwei')
     const schoolYearBudgetAssessment = assessGoalProbability({
       completionRate: schoolYearBudget.completionRate,
       progressRate,
-      actual,
+      actual: schoolYearBudgetActual,
       metric,
     })
     const breakthroughAssessmentResult = assessGoalProbability({
       completionRate: breakthroughAssessment.completionRate,
       progressRate,
-      actual,
+      actual: breakthroughAssessmentActual,
       metric,
     })
     const metricLabel = params.labelMap.get(metric) ?? FALLBACK_METRIC_LABELS[metric]
@@ -482,6 +527,8 @@ function buildSchoolYearGoalAssessmentTable(params: {
       metric,
       metric_label: metricLabel,
       actual,
+      school_year_budget_actual: schoolYearBudgetActual,
+      breakthrough_assessment_actual: breakthroughAssessmentActual,
       school_year_progress_rate: progressRate,
       school_year_budget_target: schoolYearBudget.target,
       school_year_budget_completion_rate: schoolYearBudget.completionRate,
@@ -507,15 +554,21 @@ function buildTargetVsActualRow(
 ): TargetVsActualRow {
   const revenue = node?.metrics.revenue
   const profit = node?.metrics.pretax_profit
+  const revenueActual = reportType === 'fone'
+    ? revenue?.actual_fone ?? revenue?.actual ?? null
+    : revenue?.actual_tuwei ?? revenue?.actual ?? null
+  const profitActual = reportType === 'fone'
+    ? profit?.actual_fone ?? profit?.actual ?? null
+    : profit?.actual_tuwei ?? profit?.actual ?? null
   return {
     report_type: reportType,
     period_scope: periodScope,
     node_name: node?.node_name ?? '未匹配节点',
-    revenue_actual: revenue?.actual ?? null,
+    revenue_actual: revenueActual,
     revenue_target: reportType === 'fone' ? revenue?.budget_fone ?? null : revenue?.budget_tuwei ?? null,
     revenue_completion_rate: reportType === 'fone' ? revenue?.completion_fone ?? null : revenue?.completion_tuwei ?? null,
     revenue_diff: reportType === 'fone' ? revenue?.diff_fone ?? null : revenue?.diff_tuwei ?? null,
-    pretax_profit_actual: profit?.actual ?? null,
+    pretax_profit_actual: profitActual,
     pretax_profit_target: reportType === 'fone' ? profit?.budget_fone ?? null : profit?.budget_tuwei ?? null,
     pretax_profit_completion_rate: reportType === 'fone' ? profit?.completion_fone ?? null : profit?.completion_tuwei ?? null,
     pretax_profit_diff: reportType === 'fone' ? profit?.diff_fone ?? null : profit?.diff_tuwei ?? null,
@@ -591,10 +644,14 @@ function buildCompositionRows(root: EnrichedBizDataNode | null, allNodes: Enrich
       level_2: child.orgHierarchy.level_2,
       node_name: child.node_name,
       node_kind: getNodeKind(child),
-      revenue_actual: revenue?.actual ?? null,
+      revenue_actual: reportType === 'fone'
+        ? revenue?.actual_fone ?? revenue?.actual ?? null
+        : revenue?.actual_tuwei ?? revenue?.actual ?? null,
       revenue_share: contributionShare(revenue?.actual ?? null, totalRevenue),
       revenue_completion_rate: revenueCompletion,
-      pretax_profit_actual: profit?.actual ?? null,
+      pretax_profit_actual: reportType === 'fone'
+        ? profit?.actual_fone ?? profit?.actual ?? null
+        : profit?.actual_tuwei ?? profit?.actual ?? null,
       pretax_profit_share: contributionShare(profit?.actual ?? null, totalProfit),
       pretax_profit_completion_rate: profitCompletion,
       business_judgement: `收入完成率${formatPctForJudgement(revenueCompletion)}，税前利润完成率${formatPctForJudgement(profitCompletion)}。`,
@@ -620,10 +677,14 @@ function buildCompositionRow(
     level_2: node.orgHierarchy.level_2,
     node_name: node.node_name,
     node_kind: getNodeKind(node),
-    revenue_actual: revenue?.actual ?? null,
+    revenue_actual: reportType === 'fone'
+      ? revenue?.actual_fone ?? revenue?.actual ?? null
+      : revenue?.actual_tuwei ?? revenue?.actual ?? null,
     revenue_share: contributionShare(revenue?.actual ?? null, totalRevenue),
     revenue_completion_rate: revenueCompletion,
-    pretax_profit_actual: profit?.actual ?? null,
+    pretax_profit_actual: reportType === 'fone'
+      ? profit?.actual_fone ?? profit?.actual ?? null
+      : profit?.actual_tuwei ?? profit?.actual ?? null,
     pretax_profit_share: contributionShare(profit?.actual ?? null, totalProfit),
     pretax_profit_completion_rate: profitCompletion,
     business_judgement: `${label ? `${label}：` : ''}收入完成率${formatPctForJudgement(revenueCompletion)}，税前利润完成率${formatPctForJudgement(profitCompletion)}。`,
@@ -992,10 +1053,10 @@ function buildWritingBrief(params: {
 
   const costExpensePoints = [
     ...params.costExpenseSummary
-      .filter(row => row.status === 'risk' || row.status === 'watch')
+    .filter(row => row.status === 'risk' || row.status === 'watch')
       .slice(0, 8)
       .map(row =>
-        `${reportTypeLabel(row.report_type)}${periodScopeLabel(row.period_scope)}${row.metric_label}完成率${formatBriefPct(row.completion_rate)}，差额${formatBriefNumber(row.diff)}万元。`
+        `${reportTypeLabel(row.report_type)}${periodScopeLabel(row.period_scope)}${row.metric_label}完成率${formatBriefPct(row.completion_rate)}，差额${formatBriefNumber(row.diff)}万元，状态${reportStatusLabel(row.status)}。`
       ),
     ...params.varianceRankings.expense_over_budget_top.slice(0, 5).map(row =>
       `${row.node_name}${row.metric_label || '费用'}超预算${formatBriefNumber(row.diff)}万元，完成率${formatBriefPct(row.completion_rate)}。`
@@ -1005,7 +1066,7 @@ function buildWritingBrief(params: {
   const riskActionPoints = params.warnings
     .filter(warning => warning.section !== '专项数据覆盖')
     .slice(0, 10)
-    .map(warning => `${warning.severity}：${warning.node_name ? `${warning.node_name}，` : ''}${warning.message}`)
+    .map(warning => `${warningSeverityLabel(warning.severity)}：${warning.node_name ? `${warning.node_name}，` : ''}${warning.message}`)
 
   return {
     focus: params.scopeProfile.recommended_report_focus,
@@ -1185,7 +1246,7 @@ function buildWarnings(params: {
       warnings.push({
         severity: card.status === 'risk' ? 'red' : card.status === 'watch' ? 'yellow' : 'info',
         section: card.period_scope === 'monthly' ? '当月核心指标' : `${periodScopeLabel(card.period_scope)}核心指标`,
-        message: `${reportTypeLabel(card.report_type)}${card.metric_label}${periodScopeLabel(card.period_scope)}完成状态为 ${card.status}。`,
+        message: `${reportTypeLabel(card.report_type)}${card.metric_label}${periodScopeLabel(card.period_scope)}完成状态为${reportStatusLabel(card.status)}。`,
         evidence: {
           metric: card.metric,
           actual: card.actual,
@@ -1219,7 +1280,7 @@ function buildWarnings(params: {
         severity: row.status === 'risk' ? 'red' : 'yellow',
         section: row.period_scope === 'monthly' ? '当月成本费用' : `${periodScopeLabel(row.period_scope)}成本费用`,
         node_name: row.node_name,
-        message: `${reportTypeLabel(row.report_type)}${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}完成状态为 ${row.status}。`,
+        message: `${reportTypeLabel(row.report_type)}${row.node_name}${periodScopeLabel(row.period_scope)}${row.metric_label}完成状态为${reportStatusLabel(row.status)}。`,
         evidence: {
           metric: row.metric,
           actual: row.actual,
