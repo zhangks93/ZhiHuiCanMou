@@ -11,6 +11,7 @@
     "resolve_org_nodes",
     "query_with_hierarchy",
     "query_business_report_pack",
+    "audit_business_report",
     "query_monthly_plan",
     "query_biz_data",
     "read_file"

@@ -24,6 +24,14 @@ import {
   schoolYearProgressRate,
   statusByCompletion,
 } from './reportCalculations'
+import {
+  buildBusinessReportClaimRules,
+  buildBusinessReportEvidenceLedger,
+  buildBusinessReportQualityContract,
+  buildBusinessReportRenderHints,
+  buildBusinessReportSectionBriefs,
+  validateBusinessReportPack,
+} from './businessReportQuality'
 import type {
   BusinessReportPack,
   BusinessReportWarning,
@@ -1509,8 +1517,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       varianceRankings,
       warnings,
     })
-
-    const pack: BusinessReportPack = {
+    const basePackForQuality: BusinessReportPack = {
       metadata: {
         scope_name: cumulativeToMonthRoot?.node_name ?? schoolYearTargetRoot?.node_name ?? monthRoot?.node_name ?? (nodeName || '智汇后勤集团'),
         org_scope_key: (cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot) ? buildOrgScopeKey((cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot)!) : resolvedOrgScopeKey ?? null,
@@ -1554,6 +1561,32 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       variance_rankings: varianceRankings,
       manual_fill_sections: buildManualFillSections(),
       warnings,
+    }
+    const evidenceLedger = buildBusinessReportEvidenceLedger(basePackForQuality)
+    const qualityContract = buildBusinessReportQualityContract(basePackForQuality)
+    const sectionBriefs = buildBusinessReportSectionBriefs(basePackForQuality, evidenceLedger)
+    const packQuality = validateBusinessReportPack(basePackForQuality)
+
+    const pack: BusinessReportPack = {
+      ...basePackForQuality,
+      evidence_ledger: evidenceLedger,
+      section_briefs: sectionBriefs,
+      quality_contract: qualityContract,
+      claim_rules: buildBusinessReportClaimRules(),
+      render_hints: buildBusinessReportRenderHints(),
+      warnings: [
+        ...warnings,
+        ...packQuality.findings.map(finding => ({
+          severity: finding.severity === 'error' ? 'red' as const : finding.severity === 'warning' ? 'yellow' as const : 'info' as const,
+          section: '报告生成质量契约',
+          message: finding.message,
+          evidence: {
+            code: finding.code,
+            quality_score: packQuality.score,
+            ...finding.evidence,
+          },
+        })),
+      ],
     }
 
     return JSON.stringify(pack, null, 2)

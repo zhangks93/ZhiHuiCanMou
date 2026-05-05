@@ -84,6 +84,7 @@ function pickCoreArgs(name: string, args: Record<string, unknown>): Record<strin
     query_business_report_pack: ['node_name', 'month', 'previous_month', 'cumulative_period', 'report_types', 'max_units'],
     query_biz_data: ['node_name', 'metric_category', 'metric_categories', 'report_type', 'period_type', 'period', 'sheet_codes'],
     query_monthly_plan: ['node_name', 'metric_category', 'month', 'months'],
+    audit_business_report: ['markdown'],
     read_file: ['path'],
   }
 
@@ -336,7 +337,7 @@ function prepareToolResultForModel(name: string, content: string): string {
     return compactBusinessReportPackResult(content)
   }
 
-  if (name === 'query_biz_data' || name === 'query_monthly_plan' || name === 'resolve_org_nodes') {
+  if (name === 'query_biz_data' || name === 'query_monthly_plan' || name === 'resolve_org_nodes' || name === 'audit_business_report') {
     return compactQueryRowsResult(content)
   }
 

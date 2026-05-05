@@ -222,6 +222,71 @@ export interface MissingDataNote {
   handling: 'closing_note'
 }
 
+export type BusinessReportEvidenceSource =
+  | 'writing_brief'
+  | 'summary_cards'
+  | 'metric_comparison_wide_table'
+  | 'school_year_goal_assessment_table'
+  | 'direct_children_table'
+  | 'organization_two_level_table'
+  | 'cost_expense_wide_table'
+  | 'variance_rankings'
+  | 'warnings'
+
+export type BusinessReportClaimConfidence = 'confirmed' | 'derived' | 'hypothesis' | 'manual_required'
+
+export interface BusinessReportEvidenceItem {
+  id: string
+  source: BusinessReportEvidenceSource
+  section: string
+  claim_type: 'fact' | 'judgement' | 'risk' | 'action' | 'manual_gap'
+  confidence: BusinessReportClaimConfidence
+  node_name?: string
+  metric?: string
+  metric_label?: string
+  period_scope?: PeriodScope | 'cross_period' | 'manual'
+  report_type?: ReportType | 'both' | 'not_applicable'
+  actual?: number | null
+  target?: number | null
+  completion_rate?: number | null
+  diff?: number | null
+  evidence_text: string
+}
+
+export interface BusinessReportSectionBrief {
+  section: string
+  required: boolean
+  data_status: 'available' | 'partial' | 'missing' | 'manual_required'
+  primary_sources: BusinessReportEvidenceSource[]
+  required_evidence_ids: string[]
+  writing_guidance: string[]
+}
+
+export interface BusinessReportQualityContract {
+  required_sections: string[]
+  required_tables: string[]
+  forbidden_terms: string[]
+  required_chinese_report_type_labels: string[]
+  required_period_scope_labels: string[]
+  manual_data_sections: string[]
+  minimum_two_level_org_rows: number
+  audit_tool: 'audit_business_report'
+}
+
+export interface BusinessReportClaimRules {
+  confidence_policy: Record<BusinessReportClaimConfidence, string>
+  period_policy: string
+  manual_data_policy: string
+  numeric_claim_policy: string
+}
+
+export interface BusinessReportRenderHints {
+  default_output: 'markdown'
+  chart_json_only_when_requested: boolean
+  preferred_table_order: string[]
+  recommended_generation_flow: string[]
+}
+
 export interface BusinessReportPack {
   metadata: {
     scope_name: string
@@ -274,6 +339,11 @@ export interface BusinessReportPack {
   cost_expense_wide_table: CostExpenseWideRow[]
   data_completeness_matrix: DataCompletenessMatrixRow[]
   metric_coverage: MetricCoverage
+  evidence_ledger?: BusinessReportEvidenceItem[]
+  section_briefs?: BusinessReportSectionBrief[]
+  quality_contract?: BusinessReportQualityContract
+  claim_rules?: BusinessReportClaimRules
+  render_hints?: BusinessReportRenderHints
   missing_data_notes?: MissingDataNote[]
   variance_rankings: {
     revenue_gap_top: RankingRow[]

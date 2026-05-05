@@ -1,30 +1,23 @@
 # 完整经营分析报告生成规范
 
-只用于“完整报告 / 经营分析报告 / 月报 / markdown 报告 / 汇报版材料”。完整报告必须按业务汇报材料生成，不输出泛化摘要。
+仅用于完整报告、月报、markdown 报告和汇报材料。完整报告必须像经营汇报材料，不写成泛化摘要。
 
-## 1. 数据准备
+## 1. 数据主线
 
-完整月度经营分析报告必须优先调用 `query_business_report_pack`。
+完整报告必须优先调用 `query_business_report_pack`。若 `coverage.core_biz_data = missing`，不得生成完整报告，只输出缺数说明。
 
-若该工具返回：
-- `coverage.core_biz_data = missing`：不得生成完整报告，只输出缺数说明。
-- `writing_brief`：优先作为写作素材，先写结论，再用明细表支撑。
-- `school_year_goal_assessment_table`：必须放在表述总体信息的第一章节中，只写营业收入和税前利润的学年目标达成概率与风险。
-- `metric_comparison_wide_table`：目标对标章节首选表；实际值只展示一次，后续并列展示学年预算与突围考核的目标、完成率和差额。
-- `cost_expense_wide_table`：成本费用章节首选表；只有宽表不足时才回退到 `cost_expense_table`。
-- `scope_profile`：必须据此调整分析颗粒度。集团层级写结构和贡献；区域/中心层级写下属单元差异；叶子层级写自身目标达成、趋势和费用风险。
-- `data_completeness_matrix`：用于判断哪些章节可直接写、哪些只能有限结论、哪些只放在结尾数据限制说明。
-- `warnings` 非空：必须在报告正文和管理层关注事项中体现。
-- `direct_children_table` / `key_descendant_table` / `leaf_exception_table` 非空：优先使用直接子级表，再用重点后代和叶子异常表补充。
-- `organization_two_level_table` / `all_metric_table`：必须用于展示提问组织下属至少两层经营情况。集团报告至少写集团下属部门及其下属部门；区域/中心报告至少写该区域/中心下属单元及下一级。
-- `metadata.cumulative_to_month_period` 与 `metadata.school_year_target_period`：必须分别作为“截至当月累计”和“学年目标累计”口径，不得合并成一个笼统“累计”。
-- `cost_expense_summary` / `cost_expense_table` 非空：必须输出系统可取费用指标分析，不得写成待补。
-- `metric_coverage.missing_auto_metrics` 非空：生成正文前应说明自动指标覆盖缺口；若是报告关键指标，降低结论强度。
-- `missing_data_notes` 非空：只在报告结尾集中说明，不在正文渲染大面积占位表。
+报告包字段使用优先级：
+- 写作素材：`writing_brief`、`section_briefs`、`evidence_ledger`。
+- 硬约束：`quality_contract`、`claim_rules`、`data_completeness_matrix`。
+- 核心表：`school_year_goal_assessment_table`、`metric_comparison_wide_table`、`organization_two_level_table`、`cost_expense_wide_table`。
+- 结构与风险：`scope_profile`、`direct_children_table`、`key_descendant_table`、`leaf_exception_table`、`unit_cards`、`variance_rankings`、`warnings`。
+- 缺数说明：`missing_data_notes`、`coverage.gaps`。
 
-## 2. 章节要求
+关键结论必须能回溯到 `evidence_ledger`；`manual_required` 只能写成补数要求，不得写成已确认事实。
 
-终稿默认采用弹性结构：
+## 2. 章节结构
+
+默认结构：
 1. 经营摘要与学年目标判断
 2. 目标对标与实际完成
 3. 组织结构、贡献与拖累
@@ -32,46 +25,30 @@
 5. 风险判断与后续动作
 6. 数据限制与待补说明
 
-允许根据组织层级和数据完整度合并或删除小节，但不得省略核心经营判断。
+允许按组织层级和数据完整度合并小节，但不得省略核心经营判断。集团看区域 / 中心结构与贡献；区域 / 中心看下属单元差异；叶子节点不强行输出无意义下级构成。
 
-完整报告必须至少包含一张两层组织经营表，字段优先覆盖：组织路径、层级、营业收入、税前利润、人力成本、毛利率，以及对应的截至当月累计或学年目标累计口径。若二级下属不存在，必须在“数据限制与待补说明”中说明组织层级不可继续展开。
+## 3. 表格规则
 
-## 3. 表格要求
+数据充足时优先输出：
+- 学年目标达成概率与风险表：只覆盖营业收入、税前利润。
+- 目标对标宽表：实际值只展示一次，并列展示学年预算与突围考核。
+- 组织构成 / 贡献 / 缺口表：至少一张覆盖两层组织；若无二级下属，在数据限制中说明。
+- 成本费用或效率宽表。
+- 风险动作表。
 
-数据充足时，优先输出：
-- 第一章节中的学年目标达成概率与风险表 1 张，只覆盖营业收入、税前利润。
-- 目标对标宽表 1 张，实际值只展示一次，同时承载学年预算与突围考核目标/完成率/差额。
-- 构成、贡献或缺口表 1-2 张，其中至少 1 张必须覆盖两层组织。
-- 重点单位表或风险动作表 1 张。
-- 成本费用或效率宽表 1 张。
+表格服务于判断，不为凑数量。每张核心表后至少写 2 条带数字、对象、原因或风险的分析。
 
-表格服务于判断，不为凑数量而输出。缺少专项数据时，不输出 `【人工补充】` 占位表。
+## 4. 缺失数据与禁用
 
-终稿正文、标题、表头、预警和结论不得出现 `fone`、`tuwei` 字样；统一写作“学年预算”“突围考核”。内部工具字段名可保留英文枚举，但不得原样暴露到报告正文。
+- 终稿不得出现 `fone`、`tuwei`，统一写“学年预算”“突围考核”。
+- 不输出 `【人工补充】` 或大面积待补占位表。
+- 应收账款、资金计划、核心费用专项明细只在“数据限制与待补说明”集中列出补数要求。
+- 系统已有的人力成本、工资、物资成本、车辆费用、能耗费、差旅费、招待费等指标必须正常分析，不能写成待补。
+- 普通完整报告不输出图表 JSON；只有用户明确要求 chart spec 时才读取 `chart-guidance.md`。
 
-## 4. 文字密度要求
+## 5. 自审
 
-每个核心章节必须满足：
-- 表前最多 1 句背景。
-- 表后至少 2 条分析。
-- 分析必须包含数字、对象、原因或风险。
-- 不允许只复述表格。
-
-## 5. 缺失数据处理
-
-对于系统当前不可自动获取的数据：
-- 不编造。
-- 不在正文输出大量待补占位符。
-- 在结尾“数据限制与待补说明”集中列出缺失字段、原因和补数后需复核的事项。
-
-核心费用专项明细虽然需要人工补充，但系统已有的成本费用经营指标必须先作为参考输出；禁止把 `labor_cost`、`salary`、`material_cost`、`vehicle_expense`、`energy_expense`、`travel_expense`、`entertainment_expense` 等自动指标写成待补。
-
-## 6. 图表交付
-
-默认不输出图表 JSON。
-
-只有用户明确要求“图表配置 / chart spec / JSON 图表 / 离线绘图配置”时，才读取 `chart-guidance.md` 并输出 chart spec JSON。普通完整报告只输出文字、数字和 Markdown 表格。
-
-## 7. 自审
-
-输出前按 `report-quality-rubric.md` 自审。未通过时先修正，再输出终稿。
+输出终稿前：
+1. 按 `report-quality-rubric.md` 自审。
+2. 调用 `audit_business_report` 审核 Markdown 初稿。
+3. 修复 error 级问题；warning 级问题若因数据缺失无法修复，在数据限制中说明。

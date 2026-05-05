@@ -8,6 +8,7 @@ import { queryBusinessReportPackTool } from './queryBusinessReportPack'
 import { queryMonthlyPlanTool } from './queryMonthlyPlan'
 import { queryBizDataTool } from './queryBizData'
 import { readFileTool } from './readFile'
+import { auditBusinessReportTool } from './auditBusinessReport'
 
 /** All available tools indexed by function name */
 const toolMap: Record<string, RegisteredTool> = {
@@ -16,6 +17,7 @@ const toolMap: Record<string, RegisteredTool> = {
   query_business_report_pack: queryBusinessReportPackTool,
   query_monthly_plan: queryMonthlyPlanTool,
   query_biz_data: queryBizDataTool,
+  audit_business_report: auditBusinessReportTool,
   read_file: readFileTool,
 }
 

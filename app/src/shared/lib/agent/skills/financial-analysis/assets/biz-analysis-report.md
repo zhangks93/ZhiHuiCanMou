@@ -1,119 +1,66 @@
-# 后勤集团经营分析报告写作模板
+# 后勤集团经营分析报告模板
 
-**汇报单位**：以 `query_business_report_pack.metadata.scope_name` 为准  
-**统计周期**：当月 `metadata.month`，累计 `metadata.cumulative_period`  
+**汇报单位**：`query_business_report_pack.metadata.scope_name`  
+**统计周期**：当月 `metadata.month`；截至当月累计 `metadata.cumulative_to_month_period`；学年目标累计 `metadata.school_year_target_period`  
 **数据单位**：万元  
 **数据来源**：`edu_biz_report`、`edu_biz_monthly_plan`、`edu_org_hierarchy`
 
-> 使用规则：
-> - 完整报告必须优先调用 `query_business_report_pack`，不得用多次零散查数替代报告包。
-> - 报告正文优先使用 `writing_brief`、`scope_profile`、`school_year_goal_assessment_table`、`metric_comparison_wide_table`、`direct_children_table`、`unit_cards`、`cost_expense_wide_table`、`variance_rankings`、`warnings`。
-> - 模板是写作框架，不是必须逐字照搬的固定目录。允许根据组织层级、数据完整度和用户要求合并、删减或调整小节。
-> - 当月、上月、截至当月累计、学年目标累计必须分开表达；学年预算和突围考核可以放在同一张宽表里对比，不要拆成重复小表。
-> - 终稿不得出现 `fone`、`tuwei` 字样；统一写作“学年预算”“突围考核”。
-> - 百分比字段由小数展示为百分比，例如 `0.84` 写作 `84%`。
-> - 不输出图表 JSON；除非用户明确要求图表配置。
-> - 应收、资金计划、核心费用专项明细等系统取不到的数据，不在正文输出大量占位表，只在结尾集中说明。
-
----
+> 模板是写作框架，可按组织层级和数据完整度合并小节。字段选择和硬约束以 `report-generation.md`、`quality_contract` 为准。
 
 ## 1. 经营摘要与学年目标判断
 
-用 3-6 条要点先写清本期核心判断。优先引用 `writing_brief.executive_summary_points` 和 `writing_brief.school_year_goal_points`，并补充经营含义：
+用 3-6 条要点写清：
 - 收入和税前利润是否达成目标。
 - 收入完成与利润完成是否匹配。
 - 主要增长点、拖累点和风险点。
 - 当前状态对累计目标或后续月份的影响。
 
-本章节中使用 `school_year_goal_assessment_table` 展示学年目标判断，只覆盖：
-- 营业收入。
-- 税前利润。
+本节使用 `school_year_goal_assessment_table`，只覆盖营业收入和税前利润。
 
 建议表头：
 
 | 指标 | 实际值 | 学年进度 | 学年预算目标 | 学年预算完成率 | 学年预算达成概率 | 学年预算风险 | 突围考核目标 | 突围考核完成率 | 突围考核达成概率 | 突围考核风险 |
 |---|---:|---:|---:|---:|---|---|---:|---:|---|---|
 
-表后写 2-4 条判断：
-- 营收和利润分别相对学年进度是领先、匹配还是滞后。
-- 同一实际值下，学年预算与突围考核差异来自目标值不同，不要重复描述实际值。
-- 税前利润若为负或明显低于进度，优先提示利润转化和成本刚性风险。
-
----
-
 ## 2. 目标对标与实际完成
 
-优先使用 `metric_comparison_wide_table` 输出宽表。每行表示一个指标在一个期间下的实际完成情况，实际值只展示一次，后面并列展示学年预算和突围考核的目标、完成率、差额。至少覆盖：
-- 营业收入实际、学年预算目标/完成率/差额、突围考核目标/完成率/差额。
-- 税前利润实际、学年预算目标/完成率/差额、突围考核目标/完成率/差额。
-- 可用时补充毛利额、人力成本等核心指标，但不要把学年目标累计章节扩展到过多指标。
+优先使用 `metric_comparison_wide_table`。实际值只展示一次，并列展示学年预算与突围考核目标、完成率和差额。
 
 建议表头：
 
 | 期间 | 指标 | 实际值 | 同比 | 环比 | 学年预算目标 | 学年预算完成率 | 学年预算差额 | 突围考核目标 | 突围考核完成率 | 突围考核差额 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 
-表后写 2-5 条判断：
-- 对照学年预算与突围考核的整体完成状态。
-- 收入端缺口和利润端缺口的相对大小。
-- 利润转化是否弱于收入兑现。
-- 黄色/红色预警必须点名对象和指标。
-
----
+表后说明收入缺口、利润缺口、利润转化是否匹配，以及黄色 / 红色预警。
 
 ## 3. 组织结构、贡献与拖累
 
-先查看 `scope_profile.recommended_report_focus` 决定颗粒度：
-- 集团层级：重点写区域/中心结构、贡献排行、缺口排行和结构质量。
-- 区域/中心层级：重点写直接下级差异、重点项目/业务单元拖累和费用压力。
-- 叶子节点：不强行输出下级构成，重点写自身目标达成、当月/累计变化和费用风险。
+按 `scope_profile.recommended_report_focus` 调整颗粒度：
+- 集团：区域 / 中心结构、贡献排行、缺口排行和结构质量。
+- 区域 / 中心：直接下级差异、重点单元拖累和费用压力。
+- 叶子节点：自身目标达成、趋势和费用风险。
 
-可使用：
-- `direct_children_table`：首选构成表。
-- `key_descendant_table`、`leaf_exception_table`：直接子级不足或需要穿透时补充。
-- `variance_rankings`：输出收入/利润缺口 TOP、贡献 TOP。
-- `unit_cards.selection_reason`：说明为什么点名该单位。
-
-表后必须说明增长点、拖累点和结构质量，不只复述表格。
-
----
+可用表：`organization_two_level_table`、`direct_children_table`、`key_descendant_table`、`leaf_exception_table`、`variance_rankings`、`unit_cards`。
 
 ## 4. 成本费用与效率
 
-优先使用 `cost_expense_wide_table`、`cost_expense_summary`、`variance_rankings.expense_over_budget_top` 输出系统可取的成本费用和效率指标。成本费用表也应采用宽表：实际值只展示一次，后面并列展示学年预算与突围考核。优先覆盖：
-- 人力成本及工资、社保、公积金、劳务费等明细。
-- 餐饮支出、物资销售成本、其他支出、营业外支出。
-- 车辆费用、能耗费、差旅费、业务招待费。
-- 人力成本率、人均营收、一元创收、一元创利等效率指标。
+优先使用 `cost_expense_wide_table`、`cost_expense_summary`、`variance_rankings.expense_over_budget_top`。
 
-写作要求：
-- 费用类经营指标通常低于或等于目标为好，超目标需点名对象和指标。
-- 不把系统已有费用指标写成待补。
-- 对无法自动取得的专项费用明细，只在结尾数据限制中说明。
-
----
+重点覆盖：人力成本及明细、餐饮支出、物资销售成本、其他支出、营业外支出、车辆费用、能耗费、差旅费、业务招待费、人效类指标。
 
 ## 5. 风险判断与后续动作
 
-使用 `warnings`、`unit_cards.warnings`、`writing_brief.risk_action_points` 输出管理动作表。
+使用 `warnings`、`unit_cards.warnings`、`writing_brief.risk_action_points` 输出动作表。
 
 建议表头：
 
 | 关注事项 | 对象 | 证据 | 风险等级 | 后续动作 |
 |---|---|---|---|---|
 
-本节必须：
-- 引用前文具体数据或预警，不写泛泛建议。
-- 区分收入兑现、利润转化、成本刚性、效率改善、专项补数五类动作。
-- 动作表达要具体，避免“加强管理、持续关注”这类空话单独出现。
-
----
+动作必须对应具体对象和证据，避免只写“加强管理、持续关注”。
 
 ## 6. 数据限制与待补说明
 
-仅当 `missing_data_notes`、`coverage.gaps` 或 `data_completeness_matrix` 显示缺数时输出本节。
+仅当 `missing_data_notes`、`coverage.gaps` 或 `data_completeness_matrix` 显示缺数时输出。
 
-写法：
-- 用 2-5 条短说明列出系统未接入的数据源或字段。
-- 对应收账款回款、资金计划执行、核心费用专项明细，只说明“需业务侧补充后复核”，不渲染大面积 `【人工补充】` 占位表。
-- 数据不足时降低结论强度，但不要删除已可自动生成的核心经营分析。
+写 2-5 条短说明：缺失字段、原因、业务侧需补充内容、补数后需复核事项。
