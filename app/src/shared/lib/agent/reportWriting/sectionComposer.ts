@@ -81,7 +81,7 @@ function pickSourceData(pack: BusinessReportPack, section: string): Record<strin
       direct_children_table: pack.direct_children_table,
       organization_two_level_table: pack.organization_two_level_table,
       key_descendant_table: pack.key_descendant_table,
-      leaf_exception_table: pack.leaf_exception_table,
+      project_exception_table: pack.leaf_exception_table,
       unit_cards: pack.unit_cards,
       variance_rankings: {
         revenue_contribution_top: pack.variance_rankings.revenue_contribution_top,
@@ -148,7 +148,7 @@ export function buildBusinessReportSectionInputs(pack: BusinessReportPack): Busi
         .filter((item): item is BusinessReportEvidenceItem => Boolean(item))
       const sectionEvidence = (pack.evidence_ledger ?? [])
         .filter(item => item.section === brief.section && !brief.required_evidence_ids.includes(item.id))
-        .slice(0, 8)
+        .slice(0, brief.section === '组织结构、贡献与拖累' ? 32 : brief.section === '成本费用与效率' ? 24 : 12)
 
       return {
         section: brief.section,
@@ -175,8 +175,11 @@ export function buildBusinessReportSectionInputs(pack: BusinessReportPack): Busi
 export function extractSectionDraft(raw: string, section: string, source: BusinessReportSectionDraft['source']): BusinessReportSectionDraft {
   const trimmed = raw.trim()
   let parsed: unknown
+  const fencedJson = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```\s*$/i)
+  const candidate = fencedJson?.[1]?.trim() || trimmed
+
   try {
-    parsed = JSON.parse(trimmed) as unknown
+    parsed = JSON.parse(candidate) as unknown
   } catch {
     parsed = null
   }
@@ -222,6 +225,13 @@ function stripForbiddenAscii(markdown: string): string {
     .replace(/\bwatch\b/gi, '关注')
     .replace(/\brisk\b/gi, '风险')
     .replace(/\bmissing\b/gi, '缺数')
+    .replace(/叶子节点/g, '明细项目')
+    .replace(/\bnode\b/gi, '单位')
+    .replace(/\bleaf\b/gi, '明细项目')
+    .replace(/\borphan\b/gi, '未归类项目')
+    .replace(/\bworker\b/gi, '分章写作')
+    .replace(/\bJSON\b/g, '结构化内容')
+    .replace(/\bjson\b/g, '结构化内容')
 }
 
 export function composeBusinessReportMarkdown(

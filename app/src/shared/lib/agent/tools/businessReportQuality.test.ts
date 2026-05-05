@@ -218,7 +218,7 @@ describe('business report quality', () => {
     expect(result.findings.some(item => item.code === 'forbidden_term_present')).toBe(true)
   })
 
-  it('flags latin letters and source table names in markdown output', () => {
+  it('blocks forbidden internal terms and warns on latin letters in markdown output', () => {
     const pack = basePack()
     pack.quality_contract = buildBusinessReportQualityContract(pack)
     const result = validateBusinessReportOutput([
@@ -234,7 +234,99 @@ describe('business report quality', () => {
 
     expect(result.passed).toBe(false)
     expect(result.findings.some(item => item.code === 'forbidden_term_present')).toBe(true)
-    expect(result.findings.some(item => item.code === 'latin_letters_present')).toBe(true)
+    expect(result.findings.some(item => item.code === 'latin_letters_present' && item.severity === 'warning')).toBe(true)
+  })
+
+  it('warns but does not fail on non-forbidden latin letters', () => {
+    const pack = basePack()
+    pack.quality_contract = buildBusinessReportQualityContract(pack)
+    const result = validateBusinessReportOutput([
+      '## 经营摘要与学年目标判断',
+      '本月 BP 复盘显示收入仍需关注，学年预算和突围考核均需持续跟进。',
+      '## 目标对标与实际完成',
+      '当月收入完成较好，截至当月累计利润仍有缺口，学年目标累计存在压力。',
+      '## 组织结构、贡献与拖累',
+      '一号食堂收入五十万元。',
+      '## 成本费用与效率',
+      '人力成本需关注。',
+      '## 风险判断与后续动作',
+      '后续动作聚焦利润缺口。',
+      '## 数据限制与待补说明',
+      '应收账款回款情况需人工补充。',
+    ].join('\n'), pack)
+
+    expect(result.passed).toBe(true)
+    expect(result.findings.some(item => item.code === 'latin_letters_present' && item.severity === 'warning')).toBe(true)
+  })
+
+  it('blocks non-business technical terms in final markdown', () => {
+    const pack = basePack()
+    pack.quality_contract = buildBusinessReportQualityContract(pack)
+    const result = validateBusinessReportOutput([
+      '## 经营摘要与学年目标判断',
+      '学年预算和突围考核均需持续跟进。',
+      '## 目标对标与实际完成',
+      '当月收入完成较好，截至当月累计利润仍有缺口，学年目标累计存在压力。',
+      '## 组织结构、贡献与拖累',
+      '叶子节点一号食堂收入五十万元。',
+      '## 成本费用与效率',
+      '人力成本需关注。',
+      '## 风险判断与后续动作',
+      '后续动作聚焦利润缺口。',
+      '## 数据限制与待补说明',
+      '应收账款回款情况需人工补充。',
+    ].join('\n'), pack)
+
+    expect(result.passed).toBe(false)
+    expect(result.findings.some(item => item.code === 'non_business_term_present')).toBe(true)
+  })
+
+  it('allows business terms for detailed units and projects', () => {
+    const pack = basePack()
+    pack.quality_contract = buildBusinessReportQualityContract(pack)
+    const result = validateBusinessReportOutput([
+      '## 经营摘要与学年目标判断',
+      '学年预算和突围考核均需持续跟进。',
+      '## 目标对标与实际完成',
+      '当月收入完成较好，截至当月累计利润仍有缺口，学年目标累计存在压力。',
+      '## 组织结构、贡献与拖累',
+      '明细项目一号食堂收入五十万元，第二层单位需要继续关注。',
+      '## 成本费用与效率',
+      '人力成本需关注。',
+      '## 风险判断与后续动作',
+      '后续动作聚焦利润缺口。',
+      '## 数据限制与待补说明',
+      '应收账款回款情况需人工补充。',
+    ].join('\n'), pack)
+
+    expect(result.passed).toBe(true)
+    expect(result.findings.some(item => item.code === 'non_business_term_present')).toBe(false)
+  })
+
+  it('ignores urls and fenced code blocks when checking latin letters', () => {
+    const pack = basePack()
+    pack.quality_contract = buildBusinessReportQualityContract(pack)
+    const result = validateBusinessReportOutput([
+      '## 经营摘要与学年目标判断',
+      '学年预算和突围考核均需持续跟进。',
+      '参考链接：https://example.com/report',
+      '```',
+      'abc',
+      '```',
+      '## 目标对标与实际完成',
+      '当月收入完成较好，截至当月累计利润仍有缺口，学年目标累计存在压力。',
+      '## 组织结构、贡献与拖累',
+      '一号食堂收入五十万元。',
+      '## 成本费用与效率',
+      '人力成本需关注。',
+      '## 风险判断与后续动作',
+      '后续动作聚焦利润缺口。',
+      '## 数据限制与待补说明',
+      '应收账款回款情况需人工补充。',
+    ].join('\n'), pack)
+
+    expect(result.passed).toBe(true)
+    expect(result.findings.some(item => item.code === 'latin_letters_present')).toBe(false)
   })
 
   it('requires second-level organization description when available', () => {

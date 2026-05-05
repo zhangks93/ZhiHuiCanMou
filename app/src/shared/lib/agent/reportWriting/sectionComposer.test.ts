@@ -166,6 +166,35 @@ describe('sectionComposer', () => {
     expect(inputs.every(input => input.metadata.scope_name === '后勤管理中心')).toBe(true)
   })
 
+  it('keeps expanded evidence for detailed organization sections', () => {
+    const pack = packFixture()
+    pack.evidence_ledger = Array.from({ length: 40 }, (_, index) => ({
+      id: `org-two-level-${index + 1}`,
+      source: 'organization_two_level_table',
+      section: '组织结构、贡献与拖累',
+      claim_type: 'fact',
+      confidence: 'confirmed',
+      node_name: `单位${index + 1}`,
+      period_scope: 'cumulative_to_month',
+      report_type: 'both',
+      actual: index + 1,
+      evidence_text: `单位${index + 1}收入${index + 1}万元。`,
+    }))
+    pack.section_briefs = [{
+      section: '组织结构、贡献与拖累',
+      required: true,
+      data_status: 'available',
+      primary_sources: ['organization_two_level_table'],
+      required_evidence_ids: [],
+      writing_guidance: [],
+    }]
+
+    const org = buildBusinessReportSectionInputs(pack).find(input => input.section === '组织结构、贡献与拖累')
+
+    expect(org?.evidence).toHaveLength(32)
+    expect(org?.sourceData).toHaveProperty('project_exception_table')
+  })
+
   it('extracts strict json worker output', () => {
     const draft = extractSectionDraft(
       JSON.stringify({
@@ -180,6 +209,27 @@ describe('sectionComposer', () => {
 
     expect(draft.markdown).toContain('收入承压')
     expect(draft.usedEvidenceIds).toEqual(['school-year-goal-1'])
+  })
+
+  it('extracts worker json wrapped in a markdown code fence', () => {
+    const draft = extractSectionDraft(
+      [
+        '```json',
+        JSON.stringify({
+          markdown: '## 组织结构、贡献与拖累\n\n一号食堂收入五十万元。',
+          used_evidence_ids: ['org-two-level-1'],
+          limitations: [],
+          findings: [],
+        }),
+        '```',
+      ].join('\n'),
+      '组织结构、贡献与拖累',
+      'worker'
+    )
+
+    expect(draft.markdown).toContain('一号食堂收入五十万元')
+    expect(draft.markdown).not.toContain('used_evidence_ids')
+    expect(draft.usedEvidenceIds).toEqual(['org-two-level-1'])
   })
 
   it('composes drafts in required report order', () => {

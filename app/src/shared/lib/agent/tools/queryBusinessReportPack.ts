@@ -748,7 +748,7 @@ function buildLeafExceptionRows(root: EnrichedBizDataNode | null, allNodes: Enri
       const right = reportType === 'fone' ? b.metrics.pretax_profit?.completion_fone : b.metrics.pretax_profit?.completion_tuwei
       return (left ?? Number.POSITIVE_INFINITY) - (right ?? Number.POSITIVE_INFINITY)
     })
-    .map(node => buildCompositionRow(node, root, reportType, '叶子节点异常'))
+    .map(node => buildCompositionRow(node, root, reportType, '项目异常'))
 }
 
 function buildOrganizationTwoLevelTable(root: EnrichedBizDataNode | null, allNodes: EnrichedBizDataNode[]): OrganizationCoverageRow[] {
@@ -888,8 +888,8 @@ function buildScopeProfile(root: EnrichedBizDataNode | null, allNodes: EnrichedB
     : nodeKind === 'level1'
       ? ['下属中心/业务单元完成情况', '重点项目拖累点', '费用与利润转化']
       : nodeKind === 'level2'
-        ? ['明细单位完成情况', '低毛利和费用超支节点', '当月对累计目标影响']
-        : ['本节点目标达成', '当月/累计趋势', '费用和人工补充事项']
+        ? ['明细单位完成情况', '低毛利和费用超支项目', '当月对累计目标影响']
+        : ['本单位目标达成', '当月/累计趋势', '费用和人工补充事项']
 
   return {
     scope_name: root?.node_name ?? '未匹配节点',
@@ -960,7 +960,7 @@ function buildDataCompletenessMatrix(params: {
       params.compositionTable.length > 0 ? '' : 'composition_table',
       params.unitCards.length > 0 ? '' : 'unit_cards',
     ].filter(Boolean),
-    handling: '优先使用直接子级表；若子级不足，使用重点后代和叶子异常表补充',
+    handling: '优先使用直接下级数据；若下级不足，使用重点下钻单位和项目异常数据补充',
   })
 
   matrix.push({
@@ -1369,7 +1369,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
           },
           max_units: {
             type: 'number',
-            description: '最多返回多少个 unit_cards，默认 60。',
+            description: '最多返回多少个重点单位卡片，默认 120。',
           },
         },
         required: ['month'],
@@ -1388,7 +1388,7 @@ export const queryBusinessReportPackTool: RegisteredTool = {
     const cumulativeToMonthPeriod = validated.values.cumulative_period || inferCumulativeToMonthPeriod(month)
     const schoolYearTargetPeriod = validated.values.school_year_target_period || inferSchoolYearTargetPeriod(month)
     const reportTypes: ReportType[] = validated.values.report_types?.length ? validated.values.report_types : ['fone', 'tuwei']
-    const maxUnits = validated.values.max_units ?? 60
+    const maxUnits = validated.values.max_units ?? 120
 
     const [monthReports, previousReports, cumulativeToMonthReports, schoolYearTargetReports] = await Promise.all([
       fetchBizReport({ period: month, periodType: 'monthly', reportTypes }),

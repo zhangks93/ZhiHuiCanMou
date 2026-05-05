@@ -86,7 +86,7 @@ function evidenceFallback(input: BusinessReportSectionInput, reason: string): Bu
     : '- 本节缺少可直接引用的证据，结论需降低强度。'
   const guidance = input.writingGuidance.length
     ? input.writingGuidance.map(item => `- ${item}`).join('\n')
-    : '- 按报告质量契约保守表达。'
+    : '- 按现有证据保守表达。'
 
   return {
     section: input.section,
@@ -97,7 +97,7 @@ function evidenceFallback(input: BusinessReportSectionInput, reason: string): Bu
       '',
       '本节判断基于以上系统证据，未覆盖的数据不扩写为已确认事实。',
       '',
-      '写作约束：',
+      '后续关注：',
       guidance,
     ].join('\n'),
     usedEvidenceIds: input.evidence.map(item => item.id),

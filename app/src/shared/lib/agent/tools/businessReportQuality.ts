@@ -66,6 +66,19 @@ const FORBIDDEN_TERMS = [
   '【待补】',
   '【人工补充】',
 ]
+const FORBIDDEN_PUBLIC_TECH_TERMS = [
+  '叶子节点',
+  '节点',
+  'node',
+  'leaf',
+  'orphan',
+  'worker',
+  'JSON',
+  'json',
+  '字段名',
+  '表名',
+  '数据结构',
+]
 const MANUAL_DATA_SECTIONS = ['应收账款回款情况', '资金计划执行情况', '核心费用专项明细']
 const PERIOD_SCOPE_LABELS = ['当月', '截至当月累计', '学年目标累计']
 
@@ -91,6 +104,13 @@ function reportStatusLabel(value: string | undefined): string {
   if (value === 'watch') return '关注'
   if (value === 'risk') return '风险'
   return '缺数'
+}
+
+function orgDepthLabel(depth: number): string {
+  if (depth === 0) return '本级组织'
+  if (depth === 1) return '直接下级'
+  if (depth === 2) return '第二层单位'
+  return `第${depth}层单位`
 }
 
 function pushMetricEvidence(
@@ -169,7 +189,7 @@ function pushWarningEvidence(
 export function buildBusinessReportEvidenceLedger(pack: BusinessReportPack): BusinessReportEvidenceItem[] {
   const ledger: BusinessReportEvidenceItem[] = []
 
-  pack.metric_comparison_wide_table.slice(0, 24).forEach((row, index) => {
+  pack.metric_comparison_wide_table.slice(0, 48).forEach((row, index) => {
     pushMetricEvidence(ledger, row, index)
   })
 
@@ -177,7 +197,7 @@ export function buildBusinessReportEvidenceLedger(pack: BusinessReportPack): Bus
     pushSchoolYearEvidence(ledger, row, index)
   })
 
-  pack.cost_expense_wide_table.slice(0, 24).forEach((row, index) => {
+  pack.cost_expense_wide_table.slice(0, 60).forEach((row, index) => {
     ledger.push({
       id: `cost-expense-${index + 1}`,
       source: 'cost_expense_wide_table',
@@ -199,7 +219,7 @@ export function buildBusinessReportEvidenceLedger(pack: BusinessReportPack): Bus
     })
   })
 
-  pack.organization_two_level_table.slice(0, 24).forEach((row, index) => {
+  pack.organization_two_level_table.slice(0, 80).forEach((row, index) => {
     ledger.push({
       id: `org-two-level-${index + 1}`,
       source: 'organization_two_level_table',
@@ -211,7 +231,7 @@ export function buildBusinessReportEvidenceLedger(pack: BusinessReportPack): Bus
       report_type: 'both',
       actual: row.revenue_actual,
       evidence_text:
-        `${row.node_name}层级${row.depth_from_scope}，收入${formatNumber(row.revenue_actual)}，` +
+        `${row.node_name}为${orgDepthLabel(row.depth_from_scope)}，收入${formatNumber(row.revenue_actual)}，` +
         `税前利润${formatNumber(row.pretax_profit_actual)}，人力成本${formatNumber(row.labor_cost_actual)}。`,
     })
   })
@@ -285,7 +305,7 @@ export function buildBusinessReportSectionBriefs(
 ): BusinessReportSectionBrief[] {
   const idsBySection = (section: string) => evidenceLedger
     .filter(item => item.section === section)
-    .slice(0, 8)
+    .slice(0, section === '组织结构、贡献与拖累' ? 32 : section === '成本费用与效率' ? 24 : 12)
     .map(item => item.id)
 
   const completenessBySection = new Map(pack.data_completeness_matrix.map(row => [row.section, row.status]))
@@ -313,7 +333,11 @@ export function buildBusinessReportSectionBriefs(
       data_status: pack.organization_two_level_table.length ? 'available' : 'partial',
       primary_sources: ['organization_two_level_table', 'direct_children_table', 'variance_rankings'],
       required_evidence_ids: idsBySection('组织结构、贡献与拖累'),
-      writing_guidance: ['至少覆盖提问组织下属两层；若无二级下属，在数据限制中说明。', '点名贡献和拖累单位。'],
+      writing_guidance: [
+        '至少覆盖提问组织下属两层；若无第二层单位，在数据限制中说明。',
+        '有数据的直接下级和第二层单位尽量呈现，优先列出贡献前列、拖累前列、利润为负、完成率偏低和费用压力单位。',
+        '正文使用单位、项目、明细单位等业务表达，不写叶子节点、节点等数据结构用语。',
+      ],
     },
     {
       section: '成本费用与效率',
@@ -321,7 +345,7 @@ export function buildBusinessReportSectionBriefs(
       data_status: pack.cost_expense_wide_table.length ? 'available' : 'partial',
       primary_sources: ['cost_expense_wide_table', 'variance_rankings'],
       required_evidence_ids: idsBySection('成本费用与效率'),
-      writing_guidance: ['系统已有费用指标必须正常分析。', '专项核心费用明细缺失只放结尾说明。'],
+      writing_guidance: ['系统已有费用指标必须正常分析，按人力、餐饮/物资、车辆/能耗/差旅/招待等分组呈现。', '专项核心费用明细缺失只放结尾说明。'],
     },
     {
       section: '风险判断与后续动作',
@@ -362,6 +386,10 @@ function hasAny(text: string, values: string[]): boolean {
 
 function addFinding(findings: ReportQualityFinding[], finding: ReportQualityFinding) {
   findings.push(finding)
+}
+
+function removeMarkdownCodeFences(text: string): string {
+  return text.replace(/```[\s\S]*?```/g, '')
 }
 
 export function validateBusinessReportPack(pack: BusinessReportPack): ReportQualityResult {
@@ -462,12 +490,25 @@ export function validateBusinessReportOutput(markdown: string, pack?: BusinessRe
     }
   }
 
-  const markdownWithoutUrls = text.replace(/https?:\/\/\S+/g, '')
+  const markdownWithoutCodeFences = removeMarkdownCodeFences(text)
+
+  for (const term of FORBIDDEN_PUBLIC_TECH_TERMS) {
+    if (new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(markdownWithoutCodeFences)) {
+      addFinding(findings, {
+        severity: 'error',
+        code: 'non_business_term_present',
+        message: `报告正文出现非业务表达：${term}`,
+        evidence: { term },
+      })
+    }
+  }
+
+  const markdownWithoutUrls = markdownWithoutCodeFences.replace(/https?:\/\/\S+/g, '')
   if (/[A-Za-z]/.test(markdownWithoutUrls)) {
     addFinding(findings, {
-      severity: 'error',
+      severity: 'warning',
       code: 'latin_letters_present',
-      message: '报告正文出现英文字符，终稿必须全部使用中文表达。',
+      message: '报告正文存在英文字符，请确认是否为必要英文或改为中文表达。',
     })
   }
 
@@ -494,7 +535,7 @@ export function validateBusinessReportOutput(markdown: string, pack?: BusinessRe
     addFinding(findings, {
       severity: 'warning',
       code: 'two_level_org_analysis_weak',
-      message: '报告包包含两层组织数据，但正文未明显体现组织层级分析。',
+      message: '报告包包含两层组织数据，但正文未明显体现组织结构分析。',
     })
   }
 
@@ -505,7 +546,7 @@ export function validateBusinessReportOutput(markdown: string, pack?: BusinessRe
       addFinding(findings, {
         severity: 'error',
         code: 'second_level_org_not_described',
-        message: '报告包包含第二层下钻组织数据，但正文未描述任何第二层节点。',
+        message: '报告包包含第二层下钻组织数据，但正文未描述任何第二层单位。',
       })
     }
   }
