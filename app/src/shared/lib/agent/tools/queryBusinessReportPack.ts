@@ -47,6 +47,7 @@ import type {
   RankingRow,
   ReportMetricValue,
   ReportType,
+  BusinessRole,
   OrganizationCoverageRow,
   OrganizationMetricRow,
   ScopeProfile,
@@ -89,6 +90,21 @@ const COST_EXPENSE_METRICS: MetricCategory[] = [
 const COST_EXPENSE_DETAIL_METRICS = COST_EXPENSE_METRICS.filter(metric => metric !== 'labor_cost_rate')
 const ALL_REPORT_METRICS = DEFAULT_REPORT_METRICS
 const CORE_TARGET_METRICS: Array<'revenue' | 'pretax_profit'> = ['revenue', 'pretax_profit']
+const SUPPORT_UNIT_NAME_HINTS = [
+  '战略支持',
+  '科创',
+  '管理',
+  '办公室',
+  '行政',
+  '人力',
+  '财务',
+  '支持',
+  '职能',
+  '综合',
+  '党群',
+  '法务',
+  '审计',
+]
 
 const FALLBACK_METRIC_LABELS: Record<MetricCategory, string> = {
   revenue: '营业收入',
@@ -275,6 +291,101 @@ function collectSubtreeWithDepth(root: EnrichedBizDataNode | null, allNodes: Enr
   return result
 }
 
+function finiteOrNull(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function safeDiffValue(actual: number | null, target: number | null): number | null {
+  if (actual == null || target == null) return null
+  return actual - target
+}
+
+function safeCompletionValue(actual: number | null, target: number | null): number | null {
+  if (actual == null || target == null || target === 0) return null
+  return actual / target
+}
+
+function metricActual(
+  value: EnrichedBizDataNode['metrics'][MetricCategory] | undefined,
+  reportType: ReportType
+): number | null {
+  if (reportType === 'fone') return finiteOrNull(value?.actual_fone ?? value?.actual)
+  return finiteOrNull(value?.actual_tuwei ?? value?.actual)
+}
+
+function metricTarget(
+  value: EnrichedBizDataNode['metrics'][MetricCategory] | undefined,
+  reportType: ReportType
+): number | null {
+  return finiteOrNull(reportType === 'fone' ? value?.budget_fone : value?.budget_tuwei)
+}
+
+function metricCompletion(
+  value: EnrichedBizDataNode['metrics'][MetricCategory] | undefined,
+  reportType: ReportType
+): number | null {
+  const returned = finiteOrNull(reportType === 'fone' ? value?.completion_fone : value?.completion_tuwei)
+  if (returned != null) return returned
+  return safeCompletionValue(metricActual(value, reportType), metricTarget(value, reportType))
+}
+
+function metricDiff(
+  value: EnrichedBizDataNode['metrics'][MetricCategory] | undefined,
+  reportType: ReportType
+): number | null {
+  const returned = finiteOrNull(reportType === 'fone' ? value?.diff_fone : value?.diff_tuwei)
+  if (returned != null) return returned
+  return safeDiffValue(metricActual(value, reportType), metricTarget(value, reportType))
+}
+
+function metricYoy(
+  value: EnrichedBizDataNode['metrics'][MetricCategory] | undefined,
+  reportType: ReportType
+): number | null {
+  if (reportType === 'fone') return finiteOrNull(value?.yoy_fone ?? value?.yoy)
+  return finiteOrNull(value?.yoy_tuwei ?? value?.yoy)
+}
+
+function nodeActual(node: EnrichedBizDataNode | null, metric: MetricCategory, reportType: ReportType): number | null {
+  return metricActual(node?.metrics[metric], reportType)
+}
+
+function nodeCompletion(node: EnrichedBizDataNode | null, metric: MetricCategory, reportType: ReportType): number | null {
+  return metricCompletion(node?.metrics[metric], reportType)
+}
+
+function nodeDiff(node: EnrichedBizDataNode | null, metric: MetricCategory, reportType: ReportType): number | null {
+  return metricDiff(node?.metrics[metric], reportType)
+}
+
+function inferBusinessRole(node: EnrichedBizDataNode): BusinessRole {
+  const text = [
+    node.node_name,
+    node.orgHierarchy.level_0,
+    node.orgHierarchy.level_1,
+    node.orgHierarchy.level_2,
+  ].filter(Boolean).join(' ')
+  const hasSupportName = SUPPORT_UNIT_NAME_HINTS.some(hint => text.includes(hint))
+  const revenue = finiteOrNull(node.metrics.revenue?.actual)
+  const laborCost = finiteOrNull(node.metrics.labor_cost?.actual)
+  const hasCost = laborCost != null && Math.abs(laborCost) > 0
+
+  if (hasSupportName && (revenue == null || Math.abs(revenue) < 0.0001) && hasCost) return '职能支持型'
+  if (hasSupportName) return revenue != null && Math.abs(revenue) > 0.0001 ? '混合型' : '职能支持型'
+  return revenue != null && Math.abs(revenue) > 0.0001 ? '经营型' : '未识别'
+}
+
+function analysisTreatment(role: BusinessRole): string {
+  if (role === '职能支持型') return '按成本效率、费用执行和服务支撑分析，不因无营收或利润为负直接判定经营问题。'
+  if (role === '混合型') return '同时观察收入利润兑现和成本效率，避免仅按单一指标下结论。'
+  if (role === '经营型') return '按收入兑现、利润转化和目标完成情况分析。'
+  return '结合收入、利润、成本和部门属性审慎判断。'
+}
+
+function isSupportUnit(node: EnrichedBizDataNode): boolean {
+  return inferBusinessRole(node) === '职能支持型'
+}
+
 function metricValue(
   node: EnrichedBizDataNode | null,
   metric: MetricCategory,
@@ -284,31 +395,25 @@ function metricValue(
 ): ReportMetricValue {
   const value = node?.metrics[metric]
   const previousValue = previousNode?.metrics[metric]
-  const target = reportType === 'fone' ? value?.budget_fone : value?.budget_tuwei
-  const completionRate = reportType === 'fone' ? value?.completion_fone : value?.completion_tuwei
-  const diff = reportType === 'fone' ? value?.diff_fone : value?.diff_tuwei
-  const actual = reportType === 'fone'
-    ? value?.actual_fone ?? value?.actual ?? null
-    : value?.actual_tuwei ?? value?.actual ?? null
-  const previousActual = reportType === 'fone'
-    ? previousValue?.actual_fone ?? previousValue?.actual
-    : previousValue?.actual_tuwei ?? previousValue?.actual
-  const yoy = reportType === 'fone'
-    ? value?.yoy_fone ?? value?.yoy ?? null
-    : value?.yoy_tuwei ?? value?.yoy ?? null
+  const target = metricTarget(value, reportType)
+  const completionRate = metricCompletion(value, reportType)
+  const diff = metricDiff(value, reportType)
+  const actual = metricActual(value, reportType)
+  const previousActual = metricActual(previousValue, reportType)
+  const yoy = metricYoy(value, reportType)
 
   return {
     metric,
     metric_label: labelMap.get(metric) ?? metric,
     actual,
-    actual_fone: value?.actual_fone ?? value?.actual ?? null,
-    actual_tuwei: value?.actual_tuwei ?? value?.actual ?? null,
-    target: target ?? null,
-    completion_rate: completionRate ?? null,
-    diff: diff ?? null,
+    actual_fone: metricActual(value, 'fone'),
+    actual_tuwei: metricActual(value, 'tuwei'),
+    target,
+    completion_rate: completionRate,
+    diff,
     yoy,
-    yoy_fone: value?.yoy_fone ?? value?.yoy ?? null,
-    yoy_tuwei: value?.yoy_tuwei ?? value?.yoy ?? null,
+    yoy_fone: metricYoy(value, 'fone'),
+    yoy_tuwei: metricYoy(value, 'tuwei'),
     mom: actual != null && previousActual != null ? actual - previousActual : null,
   }
 }
@@ -346,9 +451,9 @@ function getReportTypeFields(
   diff: number | null
   status: ReturnType<typeof statusByCompletion>
 } {
-  const target = reportType === 'fone' ? value?.budget_fone ?? null : value?.budget_tuwei ?? null
-  const completionRate = reportType === 'fone' ? value?.completion_fone ?? null : value?.completion_tuwei ?? null
-  const diff = reportType === 'fone' ? value?.diff_fone ?? null : value?.diff_tuwei ?? null
+  const target = metricTarget(value, reportType)
+  const completionRate = metricCompletion(value, reportType)
+  const diff = metricDiff(value, reportType)
   return {
     target,
     completionRate,
@@ -369,14 +474,14 @@ function buildMetricComparisonWideRow(params: {
   const lowerIsBetter = LOWER_IS_BETTER_METRICS.has(params.metric)
   const schoolYearBudget = getReportTypeFields(value, 'fone', lowerIsBetter)
   const breakthroughAssessment = getReportTypeFields(value, 'tuwei', lowerIsBetter)
-  const schoolYearBudgetActual = value?.actual_fone ?? value?.actual ?? null
-  const breakthroughAssessmentActual = value?.actual_tuwei ?? value?.actual ?? null
-  const schoolYearBudgetYoy = value?.yoy_fone ?? value?.yoy ?? null
-  const breakthroughAssessmentYoy = value?.yoy_tuwei ?? value?.yoy ?? null
+  const schoolYearBudgetActual = metricActual(value, 'fone')
+  const breakthroughAssessmentActual = metricActual(value, 'tuwei')
+  const schoolYearBudgetYoy = metricYoy(value, 'fone')
+  const breakthroughAssessmentYoy = metricYoy(value, 'tuwei')
   const actual = params.periodScope === 'monthly'
     ? schoolYearBudgetActual ?? breakthroughAssessmentActual
     : null
-  const previousActual = previousValue?.actual_fone ?? previousValue?.actual_tuwei ?? previousValue?.actual
+  const previousActual = metricActual(previousValue, 'fone') ?? metricActual(previousValue, 'tuwei')
 
   return {
     period_scope: params.periodScope,
@@ -434,10 +539,14 @@ function buildMetricComparisonWideTable(params: {
     })),
   ].filter(row =>
     row.actual != null
+    || row.school_year_budget_actual != null
+    || row.breakthrough_assessment_actual != null
     || row.school_year_budget_target != null
     || row.school_year_budget_completion_rate != null
+    || row.school_year_budget_diff != null
     || row.breakthrough_assessment_target != null
     || row.breakthrough_assessment_completion_rate != null
+    || row.breakthrough_assessment_diff != null
   )
 }
 
@@ -501,8 +610,8 @@ function buildSchoolYearGoalAssessmentTable(params: {
   const progressRate = schoolYearProgressRate(params.month)
   return CORE_TARGET_METRICS.map(metric => {
     const value = params.schoolYearTargetRoot?.metrics[metric]
-    const schoolYearBudgetActual = value?.actual_fone ?? value?.actual ?? null
-    const breakthroughAssessmentActual = value?.actual_tuwei ?? value?.actual ?? null
+    const schoolYearBudgetActual = metricActual(value, 'fone')
+    const breakthroughAssessmentActual = metricActual(value, 'tuwei')
     const actual = null
     const schoolYearBudget = getReportTypeFields(value, 'fone')
     const breakthroughAssessment = getReportTypeFields(value, 'tuwei')
@@ -553,24 +662,20 @@ function buildTargetVsActualRow(
 ): TargetVsActualRow {
   const revenue = node?.metrics.revenue
   const profit = node?.metrics.pretax_profit
-  const revenueActual = reportType === 'fone'
-    ? revenue?.actual_fone ?? revenue?.actual ?? null
-    : revenue?.actual_tuwei ?? revenue?.actual ?? null
-  const profitActual = reportType === 'fone'
-    ? profit?.actual_fone ?? profit?.actual ?? null
-    : profit?.actual_tuwei ?? profit?.actual ?? null
+  const revenueActual = metricActual(revenue, reportType)
+  const profitActual = metricActual(profit, reportType)
   return {
     report_type: reportType,
     period_scope: periodScope,
     node_name: node?.node_name ?? '未匹配节点',
     revenue_actual: revenueActual,
-    revenue_target: reportType === 'fone' ? revenue?.budget_fone ?? null : revenue?.budget_tuwei ?? null,
-    revenue_completion_rate: reportType === 'fone' ? revenue?.completion_fone ?? null : revenue?.completion_tuwei ?? null,
-    revenue_diff: reportType === 'fone' ? revenue?.diff_fone ?? null : revenue?.diff_tuwei ?? null,
+    revenue_target: metricTarget(revenue, reportType),
+    revenue_completion_rate: metricCompletion(revenue, reportType),
+    revenue_diff: metricDiff(revenue, reportType),
     pretax_profit_actual: profitActual,
-    pretax_profit_target: reportType === 'fone' ? profit?.budget_fone ?? null : profit?.budget_tuwei ?? null,
-    pretax_profit_completion_rate: reportType === 'fone' ? profit?.completion_fone ?? null : profit?.completion_tuwei ?? null,
-    pretax_profit_diff: reportType === 'fone' ? profit?.diff_fone ?? null : profit?.diff_tuwei ?? null,
+    pretax_profit_target: metricTarget(profit, reportType),
+    pretax_profit_completion_rate: metricCompletion(profit, reportType),
+    pretax_profit_diff: metricDiff(profit, reportType),
   }
 }
 
@@ -629,31 +734,33 @@ function buildTargetVsActualTable(
 function buildCompositionRows(root: EnrichedBizDataNode | null, allNodes: EnrichedBizDataNode[], reportType: ReportType): CompositionRow[] {
   if (!root) return []
   const children = getChildren(root, allNodes)
-  const totalRevenue = root.metrics.revenue?.actual ?? null
-  const totalProfit = root.metrics.pretax_profit?.actual ?? null
+  const totalRevenue = nodeActual(root, 'revenue', reportType)
+  const totalProfit = nodeActual(root, 'pretax_profit', reportType)
 
   return children.map(child => {
     const revenue = child.metrics.revenue
     const profit = child.metrics.pretax_profit
-    const revenueCompletion = reportType === 'fone' ? revenue?.completion_fone ?? null : revenue?.completion_tuwei ?? null
-    const profitCompletion = reportType === 'fone' ? profit?.completion_fone ?? null : profit?.completion_tuwei ?? null
+    const role = inferBusinessRole(child)
+    const revenueCompletion = metricCompletion(revenue, reportType)
+    const profitCompletion = metricCompletion(profit, reportType)
 
     return {
       level_1: child.orgHierarchy.level_1,
       level_2: child.orgHierarchy.level_2,
       node_name: child.node_name,
       node_kind: getNodeKind(child),
-      revenue_actual: reportType === 'fone'
-        ? revenue?.actual_fone ?? revenue?.actual ?? null
-        : revenue?.actual_tuwei ?? revenue?.actual ?? null,
-      revenue_share: contributionShare(revenue?.actual ?? null, totalRevenue),
+      business_role: role,
+      analysis_treatment: analysisTreatment(role),
+      risk_basis: role === '职能支持型' ? '重点看人力成本、费用执行率和成本刚性。' : '重点看收入兑现、利润转化和目标缺口。',
+      revenue_actual: metricActual(revenue, reportType),
+      revenue_share: contributionShare(metricActual(revenue, reportType), totalRevenue),
       revenue_completion_rate: revenueCompletion,
-      pretax_profit_actual: reportType === 'fone'
-        ? profit?.actual_fone ?? profit?.actual ?? null
-        : profit?.actual_tuwei ?? profit?.actual ?? null,
-      pretax_profit_share: contributionShare(profit?.actual ?? null, totalProfit),
+      pretax_profit_actual: metricActual(profit, reportType),
+      pretax_profit_share: contributionShare(metricActual(profit, reportType), totalProfit),
       pretax_profit_completion_rate: profitCompletion,
-      business_judgement: `收入完成率${formatPctForJudgement(revenueCompletion)}，税前利润完成率${formatPctForJudgement(profitCompletion)}。`,
+      business_judgement: role === '职能支持型'
+        ? `职能支持型单位，${analysisTreatment(role)}人力成本${formatBriefNumber(metricActual(child.metrics.labor_cost, reportType))}万元。`
+        : `收入完成率${formatPctForJudgement(revenueCompletion)}，税前利润完成率${formatPctForJudgement(profitCompletion)}。`,
     }
   })
 }
@@ -666,27 +773,29 @@ function buildCompositionRow(
 ): CompositionRow {
   const revenue = node.metrics.revenue
   const profit = node.metrics.pretax_profit
-  const totalRevenue = root?.metrics.revenue?.actual ?? null
-  const totalProfit = root?.metrics.pretax_profit?.actual ?? null
-  const revenueCompletion = reportType === 'fone' ? revenue?.completion_fone ?? null : revenue?.completion_tuwei ?? null
-  const profitCompletion = reportType === 'fone' ? profit?.completion_fone ?? null : profit?.completion_tuwei ?? null
+  const totalRevenue = nodeActual(root, 'revenue', reportType)
+  const totalProfit = nodeActual(root, 'pretax_profit', reportType)
+  const role = inferBusinessRole(node)
+  const revenueCompletion = metricCompletion(revenue, reportType)
+  const profitCompletion = metricCompletion(profit, reportType)
 
   return {
     level_1: node.orgHierarchy.level_1,
     level_2: node.orgHierarchy.level_2,
     node_name: node.node_name,
     node_kind: getNodeKind(node),
-    revenue_actual: reportType === 'fone'
-      ? revenue?.actual_fone ?? revenue?.actual ?? null
-      : revenue?.actual_tuwei ?? revenue?.actual ?? null,
-    revenue_share: contributionShare(revenue?.actual ?? null, totalRevenue),
+    business_role: role,
+    analysis_treatment: analysisTreatment(role),
+    risk_basis: role === '职能支持型' ? '重点看人力成本、费用执行率和成本刚性。' : '重点看收入兑现、利润转化和目标缺口。',
+    revenue_actual: metricActual(revenue, reportType),
+    revenue_share: contributionShare(metricActual(revenue, reportType), totalRevenue),
     revenue_completion_rate: revenueCompletion,
-    pretax_profit_actual: reportType === 'fone'
-      ? profit?.actual_fone ?? profit?.actual ?? null
-      : profit?.actual_tuwei ?? profit?.actual ?? null,
-    pretax_profit_share: contributionShare(profit?.actual ?? null, totalProfit),
+    pretax_profit_actual: metricActual(profit, reportType),
+    pretax_profit_share: contributionShare(metricActual(profit, reportType), totalProfit),
     pretax_profit_completion_rate: profitCompletion,
-    business_judgement: `${label ? `${label}：` : ''}收入完成率${formatPctForJudgement(revenueCompletion)}，税前利润完成率${formatPctForJudgement(profitCompletion)}。`,
+    business_judgement: role === '职能支持型'
+      ? `${label ? `${label}：` : ''}职能支持型单位，${analysisTreatment(role)}人力成本${formatBriefNumber(metricActual(node.metrics.labor_cost, reportType))}万元。`
+      : `${label ? `${label}：` : ''}收入完成率${formatPctForJudgement(revenueCompletion)}，税前利润完成率${formatPctForJudgement(profitCompletion)}。`,
   }
 }
 
@@ -733,37 +842,43 @@ function buildLeafExceptionRows(root: EnrichedBizDataNode | null, allNodes: Enri
     .filter(node => {
       if (node.node_name === root.node_name) return false
       if (getNodeKind(node) !== 'leaf' && getNodeKind(node) !== 'orphan') return false
-      const profitCompletion = reportType === 'fone'
-        ? node.metrics.pretax_profit?.completion_fone
-        : node.metrics.pretax_profit?.completion_tuwei
-      const revenueCompletion = reportType === 'fone'
-        ? node.metrics.revenue?.completion_fone
-        : node.metrics.revenue?.completion_tuwei
+      const supportUnit = isSupportUnit(node)
+      const profitCompletion = nodeCompletion(node, 'pretax_profit', reportType)
+      const revenueCompletion = nodeCompletion(node, 'revenue', reportType)
+      const profitActual = nodeActual(node, 'pretax_profit', reportType)
+      const expenseOverrun = COST_EXPENSE_DETAIL_METRICS.some(metric => (nodeDiff(node, metric, reportType) ?? 0) > 0)
+      if (supportUnit) return expenseOverrun
       return (profitCompletion != null && profitCompletion < 0.8)
         || (revenueCompletion != null && revenueCompletion < 0.8)
-        || (node.metrics.pretax_profit?.actual ?? 0) < 0
+        || (profitActual ?? 0) < 0
     })
     .sort((a, b) => {
-      const left = reportType === 'fone' ? a.metrics.pretax_profit?.completion_fone : a.metrics.pretax_profit?.completion_tuwei
-      const right = reportType === 'fone' ? b.metrics.pretax_profit?.completion_fone : b.metrics.pretax_profit?.completion_tuwei
+      const left = nodeCompletion(a, 'pretax_profit', reportType)
+      const right = nodeCompletion(b, 'pretax_profit', reportType)
       return (left ?? Number.POSITIVE_INFINITY) - (right ?? Number.POSITIVE_INFINITY)
     })
     .map(node => buildCompositionRow(node, root, reportType, '项目异常'))
 }
 
 function buildOrganizationTwoLevelTable(root: EnrichedBizDataNode | null, allNodes: EnrichedBizDataNode[]): OrganizationCoverageRow[] {
-  return collectSubtreeWithDepth(root, allNodes, 2).map(({ node, depth }) => ({
-    node_name: node.node_name,
-    node_kind: getNodeKind(node),
-    level_1: node.orgHierarchy.level_1,
-    level_2: node.orgHierarchy.level_2,
-    depth_from_scope: depth,
-    child_count: getChildren(node, allNodes).length,
-    revenue_actual: node.metrics.revenue?.actual ?? null,
-    pretax_profit_actual: node.metrics.pretax_profit?.actual ?? null,
-    labor_cost_actual: node.metrics.labor_cost?.actual ?? null,
-    gross_margin_actual: node.metrics.gross_margin?.actual ?? null,
-  }))
+  return collectSubtreeWithDepth(root, allNodes).map(({ node, depth }) => {
+    const role = inferBusinessRole(node)
+    return {
+      node_name: node.node_name,
+      node_kind: getNodeKind(node),
+      level_1: node.orgHierarchy.level_1,
+      level_2: node.orgHierarchy.level_2,
+      business_role: role,
+      analysis_treatment: analysisTreatment(role),
+      risk_basis: role === '职能支持型' ? '重点看人力成本、费用执行率和成本刚性。' : '重点看收入兑现、利润转化和目标缺口。',
+      depth_from_scope: depth,
+      child_count: getChildren(node, allNodes).length,
+      revenue_actual: node.metrics.revenue?.actual ?? null,
+      pretax_profit_actual: node.metrics.pretax_profit?.actual ?? null,
+      labor_cost_actual: node.metrics.labor_cost?.actual ?? null,
+      gross_margin_actual: node.metrics.gross_margin?.actual ?? null,
+    }
+  })
 }
 
 function buildAllMetricRows(params: {
@@ -783,6 +898,8 @@ function buildAllMetricRows(params: {
         node_kind: getNodeKind(node),
         level_1: node.orgHierarchy.level_1,
         level_2: node.orgHierarchy.level_2,
+        business_role: inferBusinessRole(node),
+        analysis_treatment: analysisTreatment(inferBusinessRole(node)),
         depth_from_scope: depth,
         within_required_two_levels: depth <= 2,
       }))
@@ -809,26 +926,33 @@ function buildUnitCards(params: {
     .map(node => {
       const revenue = node.metrics.revenue
       const profit = node.metrics.pretax_profit
-      const revenueCompletion = params.reportType === 'fone' ? revenue?.completion_fone : revenue?.completion_tuwei
-      const profitCompletion = params.reportType === 'fone' ? profit?.completion_fone : profit?.completion_tuwei
-      const revenueDiff = params.reportType === 'fone' ? revenue?.diff_fone : revenue?.diff_tuwei
-      const profitDiff = params.reportType === 'fone' ? profit?.diff_fone : profit?.diff_tuwei
+      const role = inferBusinessRole(node)
+      const supportUnit = role === '职能支持型'
+      const revenueCompletion = metricCompletion(revenue, params.reportType)
+      const profitCompletion = metricCompletion(profit, params.reportType)
+      const revenueDiff = metricDiff(revenue, params.reportType)
+      const profitDiff = metricDiff(profit, params.reportType)
       const expenseOverrun = COST_EXPENSE_DETAIL_METRICS.reduce((sum, metric) => {
-        const value = node.metrics[metric]
-        const diffValue = params.reportType === 'fone' ? value?.diff_fone : value?.diff_tuwei
+        const diffValue = nodeDiff(node, metric, params.reportType)
         return sum + Math.max(0, diffValue ?? 0)
       }, 0)
       const riskScore = [
-        profitCompletion != null && profitCompletion < 0.8 ? 40 : 0,
-        revenueCompletion != null && revenueCompletion < 0.8 ? 25 : 0,
-        (profit?.actual ?? 0) < 0 ? 35 : 0,
-        expenseOverrun > 0 ? 15 : 0,
+        !supportUnit && profitCompletion != null && profitCompletion < 0.8 ? 40 : 0,
+        !supportUnit && revenueCompletion != null && revenueCompletion < 0.8 ? 25 : 0,
+        !supportUnit && (nodeActual(node, 'pretax_profit', params.reportType) ?? 0) < 0 ? 35 : 0,
+        expenseOverrun > 0 ? supportUnit ? 30 : 15 : 0,
       ].reduce((sum, value) => sum + value, 0)
-      const contributionScore = Math.abs(revenue?.actual ?? 0) + Math.abs(profit?.actual ?? 0)
-      const gapScore = Math.abs(Math.min(0, revenueDiff ?? 0)) + Math.abs(Math.min(0, profitDiff ?? 0))
-      const selectionScore = riskScore * 1_000_000 + gapScore * 1_000 + contributionScore
+      const contributionScore = Math.abs(nodeActual(node, 'revenue', params.reportType) ?? 0)
+        + Math.abs(nodeActual(node, 'pretax_profit', params.reportType) ?? 0)
+        + Math.abs(nodeActual(node, 'labor_cost', params.reportType) ?? 0)
+      const gapScore = supportUnit
+        ? expenseOverrun
+        : Math.abs(Math.min(0, revenueDiff ?? 0)) + Math.abs(Math.min(0, profitDiff ?? 0))
+      const depthScore = collectSubtreeWithDepth(params.cumulativeRoot, params.cumulativeNodes)
+        .find(item => item.node.node_name === node.node_name)?.depth ?? 0
+      const selectionScore = riskScore * 1_000_000 + gapScore * 1_000 + contributionScore + depthScore * 10
       const selectionReason = riskScore > 0
-        ? '风险优先'
+        ? supportUnit ? '成本风险优先' : '风险优先'
         : gapScore > 0
           ? '缺口优先'
           : contributionScore > 0
@@ -845,10 +969,12 @@ function buildUnitCards(params: {
       const monthlyNode = findNodeByName(params.monthNodes, node.node_name)
       const monthlyRow = buildTargetVsActualRow(monthlyNode, params.reportType, 'monthly')
       const cumulativeRow = buildTargetVsActualRow(node, params.reportType, 'cumulative')
+      const role = inferBusinessRole(node)
+      const supportUnit = role === '职能支持型'
       const warnings: string[] = []
-      if ((cumulativeRow.revenue_completion_rate ?? 1) < 0.8) warnings.push('累计收入完成率低于80%，需关注收入兑现节奏。')
-      if ((cumulativeRow.pretax_profit_completion_rate ?? 1) < 0.8) warnings.push('累计税前利润完成率低于80%，需关注利润转化和成本刚性。')
-      if ((monthlyRow.pretax_profit_actual ?? 0) < 0) warnings.push('当月税前利润为负，需复核项目毛利和费用确认。')
+      if (!supportUnit && (cumulativeRow.revenue_completion_rate ?? 1) < 0.8) warnings.push('累计收入完成率低于80%，需关注收入兑现节奏。')
+      if (!supportUnit && (cumulativeRow.pretax_profit_completion_rate ?? 1) < 0.8) warnings.push('累计税前利润完成率低于80%，需关注利润转化和成本刚性。')
+      if (!supportUnit && (monthlyRow.pretax_profit_actual ?? 0) < 0) warnings.push('当月税前利润为负，需复核项目毛利和费用确认。')
       const cumulativeCostMetrics = COST_EXPENSE_METRICS
         .map(metric => metricValue(node, metric, params.reportType, new Map(Object.entries(FALLBACK_METRIC_LABELS) as Array<[MetricCategory, string]>)))
         .filter(metric => metric.actual != null || metric.target != null || metric.completion_rate != null)
@@ -862,15 +988,23 @@ function buildUnitCards(params: {
         node_kind: getNodeKind(node),
         level_1: node.orgHierarchy.level_1,
         level_2: node.orgHierarchy.level_2,
+        business_role: role,
+        analysis_treatment: analysisTreatment(role),
+        risk_basis: supportUnit ? '重点看人力成本、费用执行率和成本刚性。' : '重点看收入兑现、利润转化和目标缺口。',
         selection_reason: selectionReason,
         cumulative: cumulativeRow,
         monthly: monthlyRow,
         cost_expense_metrics: cumulativeCostMetrics,
         warnings,
-        suggested_analysis_points: [
-          '对照收入完成率与税前利润完成率，判断规模兑现和利润转化是否匹配。',
-          '结合成本费用明细，区分人力刚性、餐饮/物资成本和重点费用超支压力。',
-        ],
+        suggested_analysis_points: supportUnit
+          ? [
+              '按职能支持型单位处理，重点复核人力成本、费用执行率和成本刚性。',
+              '不因无营收或利润为负直接归为经营问题；如费用超预算，再形成成本效率风险判断。',
+            ]
+          : [
+              '对照收入完成率与税前利润完成率，判断规模兑现和利润转化是否匹配。',
+              '结合成本费用明细，区分人力刚性、餐饮/物资成本和重点费用超支压力。',
+            ],
       }
     })
 }
@@ -1020,7 +1154,7 @@ function buildWritingBrief(params: {
   warnings: BusinessReportPack['warnings']
 }): BusinessReportWritingBrief {
   const schoolYearGoalPoints = params.schoolYearGoalAssessmentTable.map(row =>
-    `${row.metric_label}学年目标：实际${formatBriefNumber(row.actual)}万元，学年预算完成率${formatBriefPct(row.school_year_budget_completion_rate)}、达成概率${row.school_year_budget_probability}、风险${row.school_year_budget_risk}；突围考核完成率${formatBriefPct(row.breakthrough_assessment_completion_rate)}、达成概率${row.breakthrough_assessment_probability}、风险${row.breakthrough_assessment_risk}。`
+    `${row.metric_label}学年目标：学年预算实际${formatBriefNumber(row.school_year_budget_actual)}万元，完成率${formatBriefPct(row.school_year_budget_completion_rate)}、达成概率${row.school_year_budget_probability}、风险${row.school_year_budget_risk}；突围考核实际${formatBriefNumber(row.breakthrough_assessment_actual)}万元，完成率${formatBriefPct(row.breakthrough_assessment_completion_rate)}、达成概率${row.breakthrough_assessment_probability}、风险${row.breakthrough_assessment_risk}。`
   )
 
   const targetRows = params.targetVsActualTable
@@ -1042,12 +1176,12 @@ function buildWritingBrief(params: {
   ]
 
   const structurePoints = params.directChildrenTable.slice(0, 8).map(row =>
-    `${row.node_name}收入${formatBriefNumber(row.revenue_actual)}万元，占比${formatBriefPct(row.revenue_share)}，税前利润${formatBriefNumber(row.pretax_profit_actual)}万元，占比${formatBriefPct(row.pretax_profit_share)}。`
+    `${row.node_name}（${row.business_role || '未识别'}）收入${formatBriefNumber(row.revenue_actual)}万元，占比${formatBriefPct(row.revenue_share)}，税前利润${formatBriefNumber(row.pretax_profit_actual)}万元，占比${formatBriefPct(row.pretax_profit_share)}；${row.analysis_treatment || row.business_judgement}`
   )
 
   const unitRiskPoints = params.unitCards.slice(0, 8).map(card => {
     const warnings = card.warnings.length ? `风险：${card.warnings.join('；')}` : '暂无红黄风险。'
-    return `${card.node_name}（${card.selection_reason || '重点单位'}）：累计收入完成率${formatBriefPct(card.cumulative.revenue_completion_rate)}，累计税前利润完成率${formatBriefPct(card.cumulative.pretax_profit_completion_rate)}，${warnings}`
+    return `${card.node_name}（${card.selection_reason || '重点单位'}，${card.business_role || '未识别'}）：累计收入完成率${formatBriefPct(card.cumulative.revenue_completion_rate)}，累计税前利润完成率${formatBriefPct(card.cumulative.pretax_profit_completion_rate)}，${card.analysis_treatment || ''}${warnings}`
   })
 
   const costExpensePoints = [
@@ -1095,6 +1229,7 @@ function rankingRow(
   labelMap?: Map<MetricCategory, string>
 ): RankingRow {
   const value = node.metrics[metric]
+  const role = inferBusinessRole(node)
   return {
     metric,
     metric_label: labelMap?.get(metric) ?? FALLBACK_METRIC_LABELS[metric],
@@ -1102,10 +1237,12 @@ function rankingRow(
     node_kind: getNodeKind(node),
     level_1: node.orgHierarchy.level_1,
     level_2: node.orgHierarchy.level_2,
-    actual: value?.actual ?? null,
-    share: contributionShare(value?.actual ?? null, totalActual),
-    diff: reportType === 'fone' ? value?.diff_fone ?? null : value?.diff_tuwei ?? null,
-    completion_rate: reportType === 'fone' ? value?.completion_fone ?? null : value?.completion_tuwei ?? null,
+    business_role: role,
+    analysis_treatment: analysisTreatment(role),
+    actual: metricActual(value, reportType),
+    share: contributionShare(metricActual(value, reportType), totalActual),
+    diff: metricDiff(value, reportType),
+    completion_rate: metricCompletion(value, reportType),
   }
 }
 
@@ -1116,15 +1253,15 @@ function buildRankings(
   labelMap: Map<MetricCategory, string>
 ) {
   const nodes = flattenSubtree(root, allNodes).filter(node => node.node_name !== root?.node_name)
-  const revenueTotal = root?.metrics.revenue?.actual ?? null
-  const profitTotal = root?.metrics.pretax_profit?.actual ?? null
+  const revenueTotal = nodeActual(root, 'revenue', reportType)
+  const profitTotal = nodeActual(root, 'pretax_profit', reportType)
   const revenueRows = nodes.map(node => rankingRow(node, 'revenue', reportType, revenueTotal, labelMap))
   const profitRows = nodes.map(node => rankingRow(node, 'pretax_profit', reportType, profitTotal, labelMap))
-  const laborCostRows = nodes.map(node => rankingRow(node, 'labor_cost', reportType, root?.metrics.labor_cost?.actual ?? null, labelMap))
+  const laborCostRows = nodes.map(node => rankingRow(node, 'labor_cost', reportType, nodeActual(root, 'labor_cost', reportType), labelMap))
   const expenseRows = nodes.flatMap(node =>
     COST_EXPENSE_DETAIL_METRICS
       .filter(metric => metric !== 'labor_cost')
-      .map(metric => rankingRow(node, metric, reportType, root?.metrics[metric]?.actual ?? null, labelMap))
+      .map(metric => rankingRow(node, metric, reportType, nodeActual(root, metric, reportType), labelMap))
   )
   const grossMarginRows = nodes.map(node => rankingRow(node, 'gross_margin', reportType, null, labelMap))
 
@@ -1184,6 +1321,8 @@ function buildCostExpenseRows(params: {
           node_kind: getNodeKind(node),
           level_1: node.orgHierarchy.level_1,
           level_2: node.orgHierarchy.level_2,
+          business_role: inferBusinessRole(node),
+          analysis_treatment: analysisTreatment(inferBusinessRole(node)),
           status: statusByCompletion(value.completion_rate, LOWER_IS_BETTER_METRICS.has(metric)),
         })
       }
@@ -1237,15 +1376,27 @@ function buildWarnings(params: {
   unitCards: UnitCard[]
   summaryCards: SummaryCard[]
   costExpenseRows: CostExpenseRow[]
+  scopeBusinessRole?: BusinessRole
 }): BusinessReportWarning[] {
   const warnings: BusinessReportWarning[] = []
   params.summaryCards
     .filter(card => card.status === 'risk' || card.status === 'watch' || card.status === 'missing')
     .forEach(card => {
+      const supportIncomeMetric = params.scopeBusinessRole === '职能支持型'
+        && (card.metric === 'revenue' || card.metric === 'pretax_profit')
+      const severity = supportIncomeMetric
+        ? 'info'
+        : card.status === 'risk'
+          ? 'red'
+          : card.status === 'watch'
+            ? 'yellow'
+            : 'info'
       warnings.push({
-        severity: card.status === 'risk' ? 'red' : card.status === 'watch' ? 'yellow' : 'info',
+        severity,
         section: card.period_scope === 'monthly' ? '当月核心指标' : `${periodScopeLabel(card.period_scope)}核心指标`,
-        message: `${reportTypeLabel(card.report_type)}${card.metric_label}${periodScopeLabel(card.period_scope)}完成状态为${reportStatusLabel(card.status)}。`,
+        message: supportIncomeMetric
+          ? `${reportTypeLabel(card.report_type)}${card.metric_label}${periodScopeLabel(card.period_scope)}完成状态为${reportStatusLabel(card.status)}；当前对象识别为职能支持型单位，应优先按成本效率和费用执行判断。`
+          : `${reportTypeLabel(card.report_type)}${card.metric_label}${periodScopeLabel(card.period_scope)}完成状态为${reportStatusLabel(card.status)}。`,
         evidence: {
           metric: card.metric,
           actual: card.actual,
@@ -1559,8 +1710,11 @@ export const queryBusinessReportPackTool: RegisteredTool = {
       coverage,
       metricCoverage,
     })
-    const warnings = buildWarnings({ unitCards, summaryCards, costExpenseRows: costExpenseTable })
     const scopeProfile = buildScopeProfile(cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot, cumulativeToMonthResolved.allNodes)
+    const scopeBusinessRole = (cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot)
+      ? inferBusinessRole((cumulativeToMonthRoot ?? schoolYearTargetRoot ?? monthRoot)!)
+      : undefined
+    const warnings = buildWarnings({ unitCards, summaryCards, costExpenseRows: costExpenseTable, scopeBusinessRole })
     const varianceRankings = buildRankings(cumulativeToMonthRoot, cumulativeToMonthResolved.allNodes, preferredReportType, labelMap)
     const writingBrief = buildWritingBrief({
       scopeProfile,
@@ -1647,4 +1801,11 @@ export const queryBusinessReportPackTool: RegisteredTool = {
 
     return JSON.stringify(pack, null, 2)
   },
+}
+
+export const __queryBusinessReportPackTestUtils = {
+  getReportTypeFields,
+  buildMetricComparisonWideTable,
+  buildSchoolYearGoalAssessmentTable,
+  inferBusinessRole,
 }

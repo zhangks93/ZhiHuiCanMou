@@ -6,6 +6,7 @@ export type ReportStatus = 'good' | 'watch' | 'risk' | 'missing'
 export type WarningSeverity = 'red' | 'yellow' | 'info'
 export type GoalProbability = '已达成' | '较高' | '中等' | '较低' | '数据不足'
 export type GoalRiskLevel = '低' | '中' | '高' | '需补数'
+export type BusinessRole = '经营型' | '职能支持型' | '混合型' | '未识别'
 
 export interface ReportMetricValue {
   metric: MetricCategory
@@ -96,6 +97,9 @@ export interface CompositionRow {
   level_2: string | null
   node_name: string
   node_kind: string
+  business_role?: BusinessRole
+  analysis_treatment?: string
+  risk_basis?: string
   revenue_actual: number | null
   revenue_share: number | null
   revenue_completion_rate: number | null
@@ -110,6 +114,9 @@ export interface UnitCard {
   node_kind: string
   level_1: string | null
   level_2: string | null
+  business_role?: BusinessRole
+  analysis_treatment?: string
+  risk_basis?: string
   selection_reason?: string
   cumulative: TargetVsActualRow
   monthly: TargetVsActualRow
@@ -125,6 +132,8 @@ export interface RankingRow {
   node_kind?: string
   level_1?: string | null
   level_2?: string | null
+  business_role?: BusinessRole
+  analysis_treatment?: string
   actual?: number | null
   share?: number | null
   diff?: number | null
@@ -138,6 +147,8 @@ export interface CostExpenseRow extends ReportMetricValue {
   node_kind: string
   level_1: string | null
   level_2: string | null
+  business_role?: BusinessRole
+  analysis_treatment?: string
   status: ReportStatus
 }
 
@@ -154,6 +165,8 @@ export interface OrganizationMetricRow extends ReportMetricValue {
   node_kind: string
   level_1: string | null
   level_2: string | null
+  business_role?: BusinessRole
+  analysis_treatment?: string
   depth_from_scope: number
   within_required_two_levels: boolean
 }
@@ -163,6 +176,9 @@ export interface OrganizationCoverageRow {
   node_kind: string
   level_1: string | null
   level_2: string | null
+  business_role?: BusinessRole
+  analysis_treatment?: string
+  risk_basis?: string
   depth_from_scope: number
   child_count: number
   revenue_actual: number | null

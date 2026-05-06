@@ -110,6 +110,8 @@ function basePack(overrides: Partial<BusinessReportPack> = {}): BusinessReportPa
       node_kind: 'leaf',
       level_1: '后勤管理中心',
       level_2: '餐饮中心',
+      business_role: '经营型',
+      analysis_treatment: '按收入兑现、利润转化和目标完成情况分析。',
       depth_from_scope: 1,
       child_count: 0,
       revenue_actual: 50,
@@ -339,6 +341,8 @@ describe('business report quality', () => {
           node_kind: 'leaf',
           level_1: '后勤管理中心',
           level_2: '餐饮中心',
+          business_role: '经营型',
+          analysis_treatment: '按收入兑现、利润转化和目标完成情况分析。',
           depth_from_scope: 2,
           child_count: 0,
           revenue_actual: 30,
@@ -363,6 +367,85 @@ describe('business report quality', () => {
 
     expect(result.passed).toBe(false)
     expect(result.findings.some(item => item.code === 'second_level_org_not_described')).toBe(true)
+  })
+
+  it('warns when deeper organization data is not described', () => {
+    const base = basePack()
+    const pack = basePack({
+      organization_two_level_table: [
+        ...base.organization_two_level_table,
+        {
+          node_name: '三层明细食堂',
+          node_kind: 'leaf',
+          level_1: '后勤管理中心',
+          level_2: '餐饮中心',
+          business_role: '经营型',
+          analysis_treatment: '按收入兑现、利润转化和目标完成情况分析。',
+          depth_from_scope: 3,
+          child_count: 0,
+          revenue_actual: 20,
+          pretax_profit_actual: 1,
+          labor_cost_actual: 8,
+          gross_margin_actual: 0.22,
+        },
+      ],
+    })
+    pack.quality_contract = buildBusinessReportQualityContract(pack)
+
+    const result = validateBusinessReportOutput([
+      '## 经营摘要与学年目标判断',
+      '学年预算和突围考核均需关注。',
+      '## 目标对标与实际完成',
+      '当月、截至当月累计和学年目标累计均已说明。',
+      '## 组织结构、贡献与拖累',
+      '一号食堂收入五十万元。',
+      '## 成本费用与效率',
+      '人力成本需关注。',
+      '## 风险判断与后续动作',
+      '后续动作聚焦利润缺口。',
+      '## 数据限制与待补说明',
+      '应收账款回款情况需人工补充。',
+    ].join('\n'), pack)
+
+    expect(result.findings.some(item => item.code === 'deep_org_not_described' && item.severity === 'warning')).toBe(true)
+  })
+
+  it('blocks overflagging support units due only to no revenue or negative profit', () => {
+    const pack = basePack({
+      organization_two_level_table: [{
+        node_name: '战略支持中心',
+        node_kind: 'level_1',
+        level_1: '战略支持中心',
+        level_2: null,
+        business_role: '职能支持型',
+        analysis_treatment: '按成本效率、费用执行和服务支撑分析，不因无营收或利润为负直接判定经营问题。',
+        depth_from_scope: 1,
+        child_count: 0,
+        revenue_actual: null,
+        pretax_profit_actual: -30,
+        labor_cost_actual: 30,
+        gross_margin_actual: null,
+      }],
+    })
+    pack.quality_contract = buildBusinessReportQualityContract(pack)
+
+    const result = validateBusinessReportOutput([
+      '## 经营摘要与学年目标判断',
+      '学年预算和突围考核均需关注。',
+      '## 目标对标与实际完成',
+      '当月、截至当月累计和学年目标累计均已说明。',
+      '## 组织结构、贡献与拖累',
+      '战略支持中心无营收且利润为负，是明显经营问题。',
+      '## 成本费用与效率',
+      '人力成本需关注。',
+      '## 风险判断与后续动作',
+      '后续动作聚焦利润缺口。',
+      '## 数据限制与待补说明',
+      '应收账款回款情况需人工补充。',
+    ].join('\n'), pack)
+
+    expect(result.passed).toBe(false)
+    expect(result.findings.some(item => item.code === 'support_unit_overflagged')).toBe(true)
   })
 
   it('requires manual data to be placed in limitations section', () => {

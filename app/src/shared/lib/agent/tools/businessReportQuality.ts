@@ -231,8 +231,8 @@ export function buildBusinessReportEvidenceLedger(pack: BusinessReportPack): Bus
       report_type: 'both',
       actual: row.revenue_actual,
       evidence_text:
-        `${row.node_name}为${orgDepthLabel(row.depth_from_scope)}，收入${formatNumber(row.revenue_actual)}，` +
-        `税前利润${formatNumber(row.pretax_profit_actual)}，人力成本${formatNumber(row.labor_cost_actual)}。`,
+        `${row.node_name}为${orgDepthLabel(row.depth_from_scope)}，业务属性${row.business_role || '未识别'}，收入${formatNumber(row.revenue_actual)}，` +
+        `税前利润${formatNumber(row.pretax_profit_actual)}，人力成本${formatNumber(row.labor_cost_actual)}。${row.analysis_treatment || ''}`,
     })
   })
 
@@ -335,7 +335,8 @@ export function buildBusinessReportSectionBriefs(
       required_evidence_ids: idsBySection('组织结构、贡献与拖累'),
       writing_guidance: [
         '至少覆盖提问组织下属两层；若无第二层单位，在数据限制中说明。',
-        '有数据的直接下级和第二层单位尽量呈现，优先列出贡献前列、拖累前列、利润为负、完成率偏低和费用压力单位。',
+        '有数据的直接下级、第二层单位和更深层级单位尽量呈现，优先列出贡献前列、拖累前列、利润为负、完成率偏低和费用压力单位。',
+        '对职能支持型单位按成本效率、费用执行和服务支撑分析，不因无营收或利润为负直接判定为经营问题。',
         '正文使用单位、项目、明细单位等业务表达，不写叶子节点、节点等数据结构用语。',
       ],
     },
@@ -547,6 +548,35 @@ export function validateBusinessReportOutput(markdown: string, pack?: BusinessRe
         severity: 'error',
         code: 'second_level_org_not_described',
         message: '报告包包含第二层下钻组织数据，但正文未描述任何第二层单位。',
+      })
+    }
+  }
+
+  if (pack && pack.organization_two_level_table.some(row => row.depth_from_scope >= 3)) {
+    const deepRows = pack.organization_two_level_table.filter(row => row.depth_from_scope >= 3)
+    const mentionedDeepRows = deepRows.filter(row => text.includes(row.node_name))
+    if (mentionedDeepRows.length === 0) {
+      addFinding(findings, {
+        severity: 'warning',
+        code: 'deep_org_not_described',
+        message: '报告包包含更深层级组织数据，但正文未描述任何深层级单位。',
+      })
+    }
+  }
+
+  if (pack) {
+    const supportRows = pack.organization_two_level_table.filter(row => row.business_role === '职能支持型')
+    const weakSupportJudgement = supportRows.some(row => {
+      if (!text.includes(row.node_name)) return false
+      const index = text.indexOf(row.node_name)
+      const snippet = text.slice(Math.max(0, index - 80), index + row.node_name.length + 140)
+      return /(收入缺失|没有营收|无营收|利润为负).{0,40}(问题|异常|风险|拖累)/.test(snippet)
+    })
+    if (weakSupportJudgement) {
+      addFinding(findings, {
+        severity: 'error',
+        code: 'support_unit_overflagged',
+        message: '报告将职能支持型单位的无营收或负利润直接判定为问题，需改为结合成本效率和费用执行判断。',
       })
     }
   }
