@@ -11,6 +11,26 @@ import {
 export { DEFAULT_MODELS, DEFAULT_URLS }
 export type { LLMConfig, LLMProvider, ProviderSettings } from '@/shared/lib/settingsStore'
 
+function normalizeApiUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim()
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    throw new Error('API URL 格式不正确')
+  }
+
+  const isLocalHttp =
+    parsed.protocol === 'http:' &&
+    (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')
+
+  if (parsed.protocol !== 'https:' && !isLocalHttp) {
+    throw new Error('API URL 仅支持 HTTPS 地址，本地调试可使用 localhost 或 127.0.0.1')
+  }
+
+  return parsed.toString()
+}
+
 /** Load active provider's config */
 export function loadLLMConfig(): LLMConfig | null {
   const store = getSettingsSnapshot().llm
@@ -43,7 +63,7 @@ export async function saveLLMConfig(config: LLMConfig): Promise<void> {
   const store = getSettingsSnapshot().llm || { provider: config.provider, providers: {} }
   store.provider = config.provider
   store.providers[config.provider] = {
-    apiUrl: config.apiUrl,
+    apiUrl: normalizeApiUrl(config.apiUrl),
     apiKey: config.apiKey,
     model: config.model,
   }

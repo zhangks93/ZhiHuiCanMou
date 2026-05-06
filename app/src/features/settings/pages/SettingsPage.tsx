@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { AlertTriangle, Check, Trash2 } from 'lucide-react'
 import { buildSettingsHref } from '@/app/config/constants'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { loadLLMConfig, saveLLMConfig, clearLLMConfig, loadProviderSettings, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig, type ProviderSettings } from '@/shared/lib/llmConfig'
 import { loadThresholdSettings, saveThresholdSettings, resetThresholdSettings, DEFAULT_THRESHOLDS, type ThresholdSettings } from '@/shared/lib/thresholdConfig'
 
@@ -119,8 +120,8 @@ export function Settings() {
     }
     try {
       await saveLLMConfig({ provider, apiUrl: apiUrl.trim(), apiKey: apiKey.trim(), model: model.trim() })
-    } catch {
-      setFeedback({ type: 'error', msg: '配置保存失败' })
+    } catch (error) {
+      setFeedback({ type: 'error', msg: getErrorMessage(error, '配置保存失败') })
       return
     }
 
@@ -425,6 +426,11 @@ export function Settings() {
                       >
                         <Trash2 size={14} /> 清除
                       </button>
+                      {feedback && (
+                        <span className={`text-body ${feedback.type === 'success' ? 'text-success-700' : 'text-error-700'}`}>
+                          {feedback.msg}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )

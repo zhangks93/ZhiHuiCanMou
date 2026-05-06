@@ -33,7 +33,6 @@ SNAPSHOT_INTERVAL = timedelta(days=7)
 REQUEST_TIMEOUT = 30
 UPSERT_BATCH_SIZE = 100
 SNAPSHOT_BATCH_SIZE = 200
-AUTH_USERS_PAGE_SIZE = 1000
 DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001"
 
 
@@ -215,37 +214,6 @@ def rest_insert(base_url: str, headers: dict, table: str, rows: list[dict]) -> l
     return data if isinstance(data, list) else []
 
 
-def list_auth_users(supabase_url: str, service_role_key: str) -> list[dict]:
-    users: list[dict] = []
-    page = 1
-
-    while True:
-        resp = httpx.get(
-            f"{supabase_url}/auth/v1/admin/users",
-            headers={
-                "apikey": service_role_key,
-                "Authorization": f"Bearer {service_role_key}",
-            },
-            params={"page": page, "per_page": AUTH_USERS_PAGE_SIZE},
-            timeout=REQUEST_TIMEOUT,
-        )
-        resp.raise_for_status()
-
-        data = resp.json()
-        page_users = data.get("users", []) if isinstance(data, dict) else []
-        if not isinstance(page_users, list) or not page_users:
-            break
-
-        users.extend(page_users)
-        print(f"  [OK] auth users page {page}: {len(page_users)}")
-
-        if len(page_users) < AUTH_USERS_PAGE_SIZE:
-            break
-        page += 1
-
-    return users
-
-
 def fetch_departments(token: str, root_dept_id: str) -> list[dict]:
     all_depts: list[dict] = []
     seen_department_ids: set[str] = set()
@@ -384,6 +352,7 @@ def upsert_departments(
         resp = httpx.post(
             f"{base_url}/feishu_departments",
             headers={**headers, "Prefer": "return=representation,resolution=merge-duplicates"},
+            params={"on_conflict": "department_id"},
             json=batch,
             timeout=REQUEST_TIMEOUT,
         )
@@ -456,32 +425,31 @@ def build_member_rows(members: list[dict], dept_column: str) -> list[dict]:
     return rows
 
 
-def build_auth_user_indexes(auth_users: list[dict]) -> tuple[dict[str, dict], dict[str, dict]]:
-    by_open_id: dict[str, dict] = {}
-    by_email: dict[str, dict] = {}
-
-    for user in auth_users:
-        user_id = user.get("id")
-        if not isinstance(user_id, str) or not user_id:
-            continue
-
-        email = user.get("email")
-        if isinstance(email, str) and email:
-            by_email[email.strip().lower()] = user
-
-        metadata = user.get("user_metadata")
-        if isinstance(metadata, dict):
-            open_id = metadata.get("feishu_open_id")
-            if isinstance(open_id, str) and open_id:
-                by_open_id[open_id] = user
-
-    return by_open_id, by_email
+def list_existing_profiles(base_url: str, headers: dict) -> list[dict]:
+    rows = rest_get(
+        base_url,
+        headers,
+        "profiles",
+        {
+            "select": "id,feishu_open_id",
+            "feishu_open_id": "not.is.null",
+            "limit": "10000",
+        },
+    )
+    print(f"  [OK] profiles loaded: {len(rows)} existing profile(s) with feishu_open_id")
+    return rows
 
 
-def build_profile_rows(members: list[dict], auth_users: list[dict]) -> list[dict]:
-    auth_users_by_open_id, auth_users_by_email = build_auth_user_indexes(auth_users)
+def build_profile_rows(members: list[dict], existing_profiles: list[dict]) -> list[dict]:
+    profile_by_open_id: dict[str, dict] = {}
+    for profile in existing_profiles:
+        open_id = profile.get("feishu_open_id")
+        profile_id = profile.get("id")
+        if isinstance(open_id, str) and open_id and isinstance(profile_id, str) and profile_id:
+            profile_by_open_id[open_id] = profile
+
     rows: list[dict] = []
-    synced_auth_user_ids: set[str] = set()
+    synced_profile_ids: set[str] = set()
     unmatched_members = 0
 
     for member in members:
@@ -489,21 +457,15 @@ def build_profile_rows(members: list[dict], auth_users: list[dict]) -> list[dict
         if not isinstance(open_id, str) or not open_id:
             continue
 
-        email = member.get("email")
-        email_value = email.strip().lower() if isinstance(email, str) and email else None
-
-        auth_user = auth_users_by_open_id.get(open_id)
-        if auth_user is None and email_value:
-            auth_user = auth_users_by_email.get(email_value)
-
-        if auth_user is None:
+        profile = profile_by_open_id.get(open_id)
+        if profile is None:
             unmatched_members += 1
             continue
 
-        auth_user_id = auth_user.get("id")
-        if not isinstance(auth_user_id, str) or not auth_user_id or auth_user_id in synced_auth_user_ids:
+        profile_id = profile.get("id")
+        if not isinstance(profile_id, str) or not profile_id or profile_id in synced_profile_ids:
             continue
-        synced_auth_user_ids.add(auth_user_id)
+        synced_profile_ids.add(profile_id)
 
         avatar = member.get("avatar", {})
         avatar_url = None
@@ -512,7 +474,7 @@ def build_profile_rows(members: list[dict], auth_users: list[dict]) -> list[dict
 
         rows.append(
             {
-                "id": auth_user_id,
+                "id": profile_id,
                 "feishu_open_id": open_id,
                 "name": member.get("name", ""),
                 "avatar_url": avatar_url,
@@ -522,18 +484,18 @@ def build_profile_rows(members: list[dict], auth_users: list[dict]) -> list[dict
         )
 
     print(
-        f"  [OK] profiles prepared: {len(rows)} matched auth users, "
-        f"{unmatched_members} members skipped (no auth user)"
+        f"  [OK] profiles prepared: {len(rows)} matched existing profiles, "
+        f"{unmatched_members} members skipped (no existing profile)"
     )
     return rows
 
 
-def upsert_profiles(base_url: str, headers: dict, supabase_url: str, service_role_key: str, members: list[dict]):
-    auth_users = list_auth_users(supabase_url, service_role_key)
-    profile_rows = build_profile_rows(members, auth_users)
+def upsert_profiles(base_url: str, headers: dict, members: list[dict]):
+    existing_profiles = list_existing_profiles(base_url, headers)
+    profile_rows = build_profile_rows(members, existing_profiles)
 
     if not profile_rows:
-        print("无可同步 profiles 数据（未匹配到 Supabase auth 用户）")
+        print("无可同步 profiles 数据（未匹配到已有 public.profiles 用户）")
         return
 
     for batch in chunked(profile_rows, UPSERT_BATCH_SIZE):
@@ -564,6 +526,7 @@ def upsert_members(base_url: str, headers: dict, members: list[dict]):
         resp = httpx.post(
             f"{base_url}/feishu_members",
             headers={**headers, "Prefer": "return=representation,resolution=merge-duplicates"},
+            params={"on_conflict": "open_id"},
             json=batch,
             timeout=REQUEST_TIMEOUT,
         )
@@ -736,8 +699,7 @@ def sync(root_dept_id: str = "0"):
     app_secret = os.getenv("FEISHU_APP_SECRET")
     supabase_url = os.getenv("VITE_SUPABASE_URL") or os.getenv("SUPABASE_URL")
     supabase_key = (
-        os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-        or os.getenv("VITE_SUPABASE_ANON_KEY")
+        os.getenv("VITE_SUPABASE_ANON_KEY")
         or os.getenv("SUPABASE_ANON_KEY")
     )
 
@@ -748,7 +710,7 @@ def sync(root_dept_id: str = "0"):
         print("  FEISHU_APP_SECRET=xxxx")
         return
     if not supabase_url or not supabase_key:
-        print("错误: 缺少 Supabase 配置（VITE_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / VITE_SUPABASE_ANON_KEY）")
+        print("错误: 缺少 Supabase 配置（VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY）")
         return
 
     sb_headers = {
@@ -803,7 +765,7 @@ def sync(root_dept_id: str = "0"):
     print("── 写入当前态 Supabase ──")
     upsert_departments(sb_base, sb_headers, departments, dept_member_counts)
     upsert_members(sb_base, sb_headers, unique_members)
-    upsert_profiles(sb_base, sb_headers, supabase_url, supabase_key, unique_members)
+    upsert_profiles(sb_base, sb_headers, unique_members)
 
     current_time = utc_now()
     latest_snapshot_run = get_latest_snapshot_run(sb_base, sb_headers)
