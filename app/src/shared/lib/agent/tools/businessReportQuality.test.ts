@@ -220,7 +220,7 @@ describe('business report quality', () => {
     expect(result.findings.some(item => item.code === 'forbidden_term_present')).toBe(true)
   })
 
-  it('blocks forbidden internal terms and warns on latin letters in markdown output', () => {
+  it('blocks internal table names and warns on leaked status terms', () => {
     const pack = basePack()
     pack.quality_contract = buildBusinessReportQualityContract(pack)
     const result = validateBusinessReportOutput([
@@ -236,15 +236,15 @@ describe('business report quality', () => {
 
     expect(result.passed).toBe(false)
     expect(result.findings.some(item => item.code === 'forbidden_term_present')).toBe(true)
-    expect(result.findings.some(item => item.code === 'latin_letters_present' && item.severity === 'warning')).toBe(true)
+    expect(result.findings.some(item => item.code === 'internal_status_term_present' && item.severity === 'warning')).toBe(true)
   })
 
-  it('warns but does not fail on non-forbidden latin letters', () => {
+  it('allows ordinary latin letters and business abbreviations', () => {
     const pack = basePack()
     pack.quality_contract = buildBusinessReportQualityContract(pack)
     const result = validateBusinessReportOutput([
       '## 经营摘要与学年目标判断',
-      '本月 BP 复盘显示收入仍需关注，学年预算和突围考核均需持续跟进。',
+      '本月 BP 复盘显示收入仍需关注，ROI 还需要结合投入结构解释，学年预算和突围考核均需持续跟进。',
       '## 目标对标与实际完成',
       '当月收入完成较好，截至当月累计利润仍有缺口，学年目标累计存在压力。',
       '## 组织结构、贡献与拖累',
@@ -258,10 +258,11 @@ describe('business report quality', () => {
     ].join('\n'), pack)
 
     expect(result.passed).toBe(true)
-    expect(result.findings.some(item => item.code === 'latin_letters_present' && item.severity === 'warning')).toBe(true)
+    expect(result.findings.some(item => item.code === 'latin_letters_present')).toBe(false)
+    expect(result.findings.some(item => item.code === 'forbidden_term_present')).toBe(false)
   })
 
-  it('blocks non-business technical terms in final markdown', () => {
+  it('warns on non-business technical terms in final markdown', () => {
     const pack = basePack()
     pack.quality_contract = buildBusinessReportQualityContract(pack)
     const result = validateBusinessReportOutput([
@@ -279,8 +280,7 @@ describe('business report quality', () => {
       '应收账款回款情况需人工补充。',
     ].join('\n'), pack)
 
-    expect(result.passed).toBe(false)
-    expect(result.findings.some(item => item.code === 'non_business_term_present')).toBe(true)
+    expect(result.findings.some(item => item.code === 'non_business_term_present' && item.severity === 'warning')).toBe(true)
   })
 
   it('allows business terms for detailed units and projects', () => {
@@ -305,7 +305,7 @@ describe('business report quality', () => {
     expect(result.findings.some(item => item.code === 'non_business_term_present')).toBe(false)
   })
 
-  it('ignores urls and fenced code blocks when checking latin letters', () => {
+  it('allows urls and fenced code blocks without latin-letter warnings', () => {
     const pack = basePack()
     pack.quality_contract = buildBusinessReportQualityContract(pack)
     const result = validateBusinessReportOutput([

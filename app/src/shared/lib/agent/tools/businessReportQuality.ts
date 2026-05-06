@@ -44,10 +44,6 @@ const REQUIRED_TABLES = [
 const FORBIDDEN_TERMS = [
   'fone',
   'tuwei',
-  'watch',
-  'good',
-  'risk',
-  'missing',
   'edu_biz_report',
   'edu_org_hierarchy',
   'metric_comparison_wide_table',
@@ -69,16 +65,12 @@ const FORBIDDEN_TERMS = [
 const FORBIDDEN_PUBLIC_TECH_TERMS = [
   '叶子节点',
   '节点',
-  'node',
-  'leaf',
-  'orphan',
-  'worker',
-  'JSON',
-  'json',
   '字段名',
   '表名',
   '数据结构',
 ]
+const FORBIDDEN_INTERNAL_STATUS_TERMS = ['good', 'watch', 'risk', 'missing']
+const FORBIDDEN_INTERNAL_TECH_TERMS = ['node', 'leaf', 'orphan', 'worker', 'JSON', 'json']
 const MANUAL_DATA_SECTIONS = ['应收账款回款情况', '资金计划执行情况', '核心费用专项明细']
 const PERIOD_SCOPE_LABELS = ['当月', '截至当月累计', '学年目标累计']
 
@@ -393,6 +385,22 @@ function removeMarkdownCodeFences(text: string): string {
   return text.replace(/```[\s\S]*?```/g, '')
 }
 
+function hasStandaloneAsciiTerm(text: string, term: string): boolean {
+  return new RegExp(`(^|[^A-Za-z0-9_])${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^A-Za-z0-9_]|$)`, 'i').test(text)
+}
+
+function hasInternalStatusLeak(text: string, term: string): boolean {
+  return new RegExp(`(?:状态|风险等级|完成状态|预警|结论|判断)\\s*[:：]?\\s*${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[^A-Za-z0-9_])`, 'i').test(text)
+}
+
+function hasInternalTechLeak(text: string, term: string): boolean {
+  if (term.toLowerCase() === 'json') {
+    return /(?:工具|报告包|字段|数据结构|返回|输出|原始)\s*[:：]?\s*json\b/i.test(text)
+      || /\bjson\s*(?:字段|结构|数据|结果|工具|报告包)\b/i.test(text)
+  }
+  return new RegExp(`(?:工具|报告包|字段|数据结构|返回|内部|原始)\\s*[:：]?\\s*${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[^A-Za-z0-9_])`, 'i').test(text)
+}
+
 export function validateBusinessReportPack(pack: BusinessReportPack): ReportQualityResult {
   const findings: ReportQualityFinding[] = []
 
@@ -481,7 +489,7 @@ export function validateBusinessReportOutput(markdown: string, pack?: BusinessRe
   }
 
   for (const term of contract.forbidden_terms) {
-    if (new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(text)) {
+    if (hasStandaloneAsciiTerm(text, term)) {
       addFinding(findings, {
         severity: 'error',
         code: 'forbidden_term_present',
@@ -496,21 +504,34 @@ export function validateBusinessReportOutput(markdown: string, pack?: BusinessRe
   for (const term of FORBIDDEN_PUBLIC_TECH_TERMS) {
     if (new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(markdownWithoutCodeFences)) {
       addFinding(findings, {
-        severity: 'error',
+        severity: 'warning',
         code: 'non_business_term_present',
-        message: `报告正文出现非业务表达：${term}`,
+        message: `报告正文疑似出现非业务表达：${term}`,
         evidence: { term },
       })
     }
   }
 
-  const markdownWithoutUrls = markdownWithoutCodeFences.replace(/https?:\/\/\S+/g, '')
-  if (/[A-Za-z]/.test(markdownWithoutUrls)) {
-    addFinding(findings, {
-      severity: 'warning',
-      code: 'latin_letters_present',
-      message: '报告正文存在英文字符，请确认是否为必要英文或改为中文表达。',
-    })
+  for (const term of FORBIDDEN_INTERNAL_STATUS_TERMS) {
+    if (hasInternalStatusLeak(markdownWithoutCodeFences, term)) {
+      addFinding(findings, {
+        severity: 'warning',
+        code: 'internal_status_term_present',
+        message: `报告正文疑似直接输出内部英文状态词：${term}`,
+        evidence: { term },
+      })
+    }
+  }
+
+  for (const term of FORBIDDEN_INTERNAL_TECH_TERMS) {
+    if (hasInternalTechLeak(markdownWithoutCodeFences, term)) {
+      addFinding(findings, {
+        severity: 'warning',
+        code: 'internal_tech_term_present',
+        message: `报告正文疑似直接输出内部技术词：${term}`,
+        evidence: { term },
+      })
+    }
   }
 
   if (!hasAny(text, contract.required_chinese_report_type_labels)) {
