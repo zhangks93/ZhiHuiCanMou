@@ -211,6 +211,75 @@ export type Database = {
         }
         Relationships: []
       }
+      edu_collection_receivables: {
+        Row: {
+          analysis_level_1: string | null
+          analysis_level_2: string | null
+          business_category: string | null
+          collection_rate: number | null
+          created_at: string
+          current_school_year_collection_amount: number
+          current_school_year_new_receivable: number
+          growth_base_label: string | null
+          id: string
+          imported_at: string
+          item_name: string
+          org_tag: string | null
+          parent_item_name: string | null
+          period_label: string
+          permission_people: string | null
+          prior_school_year_receivable: number
+          remaining_receivable: number
+          row_order: number
+          source_file_name: string
+          source_sheet_name: string
+        }
+        Insert: {
+          analysis_level_1?: string | null
+          analysis_level_2?: string | null
+          business_category?: string | null
+          collection_rate?: number | null
+          created_at?: string
+          current_school_year_collection_amount?: number
+          current_school_year_new_receivable?: number
+          growth_base_label?: string | null
+          id?: string
+          imported_at?: string
+          item_name: string
+          org_tag?: string | null
+          parent_item_name?: string | null
+          period_label: string
+          permission_people?: string | null
+          prior_school_year_receivable?: number
+          remaining_receivable?: number
+          row_order: number
+          source_file_name: string
+          source_sheet_name: string
+        }
+        Update: {
+          analysis_level_1?: string | null
+          analysis_level_2?: string | null
+          business_category?: string | null
+          collection_rate?: number | null
+          created_at?: string
+          current_school_year_collection_amount?: number
+          current_school_year_new_receivable?: number
+          growth_base_label?: string | null
+          id?: string
+          imported_at?: string
+          item_name?: string
+          org_tag?: string | null
+          parent_item_name?: string | null
+          period_label?: string
+          permission_people?: string | null
+          prior_school_year_receivable?: number
+          remaining_receivable?: number
+          row_order?: number
+          source_file_name?: string
+          source_sheet_name?: string
+        }
+        Relationships: []
+      }
       fee_effect_import_batches: {
         Row: {
           created_at: string

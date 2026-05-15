@@ -132,7 +132,7 @@ function MobileAttendanceCard({ row, expanded, expandable, onToggle }: {
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
         <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">人数 {formatNumber(row.metrics.employeeCount)}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到人数 {formatNumber(row.metrics.lateEmployeeCount)}</div>
+        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到率 {formatPercent(row.metrics.lateRate)}</div>
         <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到次数 {formatNumber(row.metrics.lateTotalCount)}</div>
       </div>
     </>
@@ -177,7 +177,7 @@ export function AttendancePage() {
           value={formatPercent(overallStats.averageAttendanceRate)}
           color={overallStats.averageAttendanceRate >= 0.98 ? 'green' : overallStats.averageAttendanceRate >= 0.95 ? 'yellow' : 'red'}
         />
-        <StatCard icon={AlertCircle} label="迟到人数" value={formatNumber(overallStats.lateEmployeeCount)} color="yellow" />
+        <StatCard icon={AlertCircle} label="迟到率" value={formatPercent(overallStats.lateRate)} color="yellow" />
         <StatCard icon={Clock} label="迟到/早退次数" value={formatNumber(overallStats.lateTotalCount)} color="yellow" />
       </div>
 
@@ -186,8 +186,7 @@ export function AttendancePage() {
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             <div className="app-table-title">
               <Clock size={18} className="text-[var(--color-text-muted)]" />
-              <h3>部门考勤树</h3>
-              <span className="app-table-meta">{overallStats.departmentCount} 个部门节点</span>
+              <h3>部门考勤总览</h3>
             </div>
 
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -239,9 +238,8 @@ export function AttendancePage() {
                 <th className="text-right">日岗</th>
                 <th className="text-right">时岗</th>
                 <th className="text-center">出勤率</th>
-                <th className="text-right">迟到人数</th>
-                <th className="text-right">30分内</th>
-                <th className="text-right">30分-2小时</th>
+                <th className="text-right">迟到率</th>
+                <th className="text-right">迟到半小时内次数</th>
               </tr>
             </thead>
             <tbody>
@@ -260,9 +258,8 @@ export function AttendancePage() {
                   <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.dayEmployeeCount)}</td>
                   <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.hourEmployeeCount)}</td>
                   <td className="text-center"><RateBadge rate={row.metrics.averageAttendanceRate} /></td>
-                  <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.lateEmployeeCount)}</td>
+                  <td className="app-cell-muted app-cell-numeric text-right">{formatPercent(row.metrics.lateRate)}</td>
                   <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.lateUnder30Count)}</td>
-                  <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.late30To120Count)}</td>
                 </tr>
               ))}
             </tbody>

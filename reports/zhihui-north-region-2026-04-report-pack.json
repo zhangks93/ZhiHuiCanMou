@@ -1,0 +1,1626 @@
+{
+  "metadata": {
+    "scope_name": "北部区域",
+    "org_scope_key": "智汇后勤集团 / 北部区域",
+    "month": "202604",
+    "previous_month": "202603",
+    "cumulative_period": "<202605",
+    "school_year_target_period": "<202607",
+    "report_types": [
+      "fone",
+      "tuwei"
+    ],
+    "generated_at": "2026-05-06T10:16:10.814Z",
+    "data_source": "Supabase REST edu_biz_report"
+  },
+  "coverage": {
+    "core_biz_data": "available",
+    "previous_month_data": "available",
+    "cumulative_data": "available",
+    "school_year_target_data": "available",
+    "manual_required": [
+      "应收账款回款情况",
+      "资金计划执行情况",
+      "核心费用专项明细"
+    ]
+  },
+  "overview_table": [
+    {
+      "report_type": "fone",
+      "report_type_label": "学年预算",
+      "metric": "revenue",
+      "metric_label": "营业收入",
+      "month": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 893.1160509999995,
+        "target_value": 1223.613116,
+        "completion_rate": 0.7299006845559177,
+        "diff": -330.4970650000005,
+        "yoy": 225.65998099999982,
+        "status": "risk"
+      },
+      "cumulative_to_month": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 3396.992560089998,
+        "target_value": 7769.678448000001,
+        "completion_rate": 0.4372114731420347,
+        "diff": -4372.685887910003,
+        "yoy": 1643.223767999999,
+        "status": "risk"
+      },
+      "school_year_target": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 3396.992560089998,
+        "target_value": 10303.650196,
+        "completion_rate": 0.3296882653691748,
+        "diff": -6906.657635910003,
+        "yoy": 1643.223767999999,
+        "status": "risk"
+      }
+    },
+    {
+      "report_type": "fone",
+      "report_type_label": "学年预算",
+      "metric": "gross_profit",
+      "metric_label": "毛利额",
+      "month": {
+        "metric": "gross_profit",
+        "metric_label": "毛利额",
+        "actual": 168.25654199999957,
+        "target_value": 263.00253055999997,
+        "completion_rate": 0.6397525591930168,
+        "diff": -94.7459885600004,
+        "yoy": 69.13817599999992,
+        "status": "risk"
+      },
+      "cumulative_to_month": {
+        "metric": "gross_profit",
+        "metric_label": "毛利额",
+        "actual": 1055.4304250899806,
+        "target_value": 1724.23620145,
+        "completion_rate": 0.6121147579446564,
+        "diff": -668.8057763600193,
+        "yoy": 560.4300190000002,
+        "status": "risk"
+      },
+      "school_year_target": {
+        "metric": "gross_profit",
+        "metric_label": "毛利额",
+        "actual": 1055.4304250899806,
+        "target_value": 2222.8628694999998,
+        "completion_rate": 0.47480680863025265,
+        "diff": -1167.4324444100191,
+        "yoy": 560.4300190000002,
+        "status": "risk"
+      }
+    },
+    {
+      "report_type": "fone",
+      "report_type_label": "学年预算",
+      "metric": "pretax_profit",
+      "metric_label": "税前利润",
+      "month": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 60.58750799999953,
+        "target_value": 82.27101508,
+        "completion_rate": 0.7364380753183182,
+        "diff": -21.683507080000467,
+        "yoy": 31.05244799999994,
+        "status": "risk"
+      },
+      "cumulative_to_month": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -305.6847563900185,
+        "target_value": 325.310648,
+        "completion_rate": -0.9396703067340682,
+        "diff": -630.9954043900185,
+        "yoy": -69.94518499999941,
+        "status": "risk"
+      },
+      "school_year_target": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -305.6847563900185,
+        "target_value": 496.45690508999985,
+        "completion_rate": -0.615732711653195,
+        "diff": -802.1416614800183,
+        "yoy": -69.94518499999941,
+        "status": "risk"
+      }
+    },
+    {
+      "report_type": "fone",
+      "report_type_label": "学年预算",
+      "metric": "labor_cost",
+      "metric_label": "人力成本",
+      "month": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 137.55731100000003,
+        "target_value": null,
+        "completion_rate": null,
+        "diff": null,
+        "yoy": 69.10066699999992,
+        "status": "missing"
+      },
+      "cumulative_to_month": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 1325.0425809999997,
+        "target_value": 1725.05245462,
+        "completion_rate": 0.7681172693916049,
+        "diff": -400.00987362000023,
+        "yoy": 639.0512109999997,
+        "status": "good"
+      },
+      "school_year_target": null
+    },
+    {
+      "report_type": "tuwei",
+      "report_type_label": "突围考核",
+      "metric": "revenue",
+      "metric_label": "营业收入",
+      "month": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 893.1160509999995,
+        "target_value": 1336.309516,
+        "completion_rate": 0.6683452001998611,
+        "diff": -443.1934650000005,
+        "yoy": 225.65998099999982,
+        "status": "risk"
+      },
+      "cumulative_to_month": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 2083.26090309,
+        "target_value": 3112.85169,
+        "completion_rate": 0.6692451522128251,
+        "diff": -1029.5907869100001,
+        "yoy": 680.3526379999997,
+        "status": "risk"
+      },
+      "school_year_target": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 2083.26090309,
+        "target_value": 5854.18162,
+        "completion_rate": 0.355858604723302,
+        "diff": -3770.9207169100005,
+        "yoy": 1643.223767999999,
+        "status": "risk"
+      }
+    },
+    {
+      "report_type": "tuwei",
+      "report_type_label": "突围考核",
+      "metric": "gross_profit",
+      "metric_label": "毛利额",
+      "month": {
+        "metric": "gross_profit",
+        "metric_label": "毛利额",
+        "actual": 168.25654199999957,
+        "target_value": 536.25179857,
+        "completion_rate": 0.313764060929366,
+        "diff": -367.99525657000044,
+        "yoy": 69.13817599999992,
+        "status": "risk"
+      },
+      "cumulative_to_month": {
+        "metric": "gross_profit",
+        "metric_label": "毛利额",
+        "actual": 417.44295009000007,
+        "target_value": 1084.97045614,
+        "completion_rate": 0.3847505226779512,
+        "diff": -667.5275060499998,
+        "yoy": 198.27436800000007,
+        "status": "risk"
+      },
+      "school_year_target": {
+        "metric": "gross_profit",
+        "metric_label": "毛利额",
+        "actual": 1055.4304250899806,
+        "target_value": null,
+        "completion_rate": null,
+        "diff": null,
+        "yoy": 560.4300190000002,
+        "status": "missing"
+      }
+    },
+    {
+      "report_type": "tuwei",
+      "report_type_label": "突围考核",
+      "metric": "pretax_profit",
+      "metric_label": "税前利润",
+      "month": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 60.58750799999953,
+        "target_value": 116.44146493999997,
+        "completion_rate": 0.5203258824613646,
+        "diff": -55.853956940000444,
+        "yoy": 31.05244799999994,
+        "status": "risk"
+      },
+      "cumulative_to_month": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -38.77529190999951,
+        "target_value": 203.45792849000009,
+        "completion_rate": -0.19058137570640463,
+        "diff": -242.2332203999996,
+        "yoy": -25.400925999999835,
+        "status": "risk"
+      },
+      "school_year_target": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -38.77529190999951,
+        "target_value": 381.20861283999994,
+        "completion_rate": -0.10171672570859303,
+        "diff": -419.98390474999945,
+        "yoy": -69.94518499999941,
+        "status": "risk"
+      }
+    },
+    {
+      "report_type": "tuwei",
+      "report_type_label": "突围考核",
+      "metric": "labor_cost",
+      "metric_label": "人力成本",
+      "month": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 137.55731100000003,
+        "target_value": 170.53331136,
+        "completion_rate": 0.8066301528011333,
+        "diff": -32.97600035999997,
+        "yoy": 69.10066699999992,
+        "status": "good"
+      },
+      "cumulative_to_month": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 501.44140799999957,
+        "target_value": 568.21289857,
+        "completion_rate": 0.8824886046444181,
+        "diff": -66.77149057000042,
+        "yoy": 265.1147869999997,
+        "status": "good"
+      },
+      "school_year_target": null
+    }
+  ],
+  "organization_two_level_table": [
+    {
+      "node_name": "区域餐饮业务",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务",
+      "depth_from_scope": 1,
+      "node_kind": "level2",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 137.9679119999998,
+        "target_value": 224.35934000000003,
+        "completion_rate": 0.6149416913064542,
+        "diff": -86.39142800000022,
+        "yoy": 92.8782429999998,
+        "status": "risk"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 41.0091169999998,
+        "target_value": 33.78438316,
+        "completion_rate": 1.2138483276661902,
+        "diff": 7.2247338399998,
+        "yoy": 13.437459999999898,
+        "status": "good"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 45.4207839999999,
+        "target_value": 59.570859,
+        "completion_rate": 0.7624664938942697,
+        "diff": -14.1500750000001,
+        "yoy": 27.940871,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "玉门一中项目本级",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 玉门一中项目本级",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 8.242188,
+        "target_value": -2.40692834,
+        "completion_rate": 5.4243595303714,
+        "diff": 10.64911634,
+        "yoy": -9.031631,
+        "status": "good"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 2.170911,
+        "target_value": 2.26598434,
+        "completion_rate": 0.958043249319189,
+        "diff": -0.0950733400000017,
+        "yoy": 8.80819,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "玉门一中食堂",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 玉门一中食堂",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 75.4137679999999,
+        "target_value": 109.99934,
+        "completion_rate": 0.685583822593844,
+        "diff": -34.5855720000001,
+        "yoy": 92.8782429999998,
+        "status": "risk"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 10.4371349999999,
+        "target_value": 18.50543743,
+        "completion_rate": 0.564003690238622,
+        "diff": -8.06830243000008,
+        "yoy": 22.4690909999999,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 24.683786,
+        "target_value": 27.981958,
+        "completion_rate": 0.882132193894366,
+        "diff": -3.298172,
+        "yoy": 19.132681,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "兰州新区餐饮项目",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 兰州新区餐饮项目",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 65.1017859999999,
+        "target_value": 71.5,
+        "completion_rate": 0.910514489510488,
+        "diff": -6.3982140000001,
+        "yoy": 0,
+        "status": "watch"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 30.8834769999999,
+        "target_value": 9.49879073,
+        "completion_rate": 3.25130617968672,
+        "diff": 21.3846862699999,
+        "yoy": 0,
+        "status": "good"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 17.5940509999999,
+        "target_value": 19.12,
+        "completion_rate": 0.92019095188284,
+        "diff": -1.52594900000011,
+        "yoy": 0,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "腾飞路小学食堂",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 腾飞路小学食堂",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": -2.547642,
+        "target_value": 42.86,
+        "completion_rate": -0.0594410172655156,
+        "diff": -45.407642,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -8.553683,
+        "target_value": 8.18708334,
+        "completion_rate": -1.04477780972485,
+        "diff": -16.74076634,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0.972035999999997,
+        "target_value": 10.20291666,
+        "completion_rate": 0.0952704047667873,
+        "diff": -9.23088066,
+        "yoy": 0,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "北部新拓餐饮业务",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 北部新拓餐饮业务",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": null,
+      "pretax_profit": null,
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      }
+    },
+    {
+      "node_name": "区域物业业务",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务",
+      "depth_from_scope": 1,
+      "node_kind": "level2",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 61.622245999999905,
+        "target_value": 61.95,
+        "completion_rate": 0.9947093785310719,
+        "diff": -0.32775400000009824,
+        "yoy": 22.008967,
+        "status": "good"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 8.564164999999809,
+        "target_value": 8.979007330000002,
+        "completion_rate": 0.9537986422380844,
+        "diff": -0.41484233000019266,
+        "yoy": 22.0617570000001,
+        "status": "good"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 52.441308000000106,
+        "target_value": 51.399924999999996,
+        "completion_rate": 1.0202603992126469,
+        "diff": 1.0413830000001099,
+        "yoy": 18.3116039999999,
+        "status": "watch"
+      }
+    },
+    {
+      "node_name": "玉门一中后勤",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务 / 玉门一中后勤",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 26.1322459999999,
+        "target_value": 20.95,
+        "completion_rate": 1.24736257756563,
+        "diff": 5.1822459999999,
+        "yoy": 22.008967,
+        "status": "good"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 6.6426609999998,
+        "target_value": 1.32893233,
+        "completion_rate": 4.99849454336008,
+        "diff": 5.3137286699998,
+        "yoy": 22.0617570000001,
+        "status": "good"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 19.3091920000001,
+        "target_value": 19.4,
+        "completion_rate": 0.995319175257737,
+        "diff": -0.0908079999998996,
+        "yoy": 18.3116039999999,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "周口示范区物业项目",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务 / 周口示范区物业项目",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 35.49,
+        "target_value": 41,
+        "completion_rate": 0.865609756097561,
+        "diff": -5.51,
+        "yoy": 0,
+        "status": "watch"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 1.92150400000001,
+        "target_value": 7.65,
+        "completion_rate": 0.251176993464054,
+        "diff": -5.72849599999999,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 33.132116,
+        "target_value": 32,
+        "completion_rate": 1.035378625,
+        "diff": 1.13211599999999,
+        "yoy": 0,
+        "status": "watch"
+      }
+    },
+    {
+      "node_name": "腾飞路小学物业项目",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务 / 腾飞路小学物业项目",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 0,
+        "target_value": 0.000075,
+        "completion_rate": 0,
+        "diff": -0.000075,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": -0.000075,
+        "completion_rate": 0,
+        "diff": 0.000075,
+        "yoy": 0,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "北部新拓物业项目",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务 / 北部新拓物业项目",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": null,
+      "pretax_profit": null,
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      }
+    },
+    {
+      "node_name": "区域商超业务",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域商超业务",
+      "depth_from_scope": 1,
+      "node_kind": "level2",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 86.2201539999999,
+        "target_value": 101.00017600000001,
+        "completion_rate": 0.8536634035172364,
+        "diff": -14.780022000000116,
+        "yoy": 50.930747,
+        "status": "watch"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 26.29837999999991,
+        "target_value": 24.694944999999997,
+        "completion_rate": 1.064929685002332,
+        "diff": 1.6034349999999122,
+        "yoy": 9.5897969999999,
+        "status": "good"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 4.85018300000001,
+        "target_value": 5.2882180000000005,
+        "completion_rate": 0.9171677491359111,
+        "diff": -0.4380349999999904,
+        "yoy": 3.307908,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "皓峰玉门一中店",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域商超业务 / 皓峰玉门一中店",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 45.7580499999999,
+        "target_value": 56.000176,
+        "completion_rate": 0.817105467668528,
+        "diff": -10.2421260000001,
+        "yoy": 50.930747,
+        "status": "watch"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 19.1033949999999,
+        "target_value": 13.313562,
+        "completion_rate": 1.43488234027828,
+        "diff": 5.78983299999994,
+        "yoy": 12.4007119999999,
+        "status": "good"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 2.65915100000001,
+        "target_value": 3.356218,
+        "completion_rate": 0.79230580373504,
+        "diff": -0.697066999999992,
+        "yoy": 3.307908,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "西安吉利便利店",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域商超业务 / 西安吉利便利店",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 0,
+        "target_value": -0.186617,
+        "completion_rate": 2,
+        "diff": 0.186617,
+        "yoy": -2.810915,
+        "status": "good"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      }
+    },
+    {
+      "node_name": "兰州新区便利店项目",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域商超业务 / 兰州新区便利店项目",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 40.462104,
+        "target_value": 45,
+        "completion_rate": 0.899157866666666,
+        "diff": -4.53789600000003,
+        "yoy": 0,
+        "status": "watch"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 7.19498500000001,
+        "target_value": 11.568,
+        "completion_rate": 0.62197311549101,
+        "diff": -4.37301499999999,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 2.191032,
+        "target_value": 1.932,
+        "completion_rate": 1.13407453416149,
+        "diff": 0.259032000000001,
+        "yoy": 0,
+        "status": "risk"
+      }
+    },
+    {
+      "node_name": "区域配送业务",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务",
+      "depth_from_scope": 1,
+      "node_kind": "level2",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 607.3057389999999,
+        "target_value": 949,
+        "completion_rate": 0.6399428229715489,
+        "diff": -341.6942610000001,
+        "yoy": 59.842024,
+        "status": "risk"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 6.0881890000000185,
+        "target_value": 61.61324764999999,
+        "completion_rate": 0.09881298636592839,
+        "diff": -55.52505864999997,
+        "yoy": -6.769042000000001,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 19.664200000000008,
+        "target_value": 45.39454116,
+        "completion_rate": 0.43318424412949846,
+        "diff": -25.730341159999995,
+        "yoy": 8.87928300000001,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "周口配送",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 周口配送",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 8.99280649946377e-15,
+        "target_value": 15,
+        "completion_rate": 5.99520433297585e-16,
+        "diff": -15,
+        "yoy": 56.573351,
+        "status": "risk"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -1.18316999999999,
+        "target_value": 4.00567,
+        "completion_rate": -0.295373807627686,
+        "diff": -5.18883999999999,
+        "yoy": -10.037715,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": -0.0802799999999999,
+        "target_value": -0.70567,
+        "completion_rate": 0.113764224070741,
+        "diff": 0.62539,
+        "yoy": 8.87928300000001,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "达拉特旗校服",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 达拉特旗校服",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 2.337168,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 2.337168,
+        "yoy": 3.268673,
+        "status": "missing"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 2.33716800000011,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 2.33716800000011,
+        "yoy": 3.268673,
+        "status": "missing"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      }
+    },
+    {
+      "node_name": "周口配送-团仓店",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 周口配送-团仓店",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -0.0680199999999999,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": -0.0680199999999999,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      }
+    },
+    {
+      "node_name": "长治配送",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 长治配送",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 57.2512459999999,
+        "target_value": 127,
+        "completion_rate": 0.450797212598425,
+        "diff": -69.7487540000001,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -4.57024299999997,
+        "target_value": 6.87500001,
+        "completion_rate": -0.664762617214887,
+        "diff": -11.44524301,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 6.092433,
+        "target_value": 7.36,
+        "completion_rate": 0.827776222826087,
+        "diff": -1.267567,
+        "yoy": 0,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "南阳配送",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 南阳配送",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 235.180273,
+        "target_value": 240,
+        "completion_rate": 0.979917804166665,
+        "diff": -4.81972700000031,
+        "yoy": 0,
+        "status": "good"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -3.73237300000022,
+        "target_value": 10.88,
+        "completion_rate": -0.343048988970608,
+        "diff": -14.6123730000002,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 10.743087,
+        "target_value": 10,
+        "completion_rate": 1.0743087,
+        "diff": 0.743087000000013,
+        "yoy": 0,
+        "status": "watch"
+      }
+    },
+    {
+      "node_name": "虎林配送",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 虎林配送",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 312.537052,
+        "target_value": 259,
+        "completion_rate": 1.20670676447876,
+        "diff": 53.537052,
+        "yoy": 0,
+        "status": "good"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 11.2238960000001,
+        "target_value": 17.05257764,
+        "completion_rate": 0.658193514021736,
+        "diff": -5.82868163999991,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 5.046549,
+        "target_value": 10.14021116,
+        "completion_rate": 0.497676914254712,
+        "diff": -5.09366216,
+        "yoy": 0,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "房山区配送",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 房山区配送",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": 8,
+        "completion_rate": 0,
+        "diff": -8,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 2.08093099999999,
+        "target_value": 4.4,
+        "completion_rate": 0.472938863636361,
+        "diff": -2.31906900000001,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": -2.13758899999999,
+        "target_value": 3.6,
+        "completion_rate": -0.593774722222219,
+        "diff": -5.73758899999999,
+        "yoy": 0,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "北部新拓配送业务2",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 北部新拓配送业务2",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": 300,
+        "completion_rate": 0,
+        "diff": -300,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 0,
+        "target_value": 18.4,
+        "completion_rate": 0,
+        "diff": -18.4,
+        "yoy": 0,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 15,
+        "completion_rate": 0,
+        "diff": -15,
+        "yoy": 0,
+        "status": "good"
+      }
+    },
+    {
+      "node_name": "北部新拓配送业务1",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 北部新拓配送业务1",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": null,
+      "pretax_profit": null,
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      }
+    },
+    {
+      "node_name": "北部新拓配送业务3",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 北部新拓配送业务3",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": null,
+      "pretax_profit": null,
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      }
+    },
+    {
+      "node_name": "区域科技业务",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域科技业务",
+      "depth_from_scope": 1,
+      "node_kind": "level2",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": null,
+        "completion_rate": null,
+        "diff": null,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 0,
+        "target_value": null,
+        "completion_rate": null,
+        "diff": null,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      }
+    },
+    {
+      "node_name": "北部科技产品1",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域科技业务 / 北部科技产品1",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": null,
+        "completion_rate": null,
+        "diff": null,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": 0,
+        "target_value": null,
+        "completion_rate": null,
+        "diff": null,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      }
+    },
+    {
+      "node_name": "区域总经理室",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域总经理室",
+      "depth_from_scope": 1,
+      "node_kind": "level2",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -21.372343,
+        "target_value": -12.6301182,
+        "completion_rate": 1.6921728412644625,
+        "diff": -8.7422248,
+        "yoy": -7.26752399999996,
+        "status": "good"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 15.180836,
+        "target_value": 8.8797682,
+        "completion_rate": 1.7095982302781283,
+        "diff": 6.3010678,
+        "yoy": 10.661001,
+        "status": "risk"
+      }
+    },
+    {
+      "node_name": "北部区域总经理室",
+      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域总经理室 / 北部区域总经理室",
+      "depth_from_scope": 2,
+      "node_kind": "leaf",
+      "revenue": {
+        "metric": "revenue",
+        "metric_label": "营业收入",
+        "actual": 0,
+        "target_value": 0,
+        "completion_rate": null,
+        "diff": 0,
+        "yoy": 0,
+        "status": "missing"
+      },
+      "pretax_profit": {
+        "metric": "pretax_profit",
+        "metric_label": "税前利润",
+        "actual": -21.372343,
+        "target_value": -12.6301182,
+        "completion_rate": 0.307827158735538,
+        "diff": -8.74222479999999,
+        "yoy": -7.26752399999996,
+        "status": "risk"
+      },
+      "labor_cost": {
+        "metric": "labor_cost",
+        "metric_label": "人力成本",
+        "actual": 15.180836,
+        "target_value": 8.8797682,
+        "completion_rate": 1.70959823027813,
+        "diff": 6.3010678,
+        "yoy": 10.661001,
+        "status": "risk"
+      }
+    }
+  ],
+  "evidence_ledger": [
+    {
+      "id": "E001",
+      "section": "整体经营表现",
+      "evidence_text": "学年预算营业收入当月实际893.12，完成率73.0%，差额-330.5。",
+      "source": "overview_table"
+    },
+    {
+      "id": "E003",
+      "section": "整体经营表现",
+      "evidence_text": "学年预算税前利润当月实际60.59，完成率73.6%，差额-21.68。",
+      "source": "overview_table"
+    },
+    {
+      "id": "E004",
+      "section": "成本费用与人效分析",
+      "evidence_text": "学年预算人力成本当月实际137.56，完成率无数据，差额无数据。",
+      "source": "overview_table"
+    },
+    {
+      "id": "E005",
+      "section": "整体经营表现",
+      "evidence_text": "突围考核营业收入当月实际893.12，完成率66.8%，差额-443.19。",
+      "source": "overview_table"
+    },
+    {
+      "id": "E007",
+      "section": "整体经营表现",
+      "evidence_text": "突围考核税前利润当月实际60.59，完成率52.0%，差额-55.85。",
+      "source": "overview_table"
+    },
+    {
+      "id": "E008",
+      "section": "成本费用与人效分析",
+      "evidence_text": "突围考核人力成本当月实际137.56，完成率80.7%，差额-32.98。",
+      "source": "overview_table"
+    },
+    {
+      "id": "O001",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "区域餐饮业务当月收入137.97，税前利润41.01，人力成本45.42。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O002",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "玉门一中项目本级当月收入0，税前利润8.24，人力成本2.17。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O003",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "玉门一中食堂当月收入75.41，税前利润10.44，人力成本24.68。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O004",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "兰州新区餐饮项目当月收入65.1，税前利润30.88，人力成本17.59。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O005",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "腾飞路小学食堂当月收入-2.55，税前利润-8.55，人力成本0.97。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O006",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "北部新拓餐饮业务当月收入无数据，税前利润无数据，人力成本0。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O007",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "区域物业业务当月收入61.62，税前利润8.56，人力成本52.44。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O008",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "玉门一中后勤当月收入26.13，税前利润6.64，人力成本19.31。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O009",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "周口示范区物业项目当月收入35.49，税前利润1.92，人力成本33.13。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O010",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "腾飞路小学物业项目当月收入0，税前利润0，人力成本0。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O011",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "北部新拓物业项目当月收入无数据，税前利润无数据，人力成本0。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O012",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "区域商超业务当月收入86.22，税前利润26.3，人力成本4.85。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O013",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "皓峰玉门一中店当月收入45.76，税前利润19.1，人力成本2.66。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O014",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "西安吉利便利店当月收入0，税前利润0，人力成本0。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O015",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "兰州新区便利店项目当月收入40.46，税前利润7.19，人力成本2.19。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O016",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "区域配送业务当月收入607.31，税前利润6.09，人力成本19.66。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O017",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "周口配送当月收入0，税前利润-1.18，人力成本-0.08。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O018",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "达拉特旗校服当月收入2.34，税前利润2.34，人力成本0。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O019",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "周口配送-团仓店当月收入0，税前利润-0.07，人力成本0。",
+      "source": "organization_two_level_table"
+    },
+    {
+      "id": "O020",
+      "section": "组织结构贡献与拖累",
+      "evidence_text": "长治配送当月收入57.25，税前利润-4.57，人力成本6.09。",
+      "source": "organization_two_level_table"
+    }
+  ],
+  "data_completeness_matrix": [
+    {
+      "section": "经营结论摘要",
+      "status": "manual_required",
+      "note": "核心经营数据可用。"
+    },
+    {
+      "section": "本次使用数据",
+      "status": "good",
+      "note": "核心经营数据可用。"
+    },
+    {
+      "section": "整体经营表现",
+      "status": "good",
+      "note": "核心经营数据可用。"
+    },
+    {
+      "section": "预算与突围考核完成情况",
+      "status": "good",
+      "note": "核心经营数据可用。"
+    },
+    {
+      "section": "组织结构贡献与拖累",
+      "status": "good",
+      "note": "核心经营数据可用。"
+    },
+    {
+      "section": "成本费用与人效分析",
+      "status": "good",
+      "note": "核心经营数据可用。"
+    },
+    {
+      "section": "风险预警与机会判断",
+      "status": "manual_required",
+      "note": "需要基于证据保守表达，不得补造责任人或完成时点。"
+    },
+    {
+      "section": "建议动作",
+      "status": "manual_required",
+      "note": "需要基于证据保守表达，不得补造责任人或完成时点。"
+    },
+    {
+      "section": "数据限制与待补说明",
+      "status": "manual_required",
+      "note": "需要基于证据保守表达，不得补造责任人或完成时点。"
+    }
+  ],
+  "quality_contract": {
+    "required_sections": [
+      "经营结论摘要",
+      "本次使用数据",
+      "整体经营表现",
+      "预算与突围考核完成情况",
+      "组织结构贡献与拖累",
+      "成本费用与人效分析",
+      "风险预警与机会判断",
+      "建议动作",
+      "数据限制与待补说明"
+    ],
+    "forbidden_terms": [
+      "node",
+      "leaf",
+      "worker",
+      "JSON",
+      "json",
+      "字段名",
+      "表名",
+      "数据结构",
+      "叶子节点"
+    ],
+    "audit_tool": "audit-business-report",
+    "rules": [
+      "完整报告必须至少包含核心章节。",
+      "不得泄露内部枚举、工具名、字段名和表名。",
+      "人工补充数据只能在数据限制中说明。"
+    ]
+  },
+  "section_briefs": [
+    {
+      "section": "经营结论摘要",
+      "required_evidence_ids": [],
+      "writing_guidance": [
+        "只使用证据台账和表格数字，结论强度随数据完整度调整。"
+      ]
+    },
+    {
+      "section": "本次使用数据",
+      "required_evidence_ids": [],
+      "writing_guidance": [
+        "只使用证据台账和表格数字，结论强度随数据完整度调整。"
+      ]
+    },
+    {
+      "section": "整体经营表现",
+      "required_evidence_ids": [
+        "E001",
+        "E003",
+        "E005",
+        "E007"
+      ],
+      "writing_guidance": [
+        "只使用证据台账和表格数字，结论强度随数据完整度调整。"
+      ]
+    },
+    {
+      "section": "预算与突围考核完成情况",
+      "required_evidence_ids": [],
+      "writing_guidance": [
+        "只使用证据台账和表格数字，结论强度随数据完整度调整。"
+      ]
+    },
+    {
+      "section": "组织结构贡献与拖累",
+      "required_evidence_ids": [
+        "O001",
+        "O002",
+        "O003",
+        "O004",
+        "O005",
+        "O006",
+        "O007",
+        "O008"
+      ],
+      "writing_guidance": [
+        "只使用证据台账和表格数字，结论强度随数据完整度调整。"
+      ]
+    },
+    {
+      "section": "成本费用与人效分析",
+      "required_evidence_ids": [
+        "E004",
+        "E008"
+      ],
+      "writing_guidance": [
+        "只使用证据台账和表格数字，结论强度随数据完整度调整。"
+      ]
+    },
+    {
+      "section": "风险预警与机会判断",
+      "required_evidence_ids": [],
+      "writing_guidance": [
+        "只使用证据台账和表格数字，结论强度随数据完整度调整。"
+      ]
+    },
+    {
+      "section": "建议动作",
+      "required_evidence_ids": [],
+      "writing_guidance": [
+        "只使用证据台账和表格数字，结论强度随数据完整度调整。"
+      ]
+    },
+    {
+      "section": "数据限制与待补说明",
+      "required_evidence_ids": [],
+      "writing_guidance": [
+        "集中说明应收、资金、合同、项目进度、责任人等不可自动获取。"
+      ]
+    }
+  ]
+}

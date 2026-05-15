@@ -167,6 +167,8 @@ def parse_workbook(path: Path) -> tuple[list[dict[str, Any]], int]:
         attendance_type, work_unit, leave_columns = detect_attendance_type(df, path)
         expected_column = "全月应出勤天数" if work_unit == "day" else "全月应出勤时数"
         actual_column = "实际出勤天数" if work_unit == "day" else "实际出勤时数"
+        unqualified_column = "未满勤天数" if work_unit == "day" else "未满勤时数"
+        legal_holiday_column = "在职法定节假日天数" if work_unit == "day" else "在职法定节假日时数"
         normal_column = "其中：正常班天数" if work_unit == "day" else "其中：正常班时数"
         absence_column = "旷工天数" if work_unit == "day" else "旷工时数"
 
@@ -189,9 +191,11 @@ def parse_workbook(path: Path) -> tuple[list[dict[str, Any]], int]:
             expected = number_value(row.get(expected_column))
             normal = number_value(row.get(normal_column))
             actual = number_value(row.get(actual_column))
+            unqualified = number_value(row.get(unqualified_column))
+            legal_holiday = number_value(row.get(legal_holiday_column))
             approved_leave = sum(number_value(row.get(column)) for column in leave_columns if column in df.columns)
             absence = number_value(row.get(absence_column))
-            qualified = min(expected, normal + approved_leave) if expected > 0 else 0
+            qualified = actual + approved_leave + unqualified + legal_holiday
             attendance_rate = qualified / expected if expected > 0 else 0
             late_under_30 = int_value(row.get("迟到/早退(30分以内)"))
             late_30_to_120 = int_value(row.get("迟到早退(超30分钟不超2小时)"))

@@ -50,6 +50,7 @@ export function AppRoutes() {
         <Route path="org-data" element={<Navigate to={buildDataHref('org-data')} replace />} />
         <Route path="planning" element={<Navigate to={buildDataHref('planning')} replace />} />
         <Route path="biz-data" element={<Navigate to={buildDataHref('biz-data')} replace />} />
+        <Route path="collection" element={<Navigate to={buildDataHref('collection')} replace />} />
         <Route path="opportunity" element={<Navigate to={buildDataHref('opportunity')} replace />} />
         <Route path="trip" element={<Navigate to={buildDataHref('trip')} replace />} />
         <Route path="attendance" element={<Navigate to={buildDataHref('attendance')} replace />} />

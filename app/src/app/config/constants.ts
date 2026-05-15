@@ -16,6 +16,7 @@ export const ROUTES = {
   ORG_DATA: '/org-data',
   PLANNING: '/planning',
   BIZ_DATA: '/biz-data',
+  COLLECTION: '/collection',
   OPPORTUNITY: '/opportunity',
   TRIP: '/trip',
   ATTENDANCE: '/attendance',

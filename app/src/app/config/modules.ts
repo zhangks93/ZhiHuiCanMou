@@ -9,6 +9,7 @@ import {
   Calendar,
   Users,
   BarChart3,
+  WalletCards,
   Target,
   Plane,
   Clock,
@@ -63,6 +64,7 @@ export interface ModuleNavConfig {
 
 export const DATA_MODULE_IDS = [
   'biz-data',
+  'collection',
   'opportunity',
   'trip',
   'attendance',
@@ -111,6 +113,13 @@ export const MODULE_NAV_CONFIG: Record<string, Omit<ModuleNavConfig, 'id'>> = {
     section: 'data',
     icon: BarChart3,
     sortOrder: 20,
+  },
+  collection: {
+    label: '回款',
+    routePath: '/collection',
+    section: 'data',
+    icon: WalletCards,
+    sortOrder: 20.5,
   },
   opportunity: {
     label: '商机',
@@ -163,6 +172,7 @@ export const FIXED_NAV = {
 export const DEFAULT_ENABLED_MODULE_IDS = [
   'schedule',
   'biz-data',
+  'collection',
   'opportunity',
   'trip',
   'attendance',

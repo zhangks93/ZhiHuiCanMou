@@ -1,6 +1,6 @@
 # Supabase Migrations
 
-Last updated: 2026-05-03
+Last updated: 2026-05-14
 
 ## Migration History
 
@@ -32,15 +32,16 @@ Last updated: 2026-05-03
 | 20260427143000 | create_fee_effect_analysis | Create fee-effect analysis import batches and 4 analysis sheet result tables, without raw detail fact tables |
 | 20260427150000 | disable_rls_for_fee_effect_tables | Disable RLS for fee-effect analysis tables per data module import requirement |
 | 20260503170000 | create_attendance_monthly_records_v2 | Create HR monthly attendance v2 table for both day-based and hour-based attendance workbooks |
+| 20260514120000 | create_collection_receivables | Create collection receivables table for cumulative collection rate workbook data |
 
-## Total Migrations: 26
+## Total Migrations: 27
 
 ## Latest Migration
-**Version**: 20260503170000
-**Name**: create_attendance_monthly_records_v2
-**Date**: 2026-05-03
+**Version**: 20260514120000
+**Name**: create_collection_receivables
+**Date**: 2026-05-14
 
-This migration creates `attendance_monthly_records_v2`:
-- Stores both standard day-based and comprehensive hour-based HR monthly attendance rows
-- Preserves Excel department paths and display paths starting at `海亮智汇后勤集团`
-- Enables authenticated read access for the attendance tab
+This migration creates `edu_collection_receivables`:
+- Stores cumulative collection workbook rows with amounts normalized to 万元
+- Preserves the Excel parent record relationship for tree table display
+- Grants authenticated read access without enabling RLS

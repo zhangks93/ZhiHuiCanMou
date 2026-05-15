@@ -13,10 +13,12 @@ export interface AttendanceTreeMetrics {
   dayEmployeeCount: number
   hourEmployeeCount: number
   qualifiedEmployeeCount: number
+  expectedWorkAmount: number
+  actualWorkAmount: number
+  qualifiedAttendanceAmount: number
   averageAttendanceRate: number
-  lateEmployeeCount: number
+  lateRate: number
   lateUnder30Count: number
-  late30To120Count: number
   lateTotalCount: number
   missingClockCount: number
   makeupClockCount: number
@@ -45,10 +47,12 @@ function createEmptyMetrics(): AttendanceTreeMetrics {
     dayEmployeeCount: 0,
     hourEmployeeCount: 0,
     qualifiedEmployeeCount: 0,
+    expectedWorkAmount: 0,
+    actualWorkAmount: 0,
+    qualifiedAttendanceAmount: 0,
     averageAttendanceRate: 0,
-    lateEmployeeCount: 0,
+    lateRate: 0,
     lateUnder30Count: 0,
-    late30To120Count: 0,
     lateTotalCount: 0,
     missingClockCount: 0,
     makeupClockCount: 0,
@@ -60,17 +64,21 @@ function addRecordToMetrics(metrics: AttendanceTreeMetrics, record: AttendanceMo
   if (record.attendance_type === 'standard_day') metrics.dayEmployeeCount += 1
   if (record.attendance_type === 'comprehensive_hour') metrics.hourEmployeeCount += 1
   if ((record.attendance_rate ?? 0) >= 1) metrics.qualifiedEmployeeCount += 1
-  if ((record.late_total_count ?? 0) > 0) metrics.lateEmployeeCount += 1
+  metrics.expectedWorkAmount += record.expected_work_amount ?? 0
+  metrics.actualWorkAmount += record.actual_work_amount ?? 0
+  metrics.qualifiedAttendanceAmount += record.qualified_attendance_amount ?? 0
   metrics.lateUnder30Count += record.late_under_30_count ?? 0
-  metrics.late30To120Count += record.late_30_to_120_count ?? 0
   metrics.lateTotalCount += record.late_total_count ?? 0
   metrics.missingClockCount += record.missing_clock_count ?? 0
   metrics.makeupClockCount += record.makeup_clock_count ?? 0
 }
 
-function finalizeMetrics(metrics: AttendanceTreeMetrics, records: AttendanceMonthlyRecord[]) {
-  metrics.averageAttendanceRate = records.length > 0
-    ? records.reduce((sum, record) => sum + (record.attendance_rate ?? 0), 0) / records.length
+function finalizeMetrics(metrics: AttendanceTreeMetrics) {
+  metrics.averageAttendanceRate = metrics.expectedWorkAmount > 0
+    ? metrics.qualifiedAttendanceAmount / metrics.expectedWorkAmount
+    : 0
+  metrics.lateRate = metrics.actualWorkAmount > 0
+    ? metrics.lateTotalCount / metrics.actualWorkAmount
     : 0
 }
 
@@ -99,7 +107,6 @@ function compareRows(a: AttendanceTreeRow, b: AttendanceTreeRow) {
 }
 
 function buildTree(records: AttendanceMonthlyRecord[]): AttendanceTreeRow[] {
-  const rootRecords: AttendanceMonthlyRecord[] = []
   const root: AttendanceTreeRow = {
     key: `department:${ROOT_NAME}`,
     level: 'root',
@@ -114,7 +121,6 @@ function buildTree(records: AttendanceMonthlyRecord[]): AttendanceTreeRow[] {
 
   records.forEach((record) => {
     const path = normalizePath(record.department_path)
-    rootRecords.push(record)
     addRecordToMetrics(root.metrics, record)
 
     let parent = root
@@ -152,10 +158,12 @@ function buildTree(records: AttendanceMonthlyRecord[]): AttendanceTreeRow[] {
         dayEmployeeCount: record.attendance_type === 'standard_day' ? 1 : 0,
         hourEmployeeCount: record.attendance_type === 'comprehensive_hour' ? 1 : 0,
         qualifiedEmployeeCount: (record.attendance_rate ?? 0) >= 1 ? 1 : 0,
+        expectedWorkAmount: record.expected_work_amount ?? 0,
+        actualWorkAmount: record.actual_work_amount ?? 0,
+        qualifiedAttendanceAmount: record.qualified_attendance_amount ?? 0,
         averageAttendanceRate: record.attendance_rate ?? 0,
-        lateEmployeeCount: (record.late_total_count ?? 0) > 0 ? 1 : 0,
+        lateRate: (record.actual_work_amount ?? 0) > 0 ? (record.late_total_count ?? 0) / (record.actual_work_amount ?? 0) : 0,
         lateUnder30Count: record.late_under_30_count ?? 0,
-        late30To120Count: record.late_30_to_120_count ?? 0,
         lateTotalCount: record.late_total_count ?? 0,
         missingClockCount: record.missing_clock_count ?? 0,
         makeupClockCount: record.makeup_clock_count ?? 0,
@@ -165,13 +173,8 @@ function buildTree(records: AttendanceMonthlyRecord[]): AttendanceTreeRow[] {
   })
 
   nodeMap.forEach((node) => {
-    const nodeRecords = records.filter((record) => {
-      const path = normalizePath(record.department_path)
-      return node.departmentPath.every((part, index) => path[index] === part)
-    })
-    finalizeMetrics(node.metrics, nodeRecords)
+    finalizeMetrics(node.metrics)
   })
-  finalizeMetrics(root.metrics, rootRecords)
 
   const sortChildren = (row: AttendanceTreeRow) => {
     row.children = row.children?.sort(compareRows).map((child) => {

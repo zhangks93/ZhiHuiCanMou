@@ -84,6 +84,7 @@ export const DEFAULT_THRESHOLDS: ThresholdSettings = {
 export const DEFAULT_ENABLED_MODULES = [
   'schedule',
   'biz-data',
+  'collection',
   'opportunity',
   'trip',
   'attendance',
@@ -95,6 +96,13 @@ export const DEFAULT_ENABLED_MODULES = [
 
 function normalizeEnabledModules(moduleIds: string[]): string[] {
   const normalized = [...moduleIds]
+  const hasBizData = normalized.includes('biz-data')
+  const hasCollection = normalized.includes('collection')
+  if (hasBizData && !hasCollection) {
+    const bizDataIndex = normalized.indexOf('biz-data')
+    normalized.splice(bizDataIndex + 1, 0, 'collection')
+  }
+
   const hasPlanning = normalized.includes('planning')
   const shouldExposePlanning = normalized.includes('org-data') || normalized.includes('biz-data')
 
