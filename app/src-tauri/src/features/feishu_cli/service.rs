@@ -416,7 +416,9 @@ fn resolve_cli_path(configured_path: Option<&str>) -> AppResult<ResolvedCliPath>
         .filter(|value| !value.is_empty())
     {
         let path = PathBuf::from(path);
-        if path.exists() {
+        if let Some(path) =
+            resolve_windows_npm_shim(&path).or_else(|| path.exists().then_some(path))
+        {
             return Ok(ResolvedCliPath {
                 path,
                 source: "configured".to_string(),
@@ -428,7 +430,7 @@ fn resolve_cli_path(configured_path: Option<&str>) -> AppResult<ResolvedCliPath>
         )));
     }
 
-    for candidate in ["lark-cli", "lark-cli.cmd", "lark-cli.exe"] {
+    for candidate in cli_path_candidates() {
         if let Some(path) = find_in_path(candidate) {
             return Ok(ResolvedCliPath {
                 path,
@@ -440,6 +442,38 @@ fn resolve_cli_path(configured_path: Option<&str>) -> AppResult<ResolvedCliPath>
     Err(AppError::message(
         "未找到 lark-cli。请先安装飞书 CLI 并完成登录授权。",
     ))
+}
+
+#[cfg(windows)]
+fn cli_path_candidates() -> &'static [&'static str] {
+    &["lark-cli.cmd", "lark-cli.exe", "lark-cli.ps1", "lark-cli"]
+}
+
+#[cfg(not(windows))]
+fn cli_path_candidates() -> &'static [&'static str] {
+    &["lark-cli"]
+}
+
+#[cfg(windows)]
+fn resolve_windows_npm_shim(path: &Path) -> Option<PathBuf> {
+    let extension = path.extension().and_then(|value| value.to_str());
+    if extension.is_some() && path.exists() {
+        return Some(path.to_path_buf());
+    }
+
+    for extension in ["cmd", "exe", "ps1"] {
+        let candidate = path.with_extension(extension);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    None
+}
+
+#[cfg(not(windows))]
+fn resolve_windows_npm_shim(_path: &Path) -> Option<PathBuf> {
+    None
 }
 
 fn find_in_path(binary: &str) -> Option<PathBuf> {
@@ -586,5 +620,31 @@ mod tests {
         let flags: HashSet<_> = command_args.iter().map(String::as_str).collect();
         assert!(flags.contains("--dry-run"));
         assert!(flags.contains("--format"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_cli_candidates_prefer_shell_shims() {
+        assert_eq!(cli_path_candidates()[0], "lark-cli.cmd");
+        assert!(cli_path_candidates().contains(&"lark-cli"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn configured_windows_npm_shim_resolves_to_cmd_file() {
+        let unique = Utc::now()
+            .timestamp_nanos_opt()
+            .unwrap_or_else(|| Utc::now().timestamp_micros() * 1_000);
+        let dir = env::temp_dir().join(format!("canmou-lark-cli-test-{unique}"));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+
+        let shim = dir.join("lark-cli");
+        let cmd_shim = dir.join("lark-cli.cmd");
+        std::fs::write(&cmd_shim, "@echo off\r\n").expect("write cmd shim");
+
+        let resolved = resolve_windows_npm_shim(&shim).expect("resolve cmd shim");
+        assert_eq!(resolved, cmd_shim);
+
+        std::fs::remove_dir_all(&dir).expect("remove temp dir");
     }
 }
