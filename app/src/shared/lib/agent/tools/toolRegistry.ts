@@ -16,6 +16,13 @@ import {
   recallMemoryTool,
   storeMemoryTool,
 } from './memoryTools'
+import {
+  feishuAuthStatusTool,
+  feishuCliHealthTool,
+  feishuReadTool,
+  feishuWriteConfirmTool,
+  feishuWritePreviewTool,
+} from './feishuTools'
 
 /** All available tools indexed by function name */
 const toolMap: Record<string, RegisteredTool> = {
@@ -31,6 +38,11 @@ const toolMap: Record<string, RegisteredTool> = {
   forget_memory: forgetMemoryTool,
   list_memory_namespaces: listMemoryNamespacesTool,
   fetch_memory_source: fetchMemorySourceTool,
+  feishu_cli_health: feishuCliHealthTool,
+  feishu_auth_status: feishuAuthStatusTool,
+  feishu_read: feishuReadTool,
+  feishu_write_preview: feishuWritePreviewTool,
+  feishu_write_confirm: feishuWriteConfirmTool,
 }
 
 /**

@@ -20,6 +20,7 @@ export function loadAgentRuntimeModules(): Promise<AgentRuntimeModules> {
       import('./tools/auditBusinessReport'),
       import('./tools/composeBusinessReport'),
       import('./tools/memoryTools'),
+      import('./tools/feishuTools'),
     ]).then(([
       chatAgentModule,
       queryBizDataModule,
@@ -30,6 +31,7 @@ export function loadAgentRuntimeModules(): Promise<AgentRuntimeModules> {
       auditBusinessReportModule,
       composeBusinessReportModule,
       memoryToolsModule,
+      feishuToolsModule,
     ]) => ({
       ChatAgent: chatAgentModule.ChatAgent,
       tools: [
@@ -41,6 +43,7 @@ export function loadAgentRuntimeModules(): Promise<AgentRuntimeModules> {
         auditBusinessReportModule.auditBusinessReportTool,
         readFileModule.readFileTool,
         ...memoryToolsModule.memoryTools,
+        ...feishuToolsModule.feishuTools,
       ],
     }))
   }

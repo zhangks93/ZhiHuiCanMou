@@ -19,6 +19,10 @@ import chartGuidanceReference from './financial-analysis/references/chart-guidan
 import workflowReference from './financial-analysis/references/workflow.md?raw'
 import metricsReference from './financial-analysis/references/metrics.md?raw'
 
+// --- feishu-assistant ---
+import feishuAssistantConfig from './feishu-assistant/skill.json'
+import feishuAssistantPrompt from './feishu-assistant/prompt.md?raw'
+
 export const financialAnalysisAgent = loadSkill(
   financialAnalysisConfig as SkillConfig,
   financialAnalysisPrompt,
@@ -40,6 +44,11 @@ export const financialAnalysisAgent = loadSkill(
   }
 )
 
+export const feishuAssistantAgent = loadSkill(
+  feishuAssistantConfig as SkillConfig,
+  feishuAssistantPrompt
+)
+
 // --- Add new skills below ---
 // import newSkillConfig from './new-skill/skill.json'
 // import newSkillPrompt from './new-skill/prompt.md?raw'
@@ -51,4 +60,4 @@ export const financialAnalysisAgent = loadSkill(
 // )
 
 /** All loaded skills (for auto-registration) */
-export const allSkills = [financialAnalysisAgent]
+export const allSkills = [financialAnalysisAgent, feishuAssistantAgent]

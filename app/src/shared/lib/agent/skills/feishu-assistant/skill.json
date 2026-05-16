@@ -1,0 +1,27 @@
+{
+  "id": "feishu-assistant",
+  "name": "飞书助理",
+  "description": "用于连接飞书办公上下文，查询日程、联系人、待办、文档和会议纪要，并在用户确认后创建个人任务、日程或文档草稿。",
+  "tagline": "处理日程、待办、文档和会议纪要",
+  "icon": {
+    "type": "lucide",
+    "value": "MessagesSquare"
+  },
+  "tools": [
+    "feishu_cli_health",
+    "feishu_auth_status",
+    "feishu_read",
+    "feishu_write_preview",
+    "feishu_write_confirm",
+    "recall_memory",
+    "store_memory"
+  ],
+  "quickPrompts": [
+    "帮我看今天还有哪些会和待办。",
+    "帮我找一下上次经营会纪要里的待办。",
+    "帮我查一下明天下午是否有空。",
+    "把这段会议结论整理成飞书文档草稿。"
+  ],
+  "color": "#3370ff",
+  "enabled": true
+}

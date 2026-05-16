@@ -40,7 +40,7 @@ export function buildAgentChatHref(agentId: string) {
   return `${ROUTES.AI_ANALYSIS}/${agentId}`
 }
 
-export function buildSettingsHref(tab: 'thresholds' | 'ai-model' = 'thresholds') {
+export function buildSettingsHref(tab: 'thresholds' | 'ai-model' | 'feishu-cli' = 'thresholds') {
   if (tab === 'thresholds') return ROUTES.SETTINGS
   return `${ROUTES.SETTINGS}?tab=${tab}`
 }

@@ -13,7 +13,7 @@ export {
 } from './registry'
 
 // Skills (loaded agent definitions)
-export { financialAnalysisAgent, allSkills } from './skills'
+export { financialAnalysisAgent, feishuAssistantAgent, allSkills } from './skills'
 
 // Skill loader
 export { loadSkill } from './skills/loader'

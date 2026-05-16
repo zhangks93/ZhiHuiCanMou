@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AlertTriangle, Check, Trash2 } from 'lucide-react'
+import { AlertTriangle, Check, RefreshCw, Trash2 } from 'lucide-react'
 import { buildSettingsHref } from '@/app/config/constants'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { loadLLMConfig, saveLLMConfig, clearLLMConfig, loadProviderSettings, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig, type ProviderSettings } from '@/shared/lib/llmConfig'
 import { loadThresholdSettings, saveThresholdSettings, resetThresholdSettings, DEFAULT_THRESHOLDS, type ThresholdSettings } from '@/shared/lib/thresholdConfig'
+import { getFeishuAuthStatus, getFeishuCliHealth, type FeishuCliHealth, type FeishuCliResponse } from '@/shared/lib/feishu/feishuClient'
 
 const PROVIDER_OPTIONS = [
   {
@@ -67,6 +68,10 @@ export function Settings() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimerRef = useRef<number | null>(null)
+  const [feishuHealth, setFeishuHealth] = useState<FeishuCliHealth | null>(null)
+  const [feishuAuthStatus, setFeishuAuthStatus] = useState<FeishuCliResponse | null>(null)
+  const [feishuStatusError, setFeishuStatusError] = useState<string | null>(null)
+  const [feishuStatusLoading, setFeishuStatusLoading] = useState(false)
 
   // Threshold settings state
   const [thresholds, setThresholds] = useState<ThresholdSettings>(() => loadThresholdSettings())
@@ -188,10 +193,35 @@ export function Settings() {
     setIsEditingThresholds(false)
   }
 
-  const activeTab = searchParams.get('tab') === 'ai-model' ? 'ai-model' : 'thresholds'
+  const loadFeishuStatus = async () => {
+    setFeishuStatusLoading(true)
+    setFeishuStatusError(null)
+    setFeishuAuthStatus(null)
+    try {
+      const health = await getFeishuCliHealth()
+      setFeishuHealth(health)
+      if (health.installed) {
+        setFeishuAuthStatus(await getFeishuAuthStatus())
+      }
+    } catch (error) {
+      setFeishuStatusError(getErrorMessage(error, '飞书 CLI 状态检查失败'))
+    } finally {
+      setFeishuStatusLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'feishu-cli') {
+      void loadFeishuStatus()
+    }
+  }, [searchParams])
+
+  const requestedTab = searchParams.get('tab')
+  const activeTab = requestedTab === 'ai-model' || requestedTab === 'feishu-cli' ? requestedTab : 'thresholds'
   const tabItems = [
     { key: 'thresholds', label: '预警阈值', to: buildSettingsHref('thresholds'), active: activeTab === 'thresholds' },
     { key: 'ai-model', label: 'AI 模型配置', to: buildSettingsHref('ai-model'), active: activeTab === 'ai-model' },
+    { key: 'feishu-cli', label: '飞书 CLI', to: buildSettingsHref('feishu-cli'), active: activeTab === 'feishu-cli' },
   ]
 
   return (
@@ -328,6 +358,78 @@ export function Settings() {
                 <p className="mt-2">
                   成本/费用/人数/成本率类指标按“越低越好”折算；利润等目标为负数时，按“亏损收窄或转正更优”折算。
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'feishu-cli' ? (
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-medium text-gray-800">飞书 CLI 状态</h3>
+                <p className="mt-1 text-caption text-gray-500">
+                  飞书助理通过本机 lark-cli 访问日程、待办、文档和会议纪要。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadFeishuStatus()}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gray-100 px-4 py-2 text-body font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                disabled={feishuStatusLoading}
+              >
+                <RefreshCw size={14} className={feishuStatusLoading ? 'animate-spin' : ''} />
+                刷新状态
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <div className="text-caption text-slate-500">安装状态</div>
+                    <div className={feishuHealth?.installed ? 'mt-1 text-body font-medium text-success-700' : 'mt-1 text-body font-medium text-warning-700'}>
+                      {feishuHealth ? (feishuHealth.installed ? '已检测到 lark-cli' : '未检测到 lark-cli') : '尚未检查'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-caption text-slate-500">版本</div>
+                    <div className="mt-1 break-all font-mono text-caption text-slate-700">
+                      {feishuHealth?.version || '-'}
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="text-caption text-slate-500">路径</div>
+                    <div className="mt-1 break-all font-mono text-caption text-slate-700">
+                      {feishuHealth?.path || '-'}
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="text-caption text-slate-500">登录状态</div>
+                    <pre className="mt-1 max-h-56 overflow-auto rounded-xl bg-white p-3 text-caption text-slate-700">
+                      {feishuAuthStatus
+                        ? JSON.stringify(feishuAuthStatus.parsed_json ?? feishuAuthStatus.stdout, null, 2)
+                        : '未获取登录状态'}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              {(feishuStatusError || feishuHealth?.error) && (
+                <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-body text-warning-800">
+                  {feishuStatusError || feishuHealth?.error}
+                </div>
+              )}
+
+              <div className="rounded-[18px] border border-slate-200 bg-white p-4">
+                <div className="text-body font-medium text-slate-800">安装与登录</div>
+                <div className="mt-3 space-y-2 text-caption text-slate-600">
+                  <p>第一版不随应用打包 lark-cli，请按公司环境安装官方飞书 CLI 后登录。</p>
+                  <pre className="overflow-auto rounded-xl bg-slate-950 px-3 py-2 font-mono text-slate-100">
+                    npm install -g @larksuite/cli{'\n'}lark-cli auth login
+                  </pre>
+                  <p>若公司 IT 提供固定安装包或内置版本，后续可在 Tauri 网关中切换到 bundled path。</p>
+                </div>
               </div>
             </div>
           </div>

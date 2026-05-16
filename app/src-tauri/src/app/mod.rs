@@ -1,6 +1,7 @@
 use crate::commands;
 use crate::features::agent_chat::AgentChatService;
 use crate::features::assistant_memory::AssistantMemoryService;
+use crate::features::feishu_cli::FeishuCliService;
 use crate::features::schedule::ScheduleService;
 use crate::features::settings::SettingsService;
 use crate::infra::error::AppResult;
@@ -17,6 +18,7 @@ fn initialize_services(app: &tauri::AppHandle) -> AppResult<()> {
         database.clone(),
         memory_vault_path,
     ));
+    app.manage(FeishuCliService::new(database.clone()));
     app.manage(ScheduleService::new(database.clone()));
     app.manage(SettingsService::new(database));
 
@@ -52,6 +54,11 @@ pub fn run() {
             commands::assistant_memory::assistant_memory_forget,
             commands::assistant_memory::assistant_memory_list_namespaces,
             commands::assistant_memory::assistant_memory_health,
+            commands::feishu_cli::feishu_cli_health,
+            commands::feishu_cli::feishu_auth_status,
+            commands::feishu_cli::feishu_read_operation,
+            commands::feishu_cli::feishu_write_preview,
+            commands::feishu_cli::feishu_write_confirm,
             commands::schedule::schedule_list_by_range,
             commands::schedule::schedule_create,
             commands::schedule::schedule_update_meeting_notes,

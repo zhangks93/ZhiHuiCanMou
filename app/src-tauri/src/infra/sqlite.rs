@@ -1,6 +1,6 @@
 use crate::features::{
     agent_chat::AgentChatService, assistant_memory::AssistantMemoryService,
-    schedule::ScheduleService, settings::SettingsService,
+    feishu_cli::FeishuCliService, schedule::ScheduleService, settings::SettingsService,
 };
 use crate::infra::error::{AppError, AppResult};
 use rusqlite::Connection;
@@ -38,6 +38,7 @@ impl AppDatabase {
     fn ensure_all_schemas(&self) -> AppResult<()> {
         AgentChatService::new(self.clone()).ensure_schema()?;
         AssistantMemoryService::new(self.clone(), self.memory_vault_path()?).ensure_schema()?;
+        FeishuCliService::new(self.clone()).ensure_schema()?;
         ScheduleService::new(self.clone()).ensure_schema()?;
         SettingsService::new(self.clone()).ensure_schema()?;
         Ok(())
