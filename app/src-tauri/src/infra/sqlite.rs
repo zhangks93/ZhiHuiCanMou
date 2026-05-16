@@ -1,5 +1,6 @@
 use crate::features::{
-    agent_chat::AgentChatService, schedule::ScheduleService, settings::SettingsService,
+    agent_chat::AgentChatService, assistant_memory::AssistantMemoryService,
+    schedule::ScheduleService, settings::SettingsService,
 };
 use crate::infra::error::{AppError, AppResult};
 use rusqlite::Connection;
@@ -36,9 +37,18 @@ impl AppDatabase {
 
     fn ensure_all_schemas(&self) -> AppResult<()> {
         AgentChatService::new(self.clone()).ensure_schema()?;
+        AssistantMemoryService::new(self.clone(), self.memory_vault_path()?).ensure_schema()?;
         ScheduleService::new(self.clone()).ensure_schema()?;
         SettingsService::new(self.clone()).ensure_schema()?;
         Ok(())
+    }
+
+    pub fn memory_vault_path(&self) -> AppResult<PathBuf> {
+        let parent = self
+            .db_path
+            .parent()
+            .ok_or_else(|| AppError::message("Failed to resolve SQLite database parent dir"))?;
+        Ok(parent.join("assistant-memory"))
     }
 }
 

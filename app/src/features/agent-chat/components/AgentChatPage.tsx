@@ -32,6 +32,7 @@ import {
 import {
   buildFinancialAnalysisSessionContextBlock,
 } from '@/shared/lib/agent/skills/financial-analysis/sessionContext'
+import { buildLongTermMemoryBlock } from '@/shared/lib/agent/memory/memoryContext'
 import { ChatHeader } from './ChatHeader'
 import { ConversationList } from './ConversationList'
 import { AgentIcon } from './AgentIcon'
@@ -47,16 +48,20 @@ function getFinancialAnalysisContext(conversation?: Conversation): FinancialAnal
   return conversation?.context?.financialAnalysis
 }
 
-function buildAgentSystemPrompt(params: {
+async function buildAgentSystemPrompt(params: {
   agent: AgentDefinition
   conversation?: Conversation
   runtimeDataContext?: FinancialAnalysisRuntimeDataContext
   latestUserQuery?: string
-}): string {
+}): Promise<string> {
   const { agent, conversation, runtimeDataContext, latestUserQuery } = params
+  const longTermMemoryBlock = await buildLongTermMemoryBlock({ latestUserQuery })
 
   if (agent.id !== 'financial-analysis') {
-    return agent.systemPrompt
+    return [
+      agent.systemPrompt,
+      longTermMemoryBlock,
+    ].filter(Boolean).join('\n\n')
   }
 
   const sessionContext = getFinancialAnalysisContext(conversation)
@@ -64,6 +69,7 @@ function buildAgentSystemPrompt(params: {
     agent.systemPrompt,
     buildFinancialAnalysisRuntimeContextBlock(runtimeDataContext),
     buildFinancialAnalysisSessionContextBlock(sessionContext),
+    longTermMemoryBlock,
     buildConversationMemoryBlock(conversation?.memory, latestUserQuery),
     '## Chart Output Contract\n- In report mode, output charts only as structured chart spec JSON.\n- Do not emit ECharts HTML, raw HTML, or chart placeholder suggestions.\n- If data is insufficient or inconsistent, skip the unsupported chart rather than fabricating it.',
   ].filter(Boolean).join('\n\n')

@@ -1,5 +1,6 @@
 use crate::commands;
 use crate::features::agent_chat::AgentChatService;
+use crate::features::assistant_memory::AssistantMemoryService;
 use crate::features::schedule::ScheduleService;
 use crate::features::settings::SettingsService;
 use crate::infra::error::AppResult;
@@ -9,8 +10,13 @@ use tauri::Manager;
 
 fn initialize_services(app: &tauri::AppHandle) -> AppResult<()> {
     let database = AppDatabase::initialize(app)?;
+    let memory_vault_path = database.memory_vault_path()?;
 
     app.manage(AgentChatService::new(database.clone()));
+    app.manage(AssistantMemoryService::new(
+        database.clone(),
+        memory_vault_path,
+    ));
     app.manage(ScheduleService::new(database.clone()));
     app.manage(SettingsService::new(database));
 
@@ -39,6 +45,13 @@ pub fn run() {
             commands::agent_chat::agent_chat_prune_conversations,
             commands::agent_chat::agent_chat_delete_conversation,
             commands::agent_chat::agent_chat_get_artifact_payload,
+            commands::assistant_memory::assistant_memory_store,
+            commands::assistant_memory::assistant_memory_recall,
+            commands::assistant_memory::assistant_memory_get,
+            commands::assistant_memory::assistant_memory_get_source,
+            commands::assistant_memory::assistant_memory_forget,
+            commands::assistant_memory::assistant_memory_list_namespaces,
+            commands::assistant_memory::assistant_memory_health,
             commands::schedule::schedule_list_by_range,
             commands::schedule::schedule_create,
             commands::schedule::schedule_update_meeting_notes,

@@ -9,6 +9,13 @@ import { queryBizDataTool } from './queryBizData'
 import { readFileTool } from './readFile'
 import { auditBusinessReportTool } from './auditBusinessReport'
 import { composeBusinessReportTool } from './composeBusinessReport'
+import {
+  fetchMemorySourceTool,
+  forgetMemoryTool,
+  listMemoryNamespacesTool,
+  recallMemoryTool,
+  storeMemoryTool,
+} from './memoryTools'
 
 /** All available tools indexed by function name */
 const toolMap: Record<string, RegisteredTool> = {
@@ -19,6 +26,11 @@ const toolMap: Record<string, RegisteredTool> = {
   audit_business_report: auditBusinessReportTool,
   compose_business_report: composeBusinessReportTool,
   read_file: readFileTool,
+  recall_memory: recallMemoryTool,
+  store_memory: storeMemoryTool,
+  forget_memory: forgetMemoryTool,
+  list_memory_namespaces: listMemoryNamespacesTool,
+  fetch_memory_source: fetchMemorySourceTool,
 }
 
 /**

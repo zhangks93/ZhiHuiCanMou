@@ -15,6 +15,7 @@ import {
   updateFinancialAnalysisSessionContext,
 } from '@/shared/lib/agent/skills/financial-analysis/sessionContext'
 import { getErrorMessage } from '@/shared/lib/errorMessage'
+import { runPostTurnMemoryReflection } from '@/shared/lib/agent/memory/reflection'
 
 interface UseChatStreamingParams {
   activeAgent?: AgentDefinition
@@ -32,7 +33,7 @@ interface UseChatStreamingParams {
     conversation?: Conversation
     runtimeDataContext?: FinancialAnalysisRuntimeDataContext
     latestUserQuery?: string
-  }) => string
+  }) => string | Promise<string>
   syncConversationPersistence: (
     nextConversations: Conversation[],
     changedConversation?: Conversation | null,
@@ -139,7 +140,7 @@ export function useChatStreaming(params: UseChatStreamingParams) {
         throw new DOMException('Send aborted', 'AbortError')
       }
 
-      const systemPrompt = buildSystemPrompt({
+      const systemPrompt = await buildSystemPrompt({
         agent: activeAgent,
         conversation: currentConversation,
         runtimeDataContext,
@@ -229,6 +230,14 @@ export function useChatStreaming(params: UseChatStreamingParams) {
     try {
       const updatedConversation = updatedConversations.find((conversation) => conversation.id === conversationId)
       await syncConversationPersistence(updatedConversations, updatedConversation)
+      if (updatedConversation) {
+        void runPostTurnMemoryReflection({
+          agent: activeAgent,
+          conversation: updatedConversation,
+          userMessage,
+          assistantMessage,
+        }).catch(() => {})
+      }
     } catch (error) {
       setPersistenceError(getErrorMessage(error, '保存对话失败'))
     }
