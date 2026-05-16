@@ -416,9 +416,13 @@ fn resolve_cli_path(configured_path: Option<&str>) -> AppResult<ResolvedCliPath>
         .filter(|value| !value.is_empty())
     {
         let path = PathBuf::from(path);
-        if let Some(path) =
-            resolve_windows_npm_shim(&path).or_else(|| path.exists().then_some(path))
-        {
+        if let Some(path) = resolve_windows_npm_shim(&path) {
+            return Ok(ResolvedCliPath {
+                path,
+                source: "configured".to_string(),
+            });
+        }
+        if path.exists() {
             return Ok(ResolvedCliPath {
                 path,
                 source: "configured".to_string(),
