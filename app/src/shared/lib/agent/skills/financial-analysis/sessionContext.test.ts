@@ -117,6 +117,33 @@ describe('financial analysis session context', () => {
     expect(context.intent?.goal).toBe('report')
   })
 
+  it('detects same-level benchmark requests as comparison', () => {
+    const context = updateFinancialAnalysisSessionContext({
+      userMessage: user('后勤管理中心和同级单位相比，收入、利润和人效差距在哪里？'),
+      assistantMessage: assistant([]),
+    })
+
+    expect(context.intent?.goal).toBe('comparison')
+  })
+
+  it('detects multi-month vertical analysis as trend', () => {
+    const context = updateFinancialAnalysisSessionContext({
+      userMessage: user('看一下西南区域近 6 个月经营趋势，找出主要风险'),
+      assistantMessage: assistant([]),
+    })
+
+    expect(context.intent?.goal).toBe('trend')
+  })
+
+  it('detects budget gap analysis as plan versus actual', () => {
+    const context = updateFinancialAnalysisSessionContext({
+      userMessage: user('东部区域本月预算完成情况和利润缺口怎么改善？'),
+      assistantMessage: assistant([]),
+    })
+
+    expect(context.intent?.goal).toBe('plan_vs_actual')
+  })
+
   it('only enables chart output mode after chart guidance is loaded', () => {
     const context = updateFinancialAnalysisSessionContext({
       userMessage: user('生成图表配置'),

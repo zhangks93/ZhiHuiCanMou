@@ -16,13 +16,14 @@ function normalizeStringArray(value: unknown): string[] | undefined {
 function detectIntentGoal(text: string): FinancialAnalysisGoal | undefined {
   if (!text) return undefined
   if (/(报告|汇报|完整报告|月报|markdown\s*报告)/.test(text)) return 'report'
-  if (/(异常|风险|预警)/.test(text)) return 'exception_scan'
-  if (/(对比|比较|拆开看|横向)/.test(text)) return 'comparison'
-  if (/(趋势|变化|走势)/.test(text)) return 'trend'
-  if (/(计划|突围计划|计划值)/.test(text)) return 'plan_vs_actual'
+  if (/(对比|比较|拆开看|横向|同级|同类型|相比|差距|排名|排位|对标)/.test(text)) return 'comparison'
+  if (/(趋势|变化|走势|纵向|近\s*\d+\s*个?月|最近|连续|环比|修复|恶化)/.test(text)) return 'trend'
+  if (/(计划|突围计划|计划值|预算|达成|完成|缺口|差额)/.test(text)) return 'plan_vs_actual'
+  if (/(异常|风险|预警|拖累|问题|短板)/.test(text)) return 'exception_scan'
   if (/(多少|几点|多少万|多少元|是多少|给我查|帮我查|查询|看下|看一下|看一眼).*(收入|毛利|毛利率|税前利润|税前利润率|人效|人数|人均营收|人力成本|费用|达成率|完成率)/.test(text)) {
     return 'data_lookup'
   }
+  if (/(分析|诊断|经营表现|经营情况|原因|建议|改善|管理动作)/.test(text)) return 'qa'
   if (/[?？]|多少|是什么|怎么看|如何|为啥|为什么/.test(text)) return 'qa'
   return undefined
 }
