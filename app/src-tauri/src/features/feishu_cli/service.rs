@@ -280,9 +280,15 @@ fn build_operation_args(
     if dry_run {
         command_args.push("--dry-run".to_string());
     }
-    command_args.push("--format".to_string());
-    command_args.push("json".to_string());
+    if operation_supports_json_format(operation) {
+        command_args.push("--format".to_string());
+        command_args.push("json".to_string());
+    }
     Ok(command_args)
+}
+
+fn operation_supports_json_format(operation: Operation) -> bool {
+    !matches!(operation, Operation::AuthStatus)
 }
 
 fn append_common_args(
@@ -624,6 +630,17 @@ mod tests {
         let flags: HashSet<_> = command_args.iter().map(String::as_str).collect();
         assert!(flags.contains("--dry-run"));
         assert!(flags.contains("--format"));
+    }
+
+    #[test]
+    fn auth_status_uses_supported_flags_only() {
+        let command_args = build_operation_args(
+            Operation::AuthStatus,
+            &Value::Object(serde_json::Map::new()),
+            false,
+        )
+        .expect("build args");
+        assert_eq!(command_args, vec!["auth", "status"]);
     }
 
     #[cfg(windows)]
