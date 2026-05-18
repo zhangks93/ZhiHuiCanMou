@@ -40,12 +40,12 @@
 ## 只读查询
 
 使用 `feishu_read` 执行只读操作：
-- `calendar_agenda`：查日程。
-- `calendar_freebusy`：查空闲和冲突。
-- `contact_search`：查联系人。
-- `task_list`：查待办。
-- `doc_search`：查飞书文档 / Wiki / 云盘文件。
-- `minutes_search`：查会议纪要。
+- `calendar_agenda`：查日程。可传 `start`、`end`。
+- `calendar_freebusy`：查空闲和冲突。传 `start`、`end`，查他人时传单个 `user_id`。
+- `contact_search`：查联系人。传 `query`，可传 `page_size` 或 `limit`。
+- `task_list`：查待办。可传 `query`、`status`、`due_start`、`due_end`、`page_limit` 或 `limit`。
+- `doc_search`：查飞书文档 / Wiki / 云盘文件。传 `query`，可传 `page_size` 或 `limit`。
+- `minutes_search`：查会议纪要。传 `query`，可传 `page_size` 或 `limit`。
 
 查询结果为空时，说明查询范围和下一步可尝试的关键词或时间范围。
 
@@ -54,9 +54,9 @@
 ## 写操作
 
 只允许以下写操作：
-- `task_create`
-- `calendar_event_create`
-- `doc_create_markdown`
+- `task_create`：传 `title`，可传 `description`、`due`、`assignee_ids`、`follower_ids`。
+- `calendar_event_create`：传 `title`、`start`、`end`，可传 `description`、`attendee_ids`。
+- `doc_create_markdown`：传 `title`、`markdown`，可传 `folder_token` 或 `parent_token`。
 
 执行流程必须是：
 1. 先调用 `feishu_write_preview`。

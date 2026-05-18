@@ -262,15 +262,15 @@ fn build_operation_args(
 ) -> AppResult<Vec<String>> {
     let mut command_args = match operation {
         Operation::AuthStatus => vec!["auth", "status"],
-        Operation::CalendarAgenda => vec!["calendar", "agenda"],
-        Operation::CalendarFreebusy => vec!["calendar", "freebusy"],
-        Operation::ContactSearch => vec!["contact", "search"],
-        Operation::TaskList => vec!["task", "list"],
-        Operation::DocSearch => vec!["drive", "search"],
-        Operation::MinutesSearch => vec!["minutes", "search"],
-        Operation::TaskCreate => vec!["task", "create"],
-        Operation::CalendarEventCreate => vec!["calendar", "event", "create"],
-        Operation::DocCreateMarkdown => vec!["docs", "create"],
+        Operation::CalendarAgenda => vec!["calendar", "+agenda"],
+        Operation::CalendarFreebusy => vec!["calendar", "+freebusy"],
+        Operation::ContactSearch => vec!["contact", "+search-user"],
+        Operation::TaskList => vec!["task", "+get-my-tasks"],
+        Operation::DocSearch => vec!["drive", "+search"],
+        Operation::MinutesSearch => vec!["minutes", "+search"],
+        Operation::TaskCreate => vec!["task", "+create"],
+        Operation::CalendarEventCreate => vec!["calendar", "+create"],
+        Operation::DocCreateMarkdown => vec!["docs", "+create"],
     }
     .into_iter()
     .map(str::to_string)
@@ -288,7 +288,10 @@ fn build_operation_args(
 }
 
 fn operation_supports_json_format(operation: Operation) -> bool {
-    !matches!(operation, Operation::AuthStatus)
+    !matches!(
+        operation,
+        Operation::AuthStatus | Operation::DocCreateMarkdown
+    )
 }
 
 fn append_common_args(
@@ -305,40 +308,105 @@ fn append_common_args(
         Operation::CalendarFreebusy => {
             push_required_string(command_args, "--start", args, "start")?;
             push_required_string(command_args, "--end", args, "end")?;
-            push_optional_array(command_args, "--user", args, "user_ids")?;
+            push_optional_string_or_first_array_item(
+                command_args,
+                "--user-id",
+                args,
+                "user_id",
+                "user_ids",
+            )?;
         }
         Operation::ContactSearch => {
             push_required_string(command_args, "--query", args, "query")?;
-            push_optional_number(command_args, "--limit", args, "limit")?;
+            push_optional_number_alias(command_args, "--page-size", args, "page_size", "limit")?;
+            push_optional_csv_array(command_args, "--user-ids", args, "user_ids")?;
         }
         Operation::TaskList => {
-            push_optional_string(command_args, "--status", args, "status")?;
-            push_optional_string(command_args, "--due", args, "due")?;
+            push_optional_task_status(command_args, args)?;
+            push_optional_string(command_args, "--query", args, "query")?;
+            push_optional_string(command_args, "--due-start", args, "due_start")?;
+            push_optional_string(command_args, "--due-end", args, "due_end")?;
+            push_optional_string(command_args, "--due-start", args, "due")?;
+            push_optional_number_alias(command_args, "--page-limit", args, "page_limit", "limit")?;
         }
         Operation::DocSearch | Operation::MinutesSearch => {
             push_required_string(command_args, "--query", args, "query")?;
-            push_optional_number(command_args, "--limit", args, "limit")?;
+            push_optional_number_alias(command_args, "--page-size", args, "page_size", "limit")?;
         }
         Operation::TaskCreate => {
-            push_required_string(command_args, "--title", args, "title")?;
+            push_required_string(command_args, "--summary", args, "title")?;
             push_optional_string(command_args, "--description", args, "description")?;
             push_optional_string(command_args, "--due", args, "due")?;
-            push_optional_string(command_args, "--reminder", args, "reminder")?;
             push_optional_array(command_args, "--assignee", args, "assignee_ids")?;
+            push_optional_array(command_args, "--follower", args, "follower_ids")?;
         }
         Operation::CalendarEventCreate => {
-            push_required_string(command_args, "--title", args, "title")?;
+            push_required_string(command_args, "--summary", args, "title")?;
             push_required_string(command_args, "--start", args, "start")?;
             push_required_string(command_args, "--end", args, "end")?;
             push_optional_string(command_args, "--description", args, "description")?;
-            push_optional_string(command_args, "--location", args, "location")?;
-            push_optional_array(command_args, "--attendee", args, "attendee_ids")?;
+            push_optional_csv_array(command_args, "--attendee-ids", args, "attendee_ids")?;
         }
         Operation::DocCreateMarkdown => {
-            push_required_string(command_args, "--title", args, "title")?;
-            push_required_string(command_args, "--content", args, "markdown")?;
-            command_args.push("--type".to_string());
+            push_required_markdown_content(command_args, args)?;
+            push_optional_string(command_args, "--parent-token", args, "folder_token")?;
+            push_optional_string(command_args, "--parent-token", args, "parent_token")?;
+            command_args.push("--api-version".to_string());
+            command_args.push("v2".to_string());
+            command_args.push("--doc-format".to_string());
             command_args.push("markdown".to_string());
+        }
+    }
+    Ok(())
+}
+
+fn push_required_markdown_content(command_args: &mut Vec<String>, args: &Value) -> AppResult<()> {
+    let title = args
+        .get("title")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::message("Feishu CLI argument is required: title"))?;
+    let markdown = args
+        .get("markdown")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::message("Feishu CLI argument is required: markdown"))?;
+
+    command_args.push("--content".to_string());
+    if markdown
+        .lines()
+        .next()
+        .map(str::trim)
+        .is_some_and(|line| line == format!("# {title}"))
+    {
+        command_args.push(markdown.to_string());
+    } else {
+        command_args.push(format!("# {title}\n\n{markdown}"));
+    }
+    Ok(())
+}
+
+fn push_optional_task_status(command_args: &mut Vec<String>, args: &Value) -> AppResult<()> {
+    let Some(status) = args
+        .get("status")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(());
+    };
+
+    match status {
+        "complete" | "completed" | "done" => command_args.push("--complete".to_string()),
+        "incomplete" | "open" | "todo" | "pending" => {
+            command_args.push("--complete=false".to_string())
+        }
+        _ => {
+            return Err(AppError::message(format!(
+                "Unsupported Feishu task status: {status}"
+            )))
         }
     }
     Ok(())
@@ -392,6 +460,21 @@ fn push_optional_number(
     Ok(())
 }
 
+fn push_optional_number_alias(
+    command_args: &mut Vec<String>,
+    flag: &str,
+    args: &Value,
+    preferred_key: &str,
+    fallback_key: &str,
+) -> AppResult<()> {
+    if args.get(preferred_key).and_then(Value::as_i64).is_some() {
+        push_optional_number(command_args, flag, args, preferred_key)?;
+    } else {
+        push_optional_number(command_args, flag, args, fallback_key)?;
+    }
+    Ok(())
+}
+
 fn push_optional_array(
     command_args: &mut Vec<String>,
     flag: &str,
@@ -407,6 +490,74 @@ fn push_optional_array(
             else {
                 return Err(AppError::message(format!(
                     "Feishu CLI array argument must contain strings: {key}"
+                )));
+            };
+            command_args.push(flag.to_string());
+            command_args.push(text.to_string());
+        }
+    }
+    Ok(())
+}
+
+fn push_optional_csv_array(
+    command_args: &mut Vec<String>,
+    flag: &str,
+    args: &Value,
+    key: &str,
+) -> AppResult<()> {
+    if let Some(values) = args.get(key).and_then(Value::as_array) {
+        let mut texts = Vec::with_capacity(values.len());
+        for value in values {
+            let Some(text) = value
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            else {
+                return Err(AppError::message(format!(
+                    "Feishu CLI array argument must contain strings: {key}"
+                )));
+            };
+            texts.push(text.to_string());
+        }
+        if !texts.is_empty() {
+            command_args.push(flag.to_string());
+            command_args.push(texts.join(","));
+        }
+    }
+    Ok(())
+}
+
+fn push_optional_string_or_first_array_item(
+    command_args: &mut Vec<String>,
+    flag: &str,
+    args: &Value,
+    string_key: &str,
+    array_key: &str,
+) -> AppResult<()> {
+    if args
+        .get(string_key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some()
+    {
+        return push_optional_string(command_args, flag, args, string_key);
+    }
+
+    if let Some(values) = args.get(array_key).and_then(Value::as_array) {
+        if values.len() > 1 {
+            return Err(AppError::message(format!(
+                "Feishu CLI argument supports only one value: {array_key}"
+            )));
+        }
+        if let Some(value) = values.first() {
+            let Some(text) = value
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            else {
+                return Err(AppError::message(format!(
+                    "Feishu CLI array argument must contain strings: {array_key}"
                 )));
             };
             command_args.push(flag.to_string());
@@ -617,6 +768,128 @@ mod tests {
             build_operation_args(Operation::ContactSearch, &args, false).expect("build args");
         assert!(command_args.contains(&"张三; rm -rf /".to_string()));
         assert!(!command_args.contains(&"rm".to_string()));
+    }
+
+    #[test]
+    fn read_operations_use_current_lark_cli_shortcuts() {
+        let agenda_args = serde_json::json!({
+            "start": "2026-05-18T00:00:00+08:00",
+            "end": "2026-05-19T00:00:00+08:00"
+        });
+        let agenda =
+            build_operation_args(Operation::CalendarAgenda, &agenda_args, false).expect("agenda");
+        assert_eq!(
+            agenda,
+            vec![
+                "calendar",
+                "+agenda",
+                "--start",
+                "2026-05-18T00:00:00+08:00",
+                "--end",
+                "2026-05-19T00:00:00+08:00",
+                "--format",
+                "json"
+            ]
+        );
+
+        let contact_args = serde_json::json!({
+            "query": "张三",
+            "limit": 5
+        });
+        let contact =
+            build_operation_args(Operation::ContactSearch, &contact_args, false).expect("contact");
+        assert_eq!(
+            contact,
+            vec![
+                "contact",
+                "+search-user",
+                "--query",
+                "张三",
+                "--page-size",
+                "5",
+                "--format",
+                "json"
+            ]
+        );
+    }
+
+    #[test]
+    fn write_operations_use_current_lark_cli_flags() {
+        let task_args = serde_json::json!({
+            "title": "跟进回款",
+            "description": "明早处理",
+            "assignee_ids": ["ou_1", "ou_2"]
+        });
+        let task = build_operation_args(Operation::TaskCreate, &task_args, true).expect("task");
+        assert_eq!(
+            task,
+            vec![
+                "task",
+                "+create",
+                "--summary",
+                "跟进回款",
+                "--description",
+                "明早处理",
+                "--assignee",
+                "ou_1",
+                "--assignee",
+                "ou_2",
+                "--dry-run",
+                "--format",
+                "json"
+            ]
+        );
+
+        let event_args = serde_json::json!({
+            "title": "项目会",
+            "start": "2026-05-18T10:00:00+08:00",
+            "end": "2026-05-18T11:00:00+08:00",
+            "attendee_ids": ["ou_1", "ou_2"]
+        });
+        let event =
+            build_operation_args(Operation::CalendarEventCreate, &event_args, true).expect("event");
+        assert_eq!(
+            event,
+            vec![
+                "calendar",
+                "+create",
+                "--summary",
+                "项目会",
+                "--start",
+                "2026-05-18T10:00:00+08:00",
+                "--end",
+                "2026-05-18T11:00:00+08:00",
+                "--attendee-ids",
+                "ou_1,ou_2",
+                "--dry-run",
+                "--format",
+                "json"
+            ]
+        );
+    }
+
+    #[test]
+    fn docs_create_uses_v2_markdown_without_format_flag() {
+        let args = serde_json::json!({
+            "title": "会议纪要",
+            "markdown": "# 会议纪要"
+        });
+        let command_args =
+            build_operation_args(Operation::DocCreateMarkdown, &args, true).expect("docs");
+        assert_eq!(
+            command_args,
+            vec![
+                "docs",
+                "+create",
+                "--content",
+                "# 会议纪要",
+                "--api-version",
+                "v2",
+                "--doc-format",
+                "markdown",
+                "--dry-run"
+            ]
+        );
     }
 
     #[test]

@@ -95,7 +95,7 @@ export const feishuReadTool: RegisteredTool = {
           },
           args: {
             type: 'object',
-            description: 'Operation arguments. Common examples: start/end ISO time, query, limit, status, due, user_ids.',
+            description: 'Operation arguments. calendar_agenda uses start/end. calendar_freebusy uses start/end and optional user_id. contact_search uses query and optional page_size or limit. task_list uses query, status, due_start/due_end, page_limit or limit. doc_search/minutes_search use query and optional page_size or limit.',
           },
         },
         required: ['operation'],
@@ -125,7 +125,7 @@ export const feishuWritePreviewTool: RegisteredTool = {
           },
           args: {
             type: 'object',
-            description: 'Operation arguments. For task_create use title, description, due, reminder. For calendar_event_create use title, start, end, description, location, attendee_ids. For doc_create_markdown use title and markdown.',
+            description: 'Operation arguments. task_create uses title, description, due, assignee_ids, follower_ids. calendar_event_create uses title, start, end, description, attendee_ids. doc_create_markdown uses title, markdown, folder_token or parent_token.',
           },
         },
         required: ['operation', 'args'],
