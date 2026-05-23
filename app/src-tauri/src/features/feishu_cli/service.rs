@@ -423,10 +423,16 @@ pub fn resolve_bundled_cli_paths(app: &tauri::AppHandle) -> AppResult<(PathBuf, 
     let cli_path = app
         .path()
         .resolve(
-            "lark-cli/windows/lark-cli.exe",
+            "resources/lark-cli/windows/lark-cli.exe",
             tauri::path::BaseDirectory::Resource,
         )
-        .unwrap_or_else(|_| app_data_dir.join("missing-lark-cli.exe"));
+        .or_else(|_| {
+            app.path().resolve(
+                "lark-cli/windows/lark-cli.exe",
+                tauri::path::BaseDirectory::Resource,
+            )
+        })
+        .unwrap_or_else(|_| app_data_dir.join("resources/lark-cli/windows/lark-cli.exe"));
 
     #[cfg(not(windows))]
     let cli_path = app_data_dir.join("unsupported-lark-cli");
