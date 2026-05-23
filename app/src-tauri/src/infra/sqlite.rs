@@ -38,7 +38,7 @@ impl AppDatabase {
     fn ensure_all_schemas(&self) -> AppResult<()> {
         AgentChatService::new(self.clone()).ensure_schema()?;
         AssistantMemoryService::new(self.clone(), self.memory_vault_path()?).ensure_schema()?;
-        FeishuCliService::new(self.clone()).ensure_schema()?;
+        FeishuCliService::ensure_schema_for_database(self)?;
         ScheduleService::new(self.clone()).ensure_schema()?;
         SettingsService::new(self.clone()).ensure_schema()?;
         Ok(())

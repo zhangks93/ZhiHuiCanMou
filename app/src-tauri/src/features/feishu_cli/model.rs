@@ -3,10 +3,36 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeishuCliHealth {
     pub installed: bool,
+    pub bundled: bool,
+    pub configured: bool,
+    pub authenticated: bool,
     pub path: Option<String>,
     pub version: Option<String>,
     pub source: Option<String>,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeishuConfigInitRequest {
+    pub app_id: String,
+    pub app_secret: String,
+    #[serde(default = "default_feishu_brand")]
+    pub brand: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeishuAuthBeginRequest {
+    #[serde(default)]
+    pub domains: Vec<String>,
+    #[serde(default)]
+    pub scopes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeishuAuthCompleteRequest {
+    pub device_code: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,4 +74,8 @@ pub struct FeishuCliOperationLog {
     pub stderr: Option<String>,
     pub created_at: String,
     pub executed_at: Option<String>,
+}
+
+fn default_feishu_brand() -> String {
+    "feishu".to_string()
 }

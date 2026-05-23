@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const appRoot = path.resolve(import.meta.dirname, '../app')
+const repoRoot = path.resolve(import.meta.dirname, '..')
 const binName = process.platform === 'win32' ? 'tauri.cmd' : 'tauri'
 const tauriBin = path.join(appRoot, 'node_modules', '.bin', binName)
 const args = process.argv.slice(2)
@@ -76,6 +77,15 @@ async function main() {
   const hasToolchain = await ensureWindowsNativeToolchain()
   if (!hasToolchain) {
     process.exit(1)
+  }
+
+  const larkCliPrep = await runCommand(process.execPath, [path.join(repoRoot, 'scripts', 'prepare-lark-cli.mjs')])
+  if (!larkCliPrep.ok) {
+    console.error(larkCliPrep.stderr || larkCliPrep.stdout)
+    process.exit(1)
+  }
+  if (larkCliPrep.stdout.trim()) {
+    console.log(larkCliPrep.stdout.trim())
   }
 
   let child

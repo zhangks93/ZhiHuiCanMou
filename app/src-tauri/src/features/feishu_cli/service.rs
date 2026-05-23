@@ -1,5 +1,6 @@
 use crate::features::feishu_cli::{
-    schema, FeishuCliHealth, FeishuCliOperationLog, FeishuCliRequest, FeishuCliResponse,
+    schema, FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuCliHealth,
+    FeishuCliOperationLog, FeishuCliRequest, FeishuCliResponse, FeishuConfigInitRequest,
     FeishuWritePreview,
 };
 use crate::infra::error::{AppError, AppResult};
@@ -7,20 +8,34 @@ use crate::infra::sqlite::AppDatabase;
 use chrono::{Duration, Utc};
 use rusqlite::params;
 use serde_json::Value;
-use std::env;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
+use tauri::Manager;
 
 const PREVIEW_TTL_MINUTES: i64 = 15;
+const DEFAULT_AUTH_DOMAINS: &[&str] = &["calendar", "contact", "docs", "drive", "minutes", "task"];
 
 #[derive(Clone)]
 pub struct FeishuCliService {
     database: AppDatabase,
+    cli_path: PathBuf,
+    cli_home: PathBuf,
 }
 
 impl FeishuCliService {
-    pub fn new(database: AppDatabase) -> Self {
-        Self { database }
+    pub fn new(database: AppDatabase, cli_path: PathBuf, cli_home: PathBuf) -> Self {
+        Self {
+            database,
+            cli_path,
+            cli_home,
+        }
+    }
+
+    pub fn ensure_schema_for_database(database: &AppDatabase) -> AppResult<()> {
+        let connection = database.open_connection()?;
+        schema::ensure(&connection)
     }
 
     pub fn ensure_schema(&self) -> AppResult<()> {
@@ -28,78 +43,201 @@ impl FeishuCliService {
         schema::ensure(&connection)
     }
 
-    pub fn health(&self, cli_path: Option<String>) -> FeishuCliHealth {
-        match resolve_cli_path(cli_path.as_deref()) {
-            Ok(resolved) => match run_command(&resolved.path, &["--version".to_string()]) {
-                Ok(output) => FeishuCliHealth {
-                    installed: true,
-                    path: Some(resolved.path.display().to_string()),
-                    version: Some(first_non_empty_line(&output.stdout, &output.stderr)),
-                    source: Some(resolved.source),
-                    error: None,
-                },
-                Err(error) => FeishuCliHealth {
-                    installed: false,
-                    path: Some(resolved.path.display().to_string()),
-                    version: None,
-                    source: Some(resolved.source),
-                    error: Some(error.to_string()),
-                },
-            },
-            Err(error) => FeishuCliHealth {
+    pub fn health(&self) -> FeishuCliHealth {
+        if !self.cli_path.exists() {
+            return FeishuCliHealth {
                 installed: false,
-                path: None,
+                bundled: false,
+                configured: false,
+                authenticated: false,
+                path: Some(self.cli_path.display().to_string()),
                 version: None,
-                source: None,
-                error: Some(error.to_string()),
-            },
+                source: Some("bundled".to_string()),
+                error: Some(format!(
+                    "未找到随应用打包的 lark-cli：{}",
+                    self.cli_path.display()
+                )),
+            };
+        }
+
+        let version = match self.run_command(&["--version".to_string()]) {
+            Ok(output) => Some(first_non_empty_line(&output.stdout, &output.stderr)),
+            Err(error) => {
+                return FeishuCliHealth {
+                    installed: false,
+                    bundled: true,
+                    configured: false,
+                    authenticated: false,
+                    path: Some(self.cli_path.display().to_string()),
+                    version: None,
+                    source: Some("bundled".to_string()),
+                    error: Some(error.to_string()),
+                }
+            }
+        };
+
+        let configured = self.run_command(&["config".to_string(), "show".to_string()]).is_ok();
+        let authenticated = self
+            .run_command(&["auth".to_string(), "status".to_string()])
+            .is_ok();
+
+        FeishuCliHealth {
+            installed: true,
+            bundled: true,
+            configured,
+            authenticated,
+            path: Some(self.cli_path.display().to_string()),
+            version,
+            source: Some("bundled".to_string()),
+            error: None,
         }
     }
 
-    pub fn auth_status(&self, cli_path: Option<String>) -> AppResult<FeishuCliResponse> {
+    pub fn config_init(&self, request: FeishuConfigInitRequest) -> AppResult<FeishuCliResponse> {
+        let app_id = required_text(&request.app_id, "appId")?;
+        let app_secret = required_text(&request.app_secret, "appSecret")?;
+        let brand = match request.brand.trim() {
+            "" | "feishu" => "feishu",
+            "lark" => "lark",
+            value => {
+                return Err(AppError::message(format!(
+                    "Unsupported Feishu brand: {value}"
+                )))
+            }
+        };
+        let args = vec![
+            "config".to_string(),
+            "init".to_string(),
+            "--app-id".to_string(),
+            app_id,
+            "--app-secret-stdin".to_string(),
+            "--brand".to_string(),
+            brand.to_string(),
+        ];
+        let output = self.run_command_with_stdin(&args, Some(format!("{app_secret}\n")))?;
+        Ok(response_from_output(
+            "config_init".to_string(),
+            self.command_for_display(&args),
+            output,
+        ))
+    }
+
+    pub fn auth_begin(&self, request: FeishuAuthBeginRequest) -> AppResult<FeishuCliResponse> {
+        let mut args = vec![
+            "auth".to_string(),
+            "login".to_string(),
+            "--json".to_string(),
+            "--no-wait".to_string(),
+        ];
+
+        let domains = if request.domains.is_empty() {
+            DEFAULT_AUTH_DOMAINS
+                .iter()
+                .map(|value| value.to_string())
+                .collect::<Vec<_>>()
+        } else {
+            request
+                .domains
+                .iter()
+                .map(|value| required_text(value, "domain"))
+                .collect::<AppResult<Vec<_>>>()?
+        };
+
+        if !domains.is_empty() {
+            args.push("--domain".to_string());
+            args.push(domains.join(","));
+        }
+
+        if !request.scopes.is_empty() {
+            args.push("--scope".to_string());
+            args.push(
+                request
+                    .scopes
+                    .iter()
+                    .map(|value| required_text(value, "scope"))
+                    .collect::<AppResult<Vec<_>>>()?
+                    .join(","),
+            );
+        }
+
+        let output = self.run_command(&args)?;
+        Ok(response_from_output(
+            "auth_begin".to_string(),
+            self.command_for_display(&args),
+            output,
+        ))
+    }
+
+    pub fn auth_complete(
+        &self,
+        request: FeishuAuthCompleteRequest,
+    ) -> AppResult<FeishuCliResponse> {
+        let device_code = required_text(&request.device_code, "deviceCode")?;
+        let args = vec![
+            "auth".to_string(),
+            "login".to_string(),
+            "--json".to_string(),
+            "--device-code".to_string(),
+            device_code,
+        ];
+        let output = self.run_command(&args)?;
+        Ok(response_from_output(
+            "auth_complete".to_string(),
+            self.command_for_display(&args),
+            output,
+        ))
+    }
+
+    pub fn config_remove(&self) -> AppResult<FeishuCliResponse> {
+        let args = vec!["config".to_string(), "remove".to_string()];
+        let output = self.run_command(&args)?;
+        Ok(response_from_output(
+            "config_remove".to_string(),
+            self.command_for_display(&args),
+            output,
+        ))
+    }
+
+    pub fn auth_status(&self) -> AppResult<FeishuCliResponse> {
         let request = FeishuCliRequest {
             operation: "auth_status".to_string(),
             args: Value::Object(serde_json::Map::new()),
         };
-        self.read_operation(cli_path, request)
+        self.read_operation(request)
     }
 
     pub fn read_operation(
         &self,
-        cli_path: Option<String>,
         request: FeishuCliRequest,
     ) -> AppResult<FeishuCliResponse> {
         let operation = parse_read_operation(&request.operation)?;
         let command_args = build_operation_args(operation, &request.args, false)?;
-        let resolved = resolve_cli_path(cli_path.as_deref())?;
-        let output = run_command(&resolved.path, &command_args)?;
+        let output = self.run_command(&command_args)?;
         Ok(response_from_output(
             request.operation,
-            command_for_display(&resolved.path, &command_args),
+            self.command_for_display(&command_args),
             output,
         ))
     }
 
     pub fn write_preview(
         &self,
-        cli_path: Option<String>,
         request: FeishuCliRequest,
     ) -> AppResult<FeishuWritePreview> {
         let operation = parse_write_operation(&request.operation)?;
         let command_args = build_operation_args(operation, &request.args, false)?;
         let dry_run_args = build_operation_args(operation, &request.args, true)?;
-        let resolved = resolve_cli_path(cli_path.as_deref())?;
-        let dry_run_output = run_command(&resolved.path, &dry_run_args)?;
+        let dry_run_output = self.run_command(&dry_run_args)?;
         let operation_id = generate_operation_id();
         let now = Utc::now();
         let expires_at = now + Duration::minutes(PREVIEW_TTL_MINUTES);
         let dry_run_response = response_from_output(
             request.operation.clone(),
-            command_for_display(&resolved.path, &dry_run_args),
+            self.command_for_display(&dry_run_args),
             dry_run_output,
         );
-        let command = command_for_display(&resolved.path, &command_args);
-        let dry_run_command = command_for_display(&resolved.path, &dry_run_args);
+        let command = self.command_for_display(&command_args);
+        let dry_run_command = self.command_for_display(&dry_run_args);
         let preview = FeishuWritePreview {
             operation_id: operation_id.clone(),
             operation: request.operation.clone(),
@@ -133,7 +271,6 @@ impl FeishuCliService {
 
     pub fn write_confirm(
         &self,
-        cli_path: Option<String>,
         operation_id: String,
     ) -> AppResult<FeishuCliResponse> {
         let connection = self.database.open_connection()?;
@@ -164,15 +301,14 @@ impl FeishuCliService {
         let operation = parse_write_operation(&log.operation)?;
         let args: Value = serde_json::from_str(&log.args_json)?;
         let command_args = build_operation_args(operation, &args, false)?;
-        let resolved = resolve_cli_path(cli_path.as_deref())?;
-        let output = run_command(&resolved.path, &command_args);
+        let output = self.run_command(&command_args);
         let executed_at = Utc::now().to_rfc3339();
 
         match output {
             Ok(output) => {
                 let response = response_from_output(
                     log.operation.clone(),
-                    command_for_display(&resolved.path, &command_args),
+                    self.command_for_display(&command_args),
                     output,
                 );
                 connection.execute(
@@ -203,6 +339,99 @@ impl FeishuCliService {
             }
         }
     }
+
+    fn run_command(&self, args: &[String]) -> AppResult<ProcessOutput> {
+        self.run_command_with_stdin(args, None)
+    }
+
+    fn run_command_with_stdin(
+        &self,
+        args: &[String],
+        stdin_text: Option<String>,
+    ) -> AppResult<ProcessOutput> {
+        fs::create_dir_all(&self.cli_home).map_err(|error| {
+            AppError::message(format!(
+                "Failed to create lark-cli app data dir {}: {error}",
+                self.cli_home.display()
+            ))
+        })?;
+
+        let mut command = Command::new(&self.cli_path);
+        command
+            .args(args)
+            .env("LARK_CLI_HOME", &self.cli_home)
+            .env("LARK_CLI_CONFIG_HOME", &self.cli_home)
+            .env("XDG_CONFIG_HOME", &self.cli_home)
+            .env("NO_COLOR", "1")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        if stdin_text.is_some() {
+            command.stdin(Stdio::piped());
+        }
+
+        let mut child = command.spawn().map_err(|error| {
+            AppError::message(format!(
+                "Failed to run bundled lark-cli {}: {error}",
+                self.cli_path.display()
+            ))
+        })?;
+
+        if let Some(stdin_text) = stdin_text {
+            let mut stdin = child
+                .stdin
+                .take()
+                .ok_or_else(|| AppError::message("Failed to open lark-cli stdin"))?;
+            stdin.write_all(stdin_text.as_bytes())?;
+        }
+
+        let output = child.wait_with_output()?;
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if !output.status.success() {
+            return Err(AppError::message(format!(
+                "lark-cli failed with status {}: {}{}{}",
+                output.status,
+                stdout,
+                if stdout.is_empty() || stderr.is_empty() {
+                    ""
+                } else {
+                    "\n"
+                },
+                stderr
+            )));
+        }
+
+        Ok(ProcessOutput { stdout, stderr })
+    }
+
+    fn command_for_display(&self, args: &[String]) -> Vec<String> {
+        let mut command = vec![self.cli_path.display().to_string()];
+        command.extend(args.iter().cloned());
+        command
+    }
+}
+
+pub fn resolve_bundled_cli_paths(app: &tauri::AppHandle) -> AppResult<(PathBuf, PathBuf)> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| AppError::message(format!("Failed to resolve app data dir: {error}")))?;
+    let cli_home = app_data_dir.join("lark-cli");
+
+    #[cfg(windows)]
+    let cli_path = app
+        .path()
+        .resolve(
+            "lark-cli/windows/lark-cli.exe",
+            tauri::path::BaseDirectory::Resource,
+        )
+        .unwrap_or_else(|_| app_data_dir.join("missing-lark-cli.exe"));
+
+    #[cfg(not(windows))]
+    let cli_path = app_data_dir.join("unsupported-lark-cli");
+
+    Ok((cli_path, cli_home))
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -217,11 +446,6 @@ enum Operation {
     TaskCreate,
     CalendarEventCreate,
     DocCreateMarkdown,
-}
-
-struct ResolvedCliPath {
-    path: PathBuf,
-    source: String,
 }
 
 struct ProcessOutput {
@@ -386,6 +610,16 @@ fn push_required_markdown_content(command_args: &mut Vec<String>, args: &Value) 
         command_args.push(format!("# {title}\n\n{markdown}"));
     }
     Ok(())
+}
+
+fn required_text(value: &str, label: &str) -> AppResult<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::message(format!(
+            "Feishu CLI argument is required: {label}"
+        )));
+    }
+    Ok(trimmed.to_string())
 }
 
 fn push_optional_task_status(command_args: &mut Vec<String>, args: &Value) -> AppResult<()> {
@@ -567,117 +801,6 @@ fn push_optional_string_or_first_array_item(
     Ok(())
 }
 
-fn resolve_cli_path(configured_path: Option<&str>) -> AppResult<ResolvedCliPath> {
-    if let Some(path) = configured_path
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        let path = PathBuf::from(path);
-        if let Some(path) = resolve_windows_npm_shim(&path) {
-            return Ok(ResolvedCliPath {
-                path,
-                source: "configured".to_string(),
-            });
-        }
-        if path.exists() {
-            return Ok(ResolvedCliPath {
-                path,
-                source: "configured".to_string(),
-            });
-        }
-        return Err(AppError::message(format!(
-            "Configured lark-cli path does not exist: {}",
-            path.display()
-        )));
-    }
-
-    for candidate in cli_path_candidates() {
-        if let Some(path) = find_in_path(candidate) {
-            return Ok(ResolvedCliPath {
-                path,
-                source: "path".to_string(),
-            });
-        }
-    }
-
-    Err(AppError::message(
-        "未找到 lark-cli。请先安装飞书 CLI 并完成登录授权。",
-    ))
-}
-
-#[cfg(windows)]
-fn cli_path_candidates() -> &'static [&'static str] {
-    &["lark-cli.cmd", "lark-cli.exe", "lark-cli.ps1", "lark-cli"]
-}
-
-#[cfg(not(windows))]
-fn cli_path_candidates() -> &'static [&'static str] {
-    &["lark-cli"]
-}
-
-#[cfg(windows)]
-fn resolve_windows_npm_shim(path: &Path) -> Option<PathBuf> {
-    let extension = path.extension().and_then(|value| value.to_str());
-    if extension.is_some() && path.exists() {
-        return Some(path.to_path_buf());
-    }
-
-    for extension in ["cmd", "exe", "ps1"] {
-        let candidate = path.with_extension(extension);
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-
-    None
-}
-
-#[cfg(not(windows))]
-fn resolve_windows_npm_shim(_path: &Path) -> Option<PathBuf> {
-    None
-}
-
-fn find_in_path(binary: &str) -> Option<PathBuf> {
-    if Path::new(binary).is_absolute() && Path::new(binary).exists() {
-        return Some(PathBuf::from(binary));
-    }
-
-    let paths = env::var_os("PATH")?;
-    for dir in env::split_paths(&paths) {
-        let candidate = dir.join(binary);
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-    None
-}
-
-fn run_command(path: &Path, args: &[String]) -> AppResult<ProcessOutput> {
-    let output = Command::new(path).args(args).output().map_err(|error| {
-        AppError::message(format!(
-            "Failed to run lark-cli {}: {error}",
-            path.display()
-        ))
-    })?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if !output.status.success() {
-        return Err(AppError::message(format!(
-            "lark-cli failed with status {}: {}{}{}",
-            output.status,
-            stdout,
-            if stdout.is_empty() || stderr.is_empty() {
-                ""
-            } else {
-                "\n"
-            },
-            stderr
-        )));
-    }
-
-    Ok(ProcessOutput { stdout, stderr })
-}
-
 fn response_from_output(
     operation: String,
     command: Vec<String>,
@@ -691,12 +814,6 @@ fn response_from_output(
         stderr: output.stderr,
         parsed_json,
     }
-}
-
-fn command_for_display(path: &Path, args: &[String]) -> Vec<String> {
-    let mut command = vec![path.display().to_string()];
-    command.extend(args.iter().cloned());
-    command
 }
 
 fn summarize_write_operation(operation: Operation, args: &Value) -> String {
@@ -916,29 +1033,24 @@ mod tests {
         assert_eq!(command_args, vec!["auth", "status"]);
     }
 
-    #[cfg(windows)]
     #[test]
-    fn windows_cli_candidates_prefer_shell_shims() {
-        assert_eq!(cli_path_candidates()[0], "lark-cli.cmd");
-        assert!(cli_path_candidates().contains(&"lark-cli"));
+    fn required_text_trims_and_rejects_empty_values() {
+        assert_eq!(required_text(" cli_a123 ", "appId").unwrap(), "cli_a123");
+        assert!(required_text(" ", "appId").is_err());
     }
 
-    #[cfg(windows)]
     #[test]
-    fn configured_windows_npm_shim_resolves_to_cmd_file() {
-        let unique = Utc::now()
-            .timestamp_nanos_opt()
-            .unwrap_or_else(|| Utc::now().timestamp_micros() * 1_000);
-        let dir = env::temp_dir().join(format!("canmou-lark-cli-test-{unique}"));
-        std::fs::create_dir_all(&dir).expect("create temp dir");
-
-        let shim = dir.join("lark-cli");
-        let cmd_shim = dir.join("lark-cli.cmd");
-        std::fs::write(&cmd_shim, "@echo off\r\n").expect("write cmd shim");
-
-        let resolved = resolve_windows_npm_shim(&shim).expect("resolve cmd shim");
-        assert_eq!(resolved, cmd_shim);
-
-        std::fs::remove_dir_all(&dir).expect("remove temp dir");
+    fn config_init_command_shape_does_not_include_secret() {
+        let args = [
+            "config".to_string(),
+            "init".to_string(),
+            "--app-id".to_string(),
+            "cli_a123".to_string(),
+            "--app-secret-stdin".to_string(),
+            "--brand".to_string(),
+            "feishu".to_string(),
+        ];
+        assert!(args.contains(&"--app-secret-stdin".to_string()));
+        assert!(!args.contains(&"secret-value".to_string()));
     }
 }

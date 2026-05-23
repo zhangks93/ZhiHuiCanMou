@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AlertTriangle, Check, RefreshCw, Trash2 } from 'lucide-react'
+import { AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Trash2 } from 'lucide-react'
 import { buildSettingsHref } from '@/app/config/constants'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { loadLLMConfig, saveLLMConfig, clearLLMConfig, loadProviderSettings, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig, type ProviderSettings } from '@/shared/lib/llmConfig'
 import { loadThresholdSettings, saveThresholdSettings, resetThresholdSettings, DEFAULT_THRESHOLDS, type ThresholdSettings } from '@/shared/lib/thresholdConfig'
-import { getFeishuAuthStatus, getFeishuCliHealth, type FeishuCliHealth, type FeishuCliResponse } from '@/shared/lib/feishu/feishuClient'
+import {
+  beginFeishuAuth,
+  completeFeishuAuth,
+  getFeishuAuthStatus,
+  getFeishuCliHealth,
+  initFeishuConfig,
+  removeFeishuConfig,
+  type FeishuCliHealth,
+  type FeishuCliResponse,
+} from '@/shared/lib/feishu/feishuClient'
 
 const PROVIDER_OPTIONS = [
   {
@@ -72,6 +81,11 @@ export function Settings() {
   const [feishuAuthStatus, setFeishuAuthStatus] = useState<FeishuCliResponse | null>(null)
   const [feishuStatusError, setFeishuStatusError] = useState<string | null>(null)
   const [feishuStatusLoading, setFeishuStatusLoading] = useState(false)
+  const [feishuAppId, setFeishuAppId] = useState('')
+  const [feishuAppSecret, setFeishuAppSecret] = useState('')
+  const [feishuSetupLoading, setFeishuSetupLoading] = useState(false)
+  const [feishuAuthLoading, setFeishuAuthLoading] = useState(false)
+  const [feishuAuthPayload, setFeishuAuthPayload] = useState<Record<string, unknown> | null>(null)
 
   // Threshold settings state
   const [thresholds, setThresholds] = useState<ThresholdSettings>(() => loadThresholdSettings())
@@ -201,13 +215,125 @@ export function Settings() {
       const health = await getFeishuCliHealth()
       setFeishuHealth(health)
       if (health.installed) {
-        setFeishuAuthStatus(await getFeishuAuthStatus())
+        try {
+          setFeishuAuthStatus(await getFeishuAuthStatus())
+        } catch {
+          setFeishuAuthStatus(null)
+        }
       }
     } catch (error) {
       setFeishuStatusError(getErrorMessage(error, '飞书 CLI 状态检查失败'))
     } finally {
       setFeishuStatusLoading(false)
     }
+  }
+
+  const parseFeishuPayload = (response: FeishuCliResponse) => {
+    const parsed = response.parsed_json
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null
+  }
+
+  const pickNestedString = (value: unknown, keys: string[]): string => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+    const record = value as Record<string, unknown>
+    for (const key of keys) {
+      const direct = record[key]
+      if (typeof direct === 'string' && direct.trim()) return direct.trim()
+    }
+    for (const nested of Object.values(record)) {
+      const found = pickNestedString(nested, keys)
+      if (found) return found
+    }
+    return ''
+  }
+
+  const extractFeishuUrl = (payload: Record<string, unknown> | null) => {
+    return pickNestedString(payload, ['verification_uri_complete', 'verification_url', 'verification_uri', 'console_url'])
+  }
+
+  const extractDeviceCode = (payload: Record<string, unknown> | null) => {
+    return pickNestedString(payload, ['device_code'])
+  }
+
+  const handleFeishuConfigInit = async () => {
+    if (!feishuAppId.trim() || !feishuAppSecret.trim()) {
+      setFeishuStatusError('请输入 App ID 和 App Secret')
+      return
+    }
+    setFeishuSetupLoading(true)
+    setFeishuStatusError(null)
+    try {
+      await initFeishuConfig({
+        appId: feishuAppId.trim(),
+        appSecret: feishuAppSecret.trim(),
+        brand: 'feishu',
+      })
+      setFeishuAppSecret('')
+      showToast('飞书应用配置已保存')
+      await loadFeishuStatus()
+    } catch (error) {
+      setFeishuStatusError(getErrorMessage(error, '飞书应用配置失败'))
+    } finally {
+      setFeishuSetupLoading(false)
+    }
+  }
+
+  const handleFeishuAuthBegin = async () => {
+    setFeishuAuthLoading(true)
+    setFeishuStatusError(null)
+    try {
+      const response = await beginFeishuAuth()
+      setFeishuAuthPayload(parseFeishuPayload(response))
+    } catch (error) {
+      setFeishuStatusError(getErrorMessage(error, '飞书授权启动失败'))
+    } finally {
+      setFeishuAuthLoading(false)
+    }
+  }
+
+  const handleFeishuAuthComplete = async () => {
+    const deviceCode = extractDeviceCode(feishuAuthPayload)
+    if (!deviceCode) {
+      setFeishuStatusError('缺少 device_code，请重新发起授权')
+      return
+    }
+    setFeishuAuthLoading(true)
+    setFeishuStatusError(null)
+    try {
+      await completeFeishuAuth({ device_code: deviceCode })
+      setFeishuAuthPayload(null)
+      showToast('飞书授权已完成')
+      await loadFeishuStatus()
+    } catch (error) {
+      setFeishuStatusError(getErrorMessage(error, '飞书授权确认失败'))
+    } finally {
+      setFeishuAuthLoading(false)
+    }
+  }
+
+  const handleFeishuConfigRemove = async () => {
+    if (!window.confirm('确认清除本机飞书 CLI 配置和授权状态？')) return
+    setFeishuSetupLoading(true)
+    setFeishuStatusError(null)
+    try {
+      await removeFeishuConfig()
+      setFeishuAuthPayload(null)
+      showToast('飞书配置已清除')
+      await loadFeishuStatus()
+    } catch (error) {
+      setFeishuStatusError(getErrorMessage(error, '清除飞书配置失败'))
+    } finally {
+      setFeishuSetupLoading(false)
+    }
+  }
+
+  const handleCopyFeishuUrl = async () => {
+    const url = extractFeishuUrl(feishuAuthPayload)
+    if (!url) return
+    await navigator.clipboard.writeText(url)
+    showToast('授权链接已复制')
   }
 
   useEffect(() => {
@@ -367,9 +493,9 @@ export function Settings() {
           <div className="bg-white/86 backdrop-blur-xl rounded-[22px] border border-[var(--color-border)] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.10)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="font-medium text-gray-800">飞书 CLI 状态</h3>
+                <h3 className="font-medium text-gray-800">飞书连接</h3>
                 <p className="mt-1 text-caption text-gray-500">
-                  飞书助理通过本机 lark-cli 访问日程、待办、文档和会议纪要。
+                  桌面端已随应用打包 lark-cli，可在这里完成应用配置和用户授权。
                 </p>
               </div>
               <button
@@ -387,9 +513,21 @@ export function Settings() {
               <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-4">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
-                    <div className="text-caption text-slate-500">安装状态</div>
+                    <div className="text-caption text-slate-500">打包状态</div>
                     <div className={feishuHealth?.installed ? 'mt-1 text-body font-medium text-success-700' : 'mt-1 text-body font-medium text-warning-700'}>
-                      {feishuHealth ? (feishuHealth.installed ? '已检测到 lark-cli' : '未检测到 lark-cli') : '尚未检查'}
+                      {feishuHealth ? (feishuHealth.installed ? '已内置 lark-cli' : '未检测到内置 lark-cli') : '尚未检查'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-caption text-slate-500">配置状态</div>
+                    <div className={feishuHealth?.configured ? 'mt-1 text-body font-medium text-success-700' : 'mt-1 text-body font-medium text-warning-700'}>
+                      {feishuHealth ? (feishuHealth.configured ? '已配置应用' : '未配置应用') : '尚未检查'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-caption text-slate-500">授权状态</div>
+                    <div className={feishuHealth?.authenticated ? 'mt-1 text-body font-medium text-success-700' : 'mt-1 text-body font-medium text-warning-700'}>
+                      {feishuHealth ? (feishuHealth.authenticated ? '已完成用户授权' : '未完成用户授权') : '尚未检查'}
                     </div>
                   </div>
                   <div>
@@ -422,14 +560,106 @@ export function Settings() {
               )}
 
               <div className="rounded-[18px] border border-slate-200 bg-white p-4">
-                <div className="text-body font-medium text-slate-800">安装与登录</div>
-                <div className="mt-3 space-y-2 text-caption text-slate-600">
-                  <p>第一版不随应用打包 lark-cli，请按公司环境安装官方飞书 CLI 后登录。</p>
-                  <pre className="overflow-auto rounded-xl bg-slate-950 px-3 py-2 font-mono text-slate-100">
-                    npm install -g @larksuite/cli{'\n'}lark-cli auth login
-                  </pre>
-                  <p>若公司 IT 提供固定安装包或内置版本，后续可在 Tauri 网关中切换到 bundled path。</p>
+                <div className="text-body font-medium text-slate-800">1. 配置飞书应用</div>
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label htmlFor="feishu-app-id" className="mb-1.5 block text-caption text-slate-600">
+                      App ID
+                    </label>
+                    <input
+                      id="feishu-app-id"
+                      type="text"
+                      value={feishuAppId}
+                      onChange={(event) => setFeishuAppId(event.target.value)}
+                      className="input input-bordered input-sm h-11 w-full border-slate-200 bg-white font-mono text-caption"
+                      placeholder="cli_a..."
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="feishu-app-secret" className="mb-1.5 block text-caption text-slate-600">
+                      App Secret
+                    </label>
+                    <input
+                      id="feishu-app-secret"
+                      type="password"
+                      value={feishuAppSecret}
+                      onChange={(event) => setFeishuAppSecret(event.target.value)}
+                      className="input input-bordered input-sm h-11 w-full border-slate-200 bg-white font-mono text-caption"
+                      placeholder="仅通过 stdin 写入 lark-cli"
+                    />
+                  </div>
                 </div>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleFeishuConfigInit()}
+                    disabled={feishuSetupLoading}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-body font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
+                  >
+                    {feishuSetupLoading ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+                    保存应用配置
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleFeishuConfigRemove()}
+                    disabled={feishuSetupLoading}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-4 py-2 text-body font-medium text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-60"
+                  >
+                    <Trash2 size={14} />
+                    清除配置
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-[18px] border border-slate-200 bg-white p-4">
+                <div className="text-body font-medium text-slate-800">2. 完成用户授权</div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleFeishuAuthBegin()}
+                    disabled={feishuAuthLoading || !feishuHealth?.configured}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-body font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
+                  >
+                    {feishuAuthLoading ? <RefreshCw size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                    生成授权链接
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleFeishuAuthComplete()}
+                    disabled={feishuAuthLoading || !extractDeviceCode(feishuAuthPayload)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-4 py-2 text-body font-medium text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-60"
+                  >
+                    <Check size={14} />
+                    我已完成授权
+                  </button>
+                </div>
+
+                {extractFeishuUrl(feishuAuthPayload) && (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="mb-2 text-caption text-slate-500">授权链接</div>
+                    <div className="break-all rounded-lg bg-white px-3 py-2 font-mono text-caption text-slate-700">
+                      {extractFeishuUrl(feishuAuthPayload)}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => window.open(extractFeishuUrl(feishuAuthPayload), '_blank', 'noopener,noreferrer')}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-caption font-medium text-slate-600 transition-colors hover:bg-slate-100"
+                      >
+                        <ExternalLink size={13} />
+                        打开
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyFeishuUrl()}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-caption font-medium text-slate-600 transition-colors hover:bg-slate-100"
+                      >
+                        <Copy size={13} />
+                        复制
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
