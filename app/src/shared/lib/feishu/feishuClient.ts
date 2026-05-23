@@ -43,6 +43,7 @@ export interface FeishuConfigInitRequest {
 export interface FeishuAuthBeginRequest {
   domains?: string[]
   scopes?: string[]
+  excludes?: string[]
 }
 
 export interface FeishuAuthCompleteRequest {

@@ -28,6 +28,8 @@ pub struct FeishuAuthBeginRequest {
     pub domains: Vec<String>,
     #[serde(default)]
     pub scopes: Vec<String>,
+    #[serde(default)]
+    pub excludes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

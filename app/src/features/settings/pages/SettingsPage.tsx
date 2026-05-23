@@ -17,6 +17,59 @@ import {
   type FeishuCliResponse,
 } from '@/shared/lib/feishu/feishuClient'
 
+const FEISHU_AUTH_STORAGE_KEY = 'canmou:feishu-auth-domains'
+
+const FEISHU_AUTH_OPTIONS = [
+  {
+    id: 'calendar',
+    label: '日历与日程',
+    description: '查看日程、查询忙闲、创建会议日程。',
+  },
+  {
+    id: 'contact',
+    label: '通讯录',
+    description: '搜索同事、识别参会人和协作成员。',
+  },
+  {
+    id: 'task',
+    label: '任务与待办',
+    description: '查看、创建和跟进飞书任务。',
+  },
+  {
+    id: 'docs',
+    label: '云文档',
+    description: '创建文档、读取文档内容和整理材料。',
+  },
+  {
+    id: 'drive',
+    label: '云空间',
+    description: '搜索云空间文件、定位文档和附件。',
+  },
+  {
+    id: 'minutes',
+    label: '会议纪要',
+    description: '搜索妙记、读取会议总结和待办。',
+  },
+] as const
+
+type FeishuAuthDomain = (typeof FEISHU_AUTH_OPTIONS)[number]['id']
+
+const DEFAULT_FEISHU_AUTH_DOMAINS = FEISHU_AUTH_OPTIONS.map((option) => option.id)
+
+function loadFeishuAuthDomains(): FeishuAuthDomain[] {
+  try {
+    const raw = localStorage.getItem(FEISHU_AUTH_STORAGE_KEY)
+    if (!raw) return DEFAULT_FEISHU_AUTH_DOMAINS
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return DEFAULT_FEISHU_AUTH_DOMAINS
+    const allowed = new Set(DEFAULT_FEISHU_AUTH_DOMAINS)
+    const values = parsed.filter((value): value is FeishuAuthDomain => allowed.has(value))
+    return values.length ? values : DEFAULT_FEISHU_AUTH_DOMAINS
+  } catch {
+    return DEFAULT_FEISHU_AUTH_DOMAINS
+  }
+}
+
 const PROVIDER_OPTIONS = [
   {
     id: 'openai',
@@ -86,6 +139,8 @@ export function Settings() {
   const [feishuSetupLoading, setFeishuSetupLoading] = useState(false)
   const [feishuAuthLoading, setFeishuAuthLoading] = useState(false)
   const [feishuAuthPayload, setFeishuAuthPayload] = useState<Record<string, unknown> | null>(null)
+  const [feishuAuthDomains, setFeishuAuthDomains] = useState<FeishuAuthDomain[]>(() => loadFeishuAuthDomains())
+  const [feishuAuthDirty, setFeishuAuthDirty] = useState(false)
 
   // Threshold settings state
   const [thresholds, setThresholds] = useState<ThresholdSettings>(() => loadThresholdSettings())
@@ -280,17 +335,40 @@ export function Settings() {
     }
   }
 
-  const handleFeishuAuthBegin = async () => {
+  const handleFeishuAuthBegin = async (domains = feishuAuthDomains) => {
+    if (domains.length === 0) {
+      setFeishuStatusError('请至少选择一个飞书授权范围')
+      return
+    }
     setFeishuAuthLoading(true)
     setFeishuStatusError(null)
     try {
-      const response = await beginFeishuAuth()
+      const response = await beginFeishuAuth({ domains })
       setFeishuAuthPayload(parseFeishuPayload(response))
+      setFeishuAuthDirty(false)
     } catch (error) {
       setFeishuStatusError(getErrorMessage(error, '飞书授权启动失败'))
     } finally {
       setFeishuAuthLoading(false)
     }
+  }
+
+  const handleFeishuAuthDomainToggle = (domain: FeishuAuthDomain) => {
+    const nextDomains = feishuAuthDomains.includes(domain)
+      ? feishuAuthDomains.filter((value) => value !== domain)
+      : [...feishuAuthDomains, domain]
+
+    setFeishuAuthDomains(nextDomains)
+    localStorage.setItem(FEISHU_AUTH_STORAGE_KEY, JSON.stringify(nextDomains))
+    setFeishuAuthDirty(true)
+    setFeishuAuthPayload(null)
+
+    if (!feishuHealth?.configured) return
+    if (nextDomains.length === 0) {
+      setFeishuStatusError('请至少选择一个飞书授权范围')
+      return
+    }
+    void handleFeishuAuthBegin(nextDomains)
   }
 
   const handleFeishuAuthComplete = async () => {
@@ -612,17 +690,62 @@ export function Settings() {
               </div>
 
               <div className="rounded-[18px] border border-slate-200 bg-white p-4">
-                <div className="text-body font-medium text-slate-800">2. 完成用户授权</div>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-body font-medium text-slate-800">2. 选择并更新授权范围</div>
+                    <p className="mt-1 text-caption text-slate-500">
+                      勾选后会立即生成新的授权链接；取消勾选后请重新授权，才能让后续请求按新的范围申请。
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => void handleFeishuAuthBegin()}
-                    disabled={feishuAuthLoading || !feishuHealth?.configured}
+                    disabled={feishuAuthLoading || !feishuHealth?.configured || feishuAuthDomains.length === 0}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-body font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
                   >
                     {feishuAuthLoading ? <RefreshCw size={14} className="animate-spin" /> : <ExternalLink size={14} />}
-                    生成授权链接
+                    更新授权链接
                   </button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {FEISHU_AUTH_OPTIONS.map((option) => {
+                    const checked = feishuAuthDomains.includes(option.id)
+                    return (
+                      <label
+                        key={option.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
+                          checked
+                            ? 'border-primary-200 bg-primary-50/60'
+                            : 'border-slate-200 bg-slate-50/60 hover:border-slate-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-sm mt-0.5 border-slate-300"
+                          checked={checked}
+                          disabled={feishuAuthLoading}
+                          onChange={() => handleFeishuAuthDomainToggle(option.id)}
+                        />
+                        <span>
+                          <span className="block text-body font-medium text-slate-800">{option.label}</span>
+                          <span className="mt-1 block text-caption leading-relaxed text-slate-500">{option.description}</span>
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-caption text-slate-600">
+                  当前选择：{feishuAuthDomains.length ? FEISHU_AUTH_OPTIONS.filter((option) => feishuAuthDomains.includes(option.id)).map((option) => option.label).join('、') : '未选择'}
+                  {feishuHealth?.authenticated && (
+                    <span className="ml-2 text-warning-700">
+                      取消已授权范围后，飞书侧历史授权可能仍存在；如需彻底收窄，请清除配置后重新授权。
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     onClick={() => void handleFeishuAuthComplete()}
@@ -632,6 +755,9 @@ export function Settings() {
                     <Check size={14} />
                     我已完成授权
                   </button>
+                  {feishuAuthDirty && (
+                    <span className="text-caption text-warning-700">授权范围已变更，请使用新的授权链接完成确认。</span>
+                  )}
                 </div>
 
                 {extractFeishuUrl(feishuAuthPayload) && (

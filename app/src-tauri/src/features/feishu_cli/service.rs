@@ -160,6 +160,18 @@ impl FeishuCliService {
             );
         }
 
+        if !request.excludes.is_empty() {
+            args.push("--exclude".to_string());
+            args.push(
+                request
+                    .excludes
+                    .iter()
+                    .map(|value| required_text(value, "exclude"))
+                    .collect::<AppResult<Vec<_>>>()?
+                    .join(","),
+            );
+        }
+
         let output = self.run_command(&args)?;
         Ok(response_from_output(
             "auth_begin".to_string(),
