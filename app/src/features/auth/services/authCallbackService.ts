@@ -75,12 +75,9 @@ export function validateCallbackState(state: string | null): AuthError | null {
 
 export function getAuthRuntime() {
   const isTauri = isTauriRuntime()
-  const isMobileDevice =
-    typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
   return {
     isTauri,
-    isMobileDevice,
   }
 }
 

@@ -94,11 +94,11 @@ export function AuthCallback() {
         setProgress(50)
       }
 
-      const { isTauri, isMobileDevice } = getAuthRuntime()
+      const { isTauri } = getAuthRuntime()
 
-      addDebugInfo(`环境: ${isTauri ? 'Tauri' : 'Web'}, ${isMobileDevice ? '移动端' : '桌面端'}`)
+      addDebugInfo(`环境: ${isTauri ? 'Tauri' : 'Web'}, 桌面端`)
 
-      if (isTauri && !isMobileDevice) {
+      if (isTauri) {
         try {
           addDebugInfo('桌面模式: 发送事件到主窗口')
           await completeDesktopOAuth(accessToken, refreshToken)
@@ -118,7 +118,7 @@ export function AuthCallback() {
           }
         }
       } else {
-        addDebugInfo('移动端/Web模式: 直接设置会话')
+        addDebugInfo('Web 模式: 直接设置会话')
         const result = await completeBrowserOAuth({
           accessToken,
           refreshToken,

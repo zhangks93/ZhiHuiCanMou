@@ -16,6 +16,8 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   const { topLevelNav } = useEnabledModules()
   const { user } = useAuth()
+  void isOpen
+  void onClose
   const userInitial = useMemo(
     () => (user?.name ?? 'U').trim().charAt(0).toUpperCase(),
     [user?.name],
@@ -23,19 +25,9 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
 
   return (
     <>
-      {isOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 bg-slate-950/20 lg:hidden"
-          onClick={onClose}
-          aria-label="关闭导航"
-        />
-      )}
-
       <aside
         className={[
-          'fixed inset-y-4 left-4 z-50 flex flex-col overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/86 shadow-[0_24px_64px_rgba(15,23,42,0.10)] backdrop-blur-xl transition-all duration-200 ease-out lg:translate-x-0',
-          isOpen ? 'translate-x-0' : '-translate-x-[115%]',
+          'fixed inset-y-4 left-4 z-50 flex translate-x-0 flex-col overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white/86 shadow-[0_24px_64px_rgba(15,23,42,0.10)] backdrop-blur-xl transition-all duration-200 ease-out',
           collapsed ? 'w-[69px]' : 'w-[186px]',
         ].join(' ')}
       >
@@ -79,7 +71,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
             </div>
           </div>
 
-          <div className="hidden border-t border-[var(--color-border)] pt-3 lg:block">
+          <div className="border-t border-[var(--color-border)] pt-3">
             <button
               type="button"
               onClick={onToggleCollapse}

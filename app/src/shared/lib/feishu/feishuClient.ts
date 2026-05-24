@@ -11,6 +11,24 @@ export interface FeishuCliHealth {
   error?: string | null
 }
 
+export interface FeishuAuthDomainOption {
+  id: string
+  label: string
+  description: string
+  enabledScopeCount: number
+  available: boolean
+  recommended: boolean
+}
+
+export interface FeishuAuthScopeCatalog {
+  domains: FeishuAuthDomainOption[]
+  appScopes: string[]
+  recommendedDomains: string[]
+  appId?: string | null
+  brand?: string | null
+  error?: string | null
+}
+
 export interface FeishuCliRequest {
   operation: string
   args?: Record<string, unknown>
@@ -62,8 +80,16 @@ export async function beginFeishuAuth(request: FeishuAuthBeginRequest = {}) {
   return invokeTauri<FeishuCliResponse>('feishu_auth_begin', { request })
 }
 
+export async function getFeishuAuthScopeCatalog() {
+  return invokeTauri<FeishuAuthScopeCatalog>('feishu_auth_scope_catalog')
+}
+
 export async function completeFeishuAuth(request: FeishuAuthCompleteRequest) {
   return invokeTauri<FeishuCliResponse>('feishu_auth_complete', { request })
+}
+
+export async function logoutFeishuAuth() {
+  return invokeTauri<FeishuCliResponse>('feishu_auth_logout')
 }
 
 export async function removeFeishuConfig() {

@@ -407,44 +407,6 @@ function collectDefaultExpandedTreeKeys(rows: TreeRow[]) {
   return keys
 }
 
-function MobileSheetCard({ mode, row }: { mode: SheetMode; row: SheetRow }) {
-  const title =
-    'project_tag' in row
-      ? row.project_tag ?? '-'
-      : `${row.person_name ?? '-'}`
-  const subtitle =
-    'mdm_project_name' in row
-      ? row.mdm_project_name ?? '-'
-      : 'department' in row
-        ? row.department ?? '未分部门'
-        : ''
-  const amount =
-    mode === 'projectSummary' && 'total_expense_amount' in row
-      ? row.total_expense_amount
-      : mode === 'personHospitality' && 'hospitality_total_amount' in row
-        ? row.hospitality_total_amount
-        : 'travel_total_amount' in row
-          ? row.travel_total_amount
-          : 'total_expense_amount' in row
-            ? row.total_expense_amount
-            : 0
-  const displayAmount = typeof amount === 'number' ? amount : 0
-
-  return (
-    <div className="rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-medium text-[var(--color-text-strong)]">{title}</div>
-          <div className="mt-1 line-clamp-2 text-caption text-[var(--color-text-muted)]">{subtitle}</div>
-        </div>
-        <span className="rounded-full bg-accent-50 px-2.5 py-1 text-caption font-semibold text-accent">
-          {formatAmount(displayAmount)}
-        </span>
-      </div>
-    </div>
-  )
-}
-
 export function TripPage() {
   const {
     loading,
@@ -730,28 +692,7 @@ export function TripPage() {
                   <div className="px-3 pt-3 text-caption text-[var(--color-text-muted)]">正在刷新当前 sheet...</div>
                 ) : null}
 
-                <div className="space-y-2 px-3 py-3 lg:hidden">
-                  {isPersonTreeMode
-                    ? visibleTreeRows.map((row) => (
-                      <div key={row.key} className="rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">{renderTreeLabel(row)}</div>
-                          <span className="rounded-full bg-accent-50 px-2.5 py-1 text-caption font-semibold text-accent">
-                            {'total_expense_amount' in row.metrics
-                              ? formatAmount(row.metrics.total_expense_amount)
-                              : 'travel_total_amount' in row.metrics
-                                ? formatAmount(row.metrics.travel_total_amount)
-                                : formatAmount(row.metrics.hospitality_total_amount)}
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                    : pagedRows.map((row, index) => (
-                      <MobileSheetCard key={`${sheetMode}-${index}`} mode={sheetMode} row={row} />
-                    ))}
-                </div>
-
-                <div className="app-table-scroll hidden lg:block">
+                <div className="app-table-scroll">
                   {sheetMode === 'projectSummary' ? (
                     <table className="app-data-table">
                       <thead>

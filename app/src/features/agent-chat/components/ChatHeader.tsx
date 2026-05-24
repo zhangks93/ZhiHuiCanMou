@@ -6,14 +6,11 @@ import { AgentIcon } from './AgentIcon'
 
 interface ChatHeaderProps {
   agent: AgentDefinition
-  /** Optional back button for mobile navigation */
   onBack?: () => void
-  /** Mobile agent selector toggle */
-  mobileToggle?: React.ReactNode
   className?: string
 }
 
-export function ChatHeader({ agent, onBack, mobileToggle, className = '' }: ChatHeaderProps) {
+export function ChatHeader({ agent, onBack, className = '' }: ChatHeaderProps) {
   const renderIcon = () => (
     <div
       className={['chat-header-avatar-icon', agent.icon.type === 'image' ? 'agent-icon-circle' : ''].join(' ')}
@@ -38,8 +35,7 @@ export function ChatHeader({ agent, onBack, mobileToggle, className = '' }: Chat
         </button>
       )}
 
-      {/* Desktop: Show agent avatar + info */}
-      <div className="chat-header-agent desktop-only">
+      <div className="chat-header-agent">
         {renderIcon()}
         <div className="chat-header-info">
           <h2 className="chat-header-name">{agent.name}</h2>
@@ -49,14 +45,7 @@ export function ChatHeader({ agent, onBack, mobileToggle, className = '' }: Chat
         </div>
       </div>
 
-      {/* Mobile: Show agent toggle */}
-      <div className="mobile-only">
-        {mobileToggle}
-      </div>
-
-      {/* Actions slot */}
       <div className="chat-header-actions">
-        {/* Future: settings, info buttons */}
       </div>
     </header>
   )

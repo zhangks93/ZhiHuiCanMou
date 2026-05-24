@@ -102,7 +102,6 @@ VITE_AUTH_CALLBACK_URL=http://localhost:5173/#/auth-callback
 | `npm run tauri:dev` | 启动桌面端开发模式 |
 | `npm run tauri:build` | 构建 Tauri 桌面应用 |
 | `npm run build:exe` | 构建 Windows 桌面产物 |
-| `npm run build:apk` | 构建 Android APK |
 
 应用目录还提供：
 
@@ -130,18 +129,6 @@ npm run build:exe
 ```
 
 产物位于 `app/src-tauri/target/release/` 与 `app/src-tauri/target/release/bundle/`。
-
-### Android APK
-
-首次构建前初始化 Android 项目：
-
-```bash
-cd app
-npm run tauri:android:init
-npm run build:apk
-```
-
-APK 位于 `app/src-tauri/gen/android/app/build/outputs/apk/`。
 
 ### GitHub Actions
 

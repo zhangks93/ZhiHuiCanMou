@@ -170,9 +170,7 @@ export function AgentChatPage({
   const initialPrompt = searchParams.get('prompt') ?? ''
   const activeAgentId = defaultAgentId || agents[0]?.id || 'financial-analysis'
   const [input, setInput] = useState(initialPrompt)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [historyCollapsed, setHistoryCollapsed] = useState(false)
-  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -195,24 +193,6 @@ export function AgentChatPage({
 
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0]
   const tauriRuntime = isTauriRuntime()
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-
-    const handleResize = () => {
-      const desktop = window.innerWidth >= 1024
-      setIsDesktop(desktop)
-      if (desktop) {
-        setSidebarOpen(true)
-      } else {
-        setHistoryCollapsed(false)
-      }
-    }
-
-    handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
 
   const handleMessagesScroll = useCallback(() => {
     const container = messagesContainerRef.current
@@ -296,9 +276,6 @@ export function AgentChatPage({
     setMessages([])
     shouldAutoScrollRef.current = true
     await syncConversationPersistence(nextConversations, conversation)
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false)
-    }
     textareaRef.current?.focus()
   }
 
@@ -326,9 +303,6 @@ export function AgentChatPage({
     setActiveConversationId(id)
     setMessages(conversation.messages)
     shouldAutoScrollRef.current = true
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false)
-    }
   }
 
   const handleDeleteConversation = useCallback(async (id: string) => {
@@ -373,7 +347,7 @@ export function AgentChatPage({
   }, [])
 
   const displayMessages = streamingMsg ? [...messages, streamingMsg] : messages
-  const showHistorySidebar = !isDesktop || !historyCollapsed
+  const showHistorySidebar = !historyCollapsed
 
   if (!configOk) {
     return (
@@ -396,8 +370,7 @@ export function AgentChatPage({
       <aside
         className={[
           'agent-chat-sidebar',
-          historyCollapsed && isDesktop ? 'agent-chat-sidebar-collapsed' : '',
-          sidebarOpen ? 'agent-chat-sidebar-open' : '',
+          historyCollapsed ? 'agent-chat-sidebar-collapsed' : '',
         ].join(' ')}
       >
         {showHistorySidebar ? (
@@ -425,14 +398,10 @@ export function AgentChatPage({
                 type="button"
                 className="chat-sidebar-toggle"
                 onClick={() => {
-                  if (isDesktop) {
-                    setHistoryCollapsed(true)
-                  } else {
-                    setSidebarOpen(false)
-                  }
+                  setHistoryCollapsed(true)
                 }}
-                title={isDesktop ? '收起历史对话' : '关闭历史对话'}
-                aria-label={isDesktop ? '收起历史对话' : '关闭历史对话'}
+                title="收起历史对话"
+                aria-label="收起历史对话"
               >
                 <PanelLeftClose size={15} strokeWidth={1.8} />
               </button>
@@ -453,28 +422,11 @@ export function AgentChatPage({
         )}
       </aside>
 
-      {!isDesktop && sidebarOpen && (
-        <button type="button" className="chat-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
-      )}
-
       <div className="agent-chat-main">
         {activeAgent && (
           <ChatHeader
             agent={activeAgent}
             onBack={onBackToDirectory}
-            mobileToggle={
-              <button
-                type="button"
-                className="mobile-agent-toggle"
-                onClick={() => setSidebarOpen(true)}
-              >
-                <span className="mobile-agent-toggle-icon">
-                  <PanelLeftOpen size={16} strokeWidth={1.9} />
-                </span>
-                <span className="mobile-agent-toggle-name">对话记录</span>
-                <span className="mobile-agent-toggle-arrow">▼</span>
-              </button>
-            }
           />
         )}
 

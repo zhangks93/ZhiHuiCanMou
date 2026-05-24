@@ -80,31 +80,6 @@ function TreeLabel({ row, expanded, expandable, onToggle }: {
   )
 }
 
-function MobileCollectionCard({ row, expanded, expandable, onToggle }: {
-  row: CollectionTreeRow
-  expanded: boolean
-  expandable: boolean
-  onToggle: (key: string) => void
-}) {
-  return (
-    <div className={`rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4 ${row.children.length > 0 ? 'shadow-[0_8px_24px_rgba(15,23,42,0.04)]' : ''}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <TreeLabel row={row} expanded={expanded} expandable={expandable} onToggle={onToggle} />
-        </div>
-        <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${getRateTone(row.row.collection_rate)}`}>
-          {formatPercent(row.row.collection_rate)}
-        </span>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">新增 {formatAmount(row.row.current_school_year_new_receivable)}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">回款 {formatAmount(row.row.current_school_year_collection_amount)}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">剩余 {formatAmount(row.row.remaining_receivable)}</div>
-      </div>
-    </div>
-  )
-}
-
 export function CollectionPage() {
   const {
     loading,
@@ -178,19 +153,7 @@ export function CollectionPage() {
           <div className="px-3 pt-3 text-caption text-[var(--color-text-muted)]">正在刷新回款数据...</div>
         ) : null}
 
-        <div className="space-y-2 px-3 py-3 lg:hidden">
-          {visibleRows.map((row) => (
-            <MobileCollectionCard
-              key={row.key}
-              row={row}
-              expanded={expandedKeys.has(row.key) || Boolean(query.trim())}
-              expandable={expandableKeys.has(row.key)}
-              onToggle={toggleRow}
-            />
-          ))}
-        </div>
-
-        <div className="app-table-scroll hidden lg:block">
+        <div className="app-table-scroll">
           <table className="app-data-table app-data-table-compact">
             <thead>
               <tr>

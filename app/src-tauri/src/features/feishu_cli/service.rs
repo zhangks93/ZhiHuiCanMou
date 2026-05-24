@@ -1,7 +1,7 @@
 use crate::features::feishu_cli::{
-    schema, FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuCliHealth,
-    FeishuCliOperationLog, FeishuCliRequest, FeishuCliResponse, FeishuConfigInitRequest,
-    FeishuWritePreview,
+    schema, FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthDomainOption,
+    FeishuAuthScopeCatalog, FeishuCliHealth, FeishuCliOperationLog, FeishuCliRequest,
+    FeishuCliResponse, FeishuConfigInitRequest, FeishuWritePreview,
 };
 use crate::infra::error::{AppError, AppResult};
 use crate::infra::sqlite::AppDatabase;
@@ -16,6 +16,135 @@ use tauri::Manager;
 
 const PREVIEW_TTL_MINUTES: i64 = 15;
 const DEFAULT_AUTH_DOMAINS: &[&str] = &["calendar", "contact", "docs", "drive", "minutes", "task"];
+const AUTH_DOMAINS: &[AuthDomain] = &[
+    AuthDomain::new(
+        "approval",
+        "审批",
+        "审批实例与审批任务。",
+        &["approval:"],
+        false,
+    ),
+    AuthDomain::new(
+        "attendance",
+        "考勤",
+        "考勤打卡与出勤记录。",
+        &["attendance:"],
+        false,
+    ),
+    AuthDomain::new(
+        "base",
+        "多维表格",
+        "Base 表、字段、记录、视图与工作流。",
+        &["base:"],
+        false,
+    ),
+    AuthDomain::new(
+        "calendar",
+        "日历与日程",
+        "查看日程、忙闲并创建会议。",
+        &["calendar:"],
+        true,
+    ),
+    AuthDomain::new(
+        "contact",
+        "通讯录",
+        "搜索同事并识别协作成员。",
+        &["contact:"],
+        true,
+    ),
+    AuthDomain::new(
+        "docs",
+        "云文档",
+        "创建、读取和整理文档内容。",
+        &["docs:", "docx:"],
+        true,
+    ),
+    AuthDomain::new(
+        "drive",
+        "云空间",
+        "搜索、上传、下载和管理云空间文件。",
+        &["drive:", "space:"],
+        true,
+    ),
+    AuthDomain::new(
+        "event",
+        "事件订阅",
+        "订阅与消费飞书事件。",
+        &["event:", "docs:event:"],
+        false,
+    ),
+    AuthDomain::new(
+        "im",
+        "即时消息",
+        "读取、发送消息和管理群聊。",
+        &["im:"],
+        false,
+    ),
+    AuthDomain::new(
+        "mail",
+        "邮箱",
+        "邮件读取、草稿、发送和规则管理。",
+        &["mail:"],
+        false,
+    ),
+    AuthDomain::new(
+        "markdown",
+        "Markdown 文件",
+        "云空间 Markdown 文件创建与更新。",
+        &["markdown:"],
+        false,
+    ),
+    AuthDomain::new(
+        "minutes",
+        "妙记",
+        "搜索会议妙记和读取总结产物。",
+        &["minutes:"],
+        true,
+    ),
+    AuthDomain::new("okr", "OKR", "OKR 目标、关键结果和进展。", &["okr:"], false),
+    AuthDomain::new(
+        "sheets",
+        "电子表格",
+        "表格读取、写入和工作表管理。",
+        &["sheets:"],
+        false,
+    ),
+    AuthDomain::new(
+        "slides",
+        "幻灯片",
+        "演示文稿创建、读取和编辑。",
+        &["slides:"],
+        false,
+    ),
+    AuthDomain::new(
+        "task",
+        "任务与待办",
+        "查看、创建和跟进飞书任务。",
+        &["task:"],
+        true,
+    ),
+    AuthDomain::new(
+        "vc",
+        "视频会议",
+        "历史会议、参会人和纪要产物。",
+        &["vc:"],
+        false,
+    ),
+    AuthDomain::new(
+        "wiki",
+        "知识库",
+        "知识空间、节点和成员管理。",
+        &["wiki:"],
+        false,
+    ),
+    AuthDomain::new(
+        "all",
+        "全部范围",
+        "请求 lark-cli 支持的全部业务域。",
+        &[],
+        false,
+    ),
+];
 
 #[derive(Clone)]
 pub struct FeishuCliService {
@@ -76,7 +205,9 @@ impl FeishuCliService {
             }
         };
 
-        let configured = self.run_command(&["config".to_string(), "show".to_string()]).is_ok();
+        let configured = self
+            .run_command(&["config".to_string(), "show".to_string()])
+            .is_ok();
         let authenticated = self
             .run_command(&["auth".to_string(), "status".to_string()])
             .is_ok();
@@ -90,6 +221,67 @@ impl FeishuCliService {
             version,
             source: Some("bundled".to_string()),
             error: None,
+        }
+    }
+
+    pub fn auth_scope_catalog(&self) -> FeishuAuthScopeCatalog {
+        let mut app_scopes = Vec::new();
+        let mut app_id = None;
+        let mut brand = None;
+        let mut error = None;
+
+        if !self.cli_path.exists() {
+            error = Some(format!(
+                "未找到随应用打包的 lark-cli：{}",
+                self.cli_path.display()
+            ));
+        } else {
+            let args = vec![
+                "auth".to_string(),
+                "scopes".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ];
+            match self.run_command(&args) {
+                Ok(output) => match serde_json::from_str::<Value>(&output.stdout) {
+                    Ok(value) => {
+                        app_id = value
+                            .get("appId")
+                            .and_then(Value::as_str)
+                            .map(str::to_string);
+                        brand = value
+                            .get("brand")
+                            .and_then(Value::as_str)
+                            .map(str::to_string);
+                        if let Some(scopes) = value.get("userScopes").and_then(Value::as_array) {
+                            app_scopes = scopes
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .map(str::to_string)
+                                .collect();
+                            app_scopes.sort();
+                        }
+                    }
+                    Err(parse_error) => {
+                        error = Some(format!("飞书授权范围解析失败：{parse_error}"));
+                    }
+                },
+                Err(command_error) => {
+                    error = Some(command_error.to_string());
+                }
+            }
+        }
+
+        FeishuAuthScopeCatalog {
+            domains: build_domain_options(&app_scopes),
+            app_scopes,
+            recommended_domains: DEFAULT_AUTH_DOMAINS
+                .iter()
+                .map(|value| value.to_string())
+                .collect(),
+            app_id,
+            brand,
+            error,
         }
     }
 
@@ -139,7 +331,7 @@ impl FeishuCliService {
             request
                 .domains
                 .iter()
-                .map(|value| required_text(value, "domain"))
+                .map(|value| validate_auth_domain(value))
                 .collect::<AppResult<Vec<_>>>()?
         };
 
@@ -210,6 +402,16 @@ impl FeishuCliService {
         ))
     }
 
+    pub fn auth_logout(&self) -> AppResult<FeishuCliResponse> {
+        let args = vec!["auth".to_string(), "logout".to_string()];
+        let output = self.run_command(&args)?;
+        Ok(response_from_output(
+            "auth_logout".to_string(),
+            self.command_for_display(&args),
+            output,
+        ))
+    }
+
     pub fn auth_status(&self) -> AppResult<FeishuCliResponse> {
         let request = FeishuCliRequest {
             operation: "auth_status".to_string(),
@@ -218,10 +420,7 @@ impl FeishuCliService {
         self.read_operation(request)
     }
 
-    pub fn read_operation(
-        &self,
-        request: FeishuCliRequest,
-    ) -> AppResult<FeishuCliResponse> {
+    pub fn read_operation(&self, request: FeishuCliRequest) -> AppResult<FeishuCliResponse> {
         let operation = parse_read_operation(&request.operation)?;
         let command_args = build_operation_args(operation, &request.args, false)?;
         let output = self.run_command(&command_args)?;
@@ -232,10 +431,7 @@ impl FeishuCliService {
         ))
     }
 
-    pub fn write_preview(
-        &self,
-        request: FeishuCliRequest,
-    ) -> AppResult<FeishuWritePreview> {
+    pub fn write_preview(&self, request: FeishuCliRequest) -> AppResult<FeishuWritePreview> {
         let operation = parse_write_operation(&request.operation)?;
         let command_args = build_operation_args(operation, &request.args, false)?;
         let dry_run_args = build_operation_args(operation, &request.args, true)?;
@@ -281,10 +477,7 @@ impl FeishuCliService {
         Ok(preview)
     }
 
-    pub fn write_confirm(
-        &self,
-        operation_id: String,
-    ) -> AppResult<FeishuCliResponse> {
+    pub fn write_confirm(&self, operation_id: String) -> AppResult<FeishuCliResponse> {
         let connection = self.database.open_connection()?;
         let log = connection.query_row(
             r#"
@@ -382,6 +575,8 @@ impl FeishuCliService {
             command.stdin(Stdio::piped());
         }
 
+        apply_platform_process_options(&mut command);
+
         let mut child = command.spawn().map_err(|error| {
             AppError::message(format!(
                 "Failed to run bundled lark-cli {}: {error}",
@@ -470,6 +665,83 @@ struct ProcessOutput {
     stdout: String,
     stderr: String,
 }
+
+struct AuthDomain {
+    id: &'static str,
+    label: &'static str,
+    description: &'static str,
+    scope_prefixes: &'static [&'static str],
+    recommended: bool,
+}
+
+impl AuthDomain {
+    const fn new(
+        id: &'static str,
+        label: &'static str,
+        description: &'static str,
+        scope_prefixes: &'static [&'static str],
+        recommended: bool,
+    ) -> Self {
+        Self {
+            id,
+            label,
+            description,
+            scope_prefixes,
+            recommended,
+        }
+    }
+}
+
+fn build_domain_options(app_scopes: &[String]) -> Vec<FeishuAuthDomainOption> {
+    AUTH_DOMAINS
+        .iter()
+        .map(|domain| {
+            let enabled_scope_count = if domain.id == "all" {
+                app_scopes.len()
+            } else {
+                app_scopes
+                    .iter()
+                    .filter(|scope| {
+                        domain
+                            .scope_prefixes
+                            .iter()
+                            .any(|prefix| scope.starts_with(prefix))
+                    })
+                    .count()
+            };
+            FeishuAuthDomainOption {
+                id: domain.id.to_string(),
+                label: domain.label.to_string(),
+                description: domain.description.to_string(),
+                enabled_scope_count,
+                available: domain.id == "all" || enabled_scope_count > 0 || app_scopes.is_empty(),
+                recommended: domain.recommended,
+            }
+        })
+        .collect()
+}
+
+fn validate_auth_domain(value: &str) -> AppResult<String> {
+    let domain = required_text(value, "domain")?;
+    if AUTH_DOMAINS.iter().any(|item| item.id == domain) {
+        Ok(domain)
+    } else {
+        Err(AppError::message(format!(
+            "Unsupported Feishu auth domain: {domain}"
+        )))
+    }
+}
+
+#[cfg(windows)]
+fn apply_platform_process_options(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn apply_platform_process_options(_command: &mut Command) {}
 
 fn parse_read_operation(operation: &str) -> AppResult<Operation> {
     match operation {
@@ -1049,6 +1321,35 @@ mod tests {
         )
         .expect("build args");
         assert_eq!(command_args, vec!["auth", "status"]);
+    }
+
+    #[test]
+    fn auth_domain_validation_matches_lark_cli_help() {
+        assert_eq!(validate_auth_domain(" calendar ").unwrap(), "calendar");
+        assert_eq!(validate_auth_domain("sheets").unwrap(), "sheets");
+        assert_eq!(validate_auth_domain("all").unwrap(), "all");
+        assert!(validate_auth_domain("unknown").is_err());
+    }
+
+    #[test]
+    fn scope_catalog_counts_domain_prefixes() {
+        let scopes = vec![
+            "calendar:calendar:read".to_string(),
+            "calendar:calendar.event:create".to_string(),
+            "docx:document:create".to_string(),
+            "docs:document.content:read".to_string(),
+            "drive:file:download".to_string(),
+        ];
+        let domains = build_domain_options(&scopes);
+        let calendar = domains.iter().find(|item| item.id == "calendar").unwrap();
+        let docs = domains.iter().find(|item| item.id == "docs").unwrap();
+        let drive = domains.iter().find(|item| item.id == "drive").unwrap();
+        let task = domains.iter().find(|item| item.id == "task").unwrap();
+        assert_eq!(calendar.enabled_scope_count, 2);
+        assert_eq!(docs.enabled_scope_count, 2);
+        assert_eq!(drive.enabled_scope_count, 1);
+        assert_eq!(task.enabled_scope_count, 0);
+        assert!(!task.available);
     }
 
     #[test]

@@ -50,50 +50,6 @@ function StageBadge({ stage }: { stage: string }) {
   )
 }
 
-function OpportunityMobileCard({ row }: { row: OpportunitySnapshotItem }) {
-  return (
-    <div className="rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4 shadow-[0_12px_28px_rgba(15,23,42,0.05)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-caption text-[var(--color-text-muted)]">
-            {row.region ?? '未分区域'} / {row.opportunity_attribute ?? '未分属性'}
-          </div>
-          <div className="mt-1 line-clamp-2 font-medium leading-snug text-[var(--color-text-strong)]">
-            {row.project_name}
-          </div>
-        </div>
-        <StageBadge stage={row.stage_label} />
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2">
-          <div className="text-[var(--color-text-muted)]">获取途径</div>
-          <div className="mt-1 text-[var(--color-text-strong)]">{row.acquisition_channel ?? '-'}</div>
-        </div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2">
-          <div className="text-[var(--color-text-muted)]">预计完成</div>
-          <div className="mt-1 text-[var(--color-text-strong)]">{formatDate(row.expected_finish_date)}</div>
-        </div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2">
-          <div className="text-[var(--color-text-muted)]">负责市场人员</div>
-          <div className="mt-1 text-[var(--color-text-strong)]">{row.market_owner ?? '-'}</div>
-        </div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2">
-          <div className="text-[var(--color-text-muted)]">预期首年营收</div>
-          <div className="mt-1 font-semibold text-[var(--color-text-strong)]">{formatRevenue(row.first_year_revenue)}</div>
-        </div>
-      </div>
-
-      <div className="mt-3 rounded-xl bg-[rgba(15,23,42,0.03)] px-3 py-2.5">
-        <div className="text-caption text-[var(--color-text-muted)]">推进进度</div>
-        <div className="mt-1 whitespace-pre-line text-caption leading-relaxed text-[var(--color-text-strong)]">
-          {row.progress_note ?? '暂无推进进度'}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function OpportunityPage() {
   const {
     rows,
@@ -222,13 +178,7 @@ export function OpportunityPage() {
           <DataEmptyState title="当前快照暂无商机数据" description="请切换其他快照，或先导入最新商机台账。" />
         ) : (
           <>
-            <div className="space-y-3 px-4 py-4 lg:hidden">
-              {table.getRowModel().rows.map((row) => (
-                <OpportunityMobileCard key={row.id} row={row.original} />
-              ))}
-            </div>
-
-            <div className="app-table-scroll opportunity-table-scroll hidden lg:block">
+            <div className="app-table-scroll opportunity-table-scroll">
               <table className="app-data-table opportunity-data-table">
                 <thead>
                   {table.getHeaderGroups().map((headerGroup) => (

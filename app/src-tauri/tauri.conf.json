@@ -16,8 +16,8 @@
         "title": "智汇参谋",
         "width": 1280,
         "height": 800,
-        "minWidth": 375,
-        "minHeight": 600,
+        "minWidth": 1180,
+        "minHeight": 720,
         "resizable": true,
         "fullscreen": false
       }
@@ -29,7 +29,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi", "nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -66,10 +66,6 @@
       "signingIdentity": null,
       "providerShortName": null,
       "entitlements": null
-    },
-    "android": {
-      "minSdkVersion": 24,
-      "versionCode": 1000000
     }
   },
   "plugins": {

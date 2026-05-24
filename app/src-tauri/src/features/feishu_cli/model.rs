@@ -14,6 +14,28 @@ pub struct FeishuCliHealth {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FeishuAuthDomainOption {
+    pub id: String,
+    pub label: String,
+    pub description: String,
+    pub enabled_scope_count: usize,
+    pub available: bool,
+    pub recommended: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeishuAuthScopeCatalog {
+    pub domains: Vec<FeishuAuthDomainOption>,
+    pub app_scopes: Vec<String>,
+    pub recommended_domains: Vec<String>,
+    pub app_id: Option<String>,
+    pub brand: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FeishuConfigInitRequest {
     pub app_id: String,
     pub app_secret: String,

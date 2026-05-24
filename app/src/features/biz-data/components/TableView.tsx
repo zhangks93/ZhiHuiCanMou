@@ -559,7 +559,6 @@ export function TableView({ nodes, reportType, selectedMetrics, showLevels }: Ta
         onDragEnd={handleDragEnd}
       >
         <div ref={tableShellRef} className="app-table-shell biz-data-table-shell">
-          <div className="biz-data-table__mobile-hint">左右滑动查看完整指标</div>
           <div className="biz-data-table__header-row">
             <div className="biz-data-table__fixed-column">
               <table

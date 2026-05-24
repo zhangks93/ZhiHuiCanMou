@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { env } from '@/app/config/env'
 import { storeAuthState } from '@/shared/lib/auth-storage'
@@ -15,67 +15,17 @@ function isTauriApp() {
   return typeof window !== 'undefined' && '__TAURI__' in window
 }
 
-function isMobile() {
-  if (typeof navigator === 'undefined') return false
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-}
-
 export function Login() {
   const state = useMemo(generateState, [])
   const { appId, redirectUri, scope } = env.feishu
   const canLogin = Boolean(appId && redirectUri)
   const [isLoading, setIsLoading] = useState(false)
   const [debugInfo, setDebugInfo] = useState<string[]>([])
-  const [showFallback, setShowFallback] = useState(false)
-  const [deepLinkError, setDeepLinkError] = useState<string | null>(null)
 
   const addDebugInfo = (message: string) => {
     logger.debug(`Login debug: ${message}`)
     setDebugInfo((previous) => [...previous, `${new Date().toLocaleTimeString()}: ${message}`])
   }
-
-  useEffect(() => {
-    if (!isTauriApp()) return
-
-    const preloadModules = async () => {
-      try {
-        if (isMobile()) {
-          await import('@tauri-apps/plugin-opener')
-          addDebugInfo('Preloaded mobile opener plugin')
-        } else {
-          await import('@tauri-apps/api/webviewWindow')
-          addDebugInfo('Preloaded desktop webview window')
-        }
-      } catch (error) {
-        logger.error('Failed to preload Tauri modules', error)
-      }
-    }
-
-    void preloadModules()
-  }, [])
-
-  useEffect(() => {
-    if (!isTauriApp() || !isMobile()) return
-
-    let unlisten: (() => void) | null = null
-    void import('@tauri-apps/api/event')
-      .then(({ listen }) =>
-        listen<{ code: string; message: string }>('deep-link:error', (event) => {
-          const { code, message } = event.payload
-          addDebugInfo(`Deep link error: ${code} - ${message}`)
-          setDeepLinkError(message)
-          setShowFallback(true)
-          setIsLoading(false)
-        })
-      )
-      .then((fn) => {
-        unlisten = fn
-      })
-
-    return () => {
-      unlisten?.()
-    }
-  }, [])
 
   const handleFeishuLogin = async () => {
     if (!canLogin || isLoading) return
@@ -84,23 +34,22 @@ export function Login() {
     setDebugInfo([])
 
     try {
-      const mobile = isMobile()
       const tauri = isTauriApp()
-      addDebugInfo(`Environment: ${tauri ? 'Tauri' : 'Web'} / ${mobile ? 'mobile' : 'desktop'}`)
+      addDebugInfo(`Environment: ${tauri ? 'Tauri' : 'Web'} / desktop`)
 
-      storeAuthState(state, mobile ? 'mobile' : 'desktop')
+      storeAuthState(state, 'desktop')
       addDebugInfo(`Stored auth state: ${state.slice(0, 8)}...`)
 
       const loginUrl = new URL(FEISHU_AUTH_URL)
       loginUrl.searchParams.set('app_id', appId)
-      loginUrl.searchParams.set('redirect_uri', mobile ? `${redirectUri}?platform=mobile` : redirectUri)
+      loginUrl.searchParams.set('redirect_uri', redirectUri)
       loginUrl.searchParams.set('scope', scope)
       loginUrl.searchParams.set('state', state)
 
       const urlString = loginUrl.toString()
       addDebugInfo(`Auth URL ready`)
 
-      if (tauri && !mobile) {
+      if (tauri) {
         addDebugInfo('Opening desktop auth window')
         const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
         const oauthWindow = new WebviewWindow('oauth', {
@@ -118,18 +67,6 @@ export function Login() {
           addDebugInfo('OAuth window closed')
           setIsLoading(false)
         })
-      } else if (tauri && mobile) {
-        addDebugInfo('Opening system browser')
-        const { openUrl } = await import('@tauri-apps/plugin-opener')
-        await openUrl(urlString)
-        addDebugInfo('Waiting for deep link callback')
-
-        window.setTimeout(() => {
-          setIsLoading((current) => {
-            if (current) addDebugInfo('Auth callback timeout, please retry if login did not complete')
-            return false
-          })
-        }, 30000)
       } else {
         addDebugInfo('Redirecting in current window')
         window.location.href = urlString
@@ -196,24 +133,6 @@ export function Login() {
           {!canLogin && (
             <div className="mt-4 rounded-2xl border border-[rgba(220,38,38,0.12)] bg-[rgba(220,38,38,0.04)] px-4 py-3 text-body leading-6 text-[var(--color-error)]">
               飞书登录未配置，请检查环境变量。
-            </div>
-          )}
-
-          {showFallback && deepLinkError && (
-            <div className="mt-4 rounded-2xl border border-[rgba(217,119,6,0.14)] bg-[rgba(217,119,6,0.04)] px-4 py-4 text-body leading-7">
-              <div className="font-semibold text-[var(--color-text-strong)]">回调失败</div>
-              <div className="mt-1 text-[var(--color-text-muted)]">{deepLinkError}</div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowFallback(false)
-                  setDeepLinkError(null)
-                  setDebugInfo([])
-                }}
-                className="btn btn-sm mt-3"
-              >
-                重置状态
-              </button>
             </div>
           )}
 

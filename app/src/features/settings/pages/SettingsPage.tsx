@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AlertTriangle, Check, Copy, ExternalLink, RefreshCw, Trash2 } from 'lucide-react'
+import { AlertTriangle, Check, Copy, ExternalLink, KeyRound, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import { buildSettingsHref } from '@/app/config/constants'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
 import { getErrorMessage } from '@/shared/lib/errorMessage'
@@ -10,60 +10,27 @@ import {
   beginFeishuAuth,
   completeFeishuAuth,
   getFeishuAuthStatus,
+  getFeishuAuthScopeCatalog,
   getFeishuCliHealth,
   initFeishuConfig,
+  logoutFeishuAuth,
   removeFeishuConfig,
+  type FeishuAuthScopeCatalog,
   type FeishuCliHealth,
   type FeishuCliResponse,
 } from '@/shared/lib/feishu/feishuClient'
 
 const FEISHU_AUTH_STORAGE_KEY = 'canmou:feishu-auth-domains'
 
-const FEISHU_AUTH_OPTIONS = [
-  {
-    id: 'calendar',
-    label: '日历与日程',
-    description: '查看日程、查询忙闲、创建会议日程。',
-  },
-  {
-    id: 'contact',
-    label: '通讯录',
-    description: '搜索同事、识别参会人和协作成员。',
-  },
-  {
-    id: 'task',
-    label: '任务与待办',
-    description: '查看、创建和跟进飞书任务。',
-  },
-  {
-    id: 'docs',
-    label: '云文档',
-    description: '创建文档、读取文档内容和整理材料。',
-  },
-  {
-    id: 'drive',
-    label: '云空间',
-    description: '搜索云空间文件、定位文档和附件。',
-  },
-  {
-    id: 'minutes',
-    label: '会议纪要',
-    description: '搜索妙记、读取会议总结和待办。',
-  },
-] as const
+const DEFAULT_FEISHU_AUTH_DOMAINS = ['calendar', 'contact', 'docs', 'drive', 'minutes', 'task']
 
-type FeishuAuthDomain = (typeof FEISHU_AUTH_OPTIONS)[number]['id']
-
-const DEFAULT_FEISHU_AUTH_DOMAINS = FEISHU_AUTH_OPTIONS.map((option) => option.id)
-
-function loadFeishuAuthDomains(): FeishuAuthDomain[] {
+function loadFeishuAuthDomains(): string[] {
   try {
     const raw = localStorage.getItem(FEISHU_AUTH_STORAGE_KEY)
     if (!raw) return DEFAULT_FEISHU_AUTH_DOMAINS
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return DEFAULT_FEISHU_AUTH_DOMAINS
-    const allowed = new Set(DEFAULT_FEISHU_AUTH_DOMAINS)
-    const values = parsed.filter((value): value is FeishuAuthDomain => allowed.has(value))
+    const values = parsed.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     return values.length ? values : DEFAULT_FEISHU_AUTH_DOMAINS
   } catch {
     return DEFAULT_FEISHU_AUTH_DOMAINS
@@ -132,6 +99,7 @@ export function Settings() {
   const toastTimerRef = useRef<number | null>(null)
   const [feishuHealth, setFeishuHealth] = useState<FeishuCliHealth | null>(null)
   const [feishuAuthStatus, setFeishuAuthStatus] = useState<FeishuCliResponse | null>(null)
+  const [feishuScopeCatalog, setFeishuScopeCatalog] = useState<FeishuAuthScopeCatalog | null>(null)
   const [feishuStatusError, setFeishuStatusError] = useState<string | null>(null)
   const [feishuStatusLoading, setFeishuStatusLoading] = useState(false)
   const [feishuAppId, setFeishuAppId] = useState('')
@@ -139,8 +107,10 @@ export function Settings() {
   const [feishuSetupLoading, setFeishuSetupLoading] = useState(false)
   const [feishuAuthLoading, setFeishuAuthLoading] = useState(false)
   const [feishuAuthPayload, setFeishuAuthPayload] = useState<Record<string, unknown> | null>(null)
-  const [feishuAuthDomains, setFeishuAuthDomains] = useState<FeishuAuthDomain[]>(() => loadFeishuAuthDomains())
+  const [feishuAuthDomains, setFeishuAuthDomains] = useState<string[]>(() => loadFeishuAuthDomains())
   const [feishuAuthDirty, setFeishuAuthDirty] = useState(false)
+  const [feishuNeedsReauthReset, setFeishuNeedsReauthReset] = useState(false)
+  const [feishuDiagnosticsOpen, setFeishuDiagnosticsOpen] = useState(false)
 
   // Threshold settings state
   const [thresholds, setThresholds] = useState<ThresholdSettings>(() => loadThresholdSettings())
@@ -269,6 +239,11 @@ export function Settings() {
     try {
       const health = await getFeishuCliHealth()
       setFeishuHealth(health)
+      const catalog = await getFeishuAuthScopeCatalog()
+      setFeishuScopeCatalog(catalog)
+      if (catalog.error && health.configured) {
+        setFeishuStatusError(catalog.error)
+      }
       if (health.installed) {
         try {
           setFeishuAuthStatus(await getFeishuAuthStatus())
@@ -346,6 +321,7 @@ export function Settings() {
       const response = await beginFeishuAuth({ domains })
       setFeishuAuthPayload(parseFeishuPayload(response))
       setFeishuAuthDirty(false)
+      setFeishuNeedsReauthReset(false)
     } catch (error) {
       setFeishuStatusError(getErrorMessage(error, '飞书授权启动失败'))
     } finally {
@@ -353,7 +329,8 @@ export function Settings() {
     }
   }
 
-  const handleFeishuAuthDomainToggle = (domain: FeishuAuthDomain) => {
+  const handleFeishuAuthDomainToggle = (domain: string) => {
+    const removing = feishuAuthDomains.includes(domain)
     const nextDomains = feishuAuthDomains.includes(domain)
       ? feishuAuthDomains.filter((value) => value !== domain)
       : [...feishuAuthDomains, domain]
@@ -362,6 +339,10 @@ export function Settings() {
     localStorage.setItem(FEISHU_AUTH_STORAGE_KEY, JSON.stringify(nextDomains))
     setFeishuAuthDirty(true)
     setFeishuAuthPayload(null)
+    if (removing && feishuHealth?.authenticated) {
+      setFeishuNeedsReauthReset(true)
+      return
+    }
 
     if (!feishuHealth?.configured) return
     if (nextDomains.length === 0) {
@@ -369,6 +350,29 @@ export function Settings() {
       return
     }
     void handleFeishuAuthBegin(nextDomains)
+  }
+
+  const handleFeishuAuthResetAndBegin = async () => {
+    if (feishuAuthDomains.length === 0) {
+      setFeishuStatusError('请至少选择一个飞书授权范围')
+      return
+    }
+    setFeishuAuthLoading(true)
+    setFeishuStatusError(null)
+    try {
+      await logoutFeishuAuth()
+      setFeishuAuthPayload(null)
+      setFeishuNeedsReauthReset(false)
+      const response = await beginFeishuAuth({ domains: feishuAuthDomains })
+      setFeishuAuthPayload(parseFeishuPayload(response))
+      setFeishuAuthDirty(false)
+      showToast('已清除旧授权，请使用新的授权链接')
+      await loadFeishuStatus()
+    } catch (error) {
+      setFeishuStatusError(getErrorMessage(error, '重新授权启动失败'))
+    } finally {
+      setFeishuAuthLoading(false)
+    }
   }
 
   const handleFeishuAuthComplete = async () => {
@@ -382,6 +386,7 @@ export function Settings() {
     try {
       await completeFeishuAuth({ device_code: deviceCode })
       setFeishuAuthPayload(null)
+      setFeishuNeedsReauthReset(false)
       showToast('飞书授权已完成')
       await loadFeishuStatus()
     } catch (error) {
@@ -398,6 +403,8 @@ export function Settings() {
     try {
       await removeFeishuConfig()
       setFeishuAuthPayload(null)
+      setFeishuScopeCatalog(null)
+      setFeishuNeedsReauthReset(false)
       showToast('飞书配置已清除')
       await loadFeishuStatus()
     } catch (error) {
@@ -427,6 +434,12 @@ export function Settings() {
     { key: 'ai-model', label: 'AI 模型配置', to: buildSettingsHref('ai-model'), active: activeTab === 'ai-model' },
     { key: 'feishu-cli', label: '飞书 CLI', to: buildSettingsHref('feishu-cli'), active: activeTab === 'feishu-cli' },
   ]
+  const feishuDomains = feishuScopeCatalog?.domains ?? []
+  const selectedFeishuDomainLabels = feishuDomains
+    .filter((domain) => feishuAuthDomains.includes(domain.id))
+    .map((domain) => domain.label)
+  const feishuConfigured = Boolean(feishuHealth?.configured)
+  const feishuAuthenticated = Boolean(feishuHealth?.authenticated)
 
   return (
     <TabbedPageShell tabs={tabItems}>
@@ -573,7 +586,7 @@ export function Settings() {
               <div>
                 <h3 className="font-medium text-gray-800">飞书连接</h3>
                 <p className="mt-1 text-caption text-gray-500">
-                  桌面端已随应用打包 lark-cli，可在这里完成应用配置和用户授权。
+                  Windows 桌面端已内置 lark-cli，这里只保留连接、授权和必要诊断。
                 </p>
               </div>
               <button
@@ -588,45 +601,23 @@ export function Settings() {
             </div>
 
             <div className="mt-5 space-y-4">
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-4">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div>
-                    <div className="text-caption text-slate-500">打包状态</div>
-                    <div className={feishuHealth?.installed ? 'mt-1 text-body font-medium text-success-700' : 'mt-1 text-body font-medium text-warning-700'}>
-                      {feishuHealth ? (feishuHealth.installed ? '已内置 lark-cli' : '未检测到内置 lark-cli') : '尚未检查'}
-                    </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex items-center gap-2 text-caption text-slate-500"><ShieldCheck size={15} /> CLI</div>
+                  <div className={feishuHealth?.installed ? 'mt-2 text-body font-medium text-success-700' : 'mt-2 text-body font-medium text-warning-700'}>
+                    {feishuHealth ? (feishuHealth.installed ? '内置可用' : '未检测到') : '尚未检查'}
                   </div>
-                  <div>
-                    <div className="text-caption text-slate-500">配置状态</div>
-                    <div className={feishuHealth?.configured ? 'mt-1 text-body font-medium text-success-700' : 'mt-1 text-body font-medium text-warning-700'}>
-                      {feishuHealth ? (feishuHealth.configured ? '已配置应用' : '未配置应用') : '尚未检查'}
-                    </div>
+                </div>
+                <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex items-center gap-2 text-caption text-slate-500"><KeyRound size={15} /> 应用配置</div>
+                  <div className={feishuConfigured ? 'mt-2 text-body font-medium text-success-700' : 'mt-2 text-body font-medium text-warning-700'}>
+                    {feishuHealth ? (feishuConfigured ? '已配置' : '未配置') : '尚未检查'}
                   </div>
-                  <div>
-                    <div className="text-caption text-slate-500">授权状态</div>
-                    <div className={feishuHealth?.authenticated ? 'mt-1 text-body font-medium text-success-700' : 'mt-1 text-body font-medium text-warning-700'}>
-                      {feishuHealth ? (feishuHealth.authenticated ? '已完成用户授权' : '未完成用户授权') : '尚未检查'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-caption text-slate-500">版本</div>
-                    <div className="mt-1 break-all font-mono text-caption text-slate-700">
-                      {feishuHealth?.version || '-'}
-                    </div>
-                  </div>
-                  <div className="md:col-span-2">
-                    <div className="text-caption text-slate-500">路径</div>
-                    <div className="mt-1 break-all font-mono text-caption text-slate-700">
-                      {feishuHealth?.path || '-'}
-                    </div>
-                  </div>
-                  <div className="md:col-span-2">
-                    <div className="text-caption text-slate-500">登录状态</div>
-                    <pre className="mt-1 max-h-56 overflow-auto rounded-xl bg-white p-3 text-caption text-slate-700">
-                      {feishuAuthStatus
-                        ? JSON.stringify(feishuAuthStatus.parsed_json ?? feishuAuthStatus.stdout, null, 2)
-                        : '未获取登录状态'}
-                    </pre>
+                </div>
+                <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex items-center gap-2 text-caption text-slate-500"><Check size={15} /> 用户授权</div>
+                  <div className={feishuAuthenticated ? 'mt-2 text-body font-medium text-success-700' : 'mt-2 text-body font-medium text-warning-700'}>
+                    {feishuHealth ? (feishuAuthenticated ? '已授权' : '未授权') : '尚未检查'}
                   </div>
                 </div>
               </div>
@@ -694,13 +685,13 @@ export function Settings() {
                   <div>
                     <div className="text-body font-medium text-slate-800">2. 选择并更新授权范围</div>
                     <p className="mt-1 text-caption text-slate-500">
-                      勾选后会立即生成新的授权链接；取消勾选后请重新授权，才能让后续请求按新的范围申请。
+                      授权范围来自当前 lark-cli 支持的业务域；未在应用后台开通的范围会标记出来。
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => void handleFeishuAuthBegin()}
-                    disabled={feishuAuthLoading || !feishuHealth?.configured || feishuAuthDomains.length === 0}
+                    disabled={feishuAuthLoading || !feishuConfigured || feishuAuthDomains.length === 0 || feishuNeedsReauthReset}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-body font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
                   >
                     {feishuAuthLoading ? <RefreshCw size={14} className="animate-spin" /> : <ExternalLink size={14} />}
@@ -708,15 +699,18 @@ export function Settings() {
                   </button>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {FEISHU_AUTH_OPTIONS.map((option) => {
+                <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-3">
+                  {feishuDomains.map((option) => {
                     const checked = feishuAuthDomains.includes(option.id)
+                    const disabled = feishuAuthLoading || (!option.available && !checked)
                     return (
                       <label
                         key={option.id}
                         className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
                           checked
                             ? 'border-primary-200 bg-primary-50/60'
+                            : disabled
+                              ? 'border-slate-200 bg-slate-50/40 opacity-60'
                             : 'border-slate-200 bg-slate-50/60 hover:border-slate-300'
                         }`}
                       >
@@ -724,12 +718,20 @@ export function Settings() {
                           type="checkbox"
                           className="checkbox checkbox-sm mt-0.5 border-slate-300"
                           checked={checked}
-                          disabled={feishuAuthLoading}
+                          disabled={disabled}
                           onChange={() => handleFeishuAuthDomainToggle(option.id)}
                         />
                         <span>
-                          <span className="block text-body font-medium text-slate-800">{option.label}</span>
+                          <span className="flex items-center gap-2 text-body font-medium text-slate-800">
+                            {option.label}
+                            {option.recommended && <span className="rounded-full bg-success-100 px-2 py-0.5 text-[11px] text-success-700">推荐</span>}
+                          </span>
                           <span className="mt-1 block text-caption leading-relaxed text-slate-500">{option.description}</span>
+                          <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[11px] ${
+                            option.available ? 'bg-slate-100 text-slate-600' : 'bg-warning-100 text-warning-700'
+                          }`}>
+                            {option.available ? `后台已开通 ${option.enabledScopeCount} 项` : '后台未开通'}
+                          </span>
                         </span>
                       </label>
                     )
@@ -737,15 +739,21 @@ export function Settings() {
                 </div>
 
                 <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-caption text-slate-600">
-                  当前选择：{feishuAuthDomains.length ? FEISHU_AUTH_OPTIONS.filter((option) => feishuAuthDomains.includes(option.id)).map((option) => option.label).join('、') : '未选择'}
-                  {feishuHealth?.authenticated && (
-                    <span className="ml-2 text-warning-700">
-                      取消已授权范围后，飞书侧历史授权可能仍存在；如需彻底收窄，请清除配置后重新授权。
-                    </span>
-                  )}
+                  当前选择：{selectedFeishuDomainLabels.length ? selectedFeishuDomainLabels.join('、') : '未选择'}
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {feishuNeedsReauthReset && (
+                    <button
+                      type="button"
+                      onClick={() => void handleFeishuAuthResetAndBegin()}
+                      disabled={feishuAuthLoading || !feishuConfigured || feishuAuthDomains.length === 0}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-warning-100 px-4 py-2 text-body font-medium text-warning-700 transition-colors hover:bg-warning-200 disabled:opacity-60"
+                    >
+                      {feishuAuthLoading ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                      清除旧授权并重新生成链接
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => void handleFeishuAuthComplete()}
@@ -755,9 +763,11 @@ export function Settings() {
                     <Check size={14} />
                     我已完成授权
                   </button>
-                  {feishuAuthDirty && (
+                  {feishuNeedsReauthReset ? (
+                    <span className="text-caption text-warning-700">lark-cli 用户授权会累积，减少范围需要先清除旧授权。</span>
+                  ) : feishuAuthDirty ? (
                     <span className="text-caption text-warning-700">授权范围已变更，请使用新的授权链接完成确认。</span>
-                  )}
+                  ) : null}
                 </div>
 
                 {extractFeishuUrl(feishuAuthPayload) && (
@@ -783,6 +793,47 @@ export function Settings() {
                         <Copy size={13} />
                         复制
                       </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-[18px] border border-slate-200 bg-white p-4">
+                <button
+                  type="button"
+                  onClick={() => setFeishuDiagnosticsOpen((value) => !value)}
+                  className="flex w-full items-center justify-between text-left text-body font-medium text-slate-800"
+                >
+                  <span>诊断详情</span>
+                  <span className="text-caption text-slate-500">{feishuDiagnosticsOpen ? '收起' : '展开'}</span>
+                </button>
+                {feishuDiagnosticsOpen && (
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-caption text-slate-600">
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <div className="text-slate-500">版本</div>
+                      <div className="mt-1 font-mono">{feishuHealth?.version || '-'}</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <div className="text-slate-500">应用</div>
+                      <div className="mt-1 font-mono">{feishuScopeCatalog?.appId || '-'}</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <div className="text-slate-500">品牌</div>
+                      <div className="mt-1">{feishuScopeCatalog?.brand || 'feishu'}</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <div className="text-slate-500">应用后台已开通 scope</div>
+                      <div className="mt-1">{feishuScopeCatalog?.appScopes.length ?? 0} 项</div>
+                    </div>
+                    <div className="col-span-2 rounded-xl bg-slate-50 p-3">
+                      <div className="text-slate-500">登录状态</div>
+                      <div className="mt-1 break-all">
+                        {feishuAuthStatus?.parsed_json && typeof feishuAuthStatus.parsed_json === 'object'
+                          ? '已获取'
+                          : feishuAuthStatus?.stdout
+                            ? '已获取'
+                            : '未获取'}
+                      </div>
                     </div>
                   </div>
                 )}

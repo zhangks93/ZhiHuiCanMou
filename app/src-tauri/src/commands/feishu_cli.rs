@@ -1,6 +1,7 @@
 use crate::features::feishu_cli::{
-    FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuCliHealth, FeishuCliRequest,
-    FeishuCliResponse, FeishuCliService, FeishuConfigInitRequest, FeishuWritePreview,
+    FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthScopeCatalog, FeishuCliHealth,
+    FeishuCliRequest, FeishuCliResponse, FeishuCliService, FeishuConfigInitRequest,
+    FeishuWritePreview,
 };
 
 #[tauri::command]
@@ -38,12 +39,33 @@ pub async fn feishu_auth_begin(
 }
 
 #[tauri::command]
+pub async fn feishu_auth_scope_catalog(
+    service: tauri::State<'_, FeishuCliService>,
+) -> Result<FeishuAuthScopeCatalog, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.auth_scope_catalog())
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub async fn feishu_auth_complete(
     service: tauri::State<'_, FeishuCliService>,
     request: FeishuAuthCompleteRequest,
 ) -> Result<FeishuCliResponse, String> {
     let service = service.inner().clone();
     tauri::async_runtime::spawn_blocking(move || service.auth_complete(request))
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn feishu_auth_logout(
+    service: tauri::State<'_, FeishuCliService>,
+) -> Result<FeishuCliResponse, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.auth_logout())
         .await
         .map_err(|error| error.to_string())?
         .map_err(Into::into)
