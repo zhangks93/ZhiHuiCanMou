@@ -4,7 +4,7 @@ use crate::features::feishu_cli::{
     FeishuAuthSyncRequest, FeishuAuthSyncResult, FeishuCliHealth, FeishuCliOperationLog,
     FeishuCliRequest, FeishuCliResponse, FeishuConfigInitRequest, FeishuWritePreview,
 };
-use crate::features::settings::repository::SettingsRepository;
+use crate::features::settings::SettingsRepository;
 use crate::infra::error::{AppError, AppResult};
 use crate::infra::sqlite::AppDatabase;
 use chrono::{Duration, Utc};
@@ -880,11 +880,13 @@ fn read_domain_list_setting(
     key: &str,
     default_value: Vec<String>,
 ) -> AppResult<Vec<String>> {
-    let Some(raw) = SettingsRepository::get_value(connection, key)? else {
-        return Ok(default_value);
-    };
-    let values = serde_json::from_str::<Vec<String>>(&raw)?;
-    normalize_auth_domains(&values)
+    match SettingsRepository::get_value(connection, key)? {
+        Some(raw) => {
+            let values = serde_json::from_str::<Vec<String>>(raw.as_str())?;
+            normalize_auth_domains(&values)
+        }
+        None => Ok(default_value),
+    }
 }
 
 fn save_optional_setting(connection: &Connection, key: &str, value: Option<&str>) -> AppResult<()> {
