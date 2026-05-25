@@ -943,3 +943,34 @@ export function safeDiff(actual: number | null, budget: number | null): number |
   if (actual == null || budget == null) return null
   return actual - budget
 }
+
+export interface BizDataFilters {
+  reportType: 'fone' | 'tuwei'
+  periodType: 'cumulative' | 'monthly'
+  selectedMonth: string
+}
+
+export async function loadAvailableMonths(params: {
+  reportType: 'fone' | 'tuwei'
+  periodType: 'cumulative' | 'monthly'
+}) {
+  return fetchAvailableMonths(params.periodType, params.reportType)
+}
+
+export async function loadBizData(filters: BizDataFilters) {
+  const reports = await fetchBizReport({
+    period: filters.selectedMonth,
+    periodType: filters.periodType,
+    reportTypes: [filters.reportType],
+  })
+
+  const monthlyPlans = await fetchMonthlyPlan()
+  const foneReports = filters.reportType === 'fone' ? reports : []
+  const tuweiReports = filters.reportType === 'tuwei' ? reports : []
+
+  return aggregateByNode(foneReports, tuweiReports, monthlyPlans)
+}
+
+export async function loadStrategyBudgetPlan() {
+  return fetchStrategyBudgetPlan()
+}

@@ -1,527 +1,19 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { Calendar, Plus, Trash2, FileText, X, Sun, Sunset, Moon, ChevronDown, Upload, Send } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Calendar, Plus, Trash2, FileText, Upload, Send } from 'lucide-react'
 import { useAuth } from '@/app/hooks/useAuth'
-import { supabase } from '@/shared/lib/supabase'
+import { getCurrentAuthUser } from '../api/scheduleRepository'
+import { createScheduleTransfer } from '../api/scheduleTransferRepository'
+import type { ItemType, Period, ScheduleItem } from '../api/scheduleRepository'
+import { AddEventModal } from '../components/AddEventModal'
+import { NotesModal } from '../components/NotesModal'
+import { ShareModal } from '../components/ShareModal'
 import { useScheduleData } from '../hooks/useScheduleData'
+import { useScheduleImport } from '../hooks/useScheduleImport'
+import { PERIOD_ICON, PERIOD_LABEL, TYPE_COLOR, TYPE_LABEL, WEEKDAYS } from '../lib/scheduleLabels'
+import { fmtDate, formatTimeRange, getWeekDates, isSameDay } from '../lib/scheduleTimeHelpers'
 import { AppButton } from '@/shared/ui/AppButton'
 import { AppIconButton } from '@/shared/ui/AppIconButton'
 import { ConfirmAction } from '@/shared/ui/ConfirmAction'
-import {
-  createScheduleTransfer,
-  listScheduleTransferRecipients,
-  type ScheduleTransferRecipient,
-} from '../api/scheduleTransferRepository'
-import type { ItemType, Period, ScheduleImportResult, ScheduleItem } from '../api/scheduleRepository'
-
-const PERIOD_LABEL: Record<Period, string> = { morning: '上午', afternoon: '下午', evening: '晚上' }
-const PERIOD_ICON: Record<Period, typeof Sun> = { morning: Sun, afternoon: Sunset, evening: Moon }
-const TYPE_LABEL: Record<ItemType, string> = { meeting: '会议', business: '商务', routine: '例行', urgent: '紧急' }
-const TYPE_COLOR: Record<ItemType, string> = {
-  meeting: 'bg-accent-100 text-accent-700',
-  business: 'bg-primary-100 text-primary-700',
-  routine: 'bg-gray-100 text-gray-600',
-  urgent: 'bg-error-100 text-error-700',
-}
-const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-const SCHEDULE_TIME_ZONE = 'Asia/Shanghai'
-const PERIOD_HOUR_OPTIONS: Record<Period, string[]> = {
-  morning: Array.from({ length: 12 }, (_, index) => String(index).padStart(2, '0')),
-  afternoon: Array.from({ length: 6 }, (_, index) => String(index + 12).padStart(2, '0')),
-  evening: Array.from({ length: 6 }, (_, index) => String(index + 18).padStart(2, '0')),
-}
-const MINUTE_OPTIONS = ['00', '15', '30', '45']
-
-function getWeekDates(refDate: Date): Date[] {
-  const date = new Date(refDate)
-  const day = date.getDay() || 7
-  date.setDate(date.getDate() - day + 1)
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const nextDate = new Date(date)
-    nextDate.setDate(date.getDate() + index)
-    return nextDate
-  })
-}
-
-function fmtDate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-function isSameDay(left: Date, right: Date) {
-  return fmtDate(left) === fmtDate(right)
-}
-
-function derivePeriodFromClock(timeValue: string): Period | null {
-  if (!timeValue) return null
-
-  const [hourValue] = timeValue.split(':')
-  const hour = Number(hourValue)
-  if (Number.isNaN(hour)) return null
-
-  if (hour < 12) return 'morning'
-  if (hour < 18) return 'afternoon'
-  return 'evening'
-}
-
-function parseClockValue(timeValue: string) {
-  if (!timeValue) return { hour: '', minute: '' }
-
-  const [hour = '', minute = ''] = timeValue.split(':')
-  return { hour, minute }
-}
-
-function joinClockValue(hour: string, minute: string) {
-  if (!hour && !minute) return ''
-  if (!hour || !minute) return `${hour}:${minute}`
-  return `${hour}:${minute}`
-}
-
-function isHourIncluded(hour: string, period: Period) {
-  return PERIOD_HOUR_OPTIONS[period].includes(hour)
-}
-
-function alignTimeToPeriod(timeValue: string, period: Period) {
-  if (!timeValue) return ''
-
-  const { hour, minute } = parseClockValue(timeValue)
-  if (!hour || !isHourIncluded(hour, period)) return ''
-
-  return joinClockValue(hour, MINUTE_OPTIONS.includes(minute) ? minute : '00')
-}
-
-function formatTimeValue(timeValue: string | null) {
-  if (!timeValue) return null
-
-  const date = new Date(timeValue)
-  if (Number.isNaN(date.getTime())) return null
-
-  return date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: SCHEDULE_TIME_ZONE,
-  })
-}
-
-function formatTimeRange(item: ScheduleItem) {
-  const startTime = formatTimeValue(item.start_time)
-  const endTime = formatTimeValue(item.end_time)
-
-  if (startTime && endTime) return `${startTime} - ${endTime}`
-  return startTime || endTime || null
-}
-
-function TimeSelectField({
-  label,
-  period,
-  value,
-  onChange,
-}: {
-  label: string
-  period: Period
-  value: string
-  onChange: (value: string) => void
-}) {
-  const { hour, minute } = parseClockValue(value)
-  const availableHours = PERIOD_HOUR_OPTIONS[period]
-
-  const handleHourChange = (nextHour: string) => {
-    onChange(nextHour ? joinClockValue(nextHour, minute || '00') : '')
-  }
-
-  const handleMinuteChange = (nextMinute: string) => {
-    if (!hour) return
-    onChange(joinClockValue(hour, nextMinute))
-  }
-
-  return (
-    <div className="rounded-[20px] border border-[var(--color-border)] bg-white/72 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-sm">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-caption font-medium text-[var(--color-text-muted)]">{label}</span>
-        {value ? (
-          <button
-            type="button"
-            onClick={() => onChange('')}
-            className="text-caption text-[var(--color-accent)] transition-colors hover:text-[var(--color-accent-hover)]"
-          >
-            清空
-          </button>
-        ) : null}
-      </div>
-      <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <label className="relative block">
-          <select
-            value={hour}
-            onChange={(event) => handleHourChange(event.target.value)}
-            className="h-11 w-full appearance-none rounded-2xl border border-[var(--color-border)] bg-[rgba(255,255,255,0.9)] px-3 pr-8 text-body text-[var(--color-text-strong)] outline-none transition-all focus:border-[rgba(95,127,188,0.32)] focus:ring-4 focus:ring-[rgba(95,127,188,0.08)]"
-          >
-            <option value="">时</option>
-            {availableHours.map((option) => (
-              <option key={option} value={option}>
-                {option} 时
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-        </label>
-        <span className="text-subtitle font-medium text-[var(--color-text-muted)]">:</span>
-        <label className="relative block">
-          <select
-            value={minute}
-            onChange={(event) => handleMinuteChange(event.target.value)}
-            disabled={!hour}
-            className="h-11 w-full appearance-none rounded-2xl border border-[var(--color-border)] bg-[rgba(255,255,255,0.9)] px-3 pr-8 text-body text-[var(--color-text-strong)] outline-none transition-all disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-[var(--color-text-muted)] focus:border-[rgba(95,127,188,0.32)] focus:ring-4 focus:ring-[rgba(95,127,188,0.08)]"
-          >
-            <option value="">分</option>
-            {MINUTE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option} 分
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-        </label>
-      </div>
-    </div>
-  )
-}
-
-function AddModal({
-  date,
-  onClose,
-  onSaved,
-}: {
-  date: string
-  onClose: () => void
-  onSaved: (input: {
-    title: string
-    period: Period
-    type: ItemType
-    description: string
-    location: string
-    startTime: string | null
-    endTime: string | null
-  }) => Promise<void>
-}) {
-  const [title, setTitle] = useState('')
-  const [period, setPeriod] = useState<Period>('morning')
-  const [type, setType] = useState<ItemType>('routine')
-  const [description, setDescription] = useState('')
-  const [location, setLocation] = useState('')
-  const [startTime, setStartTime] = useState('')
-  const [endTime, setEndTime] = useState('')
-  const [saving, setSaving] = useState(false)
-  const hasPartialTime = Boolean(startTime) !== Boolean(endTime)
-  const hasInvalidRange = Boolean(startTime && endTime) && endTime <= startTime
-  const timeError = hasPartialTime
-    ? '请同时填写开始和结束时间'
-    : hasInvalidRange
-      ? '结束时间需晚于开始时间'
-      : null
-
-  const handlePeriodChange = (nextPeriod: Period) => {
-    setPeriod(nextPeriod)
-    setStartTime((current) => alignTimeToPeriod(current, nextPeriod))
-    setEndTime((current) => alignTimeToPeriod(current, nextPeriod))
-  }
-
-  const handleStartTimeChange = (value: string) => {
-    setStartTime(value)
-
-    const nextPeriod = derivePeriodFromClock(value)
-    if (nextPeriod) {
-      setPeriod(nextPeriod)
-      setEndTime((current) => alignTimeToPeriod(current, nextPeriod))
-    }
-  }
-
-  const handleEndTimeChange = (value: string) => {
-    setEndTime(value)
-
-    const nextPeriod = derivePeriodFromClock(value)
-    if (nextPeriod) {
-      setPeriod(nextPeriod)
-      setStartTime((current) => alignTimeToPeriod(current, nextPeriod))
-    }
-  }
-
-  const handleSave = async () => {
-    if (!title.trim() || timeError) return
-
-    setSaving(true)
-    try {
-      await onSaved({
-        title,
-        period,
-        type,
-        description,
-        location,
-        startTime: startTime || null,
-        endTime: endTime || null,
-      })
-      onClose()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 sm:items-center" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-[22px] bg-white p-5 shadow-xl" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-medium text-[var(--color-text-strong)]">添加日程 · {date}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={16} /></button>
-        </div>
-        <div className="space-y-3">
-          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="日程标题" className="input input-bordered w-full text-body" />
-          <div className="flex gap-2">
-            {(['morning', 'afternoon', 'evening'] as Period[]).map((value) => (
-              <button
-                key={value}
-                onClick={() => handlePeriodChange(value)}
-                className={`flex-1 py-1.5 rounded-lg text-caption font-medium transition-colors ${period === value ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              >
-                {PERIOD_LABEL[value]}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <TimeSelectField label="开始时间" period={period} value={startTime} onChange={handleStartTimeChange} />
-            <TimeSelectField label="结束时间" period={period} value={endTime} onChange={handleEndTimeChange} />
-          </div>
-          <p className={`text-caption ${timeError ? 'text-error' : 'text-gray-400'}`}>
-            {timeError || `当前为“${PERIOD_LABEL[period]}”时段，时间选项已联动筛选为 15 分粒度`}
-          </p>
-          <div className="flex gap-2">
-            {(['meeting', 'business', 'routine', 'urgent'] as ItemType[]).map((value) => (
-              <button
-                key={value}
-                onClick={() => setType(value)}
-                className={`flex-1 py-1.5 rounded-lg text-caption font-medium transition-colors ${type === value ? 'bg-accent text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              >
-                {TYPE_LABEL[value]}
-              </button>
-            ))}
-          </div>
-          <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="地点（可选）" className="input input-bordered w-full text-body" />
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="描述（可选）" className="textarea textarea-bordered w-full text-body" rows={2} />
-          <AppButton onClick={handleSave} disabled={saving || !title.trim() || Boolean(timeError)} variant="primary" size="sm" className="w-full">
-            {saving ? '保存中...' : '添加'}
-          </AppButton>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function NotesModal({
-  item,
-  onClose,
-  onSaved,
-}: {
-  item: ScheduleItem
-  onClose: () => void
-  onSaved: (notes: string) => Promise<void>
-}) {
-  const [notes, setNotes] = useState(item.meeting_notes || '')
-  const [saving, setSaving] = useState(false)
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await onSaved(notes)
-      onClose()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 sm:items-center" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-[22px] bg-white p-5 shadow-xl" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-[var(--color-text-strong)] flex items-center gap-2">
-            <FileText size={16} className="text-accent" />会议纪要 · {item.title}
-          </h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={16} /></button>
-        </div>
-        <textarea
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          placeholder="记录会议要点、决议事项、待办跟进..."
-          className="textarea textarea-bordered w-full text-body leading-relaxed"
-          rows={8}
-        />
-        <p className="text-caption text-gray-400 mt-1 mb-3">会议纪要将被 AI 分析助手用于提供更精准的业务洞察</p>
-        <div className="flex justify-end gap-2">
-          <AppButton onClick={onClose} variant="ghost" size="sm">取消</AppButton>
-          <AppButton onClick={handleSave} disabled={saving} variant="primary" size="sm">{saving ? '保存中...' : '保存'}</AppButton>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ShareModal({
-  items,
-  senderName,
-  onClose,
-  onSubmit,
-}: {
-  items: ScheduleItem[]
-  senderName: string
-  onClose: () => void
-  onSubmit: (input: { recipientUserId: string; selectedItemIds: string[] }) => Promise<void>
-}) {
-  const [recipients, setRecipients] = useState<ScheduleTransferRecipient[]>([])
-  const [selectedRecipientId, setSelectedRecipientId] = useState('')
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => items.map((item) => item.id))
-  const [loadingRecipients, setLoadingRecipients] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    const run = async () => {
-      try {
-        const nextRecipients = await listScheduleTransferRecipients()
-        if (!cancelled) {
-          setRecipients(nextRecipients)
-          setSelectedRecipientId(nextRecipients[0]?.userId ?? '')
-          setLoadingRecipients(false)
-        }
-      } catch (caughtError) {
-        if (!cancelled) {
-          setError(caughtError instanceof Error ? caughtError.message : '接收人加载失败，请稍后重试。')
-          setLoadingRecipients(false)
-        }
-      }
-    }
-
-    void run()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const toggleItem = (itemId: string) => {
-    setSelectedItemIds((current) =>
-      current.includes(itemId) ? current.filter((value) => value !== itemId) : [...current, itemId],
-    )
-  }
-
-  const handleSubmit = async () => {
-    if (!selectedRecipientId || selectedItemIds.length === 0) return
-
-    setSaving(true)
-    setError(null)
-    try {
-      await onSubmit({
-        recipientUserId: selectedRecipientId,
-        selectedItemIds,
-      })
-      onClose()
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : '日程发送失败，请稍后重试。')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 sm:items-center" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-[22px] bg-white p-5 shadow-xl" onClick={(event) => event.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h3 className="font-medium text-[var(--color-text-strong)]">发送给同事</h3>
-            <p className="mt-1 text-body text-[var(--color-text-muted)]">发送人：{senderName}</p>
-          </div>
-          <button onClick={onClose} className="rounded p-1 hover:bg-gray-100"><X size={16} /></button>
-        </div>
-
-        <div className="space-y-4">
-          <label className="block">
-            <span className="mb-1.5 block text-body text-[var(--color-text-muted)]">接收人</span>
-            <select
-              value={selectedRecipientId}
-              disabled={loadingRecipients || recipients.length === 0}
-              onChange={(event) => setSelectedRecipientId(event.target.value)}
-              className="select select-bordered w-full text-body"
-            >
-              {recipients.length === 0 ? (
-                <option value="">{loadingRecipients ? '加载中...' : '暂无可发送对象'}</option>
-              ) : null}
-              {recipients.map((recipient) => (
-                <option key={recipient.userId} value={recipient.userId}>
-                  {recipient.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-body text-[var(--color-text-muted)]">发送内容</span>
-              <button
-                type="button"
-                onClick={() => setSelectedItemIds(items.map((item) => item.id))}
-                className="text-caption text-accent hover:underline"
-              >
-                全选
-              </button>
-            </div>
-            <div className="space-y-2">
-              {items.map((item) => (
-                <label
-                  key={item.id}
-                  className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border)] px-3 py-3 hover:bg-primary-50/60"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedItemIds.includes(item.id)}
-                    onChange={() => toggleItem(item.id)}
-                    className="checkbox checkbox-sm mt-0.5"
-                  />
-                  <div className="min-w-0">
-                    <div className="font-medium text-[var(--color-text-strong)]">{item.title}</div>
-                    <div className="mt-1 text-body text-[var(--color-text-muted)]">
-                      {item.date} · {formatTimeRange(item) || PERIOD_LABEL[item.period]} {item.location ? `· ${item.location}` : ''}
-                    </div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-primary-50/70 px-4 py-3 text-body text-[var(--color-text-muted)]">
-            导入策略：接收方点击导入后，同日期同时间段的日程会自动覆盖；会议纪要保留接收方本地内容。
-          </div>
-
-          {error ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
-              {error}
-            </div>
-          ) : null}
-
-          <div className="flex justify-end gap-2">
-            <AppButton onClick={onClose} variant="ghost" size="sm">取消</AppButton>
-            <AppButton
-              onClick={() => void handleSubmit()}
-              disabled={saving || !selectedRecipientId || selectedItemIds.length === 0}
-              variant="primary"
-              size="sm"
-            >
-              <Send size={14} />
-              {saving ? '发送中...' : `发送 ${selectedItemIds.length} 条`}
-            </AppButton>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export function SchedulePage() {
   const { user } = useAuth()
@@ -531,10 +23,7 @@ export function SchedulePage() {
   const [showAdd, setShowAdd] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [notesItem, setNotesItem] = useState<ScheduleItem | null>(null)
-  const [importing, setImporting] = useState(false)
-  const [importResult, setImportResult] = useState<ScheduleImportResult | null>(null)
   const [shareResult, setShareResult] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const refDate = useMemo(() => {
     const date = new Date(today)
@@ -555,6 +44,15 @@ export function SchedulePage() {
     importScheduleWorkbook,
     buildTransferPayload,
   } = useScheduleData(startDate, endDate)
+
+  const {
+    fileInputRef,
+    importing,
+    importResult,
+    importError,
+    handleImportClick,
+    handleImportFile,
+  } = useScheduleImport(importScheduleWorkbook)
 
   const handleCreate = async (input: {
     title: string
@@ -578,7 +76,7 @@ export function SchedulePage() {
   }
 
   const dayItems = items.filter((item) => item.date === selectedDate)
-  const grouped = (['morning', 'afternoon', 'evening'] as Period[])
+  const grouped = (['morning', 'afternoon', 'evening'] as const)
     .map((period) => ({
       period,
       items: dayItems.filter((item) => item.period === period),
@@ -588,47 +86,14 @@ export function SchedulePage() {
   const dayCounts = new Map<string, number>()
   items.forEach((item) => dayCounts.set(item.date, (dayCounts.get(item.date) || 0) + 1))
 
-  const handleImportClick = () => {
-    setImportResult(null)
-    fileInputRef.current?.click()
-  }
-
   const handleShareSubmit = async (input: { recipientUserId: string; selectedItemIds: string[] }) => {
-    const { data, error: authError } = await supabase.auth.getUser()
-    if (authError) throw authError
-    if (!data.user?.id) {
-      throw new Error('当前登录状态无效，无法发送日程。')
-    }
-
-    const payload = await buildTransferPayload(input.selectedItemIds, data.user.id, user?.name ?? '未命名用户')
+    const { userId } = await getCurrentAuthUser()
+    const payload = await buildTransferPayload(input.selectedItemIds, userId, user?.name ?? '未命名用户')
     await createScheduleTransfer({
       recipientUserId: input.recipientUserId,
       payload,
     })
     setShareResult(`已发送 ${payload.items.length} 条日程，接收方可在收件箱导入。`)
-  }
-
-  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-
-    if (!file) return
-    if (!file.name.toLowerCase().endsWith('.xlsx')) {
-      window.alert('请选择飞书导出的 .xlsx 日历文件。')
-      return
-    }
-
-    setImporting(true)
-    setImportResult(null)
-    try {
-      const buffer = await file.arrayBuffer()
-      const result = await importScheduleWorkbook(file.name, Array.from(new Uint8Array(buffer)))
-      setImportResult(result)
-    } catch (error) {
-      console.error('[Schedule] Import failed:', error)
-    } finally {
-      setImporting(false)
-    }
   }
 
   return (
@@ -716,6 +181,12 @@ export function SchedulePage() {
             </div>
           ) : null}
 
+          {importError ? (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
+              {importError}
+            </div>
+          ) : null}
+
           {shareResult ? (
             <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-body text-sky-800">
               {shareResult}
@@ -779,7 +250,7 @@ export function SchedulePage() {
         </section>
       </div>
 
-      {showAdd && <AddModal date={selectedDate} onClose={() => setShowAdd(false)} onSaved={handleCreate} />}
+      {showAdd && <AddEventModal date={selectedDate} onClose={() => setShowAdd(false)} onSaved={handleCreate} />}
       {showShare ? (
         <ShareModal
           items={items}

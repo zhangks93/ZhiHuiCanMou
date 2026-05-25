@@ -1,3 +1,4 @@
+import { DEFAULT_ENABLED_MODULE_IDS } from '@/app/config/modules'
 import { invokeTauri, isTauriRuntime } from '@/shared/lib/tauri'
 
 export type LLMProvider = 'openai' | 'claude' | 'deepseek' | 'kimi' | 'minimax' | 'glm' | 'openrouter'
@@ -81,18 +82,8 @@ export const DEFAULT_THRESHOLDS: ThresholdSettings = {
   },
 }
 
-export const DEFAULT_ENABLED_MODULES = [
-  'schedule',
-  'biz-data',
-  'collection',
-  'opportunity',
-  'trip',
-  'attendance',
-  'org-data',
-  'planning',
-  'links',
-  'ai',
-]
+/** @deprecated Use DEFAULT_ENABLED_MODULE_IDS from @/app/config/modules */
+export const DEFAULT_ENABLED_MODULES = DEFAULT_ENABLED_MODULE_IDS
 
 function normalizeEnabledModules(moduleIds: string[]): string[] {
   const normalized = [...moduleIds]

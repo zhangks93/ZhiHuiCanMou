@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import {
   fetchAvailableCollectionPeriods,
   fetchCollectionReceivables,
@@ -11,11 +12,6 @@ import {
   flattenCollectionTreeRows,
   getCollectionOverallStats,
 } from '../services/collectionTree'
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) return error.message
-  return fallback
-}
 
 export function useCollectionData() {
   const [loading, setLoading] = useState(true)

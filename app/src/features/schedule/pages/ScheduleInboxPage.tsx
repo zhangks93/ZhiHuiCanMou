@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Inbox, Download, Ban, CheckCircle2 } from 'lucide-react'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { importScheduleTransferPayload, type ScheduleImportResult } from '../api/scheduleRepository'
 import {
   cancelScheduleTransfer,
@@ -57,7 +58,7 @@ export function ScheduleInboxPage() {
       setOutgoing(nextOutgoing)
       setError(null)
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : '收件箱加载失败，请稍后重试。')
+      setError(getErrorMessage(caughtError, '收件箱加载失败，请稍后重试。'))
     } finally {
       setLoading(false)
     }
@@ -74,7 +75,7 @@ export function ScheduleInboxPage() {
       await markScheduleTransferImported(record.id, result)
       await reload()
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : '共享日程导入失败，请稍后重试。')
+      setError(getErrorMessage(caughtError, '共享日程导入失败，请稍后重试。'))
     } finally {
       setBusyTransferId(null)
     }
@@ -86,7 +87,7 @@ export function ScheduleInboxPage() {
       await cancelScheduleTransfer(record.id)
       await reload()
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : '分享取消失败，请稍后重试。')
+      setError(getErrorMessage(caughtError, '分享取消失败，请稍后重试。'))
     } finally {
       setBusyTransferId(null)
     }

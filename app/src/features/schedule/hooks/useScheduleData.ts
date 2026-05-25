@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { logger } from '@/shared/lib/logger'
 import {
   createScheduleItem,
@@ -31,7 +32,7 @@ export function useScheduleData(startDate: string, endDate: string) {
       setLoading(false)
       return nextItems
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : '日程加载失败，请稍后重试。'
+      const message = getErrorMessage(caughtError, '日程加载失败，请稍后重试。')
       setError(message)
       setLoading(false)
       throw caughtError
@@ -41,18 +42,21 @@ export function useScheduleData(startDate: string, endDate: string) {
   useEffect(() => {
     let cancelled = false
 
-    const run = async () => {
+    async function run() {
+      setLoading(true)
       try {
         const nextItems = await fetchScheduleItemsByRange(startDate, endDate)
         if (!cancelled) {
           setItems(nextItems)
           setError(null)
-          setLoading(false)
         }
-      } catch (error) {
+      } catch (caughtError) {
         if (!cancelled) {
-          logger.error('Schedule fetch failed', error)
-          setError(error instanceof Error ? error.message : '日程加载失败，请稍后重试。')
+          logger.error('Schedule fetch failed', caughtError)
+          setError(getErrorMessage(caughtError, '日程加载失败，请稍后重试。'))
+        }
+      } finally {
+        if (!cancelled) {
           setLoading(false)
         }
       }
@@ -69,9 +73,9 @@ export function useScheduleData(startDate: string, endDate: string) {
     try {
       await createScheduleItem(draft)
       await reload(true)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '日程保存失败，请稍后重试。')
-      throw error
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError, '日程保存失败，请稍后重试。'))
+      throw caughtError
     }
   }, [reload])
 
@@ -79,9 +83,9 @@ export function useScheduleData(startDate: string, endDate: string) {
     try {
       await updateScheduleMeetingNotes(itemId, notes)
       await reload(true)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '会议纪要保存失败，请稍后重试。')
-      throw error
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError, '会议纪要保存失败，请稍后重试。'))
+      throw caughtError
     }
   }, [reload])
 
@@ -89,9 +93,9 @@ export function useScheduleData(startDate: string, endDate: string) {
     try {
       await removeScheduleItem(itemId)
       await reload(true)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '日程删除失败，请稍后重试。')
-      throw error
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError, '日程删除失败，请稍后重试。'))
+      throw caughtError
     }
   }, [reload])
 
@@ -100,9 +104,9 @@ export function useScheduleData(startDate: string, endDate: string) {
       const result = await importFeishuScheduleWorkbook(fileName, bytes)
       await reload(true)
       return result
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '飞书日程导入失败，请稍后重试。')
-      throw error
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError, '飞书日程导入失败，请稍后重试。'))
+      throw caughtError
     }
   }, [reload])
 
@@ -113,9 +117,9 @@ export function useScheduleData(startDate: string, endDate: string) {
   ) => {
     try {
       return await exportScheduleTransferPayload(itemIds, senderUserId, senderName)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '日程分享导出失败，请稍后重试。')
-      throw error
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError, '日程分享导出失败，请稍后重试。'))
+      throw caughtError
     }
   }, [])
 
@@ -124,9 +128,9 @@ export function useScheduleData(startDate: string, endDate: string) {
       const result = await importScheduleTransferPayload(payload)
       await reload(true)
       return result
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '共享日程导入失败，请稍后重试。')
-      throw error
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError, '共享日程导入失败，请稍后重试。'))
+      throw caughtError
     }
   }, [reload])
 

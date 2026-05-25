@@ -1,4 +1,5 @@
 import { invokeTauri } from '@/shared/lib/tauri'
+import { supabase } from '@/shared/lib/supabase'
 
 export type Period = 'morning' | 'afternoon' | 'evening'
 export type ItemType = 'meeting' | 'business' | 'routine' | 'urgent'
@@ -187,4 +188,14 @@ export async function importScheduleTransferPayload(payload: ScheduleTransferPay
   return invokeTauri<ScheduleImportResult>('schedule_import_transfer_payload', {
     payload,
   })
+}
+
+/** Resolves the current Supabase auth user id for schedule share/export flows. */
+export async function getCurrentAuthUser() {
+  const { data, error } = await supabase.auth.getUser()
+  if (error) throw error
+  if (!data.user?.id) {
+    throw new Error('当前登录状态无效，无法发送日程。')
+  }
+  return { userId: data.user.id }
 }

@@ -1,0 +1,6 @@
+warn-on-all-wildcard-imports = true
+avoid-breaking-exported-api = false
+
+[lints.clippy]
+enum_glob_use = "warn"
+needless_pass_by_value = "allow"

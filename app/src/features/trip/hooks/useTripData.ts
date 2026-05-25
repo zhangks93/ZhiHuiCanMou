@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
+import { logger } from '@/shared/lib/logger'
 import {
   fetchBusinessTrips,
   fetchEduOrgHierarchy,
@@ -66,8 +68,8 @@ export function useTripData() {
         setSelectedFeeEffectBatchId((current) => current || batches[0]?.id || '')
       } catch (loadError) {
         if (!cancelled) {
-          console.error('[Trip] Fetch failed:', loadError)
-          setError(loadError instanceof Error ? loadError.message : '数据加载失败')
+          logger.error('[Trip] Fetch failed', loadError)
+          setError(getErrorMessage(loadError, '数据加载失败'))
         }
       } finally {
         if (!cancelled) {
@@ -130,8 +132,8 @@ export function useTripData() {
         setLoadedSheetKeys((current) => new Set(current).add(selectedSheetKey))
       } catch (loadError) {
         if (!cancelled) {
-          console.error('[Trip] Fee effect fetch failed:', loadError)
-          setError(loadError instanceof Error ? loadError.message : '费效数据加载失败')
+          logger.error('[Trip] Fee effect fetch failed', loadError)
+          setError(getErrorMessage(loadError, '费效数据加载失败'))
         }
       } finally {
         if (!cancelled) {

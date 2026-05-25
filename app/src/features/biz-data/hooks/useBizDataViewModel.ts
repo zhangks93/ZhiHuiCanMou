@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ALL_METRICS } from '@/shared/lib/constants'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { logger } from '@/shared/lib/logger'
-import { loadAvailableMonths, loadBizData } from '../api/bizDataRepository'
+import { loadAvailableMonths, loadBizData } from '../services/bizDataService'
 import type { EnrichedBizDataNode, MetricCategory } from '../types'
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) return error.message
-  return fallback
-}
 
 export function useBizDataViewModel() {
   const [dataLoading, setDataLoading] = useState(false)

@@ -1,16 +1,8 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
+import { isTauriRuntime } from '@/shared/lib/tauri'
 
 const AI_LAST_EE_HOST = 'ai.last.ee'
 const AI_LAST_EE_PROXY_PREFIX = '/__proxy__/ai-last-ee'
-
-function isTauriRuntime(): boolean {
-  if (typeof window === 'undefined') return false
-  const w = window as typeof window & {
-    __TAURI__?: unknown
-    __TAURI_INTERNALS__?: unknown
-  }
-  return !!(w.__TAURI__ || w.__TAURI_INTERNALS__)
-}
 
 function resolveDevProxyUrl(rawUrl: string): string {
   if (!import.meta.env.DEV || isTauriRuntime()) return rawUrl

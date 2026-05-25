@@ -5,6 +5,7 @@ import { ProtectedRoute } from '@/app/router/ProtectedRoute'
 import { PublicRoute } from '@/app/router/PublicRoute'
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { ROUTES, buildDataHref, buildWorkspaceHref } from '@/app/config/constants'
+import { DATA_MODULE_IDS } from '@/app/config/modules'
 
 const Workspace = lazy(() => import('@/features/workspace').then(module => ({ default: module.WorkspacePage })))
 const DataHub = lazy(() => import('@/features/data-hub').then(module => ({ default: module.DataHubPage })))
@@ -13,6 +14,8 @@ const Settings = lazy(() => import('@/features/settings').then(module => ({ defa
 const Login = lazy(() => import('@/features/auth').then(module => ({ default: module.LoginPage })))
 const AuthCallback = lazy(() => import('@/features/auth').then(module => ({ default: module.AuthCallbackPage })))
 const DeepLinkTest = lazy(() => import('@/features/auth').then(module => ({ default: module.DeepLinkTestPage })))
+
+const WORKSPACE_LEGACY_REDIRECTS = ['schedule', 'links'] as const
 
 function withRouteSuspense(element: ReactNode) {
   return (
@@ -34,7 +37,9 @@ export function AppRoutes() {
         )}
       />
       <Route path={ROUTES.AUTH_CALLBACK} element={withRouteSuspense(<AuthCallback />)} />
-      <Route path="/deep-link-test" element={withRouteSuspense(<DeepLinkTest />)} />
+      {import.meta.env.DEV ? (
+        <Route path="/deep-link-test" element={withRouteSuspense(<DeepLinkTest />)} />
+      ) : null}
       <Route
         path={ROUTES.HOME}
         element={(
@@ -45,15 +50,20 @@ export function AppRoutes() {
       >
         <Route index element={withRouteSuspense(<Workspace />)} />
         <Route path="data" element={withRouteSuspense(<DataHub />)} />
-        <Route path="schedule" element={<Navigate to={buildWorkspaceHref('schedule')} replace />} />
-        <Route path="links" element={<Navigate to={buildWorkspaceHref('links')} replace />} />
-        <Route path="org-data" element={<Navigate to={buildDataHref('org-data')} replace />} />
-        <Route path="planning" element={<Navigate to={buildDataHref('planning')} replace />} />
-        <Route path="biz-data" element={<Navigate to={buildDataHref('biz-data')} replace />} />
-        <Route path="collection" element={<Navigate to={buildDataHref('collection')} replace />} />
-        <Route path="opportunity" element={<Navigate to={buildDataHref('opportunity')} replace />} />
-        <Route path="trip" element={<Navigate to={buildDataHref('trip')} replace />} />
-        <Route path="attendance" element={<Navigate to={buildDataHref('attendance')} replace />} />
+        {WORKSPACE_LEGACY_REDIRECTS.map((tab) => (
+          <Route
+            key={tab}
+            path={tab}
+            element={<Navigate to={buildWorkspaceHref(tab)} replace />}
+          />
+        ))}
+        {DATA_MODULE_IDS.map((moduleId) => (
+          <Route
+            key={moduleId}
+            path={moduleId}
+            element={<Navigate to={buildDataHref(moduleId)} replace />}
+          />
+        ))}
         <Route path="ai" element={withRouteSuspense(<AgentChat />)} />
         <Route path="ai/:agentId" element={withRouteSuspense(<AgentChat />)} />
         <Route path="settings" element={withRouteSuspense(<Settings />)} />

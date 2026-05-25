@@ -1,9 +1,6 @@
 import { setOAuthSessionTokens } from './authSessionService'
 import { logger } from '@/shared/lib/logger'
-
-export function isTauriRuntime() {
-  return typeof window !== 'undefined' && '__TAURI__' in window
-}
+export { isTauriRuntime } from '@/shared/lib/tauri'
 
 export async function registerOAuthCompleteListener(handlers: {
   onStart: () => void

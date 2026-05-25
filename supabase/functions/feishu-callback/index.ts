@@ -23,6 +23,32 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+interface MagicLinkResponse {
+  action_link?: string
+  properties?: {
+    action_link?: string
+  }
+}
+
+const OAUTH_STATE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function validateOAuthState(state: string | null): string | null {
+  if (!state || !state.trim()) {
+    return 'Missing OAuth state parameter'
+  }
+
+  const normalized = state.trim()
+  if (normalized.length < 8 || normalized.length > 128) {
+    return 'Invalid OAuth state parameter'
+  }
+
+  if (!OAUTH_STATE_PATTERN.test(normalized) && !/^[a-z0-9-]{8,128}$/i.test(normalized)) {
+    return 'Invalid OAuth state parameter'
+  }
+
+  return null
+}
+
 async function syncProfileToPublicProfiles(params: {
   supabaseAdmin: ReturnType<typeof createClient>
   supabaseUserId: string
@@ -73,7 +99,10 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Missing code in query string' }, 400)
     }
 
-    // TODO: 校验 state（可结合 cookie / storage），这里仅透传
+    const stateError = validateOAuthState(state)
+    if (stateError) {
+      return jsonResponse({ error: stateError }, 400)
+    }
 
     // Step 1: 获取 app_access_token
     const appTokenRes = await fetch(
@@ -260,8 +289,8 @@ Deno.serve(async (req) => {
       })
 
     const actionLink =
-      (linkData as any)?.action_link ??
-      (linkData as any)?.properties?.action_link ??
+      (linkData as MagicLinkResponse)?.action_link ??
+      (linkData as MagicLinkResponse)?.properties?.action_link ??
       null
 
     if (linkError || !actionLink) {
