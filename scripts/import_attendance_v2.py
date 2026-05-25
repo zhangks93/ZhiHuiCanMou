@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import math
 import os
 import re
 import sys
@@ -22,26 +23,32 @@ import pandas as pd
 ROOT_DIR = Path(__file__).resolve().parent.parent
 GROUP_ROOT = "海亮智汇后勤集团"
 
-DAY_LEAVE_COLUMNS = [
-    "事假天数",
-    "病假天数",
-    "长病假天数",
+DAY_PAID_LEAVE_COLUMNS = [
     "产假天数",
     "全薪假天数",
-    "超休天数",
     "居家办公天数",
     "线上办公天数",
-    "寒暑假天数",
     "全薪寒暑假天数",
     "带薪寒暑假天数",
 ]
 
-HOUR_LEAVE_COLUMNS = [
+DAY_UNPAID_LEAVE_COLUMNS = [
+    "事假天数",
+    "病假天数",
+    "长病假天数",
+    "超休天数",
+    "寒暑假天数",
+]
+
+HOUR_PAID_LEAVE_COLUMNS = [
+    "产假时数",
+    "全薪假时数",
+]
+
+HOUR_UNPAID_LEAVE_COLUMNS = [
     "事假时数",
     "病假时数",
     "长病假时数",
-    "产假时数",
-    "全薪假时数",
     "超休时数",
     "寒暑假休息时数",
 ]
@@ -117,13 +124,17 @@ def int_value(value: Any) -> int:
     return int(round(number_value(value)))
 
 
-def detect_attendance_type(df: pd.DataFrame, path: Path) -> tuple[str, str, list[str]]:
+def detect_attendance_type(df: pd.DataFrame, path: Path) -> tuple[str, str, list[str], list[str]]:
     columns = [str(column).strip() for column in df.columns]
     if "全月应出勤天数" in columns:
-        return "standard_day", "day", DAY_LEAVE_COLUMNS
+        return "standard_day", "day", DAY_PAID_LEAVE_COLUMNS, DAY_UNPAID_LEAVE_COLUMNS
     if "全月应出勤时数" in columns:
-        return "comprehensive_hour", "hour", HOUR_LEAVE_COLUMNS
+        return "comprehensive_hour", "hour", HOUR_PAID_LEAVE_COLUMNS, HOUR_UNPAID_LEAVE_COLUMNS
     raise ValueError(f"无法识别考勤表类型: {path.name}")
+
+
+def sum_existing_columns(row: pd.Series, df: pd.DataFrame, columns: list[str]) -> float:
+    return sum(number_value(row.get(column)) for column in columns if column in df.columns)
 
 
 def build_department_paths(row: pd.Series) -> tuple[list[str], list[str]]:
@@ -164,7 +175,7 @@ def parse_workbook(path: Path) -> tuple[list[dict[str, Any]], int]:
         if df.empty:
             continue
 
-        attendance_type, work_unit, leave_columns = detect_attendance_type(df, path)
+        attendance_type, work_unit, paid_leave_columns, unpaid_leave_columns = detect_attendance_type(df, path)
         expected_column = "全月应出勤天数" if work_unit == "day" else "全月应出勤时数"
         actual_column = "实际出勤天数" if work_unit == "day" else "实际出勤时数"
         unqualified_column = "未满勤天数" if work_unit == "day" else "未满勤时数"
@@ -193,10 +204,12 @@ def parse_workbook(path: Path) -> tuple[list[dict[str, Any]], int]:
             actual = number_value(row.get(actual_column))
             unqualified = number_value(row.get(unqualified_column))
             legal_holiday = number_value(row.get(legal_holiday_column))
-            approved_leave = sum(number_value(row.get(column)) for column in leave_columns if column in df.columns)
+            paid_leave = sum_existing_columns(row, df, paid_leave_columns)
+            unpaid_leave = sum_existing_columns(row, df, unpaid_leave_columns)
             absence = number_value(row.get(absence_column))
-            qualified = actual + approved_leave + unqualified + legal_holiday
+            qualified = min(expected, actual + paid_leave + unqualified + legal_holiday) if expected > 0 else 0
             attendance_rate = qualified / expected if expected > 0 else 0
+       
             late_under_30 = int_value(row.get("迟到/早退(30分以内)"))
             late_30_to_120 = int_value(row.get("迟到早退(超30分钟不超2小时)"))
 
@@ -212,7 +225,9 @@ def parse_workbook(path: Path) -> tuple[list[dict[str, Any]], int]:
                 "expected_work_amount": expected,
                 "normal_work_amount": normal,
                 "actual_work_amount": actual,
-                "approved_leave_amount": approved_leave,
+                "approved_leave_amount": paid_leave,
+                "paid_leave_amount": paid_leave,
+                "unpaid_leave_amount": unpaid_leave,
                 "absence_amount": absence,
                 "qualified_attendance_amount": qualified,
                 "attendance_rate": attendance_rate,

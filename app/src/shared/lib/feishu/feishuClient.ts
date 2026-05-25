@@ -29,6 +29,31 @@ export interface FeishuAuthScopeCatalog {
   error?: string | null
 }
 
+export interface FeishuAuthPreferences {
+  selectedDomains: string[]
+  lastSyncedDomains: string[]
+  pendingDeviceCode?: string | null
+  pendingVerificationUrl?: string | null
+}
+
+export interface FeishuAuthPreferencesSaveRequest {
+  selectedDomains: string[]
+}
+
+export interface FeishuAuthSyncRequest {
+  selectedDomains: string[]
+}
+
+export interface FeishuAuthSyncResult {
+  selectedDomains: string[]
+  lastSyncedDomains: string[]
+  verificationUrl?: string | null
+  pendingDeviceCode?: string | null
+  hasDeviceCode: boolean
+  reauthRequired: boolean
+  status: string
+}
+
 export interface FeishuCliRequest {
   operation: string
   args?: Record<string, unknown>
@@ -82,6 +107,18 @@ export async function beginFeishuAuth(request: FeishuAuthBeginRequest = {}) {
 
 export async function getFeishuAuthScopeCatalog() {
   return invokeTauri<FeishuAuthScopeCatalog>('feishu_auth_scope_catalog')
+}
+
+export async function getFeishuAuthPreferences() {
+  return invokeTauri<FeishuAuthPreferences>('feishu_auth_preferences_get')
+}
+
+export async function saveFeishuAuthPreferences(request: FeishuAuthPreferencesSaveRequest) {
+  return invokeTauri<FeishuAuthPreferences>('feishu_auth_preferences_save', { request })
+}
+
+export async function syncFeishuAuth(request: FeishuAuthSyncRequest) {
+  return invokeTauri<FeishuAuthSyncResult>('feishu_auth_sync', { request })
 }
 
 export async function completeFeishuAuth(request: FeishuAuthCompleteRequest) {

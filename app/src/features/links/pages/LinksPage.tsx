@@ -34,6 +34,11 @@ const boardLinks = [
     name: '干部排班表',
     url: 'https://hailiang.feishu.cn/file/KBMnbg2YCoFtA1xVbYrc70sgnYe',
   },
+  {
+    icon: KanbanSquare,
+    name: '项目运营健康度',
+    url: 'https://hailiang.feishu.cn/wiki/SHmGw04qSiDZUhkbYzKcxSz0nrf?table=tbl6wcvxcsXvKtlN&view=vew7nNzpuQ',
+  },
 ]
 
 function isTauriApp() {

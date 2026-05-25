@@ -16,9 +16,14 @@ export interface AttendanceTreeMetrics {
   expectedWorkAmount: number
   actualWorkAmount: number
   qualifiedAttendanceAmount: number
+  paidLeaveAmount: number
+  unpaidLeaveAmount: number
   averageAttendanceRate: number
   lateRate: number
   lateUnder30Count: number
+  lateUnder30Rate: number
+  lateOver30Count: number
+  lateOver30Rate: number
   lateTotalCount: number
   missingClockCount: number
   makeupClockCount: number
@@ -50,9 +55,14 @@ function createEmptyMetrics(): AttendanceTreeMetrics {
     expectedWorkAmount: 0,
     actualWorkAmount: 0,
     qualifiedAttendanceAmount: 0,
+    paidLeaveAmount: 0,
+    unpaidLeaveAmount: 0,
     averageAttendanceRate: 0,
     lateRate: 0,
     lateUnder30Count: 0,
+    lateUnder30Rate: 0,
+    lateOver30Count: 0,
+    lateOver30Rate: 0,
     lateTotalCount: 0,
     missingClockCount: 0,
     makeupClockCount: 0,
@@ -67,18 +77,32 @@ function addRecordToMetrics(metrics: AttendanceTreeMetrics, record: AttendanceMo
   metrics.expectedWorkAmount += record.expected_work_amount ?? 0
   metrics.actualWorkAmount += record.actual_work_amount ?? 0
   metrics.qualifiedAttendanceAmount += record.qualified_attendance_amount ?? 0
+  metrics.paidLeaveAmount += record.paid_leave_amount ?? record.approved_leave_amount ?? 0
+  metrics.unpaidLeaveAmount += record.unpaid_leave_amount ?? 0
   metrics.lateUnder30Count += record.late_under_30_count ?? 0
+  metrics.lateOver30Count += record.late_30_to_120_count ?? 0
   metrics.lateTotalCount += record.late_total_count ?? 0
   metrics.missingClockCount += record.missing_clock_count ?? 0
   metrics.makeupClockCount += record.makeup_clock_count ?? 0
+}
+
+function getLateRateDenominator(actualWorkAmount: number) {
+  return Math.ceil(Math.max(0, actualWorkAmount)) * 2
 }
 
 function finalizeMetrics(metrics: AttendanceTreeMetrics) {
   metrics.averageAttendanceRate = metrics.expectedWorkAmount > 0
     ? metrics.qualifiedAttendanceAmount / metrics.expectedWorkAmount
     : 0
-  metrics.lateRate = metrics.actualWorkAmount > 0
-    ? metrics.lateTotalCount / metrics.actualWorkAmount
+  const lateRateDenominator = getLateRateDenominator(metrics.actualWorkAmount)
+  metrics.lateRate = lateRateDenominator > 0
+    ? metrics.lateTotalCount / lateRateDenominator
+    : 0
+  metrics.lateUnder30Rate = lateRateDenominator > 0
+    ? metrics.lateUnder30Count / lateRateDenominator
+    : 0
+  metrics.lateOver30Rate = lateRateDenominator > 0
+    ? metrics.lateOver30Count / lateRateDenominator
     : 0
 }
 
@@ -146,6 +170,9 @@ function buildTree(records: AttendanceMonthlyRecord[]): AttendanceTreeRow[] {
       parent = node
     })
 
+    const actualWorkAmount = record.actual_work_amount ?? 0
+    const lateRateDenominator = getLateRateDenominator(actualWorkAmount)
+
     parent.children?.push({
       key: `member:${record.id}`,
       level: 'member',
@@ -159,11 +186,16 @@ function buildTree(records: AttendanceMonthlyRecord[]): AttendanceTreeRow[] {
         hourEmployeeCount: record.attendance_type === 'comprehensive_hour' ? 1 : 0,
         qualifiedEmployeeCount: (record.attendance_rate ?? 0) >= 1 ? 1 : 0,
         expectedWorkAmount: record.expected_work_amount ?? 0,
-        actualWorkAmount: record.actual_work_amount ?? 0,
+        actualWorkAmount,
         qualifiedAttendanceAmount: record.qualified_attendance_amount ?? 0,
+        paidLeaveAmount: record.paid_leave_amount ?? record.approved_leave_amount ?? 0,
+        unpaidLeaveAmount: record.unpaid_leave_amount ?? 0,
         averageAttendanceRate: record.attendance_rate ?? 0,
-        lateRate: (record.actual_work_amount ?? 0) > 0 ? (record.late_total_count ?? 0) / (record.actual_work_amount ?? 0) : 0,
+        lateRate: lateRateDenominator > 0 ? (record.late_total_count ?? 0) / lateRateDenominator : 0,
         lateUnder30Count: record.late_under_30_count ?? 0,
+        lateUnder30Rate: lateRateDenominator > 0 ? (record.late_under_30_count ?? 0) / lateRateDenominator : 0,
+        lateOver30Count: record.late_30_to_120_count ?? 0,
+        lateOver30Rate: lateRateDenominator > 0 ? (record.late_30_to_120_count ?? 0) / lateRateDenominator : 0,
         lateTotalCount: record.late_total_count ?? 0,
         missingClockCount: record.missing_clock_count ?? 0,
         makeupClockCount: record.makeup_clock_count ?? 0,

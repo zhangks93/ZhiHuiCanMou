@@ -1,7 +1,8 @@
 use crate::features::feishu_cli::{
-    FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthScopeCatalog, FeishuCliHealth,
-    FeishuCliRequest, FeishuCliResponse, FeishuCliService, FeishuConfigInitRequest,
-    FeishuWritePreview,
+    FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthPreferences,
+    FeishuAuthPreferencesSaveRequest, FeishuAuthScopeCatalog, FeishuAuthSyncRequest,
+    FeishuAuthSyncResult, FeishuCliHealth, FeishuCliRequest, FeishuCliResponse, FeishuCliService,
+    FeishuConfigInitRequest, FeishuWritePreview,
 };
 
 #[tauri::command]
@@ -46,6 +47,41 @@ pub async fn feishu_auth_scope_catalog(
     tauri::async_runtime::spawn_blocking(move || service.auth_scope_catalog())
         .await
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn feishu_auth_preferences_get(
+    service: tauri::State<'_, FeishuCliService>,
+) -> Result<FeishuAuthPreferences, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.auth_preferences())
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn feishu_auth_preferences_save(
+    service: tauri::State<'_, FeishuCliService>,
+    request: FeishuAuthPreferencesSaveRequest,
+) -> Result<FeishuAuthPreferences, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.save_auth_preferences(request))
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn feishu_auth_sync(
+    service: tauri::State<'_, FeishuCliService>,
+    request: FeishuAuthSyncRequest,
+) -> Result<FeishuAuthSyncResult, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.auth_sync(request))
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(Into::into)
 }
 
 #[tauri::command]

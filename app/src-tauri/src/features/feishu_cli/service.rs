@@ -1,12 +1,14 @@
 use crate::features::feishu_cli::{
     schema, FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthDomainOption,
-    FeishuAuthScopeCatalog, FeishuCliHealth, FeishuCliOperationLog, FeishuCliRequest,
-    FeishuCliResponse, FeishuConfigInitRequest, FeishuWritePreview,
+    FeishuAuthPreferences, FeishuAuthPreferencesSaveRequest, FeishuAuthScopeCatalog,
+    FeishuAuthSyncRequest, FeishuAuthSyncResult, FeishuCliHealth, FeishuCliOperationLog,
+    FeishuCliRequest, FeishuCliResponse, FeishuConfigInitRequest, FeishuWritePreview,
 };
+use crate::features::settings::repository::SettingsRepository;
 use crate::infra::error::{AppError, AppResult};
 use crate::infra::sqlite::AppDatabase;
 use chrono::{Duration, Utc};
-use rusqlite::params;
+use rusqlite::{params, Connection};
 use serde_json::Value;
 use std::fs;
 use std::io::Write;
@@ -15,6 +17,10 @@ use std::process::{Command, Stdio};
 use tauri::Manager;
 
 const PREVIEW_TTL_MINUTES: i64 = 15;
+const KEY_FEISHU_SELECTED_DOMAINS: &str = "feishu_cli.auth.selected_domains";
+const KEY_FEISHU_LAST_SYNCED_DOMAINS: &str = "feishu_cli.auth.last_synced_domains";
+const KEY_FEISHU_PENDING_DEVICE_CODE: &str = "feishu_cli.auth.pending_device_code";
+const KEY_FEISHU_PENDING_VERIFICATION_URL: &str = "feishu_cli.auth.pending_verification_url";
 const DEFAULT_AUTH_DOMAINS: &[&str] = &["calendar", "contact", "docs", "drive", "minutes", "task"];
 const AUTH_DOMAINS: &[AuthDomain] = &[
     AuthDomain::new(
@@ -285,6 +291,132 @@ impl FeishuCliService {
         }
     }
 
+    pub fn auth_preferences(&self) -> AppResult<FeishuAuthPreferences> {
+        let connection = self.database.open_connection()?;
+        let selected_domains = read_domain_list_setting(
+            &connection,
+            KEY_FEISHU_SELECTED_DOMAINS,
+            default_auth_domains(),
+        )?;
+        let last_synced_domains =
+            read_domain_list_setting(&connection, KEY_FEISHU_LAST_SYNCED_DOMAINS, Vec::new())?;
+        let pending_device_code =
+            SettingsRepository::get_value(&connection, KEY_FEISHU_PENDING_DEVICE_CODE)?;
+        let pending_verification_url =
+            SettingsRepository::get_value(&connection, KEY_FEISHU_PENDING_VERIFICATION_URL)?;
+
+        Ok(FeishuAuthPreferences {
+            selected_domains,
+            last_synced_domains,
+            pending_device_code,
+            pending_verification_url,
+        })
+    }
+
+    pub fn save_auth_preferences(
+        &self,
+        request: FeishuAuthPreferencesSaveRequest,
+    ) -> AppResult<FeishuAuthPreferences> {
+        let selected_domains = normalize_auth_domains(&request.selected_domains)?;
+        if selected_domains.is_empty() {
+            return Err(AppError::message("请至少选择一个飞书授权范围"));
+        }
+
+        let connection = self.database.open_connection()?;
+        SettingsRepository::set_value(
+            &connection,
+            KEY_FEISHU_SELECTED_DOMAINS,
+            &serde_json::to_string(&selected_domains)?,
+        )?;
+        drop(connection);
+
+        self.auth_preferences()
+    }
+
+    pub fn auth_sync(&self, request: FeishuAuthSyncRequest) -> AppResult<FeishuAuthSyncResult> {
+        let selected_domains = normalize_auth_domains(&request.selected_domains)?;
+        if selected_domains.is_empty() {
+            return Err(AppError::message("请至少选择一个飞书授权范围"));
+        }
+
+        let health = self.health();
+        if !health.installed {
+            return Err(AppError::message(
+                health
+                    .error
+                    .unwrap_or_else(|| "未检测到 lark-cli".to_string()),
+            ));
+        }
+        if !health.configured {
+            return Err(AppError::message("请先配置飞书应用"));
+        }
+
+        let preferences = self.auth_preferences()?;
+        let reauth_required = health.authenticated
+            && has_removed_domain(&preferences.last_synced_domains, &selected_domains);
+
+        if reauth_required {
+            self.auth_logout()?;
+        }
+
+        let response = self.auth_begin(FeishuAuthBeginRequest {
+            domains: selected_domains.clone(),
+            scopes: Vec::new(),
+            excludes: Vec::new(),
+        })?;
+        let payload = response
+            .parsed_json
+            .as_ref()
+            .and_then(Value::as_object)
+            .cloned();
+        let pending_device_code = payload
+            .as_ref()
+            .and_then(|value| pick_nested_string_in_map(value, &["device_code"]));
+        let verification_url = payload.as_ref().and_then(|value| {
+            pick_nested_string_in_map(
+                value,
+                &[
+                    "verification_uri_complete",
+                    "verification_url",
+                    "verification_uri",
+                    "console_url",
+                ],
+            )
+        });
+
+        let connection = self.database.open_connection()?;
+        SettingsRepository::set_value(
+            &connection,
+            KEY_FEISHU_SELECTED_DOMAINS,
+            &serde_json::to_string(&selected_domains)?,
+        )?;
+        SettingsRepository::set_value(
+            &connection,
+            KEY_FEISHU_LAST_SYNCED_DOMAINS,
+            &serde_json::to_string(&selected_domains)?,
+        )?;
+        save_optional_setting(
+            &connection,
+            KEY_FEISHU_PENDING_DEVICE_CODE,
+            pending_device_code.as_deref(),
+        )?;
+        save_optional_setting(
+            &connection,
+            KEY_FEISHU_PENDING_VERIFICATION_URL,
+            verification_url.as_deref(),
+        )?;
+
+        Ok(FeishuAuthSyncResult {
+            selected_domains: selected_domains.clone(),
+            last_synced_domains: selected_domains,
+            verification_url,
+            pending_device_code: pending_device_code.clone(),
+            has_device_code: pending_device_code.is_some(),
+            reauth_required,
+            status: "waiting_browser_authorization".to_string(),
+        })
+    }
+
     pub fn config_init(&self, request: FeishuConfigInitRequest) -> AppResult<FeishuCliResponse> {
         let app_id = required_text(&request.app_id, "appId")?;
         let app_secret = required_text(&request.app_secret, "appSecret")?;
@@ -307,6 +439,7 @@ impl FeishuCliService {
             brand.to_string(),
         ];
         let output = self.run_command_with_stdin(&args, Some(format!("{app_secret}\n")))?;
+        self.clear_pending_auth_state()?;
         Ok(response_from_output(
             "config_init".to_string(),
             self.command_for_display(&args),
@@ -385,6 +518,7 @@ impl FeishuCliService {
             device_code,
         ];
         let output = self.run_command(&args)?;
+        self.clear_pending_auth_state()?;
         Ok(response_from_output(
             "auth_complete".to_string(),
             self.command_for_display(&args),
@@ -395,6 +529,7 @@ impl FeishuCliService {
     pub fn config_remove(&self) -> AppResult<FeishuCliResponse> {
         let args = vec!["config".to_string(), "remove".to_string()];
         let output = self.run_command(&args)?;
+        self.clear_pending_auth_state()?;
         Ok(response_from_output(
             "config_remove".to_string(),
             self.command_for_display(&args),
@@ -405,6 +540,7 @@ impl FeishuCliService {
     pub fn auth_logout(&self) -> AppResult<FeishuCliResponse> {
         let args = vec!["auth".to_string(), "logout".to_string()];
         let output = self.run_command(&args)?;
+        self.clear_pending_auth_state()?;
         Ok(response_from_output(
             "auth_logout".to_string(),
             self.command_for_display(&args),
@@ -418,6 +554,17 @@ impl FeishuCliService {
             args: Value::Object(serde_json::Map::new()),
         };
         self.read_operation(request)
+    }
+
+    fn clear_pending_auth_state(&self) -> AppResult<()> {
+        let connection = self.database.open_connection()?;
+        SettingsRepository::delete_keys(
+            &connection,
+            &[
+                KEY_FEISHU_PENDING_DEVICE_CODE,
+                KEY_FEISHU_PENDING_VERIFICATION_URL,
+            ],
+        )
     }
 
     pub fn read_operation(&self, request: FeishuCliRequest) -> AppResult<FeishuCliResponse> {
@@ -719,6 +866,74 @@ fn build_domain_options(app_scopes: &[String]) -> Vec<FeishuAuthDomainOption> {
             }
         })
         .collect()
+}
+
+fn default_auth_domains() -> Vec<String> {
+    DEFAULT_AUTH_DOMAINS
+        .iter()
+        .map(|value| value.to_string())
+        .collect()
+}
+
+fn read_domain_list_setting(
+    connection: &Connection,
+    key: &str,
+    default_value: Vec<String>,
+) -> AppResult<Vec<String>> {
+    let Some(raw) = SettingsRepository::get_value(connection, key)? else {
+        return Ok(default_value);
+    };
+    let values = serde_json::from_str::<Vec<String>>(&raw)?;
+    normalize_auth_domains(&values)
+}
+
+fn save_optional_setting(connection: &Connection, key: &str, value: Option<&str>) -> AppResult<()> {
+    if let Some(value) = value.filter(|value| !value.trim().is_empty()) {
+        SettingsRepository::set_value(connection, key, value)
+    } else {
+        SettingsRepository::delete_keys(connection, &[key])
+    }
+}
+
+fn normalize_auth_domains(values: &[String]) -> AppResult<Vec<String>> {
+    let mut normalized = Vec::new();
+    for value in values {
+        let domain = validate_auth_domain(value)?;
+        if !normalized.contains(&domain) {
+            normalized.push(domain);
+        }
+    }
+    Ok(normalized)
+}
+
+fn has_removed_domain(previous: &[String], next: &[String]) -> bool {
+    previous.iter().any(|domain| !next.contains(domain))
+}
+
+fn pick_nested_string_in_map(
+    value: &serde_json::Map<String, Value>,
+    keys: &[&str],
+) -> Option<String> {
+    for key in keys {
+        if let Some(text) = value
+            .get(*key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+        {
+            return Some(text.to_string());
+        }
+    }
+
+    for nested in value.values() {
+        if let Some(object) = nested.as_object() {
+            if let Some(found) = pick_nested_string_in_map(object, keys) {
+                return Some(found);
+            }
+        }
+    }
+
+    None
 }
 
 fn validate_auth_domain(value: &str) -> AppResult<String> {

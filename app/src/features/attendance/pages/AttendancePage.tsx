@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Clock, Search, User } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock, Search, User } from 'lucide-react'
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { DataEmptyState, DataErrorState } from '@/shared/components/data-state'
 import { useAttendanceData, type AttendanceTreeRow } from '../hooks/useAttendanceData'
@@ -26,6 +26,10 @@ function formatPercent(value: number) {
   return `${(value * 100).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%`
 }
 
+function formatLatePercent(value: number) {
+  return `${(value * 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+}
+
 function formatNumber(value: number) {
   return value.toLocaleString('zh-CN', { maximumFractionDigits: 0 })
 }
@@ -40,6 +44,33 @@ function RateBadge({ rate }: { rate: number }) {
   return (
     <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${RATE_TONE[getRateTone(rate)]}`}>
       {formatPercent(rate)}
+    </span>
+  )
+}
+
+function CountRateCell({ count, rate }: { count: number; rate: number }) {
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <span className="app-cell-numeric text-[var(--color-text)]">{formatNumber(count)}</span>
+      <span className="rounded-full bg-[rgba(15,23,42,0.06)] px-2 py-0.5 text-caption font-medium text-[var(--color-text-muted)]">
+        {formatLatePercent(rate)}
+      </span>
+    </div>
+  )
+}
+
+function AttendanceRateHeader() {
+  return (
+    <span className="inline-flex items-center justify-center gap-1">
+      出勤率
+      <CircleHelp
+        size={14}
+        className="text-[var(--color-text-muted)]"
+        aria-label="出勤率计算逻辑"
+        role="img"
+      >
+        <title>出勤率仅计入全薪假、带薪/全薪寒暑假、产假、居家/线上办公和法定节假日；事假、病假、长病假、超休不计入。</title>
+      </CircleHelp>
     </span>
   )
 }
@@ -66,7 +97,7 @@ function StatCard({ icon: Icon, label, value, color = 'blue' }: {
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-caption font-semibold uppercase tracking-[0.14em] text-gray-500">{label}</div>
-        <div className="mt-1 truncate text-title font-semibold leading-none text-gray-800">{value}</div>
+        <div className="mt-1 truncate text-title font-semibold leading-none text-gray-800" title={String(value)}>{value}</div>
       </div>
     </div>
   )
@@ -112,35 +143,6 @@ function TreeLabel({ row, expanded, expandable, onToggle }: {
           <div className="mt-0.5 truncate text-caption text-[var(--color-text-muted)]">{getRowLabelMeta(row)}</div>
         ) : null}
       </div>
-    </div>
-  )
-}
-
-function MobileAttendanceCard({ row, expanded, expandable, onToggle }: {
-  row: AttendanceTreeRow
-  expanded: boolean
-  expandable: boolean
-  onToggle: (key: string) => void
-}) {
-  const content = (
-    <>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <TreeLabel row={row} expanded={expanded} expandable={expandable} onToggle={onToggle} />
-        </div>
-        <RateBadge rate={row.metrics.averageAttendanceRate} />
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-caption">
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">人数 {formatNumber(row.metrics.employeeCount)}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到率 {formatPercent(row.metrics.lateRate)}</div>
-        <div className="rounded-xl bg-[rgba(15,23,42,0.04)] px-3 py-2 text-[var(--color-text-muted)]">迟到次数 {formatNumber(row.metrics.lateTotalCount)}</div>
-      </div>
-    </>
-  )
-
-  return (
-    <div className={`rounded-[20px] border border-[rgba(148,163,184,0.12)] bg-white/92 p-4 ${row.level !== 'member' ? 'shadow-[0_8px_24px_rgba(15,23,42,0.04)]' : ''}`}>
-      {content}
     </div>
   )
 }
@@ -216,19 +218,7 @@ export function AttendancePage() {
           </div>
         </div>
 
-        <div className="space-y-2 px-3 py-3 lg:hidden">
-          {visibleRows.map((row) => (
-            <MobileAttendanceCard
-              key={row.key}
-              row={row}
-              expanded={expandedKeys.has(row.key) || Boolean(query.trim())}
-              expandable={expandableKeys.has(row.key)}
-              onToggle={toggleRow}
-            />
-          ))}
-        </div>
-
-        <div className="app-table-scroll hidden lg:block">
+        <div className="app-table-scroll">
           <table className="app-data-table app-data-table-compact">
             <thead>
               <tr>
@@ -237,9 +227,9 @@ export function AttendancePage() {
                 <th className="text-right">人数</th>
                 <th className="text-right">日岗</th>
                 <th className="text-right">时岗</th>
-                <th className="text-center">出勤率</th>
-                <th className="text-right">迟到率</th>
-                <th className="text-right">迟到半小时内次数</th>
+                <th className="text-center"><AttendanceRateHeader /></th>
+                <th className="text-right">迟到早退半小时内 次数/比率</th>
+                <th className="text-right">迟到早退超半小时 次数/比率</th>
               </tr>
             </thead>
             <tbody>
@@ -258,8 +248,12 @@ export function AttendancePage() {
                   <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.dayEmployeeCount)}</td>
                   <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.hourEmployeeCount)}</td>
                   <td className="text-center"><RateBadge rate={row.metrics.averageAttendanceRate} /></td>
-                  <td className="app-cell-muted app-cell-numeric text-right">{formatPercent(row.metrics.lateRate)}</td>
-                  <td className="app-cell-muted app-cell-numeric text-right">{formatNumber(row.metrics.lateUnder30Count)}</td>
+                  <td className="app-cell-muted text-right">
+                    <CountRateCell count={row.metrics.lateUnder30Count} rate={row.metrics.lateUnder30Rate} />
+                  </td>
+                  <td className="app-cell-muted text-right">
+                    <CountRateCell count={row.metrics.lateOver30Count} rate={row.metrics.lateOver30Rate} />
+                  </td>
                 </tr>
               ))}
             </tbody>

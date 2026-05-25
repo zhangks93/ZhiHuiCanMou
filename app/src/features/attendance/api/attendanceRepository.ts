@@ -17,6 +17,8 @@ const ATTENDANCE_SELECT = [
   'normal_work_amount',
   'actual_work_amount',
   'approved_leave_amount',
+  'paid_leave_amount',
+  'unpaid_leave_amount',
   'absence_amount',
   'qualified_attendance_amount',
   'attendance_rate',

@@ -35,12 +35,14 @@ export type Database = {
           member_id: string | null
           missing_clock_count: number
           normal_work_amount: number
+          paid_leave_amount: number
           qualified_attendance_amount: number
           raw_metrics: Json
           source_file_hash: string
           source_file_name: string
           source_row_number: number
           source_sheet_name: string
+          unpaid_leave_amount: number
           updated_at: string
           work_unit: string
           year_month: number
@@ -65,12 +67,14 @@ export type Database = {
           member_id?: string | null
           missing_clock_count?: number
           normal_work_amount?: number
+          paid_leave_amount?: number
           qualified_attendance_amount?: number
           raw_metrics?: Json
           source_file_hash: string
           source_file_name: string
           source_row_number: number
           source_sheet_name: string
+          unpaid_leave_amount?: number
           updated_at?: string
           work_unit: string
           year_month: number
@@ -95,12 +99,14 @@ export type Database = {
           member_id?: string | null
           missing_clock_count?: number
           normal_work_amount?: number
+          paid_leave_amount?: number
           qualified_attendance_amount?: number
           raw_metrics?: Json
           source_file_hash?: string
           source_file_name?: string
           source_row_number?: number
           source_sheet_name?: string
+          unpaid_leave_amount?: number
           updated_at?: string
           work_unit?: string
           year_month?: number

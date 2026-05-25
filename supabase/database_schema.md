@@ -332,9 +332,11 @@ Last updated: 2026-05-03
 - `expected_work_amount` (numeric): Expected attendance amount in the row unit
 - `normal_work_amount` (numeric): Normal work amount used for attendance-rate coverage
 - `actual_work_amount` (numeric): Raw actual attendance amount from HR workbook
-- `approved_leave_amount` (numeric): Leave amount treated as compliant attendance coverage
+- `approved_leave_amount` (numeric): Backward-compatible compliant leave amount; same value as `paid_leave_amount` after the refined attendance policy
+- `paid_leave_amount` (numeric): Paid/compliant leave counted toward attendance rate
+- `unpaid_leave_amount` (numeric): Leave not counted toward attendance rate, such as personal leave, sick leave, long sick leave, excess leave, and unpaid school holiday rest
 - `absence_amount` (numeric): Absence amount from HR workbook
-- `qualified_attendance_amount` (numeric): `min(expected, normal + approved leave)`
+- `qualified_attendance_amount` (numeric): `min(expected, actual + paid/compliant leave + unqualified amount + legal holiday)`
 - `attendance_rate` (numeric): Qualified attendance amount divided by expected amount, capped through the qualified amount
 - `late_under_30_count` (integer): Late/early count within 30 minutes
 - `late_30_to_120_count` (integer): Late/early count over 30 minutes and within 2 hours

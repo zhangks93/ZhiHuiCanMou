@@ -36,6 +36,39 @@ pub struct FeishuAuthScopeCatalog {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FeishuAuthPreferences {
+    pub selected_domains: Vec<String>,
+    pub last_synced_domains: Vec<String>,
+    pub pending_device_code: Option<String>,
+    pub pending_verification_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeishuAuthPreferencesSaveRequest {
+    pub selected_domains: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeishuAuthSyncRequest {
+    pub selected_domains: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeishuAuthSyncResult {
+    pub selected_domains: Vec<String>,
+    pub last_synced_domains: Vec<String>,
+    pub verification_url: Option<String>,
+    pub pending_device_code: Option<String>,
+    pub has_device_code: bool,
+    pub reauth_required: bool,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FeishuConfigInitRequest {
     pub app_id: String,
     pub app_secret: String,
