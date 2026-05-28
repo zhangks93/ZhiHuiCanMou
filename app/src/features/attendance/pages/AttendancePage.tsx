@@ -1,8 +1,7 @@
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock, Search, User } from 'lucide-react'
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { DataEmptyState, DataErrorState } from '@/shared/components/data-state'
-import { useAttendanceData } from '../hooks/useAttendanceData'
-import type { AttendanceTreeRow } from '../services/attendanceTree'
+import { useAttendanceData, type AttendanceTreeRow } from '../hooks/useAttendanceData'
 
 const RATE_TONE = {
   success: 'bg-success-100 text-success-700',

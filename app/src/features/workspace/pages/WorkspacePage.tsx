@@ -1,10 +1,10 @@
-import { Suspense, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { buildWorkspaceHref } from '@/app/config/constants'
-import { WORKSPACE_TAB_REGISTRY } from '@/app/config/moduleRegistry'
 import { useEnabledModules } from '@/app/hooks/useEnabledModules'
+import { LinksPage } from '@/features/links'
+import { ScheduleInboxPage, SchedulePage } from '@/features/schedule'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
-import { AppLoading } from '@/shared/ui/AppLoading'
 import { WORKSPACE_TAB_LABELS, getWorkspaceTabs, type WorkspaceTab } from '../workspaceTabs'
 
 export function WorkspacePage() {
@@ -32,15 +32,14 @@ export function WorkspacePage() {
     active: tab === activeTab,
   }))
 
-  const registryEntry = activeTab ? WORKSPACE_TAB_REGISTRY[activeTab] : null
-  const ActiveModule = registryEntry?.component
-
   return (
     <TabbedPageShell tabs={tabItems}>
-      {ActiveModule ? (
-        <Suspense fallback={<AppLoading variant="block" label="模块加载中..." />}>
-          <ActiveModule />
-        </Suspense>
+      {activeTab === 'schedule' ? (
+        <SchedulePage />
+      ) : activeTab === 'inbox' ? (
+        <ScheduleInboxPage />
+      ) : activeTab === 'links' ? (
+        <LinksPage />
       ) : (
         <section className="app-section-card app-section-card-muted p-5 sm:p-6">
           <div className="app-empty-state">

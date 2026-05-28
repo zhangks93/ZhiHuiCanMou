@@ -2,15 +2,17 @@ import { useMemo, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { env } from '@/app/config/env'
 import { storeAuthState } from '@/shared/lib/auth-storage'
-import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { logger } from '@/shared/lib/logger'
-import { isTauriRuntime } from '@/shared/lib/tauri'
 import { AppBrandMark } from '@/shared/ui/AppBrandMark'
 
 const FEISHU_AUTH_URL = 'https://open.feishu.cn/open-apis/authen/v1/authorize'
 
 function generateState() {
   return window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)
+}
+
+function isTauriApp() {
+  return typeof window !== 'undefined' && '__TAURI__' in window
 }
 
 export function Login() {
@@ -32,7 +34,7 @@ export function Login() {
     setDebugInfo([])
 
     try {
-      const tauri = isTauriRuntime()
+      const tauri = isTauriApp()
       addDebugInfo(`Environment: ${tauri ? 'Tauri' : 'Web'} / desktop`)
 
       storeAuthState(state, 'desktop')
@@ -70,7 +72,7 @@ export function Login() {
         window.location.href = urlString
       }
     } catch (error) {
-      const message = getErrorMessage(error, '登录失败')
+      const message = error instanceof Error ? error.message : String(error)
       addDebugInfo(`Login error: ${message}`)
       logger.error('Login error', error)
       setIsLoading(false)

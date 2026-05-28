@@ -1,45 +1,62 @@
-import { useMemo, useState } from 'react'
-import { useAsyncResource } from '@/shared/hooks/useAsyncResource'
+import { useEffect, useState } from 'react'
 import { fetchOpportunitySnapshotDates, fetchOpportunitySnapshotItems } from '../api/opportunityRepository'
 import type { OpportunitySnapshotItem } from '../types'
 
 export function useOpportunityData() {
+  const [rows, setRows] = useState<OpportunitySnapshotItem[]>([])
+  const [snapshotDates, setSnapshotDates] = useState<string[]>([])
   const [selectedSnapshotDate, setSelectedSnapshotDate] = useState('')
+  const [loading, setLoading] = useState(true)
 
-  const {
-    data: snapshotDates,
-    loading: datesLoading,
-    error: datesError,
-  } = useAsyncResource(fetchOpportunitySnapshotDates, [], {
-    errorFallback: '商机快照日期加载失败',
-  })
-
-  const activeSnapshotDate = useMemo(() => {
-    if (selectedSnapshotDate && snapshotDates?.includes(selectedSnapshotDate)) {
-      return selectedSnapshotDate
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true)
+        const dates = await fetchOpportunitySnapshotDates()
+        setSnapshotDates(dates)
+        setSelectedSnapshotDate((current) => current || dates[0] || '')
+      } finally {
+        setLoading(false)
+      }
     }
-    return snapshotDates?.[0] ?? ''
-  }, [selectedSnapshotDate, snapshotDates])
 
-  const {
-    data: rows,
-    loading: rowsLoading,
-    error: rowsError,
-  } = useAsyncResource(
-    () => fetchOpportunitySnapshotItems(activeSnapshotDate),
-    [activeSnapshotDate],
-    {
-      enabled: Boolean(activeSnapshotDate),
-      errorFallback: '商机数据加载失败',
-    },
-  )
+    void loadData()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedSnapshotDate) {
+      setRows([])
+      return
+    }
+
+    let cancelled = false
+
+    async function loadSnapshotRows() {
+      try {
+        setLoading(true)
+        const nextRows = await fetchOpportunitySnapshotItems(selectedSnapshotDate)
+        if (!cancelled) {
+          setRows(nextRows)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadSnapshotRows()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedSnapshotDate])
 
   return {
-    rows: (rows ?? []) as OpportunitySnapshotItem[],
-    snapshotDates: snapshotDates ?? [],
-    selectedSnapshotDate: activeSnapshotDate,
+    rows,
+    snapshotDates,
+    selectedSnapshotDate,
     setSelectedSnapshotDate,
-    loading: datesLoading || rowsLoading,
-    error: datesError ?? rowsError,
+    loading,
   }
 }

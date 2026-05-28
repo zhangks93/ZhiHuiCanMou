@@ -1,7 +1,4 @@
 import { useState } from 'react'
-import { getErrorMessage } from '@/shared/lib/errorMessage'
-import { logger } from '@/shared/lib/logger'
-import { isTauriRuntime } from '@/shared/lib/tauri'
 
 export function DeepLinkTest() {
   const [testUrl, setTestUrl] = useState('canmou://auth-callback#access_token=test123&refresh_token=test456')
@@ -10,7 +7,7 @@ export function DeepLinkTest() {
   const addLog = (msg: string) => {
     const timestamp = new Date().toLocaleTimeString()
     setLogs((prev) => [...prev, `${timestamp}: ${msg}`])
-    logger.debug(`DeepLinkTest: ${msg}`)
+    console.log('[DeepLinkTest]', msg)
   }
 
   const testDeepLink = async () => {
@@ -18,7 +15,7 @@ export function DeepLinkTest() {
     addLog(`测试URL: ${testUrl}`)
 
     try {
-      const isTauri = isTauriRuntime()
+      const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
 
       if (isTauri) {
         addLog('Tauri 环境检测成功')
@@ -31,7 +28,7 @@ export function DeepLinkTest() {
         window.location.href = testUrl
       }
     } catch (error) {
-      const errorMsg = getErrorMessage(error, 'Deep link 测试失败')
+      const errorMsg = error instanceof Error ? error.message : String(error)
       addLog(`错误: ${errorMsg}`)
     }
   }

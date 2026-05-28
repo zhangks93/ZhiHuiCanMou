@@ -1,11 +1,15 @@
-import { Suspense, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { buildDataHref } from '@/app/config/constants'
-import { DATA_MODULE_REGISTRY } from '@/app/config/moduleRegistry'
 import { DATA_MODULE_IDS, MODULE_NAV_CONFIG, isDataModuleId } from '@/app/config/modules'
 import { useEnabledModules } from '@/app/hooks/useEnabledModules'
+import { BizDataPage, PlanningPage } from '@/features/biz-data'
+import { OrgDataPage } from '@/features/org'
+import { OpportunityPage } from '@/features/opportunity'
+import { AttendancePage } from '@/features/attendance'
+import { TripPage } from '@/features/trip'
+import { CollectionPage } from '@/features/collection'
 import { TabbedPageShell } from '@/shared/ui/TabbedPageShell'
-import { AppLoading } from '@/shared/ui/AppLoading'
 
 export function DataHubPage() {
   const navigate = useNavigate()
@@ -44,17 +48,26 @@ export function DataHubPage() {
     return null
   }
 
-  const registryEntry = DATA_MODULE_REGISTRY[activeTab]
-  const ActiveModule = registryEntry.component
-
   return (
     <TabbedPageShell
       tabs={tabItems}
-      contentClassName={registryEntry.contentClassName}
+      contentClassName={activeTab === 'biz-data' ? 'app-tab-shell__content-biz-data' : undefined}
     >
-      <Suspense fallback={<AppLoading variant="block" label="模块加载中..." />}>
-        <ActiveModule />
-      </Suspense>
+      {activeTab === 'biz-data' ? (
+        <BizDataPage />
+      ) : activeTab === 'collection' ? (
+        <CollectionPage />
+      ) : activeTab === 'planning' ? (
+        <PlanningPage />
+      ) : activeTab === 'opportunity' ? (
+        <OpportunityPage />
+      ) : activeTab === 'trip' ? (
+        <TripPage />
+      ) : activeTab === 'attendance' ? (
+        <AttendancePage />
+      ) : activeTab === 'org-data' ? (
+        <OrgDataPage />
+      ) : null}
     </TabbedPageShell>
   )
 }

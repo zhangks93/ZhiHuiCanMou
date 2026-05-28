@@ -241,15 +241,13 @@ class AuthAnalytics {
 // Global analytics instance
 export const authAnalytics = new AuthAnalytics()
 
-import { isTauriRuntime } from '@/shared/lib/tauri'
-
 /**
  * Helper to determine platform
  */
 export function getCurrentPlatform(): 'desktop' | 'mobile' | 'web' {
   if (typeof window === 'undefined') return 'web'
 
-  const isTauri = isTauriRuntime()
+  const isTauri = '__TAURI__' in window
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
   if (isTauri && isMobile) return 'mobile'

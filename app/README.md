@@ -47,14 +47,6 @@ npm run tauri:build
 
 数据表结构可根据业务需求在 Supabase 中创建，参考 `src/lib/supabase.ts` 中的类型定义进行扩展。
 
-## 架构约定
-
-- `src/app/` — 路由、布局、模块注册（`config/modules.ts`）
-- `src/features/<name>/` — 业务模块（pages / hooks / api / services）
-- `src/shared/` — 跨模块 UI、Supabase/Tauri 客户端、Agent 运行时
-- Feature 模块之间不应互相 import；跨模块组合由 hub 页面（`data-hub`、`workspace`）负责
-- 新增数据模块：在 `features/` 建目录，并在 `config/moduleRegistry.ts` 与 `config/modules.ts` 注册
-
 ## 环境要求
 
 - Node.js 18+

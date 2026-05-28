@@ -1,42 +1,16 @@
-/** @vitest-environment jsdom */
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { CollectionPage } from './CollectionPage'
+import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
-vi.mock('../hooks/useCollectionData', () => ({
-  useCollectionData: () => ({
-    loading: false,
-    refreshing: false,
-    periodLoading: false,
-    error: null,
-    availablePeriods: ['2025累计回款率统计——4月'],
-    selectedPeriod: '2025累计回款率统计——4月',
-    setSelectedPeriod: vi.fn(),
-    query: '',
-    setQuery: vi.fn(),
-    visibleRows: [],
-    overallStats: {
-      root: {
-        current_school_year_collection_amount: 100,
-        remaining_receivable: 10,
-        collection_rate: 0.95,
-      },
-      projectCount: 2,
-      rowCount: 3,
-    },
-    expandableKeys: new Set<string>(),
-    expandedKeys: new Set<string>(),
-    toggleRow: vi.fn(),
-  }),
-}))
+describe('CollectionPage columns', () => {
+  it('does not render hidden structure fields as table headers', () => {
+    const source = readFileSync(resolve(__dirname, 'CollectionPage.tsx'), 'utf8')
 
-describe('CollectionPage', () => {
-  it('renders primary collection table headers', () => {
-    render(<CollectionPage />)
-
-    expect(screen.getByText('项目 / 单位')).toBeTruthy()
-    expect(screen.getByText('本学年回款金额')).toBeTruthy()
-    expect(screen.queryByText('业务板块一级')).toBeNull()
-    expect(screen.queryByText('人员权限')).toBeNull()
+    expect(source).toContain('项目 / 单位')
+    expect(source).toContain('本学年回款金额')
+    expect(source).not.toContain('<th className="text-left">业务板块一级')
+    expect(source).not.toContain('<th className="text-left">业务板块二级')
+    expect(source).not.toContain('<th className="text-left">基本盘/增长极')
+    expect(source).not.toContain('<th className="text-left">人员权限')
   })
 })

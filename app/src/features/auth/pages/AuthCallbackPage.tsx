@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { createAuthError, getAuthError, type AuthError } from '@/shared/lib/auth-errors'
-import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { AppBrandMark } from '@/shared/ui/AppBrandMark'
 import {
   completeBrowserOAuth,
@@ -111,7 +110,7 @@ export function AuthCallback() {
 
           addDebugInfo('事件发送成功，准备关闭窗口')
         } catch (e) {
-          const nextErrorMsg = getErrorMessage(e, '认证失败')
+          const nextErrorMsg = e instanceof Error ? e.message : String(e)
           addDebugInfo(`桌面模式错误: ${nextErrorMsg}`)
           if (mounted) {
             setStatus('error')
@@ -124,7 +123,7 @@ export function AuthCallback() {
           accessToken,
           refreshToken,
           onRetry: (attempt, error) => {
-            const errorMessage = getErrorMessage(error, '认证失败')
+            const errorMessage = error instanceof Error ? error.message : String(error)
             addDebugInfo(`重试第 ${attempt} 次: ${errorMessage}`)
             if (mounted) {
               setStatus('retrying')

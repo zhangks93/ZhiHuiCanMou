@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 import { env } from '@/app/config/env'
 import { logger } from '@/shared/lib/logger'
-import { isTauriRuntime } from '@/shared/lib/tauri'
 
 const systemLinks = [
   { icon: Shield, name: '安全管理系统', url: env.links.safety },
@@ -42,8 +41,12 @@ const boardLinks = [
   },
 ]
 
+function isTauriApp() {
+  return typeof window !== 'undefined' && '__TAURI__' in window
+}
+
 async function openSystemLink(url: string) {
-  if (isTauriRuntime()) {
+  if (isTauriApp()) {
     const { openUrl } = await import('@tauri-apps/plugin-opener')
     await openUrl(url)
     return

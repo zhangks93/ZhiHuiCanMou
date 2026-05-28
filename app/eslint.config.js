@@ -19,16 +19,6 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'warn',
-      'no-console': 'warn',
-    },
-  },
-  {
-    files: ['src/shared/lib/logger.ts', '**/*.test.{ts,tsx}'],
-    rules: {
-      'no-console': 'off',
-    },
   },
   {
     files: [
