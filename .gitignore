@@ -3,6 +3,7 @@
 /.pages-artifact/
 /reports/quality/
 /supabase/.temp/
+app/src-tauri/resources/lark-cli/
 __pycache__/
 *.pyc
 *.xls

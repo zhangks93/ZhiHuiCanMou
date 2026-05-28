@@ -33,7 +33,14 @@
 如果用户第一次要求使用飞书能力，或工具返回 CLI 未安装 / 未登录 / 权限不足：
 1. 调用 `feishu_cli_health` 或 `feishu_auth_status` 确认状态。
 2. 用简短中文说明当前缺口。
-3. 引导用户去设置页或按公司标准安装 / 登录飞书 CLI。
+3. 根据工具返回的 `code` 给出明确引导：
+   - `CLI_OUTDATED`：引导用户打开设置页「飞书 CLI」，点击「一键更新 lark-cli」。
+   - `AUTH_SCOPE_MISSING`：引导用户打开设置页勾选缺失的业务域并点击「保存并同步授权」。
+   - `AUTH_REQUIRED`：引导用户打开设置页完成 OAuth 授权。
+   - `CLI_MISSING`：引导用户在设置页更新 CLI，或重新安装应用。
+4. 工具错误 JSON 中的 `settingsPath` 一律指向 `/settings?tab=feishu-cli`。
+
+应用内置可更新的 lark-cli，不要提示用户自行安装系统级 lark-cli。
 
 不要编造飞书数据。
 

@@ -25,6 +25,13 @@ const WRITE_OPERATIONS = [
 type ReadOperation = (typeof READ_OPERATIONS)[number]
 type WriteOperation = (typeof WRITE_OPERATIONS)[number]
 
+interface FeishuCliStructuredError {
+  code?: string
+  message?: string
+  settingsPath?: string
+  missingDomains?: string[]
+}
+
 function asString(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -45,6 +52,59 @@ function stringifyResult(value: unknown) {
   return JSON.stringify(value, null, 2)
 }
 
+function parseStructuredFeishuError(error: unknown): FeishuCliStructuredError | null {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  try {
+    const parsed = JSON.parse(message) as FeishuCliStructuredError
+    if (parsed && typeof parsed === 'object' && parsed.code) return parsed
+  } catch {
+    return null
+  }
+  return null
+}
+
+function formatFeishuToolError(error: unknown) {
+  const structured = parseStructuredFeishuError(error)
+  if (!structured) {
+    return stringifyResult({
+      success: false,
+      message: error instanceof Error ? error.message : String(error ?? '飞书 CLI 操作失败'),
+    })
+  }
+
+  const guidance = (() => {
+    switch (structured.code) {
+      case 'CLI_OUTDATED':
+        return '请打开设置页「飞书 CLI」，点击「一键更新 lark-cli」。'
+      case 'AUTH_SCOPE_MISSING':
+        return `请在设置页勾选并同步授权范围：${(structured.missingDomains ?? []).join('、') || '对应业务域'}。`
+      case 'AUTH_REQUIRED':
+        return '请打开设置页完成飞书 OAuth 授权。'
+      case 'CLI_MISSING':
+        return '内置 lark-cli 不可用，请在设置页尝试更新或重新安装应用。'
+      default:
+        return '请打开设置页检查飞书 CLI 配置与授权。'
+    }
+  })()
+
+  return stringifyResult({
+    success: false,
+    code: structured.code,
+    message: structured.message ?? '飞书 CLI 操作失败',
+    settingsPath: structured.settingsPath ?? '/settings?tab=feishu-cli',
+    missingDomains: structured.missingDomains ?? [],
+    guidance,
+  })
+}
+
+async function runFeishuTool<T>(action: () => Promise<T>) {
+  try {
+    return stringifyResult(await action())
+  } catch (error) {
+    return formatFeishuToolError(error)
+  }
+}
+
 export const feishuCliHealthTool: RegisteredTool = {
   definition: {
     type: 'function',
@@ -58,7 +118,7 @@ export const feishuCliHealthTool: RegisteredTool = {
     },
   },
   async execute() {
-    return stringifyResult(await getFeishuCliHealth())
+    return runFeishuTool(() => getFeishuCliHealth())
   },
 }
 
@@ -75,7 +135,7 @@ export const feishuAuthStatusTool: RegisteredTool = {
     },
   },
   async execute() {
-    return stringifyResult(await getFeishuAuthStatus())
+    return runFeishuTool(() => getFeishuAuthStatus())
   },
 }
 
@@ -105,7 +165,7 @@ export const feishuReadTool: RegisteredTool = {
   async execute(args) {
     const operation = requireEnum<readonly ReadOperation[]>(args.operation, READ_OPERATIONS, 'operation')
     const operationArgs = asRecord(args.args)
-    return stringifyResult(await runFeishuReadOperation({ operation, args: operationArgs }))
+    return runFeishuTool(() => runFeishuReadOperation({ operation, args: operationArgs }))
   },
 }
 
@@ -135,7 +195,7 @@ export const feishuWritePreviewTool: RegisteredTool = {
   async execute(args) {
     const operation = requireEnum<readonly WriteOperation[]>(args.operation, WRITE_OPERATIONS, 'operation')
     const operationArgs = asRecord(args.args)
-    return stringifyResult(await previewFeishuWriteOperation({ operation, args: operationArgs }))
+    return runFeishuTool(() => previewFeishuWriteOperation({ operation, args: operationArgs }))
   },
 }
 
@@ -160,7 +220,7 @@ export const feishuWriteConfirmTool: RegisteredTool = {
   async execute(args) {
     const operationId = asString(args.operation_id)
     if (!operationId) throw new Error('operation_id 不能为空')
-    return stringifyResult(await confirmFeishuWriteOperation(operationId))
+    return runFeishuTool(() => confirmFeishuWriteOperation(operationId))
   },
 }
 

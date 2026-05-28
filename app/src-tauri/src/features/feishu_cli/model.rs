@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FeishuCliHealth {
     pub installed: bool,
     pub bundled: bool,
@@ -10,6 +11,11 @@ pub struct FeishuCliHealth {
     pub version: Option<String>,
     pub source: Option<String>,
     pub error: Option<String>,
+    pub bundled_version: Option<String>,
+    pub active_version: Option<String>,
+    pub required_version: String,
+    pub update_available: bool,
+    pub update_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,8 +45,22 @@ pub struct FeishuAuthScopeCatalog {
 pub struct FeishuAuthPreferences {
     pub selected_domains: Vec<String>,
     pub last_synced_domains: Vec<String>,
+    pub pending_sync_domains: Vec<String>,
     pub pending_device_code: Option<String>,
     pub pending_verification_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeishuAuthEffectiveState {
+    pub selected_domains: Vec<String>,
+    pub synced_domains: Vec<String>,
+    pub pending_sync_domains: Vec<String>,
+    pub granted_domains: Vec<String>,
+    pub needs_sync: bool,
+    pub pending_auth_url: Option<String>,
+    pub authenticated: bool,
+    pub configured: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

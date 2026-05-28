@@ -116,6 +116,10 @@ jobs:
       - name: install frontend dependencies
         run: npm ci --prefix app
 
+      - name: prepare bundled lark-cli (windows)
+        if: matrix.platform == 'windows-latest'
+        run: node scripts/prepare-lark-cli.mjs
+
       - uses: tauri-apps/tauri-action@action-v0.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

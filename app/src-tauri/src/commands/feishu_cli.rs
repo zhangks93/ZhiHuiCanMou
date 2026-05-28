@@ -1,7 +1,8 @@
 use crate::features::feishu_cli::{
     FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthPreferences,
     FeishuAuthPreferencesSaveRequest, FeishuAuthScopeCatalog, FeishuAuthSyncRequest,
-    FeishuAuthSyncResult, FeishuCliHealth, FeishuCliRequest, FeishuCliResponse, FeishuCliService,
+    FeishuAuthEffectiveState, FeishuAuthSyncResult, FeishuCliHealth, FeishuCliRequest,
+    FeishuCliResponse, FeishuCliService, FeishuCliUpdateCheck, FeishuCliUpdateResult,
     FeishuConfigInitRequest, FeishuWritePreview,
 };
 
@@ -160,6 +161,40 @@ pub async fn feishu_write_confirm(
 ) -> Result<FeishuCliResponse, String> {
     let service = service.inner().clone();
     tauri::async_runtime::spawn_blocking(move || service.write_confirm(operation_id))
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(Into::into)
+}
+
+
+#[tauri::command]
+pub async fn feishu_cli_check_update(
+    service: tauri::State<'_, FeishuCliService>,
+) -> Result<FeishuCliUpdateCheck, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.check_cli_update())
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn feishu_cli_update(
+    service: tauri::State<'_, FeishuCliService>,
+) -> Result<FeishuCliUpdateResult, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.run_cli_update())
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn feishu_auth_effective_state(
+    service: tauri::State<'_, FeishuCliService>,
+) -> Result<FeishuAuthEffectiveState, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.auth_effective_state())
         .await
         .map_err(|error| error.to_string())?
         .map_err(Into::into)

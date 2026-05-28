@@ -1,8 +1,14 @@
+use crate::features::feishu_cli::cli_runtime::{
+    check_update, resolve_active_cli, update_status_key, version_is_usable, CliRuntimePaths,
+    FeishuCliUpdateCheck, FeishuCliUpdateResult, REQUIRED_LARK_CLI_VERSION,
+};
+use crate::features::feishu_cli::cli_update::update_cli;
 use crate::features::feishu_cli::{
     schema, FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthDomainOption,
-    FeishuAuthPreferences, FeishuAuthPreferencesSaveRequest, FeishuAuthScopeCatalog,
-    FeishuAuthSyncRequest, FeishuAuthSyncResult, FeishuCliHealth, FeishuCliOperationLog,
-    FeishuCliRequest, FeishuCliResponse, FeishuConfigInitRequest, FeishuWritePreview,
+    FeishuAuthEffectiveState, FeishuAuthPreferences, FeishuAuthPreferencesSaveRequest,
+    FeishuAuthScopeCatalog, FeishuAuthSyncRequest, FeishuAuthSyncResult, FeishuCliHealth,
+    FeishuCliOperationLog, FeishuCliRequest, FeishuCliResponse, FeishuConfigInitRequest,
+    FeishuWritePreview,
 };
 use crate::features::settings::SettingsRepository;
 use crate::infra::error::{AppError, AppResult};
@@ -12,13 +18,14 @@ use rusqlite::{params, Connection};
 use serde_json::Value;
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use tauri::Manager;
 
 const PREVIEW_TTL_MINUTES: i64 = 15;
+const FEISHU_SETTINGS_PATH: &str = "/settings?tab=feishu-cli";
 const KEY_FEISHU_SELECTED_DOMAINS: &str = "feishu_cli.auth.selected_domains";
 const KEY_FEISHU_LAST_SYNCED_DOMAINS: &str = "feishu_cli.auth.last_synced_domains";
+const KEY_FEISHU_PENDING_SYNC_DOMAINS: &str = "feishu_cli.auth.pending_sync_domains";
 const KEY_FEISHU_PENDING_DEVICE_CODE: &str = "feishu_cli.auth.pending_device_code";
 const KEY_FEISHU_PENDING_VERIFICATION_URL: &str = "feishu_cli.auth.pending_verification_url";
 const DEFAULT_AUTH_DOMAINS: &[&str] = &["calendar", "contact", "docs", "drive", "minutes", "task"];
@@ -155,18 +162,132 @@ const AUTH_DOMAINS: &[AuthDomain] = &[
 #[derive(Clone)]
 pub struct FeishuCliService {
     database: AppDatabase,
-    cli_path: PathBuf,
-    cli_home: PathBuf,
+    runtime_paths: CliRuntimePaths,
 }
 
 impl FeishuCliService {
-    pub fn new(database: AppDatabase, cli_path: PathBuf, cli_home: PathBuf) -> Self {
+    pub fn new(database: AppDatabase, runtime_paths: CliRuntimePaths) -> Self {
         Self {
             database,
-            cli_path,
-            cli_home,
+            runtime_paths,
         }
     }
+
+    fn active_cli(&self) -> (PathBuf, String, Option<String>, Option<String>) {
+        resolve_active_cli(&self.runtime_paths)
+    }
+
+    fn active_cli_path(&self) -> PathBuf {
+        self.active_cli().0
+    }
+
+    fn cli_home(&self) -> &PathBuf {
+        &self.runtime_paths.cli_home
+    }
+
+    pub fn check_cli_update(&self) -> AppResult<FeishuCliUpdateCheck> {
+        check_update(&self.runtime_paths)
+    }
+
+    pub fn run_cli_update(&self) -> AppResult<FeishuCliUpdateResult> {
+        let database = self.database.clone();
+        update_cli(&self.runtime_paths, move |status| {
+            let connection = database.open_connection()?;
+            SettingsRepository::set_value(&connection, update_status_key(), status)
+        })
+    }
+
+    pub fn read_update_status(&self) -> AppResult<Option<String>> {
+        let connection = self.database.open_connection()?;
+        SettingsRepository::get_value(&connection, update_status_key())
+    }
+
+    pub fn auth_effective_state(&self) -> AppResult<FeishuAuthEffectiveState> {
+        let preferences = self.auth_preferences()?;
+        let health = self.health();
+        let granted_domains = self.fetch_granted_domains().unwrap_or_default();
+        let needs_sync = domains_changed(&preferences.last_synced_domains, &preferences.selected_domains)
+            || !preferences.pending_sync_domains.is_empty()
+            || preferences.pending_device_code.is_some();
+        Ok(FeishuAuthEffectiveState {
+            selected_domains: preferences.selected_domains.clone(),
+            synced_domains: preferences.last_synced_domains.clone(),
+            pending_sync_domains: preferences.pending_sync_domains.clone(),
+            granted_domains,
+            needs_sync,
+            pending_auth_url: preferences.pending_verification_url.clone(),
+            authenticated: health.authenticated,
+            configured: health.configured,
+        })
+    }
+
+    fn ensure_cli_ready(&self) -> AppResult<()> {
+        let (cli_path, source, active_version, _) = self.active_cli();
+        if source == "missing" || !cli_path.exists() {
+            return Err(feishu_cli_error(
+                "CLI_MISSING",
+                format!("lark-cli not found: {}", cli_path.display()),
+            ));
+        }
+        match active_version {
+            Some(version) if version_is_usable(&version) => Ok(()),
+            Some(version) => Err(feishu_cli_error(
+                "CLI_OUTDATED",
+                format!("lark-cli {version} is below required {REQUIRED_LARK_CLI_VERSION}"),
+            )),
+            None => Err(feishu_cli_error(
+                "CLI_OUTDATED",
+                "Unable to read lark-cli version; update required",
+            )),
+        }
+    }
+
+    fn ensure_domain_for_operation(&self, operation: Operation) -> AppResult<()> {
+        let Some(domain) = operation_to_domain(operation) else {
+            return Ok(());
+        };
+        let health = self.health();
+        if !health.configured {
+            return Err(feishu_cli_error("AUTH_REQUIRED", "Configure Feishu app first"));
+        }
+        if !health.authenticated {
+            return Err(feishu_cli_error("AUTH_REQUIRED", "Feishu authorization required"));
+        }
+        let preferences = self.auth_preferences()?;
+        if !preferences.selected_domains.iter().any(|item| item == &domain)
+            && !preferences.selected_domains.contains(&"all".to_string())
+        {
+            return Err(feishu_cli_error(
+                "AUTH_SCOPE_MISSING",
+                format!("Domain {domain} is not selected"),
+            ));
+        }
+        let granted_domains = self.fetch_granted_domains()?;
+        if granted_domains.contains(&"all".to_string())
+            || granted_domains.iter().any(|item| item == &domain)
+        {
+            return Ok(());
+        }
+        Err(feishu_cli_error(
+            "AUTH_SCOPE_MISSING",
+            format!("Missing granted domain: {domain}"),
+        ))
+    }
+
+    pub fn fetch_granted_domains(&self) -> AppResult<Vec<String>> {
+        let args = vec![
+            "auth".to_string(),
+            "status".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ];
+        let output = self.run_command_raw(&args, None)?;
+        if !output.success {
+            return Err(feishu_cli_error("AUTH_REQUIRED", "Unable to read auth status"));
+        }
+        parse_granted_domains(&output.stdout)
+    }
+
 
     pub fn ensure_schema_for_database(database: &AppDatabase) -> AppResult<()> {
         let connection = database.open_connection()?;
@@ -179,54 +300,87 @@ impl FeishuCliService {
     }
 
     pub fn health(&self) -> FeishuCliHealth {
-        if !self.cli_path.exists() {
+        let (cli_path, source, active_version, bundled_version) = self.active_cli();
+        let update_status = self.read_update_status().ok().flatten();
+        let update_available = self
+            .check_cli_update()
+            .map(|check| check.update_available)
+            .unwrap_or(false);
+        let bundled = self.runtime_paths.bundled_cli_path.exists();
+        let path = Some(cli_path.display().to_string());
+        let source_label = if source == "missing" {
+            None
+        } else {
+            Some(source.clone())
+        };
+
+        if source == "missing" || !cli_path.exists() {
             return FeishuCliHealth {
                 installed: false,
-                bundled: false,
+                bundled,
                 configured: false,
                 authenticated: false,
-                path: Some(self.cli_path.display().to_string()),
-                version: None,
-                source: Some("bundled".to_string()),
-                error: Some(format!(
-                    "未找到随应用打包的 lark-cli：{}",
-                    self.cli_path.display()
-                )),
+                path,
+                version: active_version.clone(),
+                source: source_label,
+                error: Some(format!("lark-cli not found: {}", cli_path.display())),
+                bundled_version: bundled_version.clone(),
+                active_version: active_version.clone(),
+                required_version: REQUIRED_LARK_CLI_VERSION.to_string(),
+                update_available,
+                update_status,
             };
         }
 
-        let version = match self.run_command(&["--version".to_string()]) {
-            Ok(output) => Some(first_non_empty_line(&output.stdout, &output.stderr)),
-            Err(error) => {
-                return FeishuCliHealth {
-                    installed: false,
-                    bundled: true,
-                    configured: false,
-                    authenticated: false,
-                    path: Some(self.cli_path.display().to_string()),
-                    version: None,
-                    source: Some("bundled".to_string()),
-                    error: Some(error.to_string()),
-                }
-            }
-        };
+        if active_version
+            .as_ref()
+            .is_none_or(|version| !version_is_usable(version))
+        {
+            return FeishuCliHealth {
+                installed: true,
+                bundled,
+                configured: false,
+                authenticated: false,
+                path,
+                version: active_version.clone(),
+                source: source_label,
+                error: Some(format!(
+                    "lark-cli below required version {REQUIRED_LARK_CLI_VERSION}"
+                )),
+                bundled_version: bundled_version.clone(),
+                active_version: active_version.clone(),
+                required_version: REQUIRED_LARK_CLI_VERSION.to_string(),
+                update_available: true,
+                update_status,
+            };
+        }
 
         let configured = self
             .run_command(&["config".to_string(), "show".to_string()])
             .is_ok();
         let authenticated = self
-            .run_command(&["auth".to_string(), "status".to_string()])
+            .run_command(&[
+                "auth".to_string(),
+                "status".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ])
             .is_ok();
 
         FeishuCliHealth {
             installed: true,
-            bundled: true,
+            bundled,
             configured,
             authenticated,
-            path: Some(self.cli_path.display().to_string()),
-            version,
-            source: Some("bundled".to_string()),
+            path,
+            version: active_version.clone(),
+            source: source_label,
             error: None,
+            bundled_version,
+            active_version,
+            required_version: REQUIRED_LARK_CLI_VERSION.to_string(),
+            update_available,
+            update_status,
         }
     }
 
@@ -236,10 +390,10 @@ impl FeishuCliService {
         let mut brand = None;
         let mut error = None;
 
-        if !self.cli_path.exists() {
+        if !self.active_cli_path().exists() {
             error = Some(format!(
                 "未找到随应用打包的 lark-cli：{}",
-                self.cli_path.display()
+                self.active_cli_path().display()
             ));
         } else {
             let args = vec![
@@ -300,6 +454,8 @@ impl FeishuCliService {
         )?;
         let last_synced_domains =
             read_domain_list_setting(&connection, KEY_FEISHU_LAST_SYNCED_DOMAINS, Vec::new())?;
+        let pending_sync_domains =
+            read_domain_list_setting(&connection, KEY_FEISHU_PENDING_SYNC_DOMAINS, Vec::new())?;
         let pending_device_code =
             SettingsRepository::get_value(&connection, KEY_FEISHU_PENDING_DEVICE_CODE)?;
         let pending_verification_url =
@@ -308,6 +464,7 @@ impl FeishuCliService {
         Ok(FeishuAuthPreferences {
             selected_domains,
             last_synced_domains,
+            pending_sync_domains,
             pending_device_code,
             pending_verification_url,
         })
@@ -353,7 +510,7 @@ impl FeishuCliService {
 
         let preferences = self.auth_preferences()?;
         let reauth_required = health.authenticated
-            && has_removed_domain(&preferences.last_synced_domains, &selected_domains);
+            && domains_changed(&preferences.last_synced_domains, &selected_domains);
 
         if reauth_required {
             self.auth_logout()?;
@@ -392,7 +549,7 @@ impl FeishuCliService {
         )?;
         SettingsRepository::set_value(
             &connection,
-            KEY_FEISHU_LAST_SYNCED_DOMAINS,
+            KEY_FEISHU_PENDING_SYNC_DOMAINS,
             &serde_json::to_string(&selected_domains)?,
         )?;
         save_optional_setting(
@@ -408,7 +565,7 @@ impl FeishuCliService {
 
         Ok(FeishuAuthSyncResult {
             selected_domains: selected_domains.clone(),
-            last_synced_domains: selected_domains,
+            last_synced_domains: preferences.last_synced_domains,
             verification_url,
             pending_device_code: pending_device_code.clone(),
             has_device_code: pending_device_code.is_some(),
@@ -517,7 +674,20 @@ impl FeishuCliService {
             "--device-code".to_string(),
             device_code,
         ];
+        self.ensure_cli_ready()?;
         let output = self.run_command(&args)?;
+        let preferences = self.auth_preferences()?;
+        let synced_domains = if preferences.pending_sync_domains.is_empty() {
+            preferences.selected_domains.clone()
+        } else {
+            preferences.pending_sync_domains.clone()
+        };
+        let connection = self.database.open_connection()?;
+        SettingsRepository::set_value(
+            &connection,
+            KEY_FEISHU_LAST_SYNCED_DOMAINS,
+            &serde_json::to_string(&synced_domains)?,
+        )?;
         self.clear_pending_auth_state()?;
         Ok(response_from_output(
             "auth_complete".to_string(),
@@ -527,9 +697,24 @@ impl FeishuCliService {
     }
 
     pub fn config_remove(&self) -> AppResult<FeishuCliResponse> {
+        self.ensure_cli_ready()?;
         let args = vec!["config".to_string(), "remove".to_string()];
         let output = self.run_command(&args)?;
         self.clear_pending_auth_state()?;
+        let connection = self.database.open_connection()?;
+        SettingsRepository::delete_keys(
+            &connection,
+            &[
+                KEY_FEISHU_SELECTED_DOMAINS,
+                KEY_FEISHU_LAST_SYNCED_DOMAINS,
+                KEY_FEISHU_PENDING_SYNC_DOMAINS,
+            ],
+        )?;
+        SettingsRepository::set_value(
+            &connection,
+            KEY_FEISHU_SELECTED_DOMAINS,
+            &serde_json::to_string(&default_auth_domains())?,
+        )?;
         Ok(response_from_output(
             "config_remove".to_string(),
             self.command_for_display(&args),
@@ -563,12 +748,17 @@ impl FeishuCliService {
             &[
                 KEY_FEISHU_PENDING_DEVICE_CODE,
                 KEY_FEISHU_PENDING_VERIFICATION_URL,
+                KEY_FEISHU_PENDING_SYNC_DOMAINS,
             ],
         )
     }
 
     pub fn read_operation(&self, request: FeishuCliRequest) -> AppResult<FeishuCliResponse> {
+        self.ensure_cli_ready()?;
         let operation = parse_read_operation(&request.operation)?;
+        if operation != Operation::AuthStatus {
+            self.ensure_domain_for_operation(operation)?;
+        }
         let command_args = build_operation_args(operation, &request.args, false)?;
         let output = self.run_command(&command_args)?;
         Ok(response_from_output(
@@ -579,7 +769,9 @@ impl FeishuCliService {
     }
 
     pub fn write_preview(&self, request: FeishuCliRequest) -> AppResult<FeishuWritePreview> {
+        self.ensure_cli_ready()?;
         let operation = parse_write_operation(&request.operation)?;
+        self.ensure_domain_for_operation(operation)?;
         let command_args = build_operation_args(operation, &request.args, false)?;
         let dry_run_args = build_operation_args(operation, &request.args, true)?;
         let dry_run_output = self.run_command(&dry_run_args)?;
@@ -652,6 +844,8 @@ impl FeishuCliService {
 
         let operation = parse_write_operation(&log.operation)?;
         let args: Value = serde_json::from_str(&log.args_json)?;
+        self.ensure_cli_ready()?;
+        self.ensure_domain_for_operation(operation)?;
         let command_args = build_operation_args(operation, &args, false)?;
         let output = self.run_command(&command_args);
         let executed_at = Utc::now().to_rfc3339();
@@ -696,24 +890,25 @@ impl FeishuCliService {
         self.run_command_with_stdin(args, None)
     }
 
-    fn run_command_with_stdin(
+    fn run_command_raw(
         &self,
         args: &[String],
         stdin_text: Option<String>,
-    ) -> AppResult<ProcessOutput> {
-        fs::create_dir_all(&self.cli_home).map_err(|error| {
+    ) -> AppResult<RawCommandOutput> {
+        fs::create_dir_all(self.cli_home()).map_err(|error| {
             AppError::message(format!(
                 "Failed to create lark-cli app data dir {}: {error}",
-                self.cli_home.display()
+                self.cli_home().display()
             ))
         })?;
 
-        let mut command = Command::new(&self.cli_path);
+        let cli_path = self.active_cli_path();
+        let mut command = Command::new(&cli_path);
         command
             .args(args)
-            .env("LARK_CLI_HOME", &self.cli_home)
-            .env("LARK_CLI_CONFIG_HOME", &self.cli_home)
-            .env("XDG_CONFIG_HOME", &self.cli_home)
+            .env("LARK_CLI_HOME", self.cli_home())
+            .env("LARK_CLI_CONFIG_HOME", self.cli_home())
+            .env("XDG_CONFIG_HOME", self.cli_home())
             .env("NO_COLOR", "1")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -725,10 +920,10 @@ impl FeishuCliService {
         apply_platform_process_options(&mut command);
 
         let mut child = command.spawn().map_err(|error| {
-            AppError::message(format!(
-                "Failed to run bundled lark-cli {}: {error}",
-                self.cli_path.display()
-            ))
+            feishu_cli_error(
+                "CLI_MISSING",
+                format!("Failed to run lark-cli {}: {error}", cli_path.display()),
+            )
         })?;
 
         if let Some(stdin_text) = stdin_text {
@@ -742,59 +937,67 @@ impl FeishuCliService {
         let output = child.wait_with_output()?;
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        if !output.status.success() {
-            return Err(AppError::message(format!(
-                "lark-cli failed with status {}: {}{}{}",
-                output.status,
-                stdout,
-                if stdout.is_empty() || stderr.is_empty() {
-                    ""
-                } else {
-                    "\n"
-                },
-                stderr
-            )));
+        Ok(RawCommandOutput {
+            success: output.status.success(),
+            stdout,
+            stderr,
+        })
+    }
+
+    fn run_command_with_stdin(
+        &self,
+        args: &[String],
+        stdin_text: Option<String>,
+    ) -> AppResult<ProcessOutput> {
+        let raw = self.run_command_raw(args, stdin_text)?;
+        if raw.success {
+            return Ok(ProcessOutput {
+                stdout: raw.stdout,
+                stderr: raw.stderr,
+            });
         }
 
-        Ok(ProcessOutput { stdout, stderr })
+        let combined = format!(
+            "{}{}{}",
+            raw.stdout,
+            if raw.stdout.is_empty() || raw.stderr.is_empty() {
+                ""
+            } else {
+                "
+"
+            },
+            raw.stderr
+        );
+        let lowered = combined.to_ascii_lowercase();
+        if lowered.contains("scope")
+            || lowered.contains("permission")
+            || lowered.contains("403")
+        {
+            return Err(feishu_cli_error(
+                "AUTH_SCOPE_MISSING",
+                combined.trim().to_string(),
+            ));
+        }
+        if lowered.contains("not authenticated")
+            || lowered.contains("login")
+            || lowered.contains("unauthorized")
+            || lowered.contains("401")
+        {
+            return Err(feishu_cli_error("AUTH_REQUIRED", combined.trim().to_string()));
+        }
+        Err(AppError::message(format!("lark-cli failed: {combined}")))
     }
 
     fn command_for_display(&self, args: &[String]) -> Vec<String> {
-        let mut command = vec![self.cli_path.display().to_string()];
+        let mut command = vec![self.active_cli_path().display().to_string()];
         command.extend(args.iter().cloned());
         command
     }
 }
 
-pub fn resolve_bundled_cli_paths(app: &tauri::AppHandle) -> AppResult<(PathBuf, PathBuf)> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| AppError::message(format!("Failed to resolve app data dir: {error}")))?;
-    let cli_home = app_data_dir.join("lark-cli");
-
-    #[cfg(windows)]
-    let cli_path = app
-        .path()
-        .resolve(
-            "resources/lark-cli/windows/lark-cli.exe",
-            tauri::path::BaseDirectory::Resource,
-        )
-        .or_else(|_| {
-            app.path().resolve(
-                "lark-cli/windows/lark-cli.exe",
-                tauri::path::BaseDirectory::Resource,
-            )
-        })
-        .unwrap_or_else(|_| app_data_dir.join("resources/lark-cli/windows/lark-cli.exe"));
-
-    #[cfg(not(windows))]
-    let cli_path = app_data_dir.join("unsupported-lark-cli");
-
-    Ok((cli_path, cli_home))
-}
 
 #[derive(Clone, Copy, Debug)]
+#[derive(PartialEq)]
 enum Operation {
     AuthStatus,
     CalendarAgenda,
@@ -809,6 +1012,12 @@ enum Operation {
 }
 
 struct ProcessOutput {
+    stdout: String,
+    stderr: String,
+}
+
+struct RawCommandOutput {
+    success: bool,
     stdout: String,
     stderr: String,
 }
@@ -908,8 +1117,82 @@ fn normalize_auth_domains(values: &[String]) -> AppResult<Vec<String>> {
     Ok(normalized)
 }
 
-fn has_removed_domain(previous: &[String], next: &[String]) -> bool {
-    previous.iter().any(|domain| !next.contains(domain))
+fn domains_changed(previous: &[String], next: &[String]) -> bool {
+    let mut left = previous.to_vec();
+    let mut right = next.to_vec();
+    left.sort();
+    right.sort();
+    left != right
+}
+
+fn operation_to_domain(operation: Operation) -> Option<&'static str> {
+    match operation {
+        Operation::AuthStatus => None,
+        Operation::CalendarAgenda | Operation::CalendarFreebusy | Operation::CalendarEventCreate => {
+            Some("calendar")
+        }
+        Operation::ContactSearch => Some("contact"),
+        Operation::TaskList | Operation::TaskCreate => Some("task"),
+        Operation::DocSearch | Operation::DocCreateMarkdown => Some("docs"),
+        Operation::MinutesSearch => Some("minutes"),
+    }
+}
+
+fn parse_granted_domains(stdout: &str) -> AppResult<Vec<String>> {
+    let value: Value = serde_json::from_str(stdout.trim()).map_err(|error| {
+        AppError::message(format!("Failed to parse auth status JSON: {error}"))
+    })?;
+    if let Some(domains) = value.get("domains").and_then(Value::as_array) {
+        let parsed = domains
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if !parsed.is_empty() {
+            return Ok(parsed);
+        }
+    }
+    if let Some(domains) = value.get("grantedDomains").and_then(Value::as_array) {
+        let parsed = domains
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if !parsed.is_empty() {
+            return Ok(parsed);
+        }
+    }
+    if let Some(scopes) = value
+        .get("scopes")
+        .or_else(|| value.get("userScopes"))
+        .and_then(Value::as_array)
+    {
+        let mut domains = scopes
+            .iter()
+            .filter_map(Value::as_str)
+            .filter_map(|scope| scope.split(':').next())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        domains.sort();
+        domains.dedup();
+        if !domains.is_empty() {
+            return Ok(domains);
+        }
+    }
+    Ok(Vec::new())
+}
+
+fn feishu_cli_error(code: &str, message: impl Into<String>) -> AppError {
+    AppError::message(
+        serde_json::json!({
+            "code": code,
+            "message": message.into(),
+            "settingsPath": FEISHU_SETTINGS_PATH,
+        })
+        .to_string(),
+    )
 }
 
 fn pick_nested_string_in_map(
@@ -1019,10 +1302,7 @@ fn build_operation_args(
 }
 
 fn operation_supports_json_format(operation: Operation) -> bool {
-    !matches!(
-        operation,
-        Operation::AuthStatus | Operation::DocCreateMarkdown
-    )
+    !matches!(operation, Operation::DocCreateMarkdown)
 }
 
 fn append_common_args(
@@ -1537,7 +1817,7 @@ mod tests {
             false,
         )
         .expect("build args");
-        assert_eq!(command_args, vec!["auth", "status"]);
+        assert_eq!(command_args, vec!["auth", "status", "--format", "json"]);
     }
 
     #[test]

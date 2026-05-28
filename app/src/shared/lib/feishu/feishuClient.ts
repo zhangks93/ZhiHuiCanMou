@@ -9,6 +9,11 @@ export interface FeishuCliHealth {
   version?: string | null
   source?: string | null
   error?: string | null
+  bundledVersion?: string | null
+  activeVersion?: string | null
+  requiredVersion: string
+  updateAvailable: boolean
+  updateStatus?: string | null
 }
 
 export interface FeishuAuthDomainOption {
@@ -32,8 +37,37 @@ export interface FeishuAuthScopeCatalog {
 export interface FeishuAuthPreferences {
   selectedDomains: string[]
   lastSyncedDomains: string[]
+  pendingSyncDomains: string[]
   pendingDeviceCode?: string | null
   pendingVerificationUrl?: string | null
+}
+
+export interface FeishuAuthEffectiveState {
+  selectedDomains: string[]
+  syncedDomains: string[]
+  pendingSyncDomains: string[]
+  grantedDomains: string[]
+  needsSync: boolean
+  pendingAuthUrl?: string | null
+  authenticated: boolean
+  configured: boolean
+}
+
+export interface FeishuCliUpdateCheck {
+  activeVersion?: string | null
+  bundledVersion?: string | null
+  latestVersion?: string | null
+  requiredVersion: string
+  updateAvailable: boolean
+  activeSource: string
+}
+
+export interface FeishuCliUpdateResult {
+  success: boolean
+  activeVersion?: string | null
+  activeSource: string
+  message: string
+  updateStatus: string
 }
 
 export interface FeishuAuthPreferencesSaveRequest {
@@ -95,6 +129,18 @@ export interface FeishuAuthCompleteRequest {
 
 export async function getFeishuCliHealth() {
   return invokeTauri<FeishuCliHealth>('feishu_cli_health')
+}
+
+export async function checkFeishuCliUpdate() {
+  return invokeTauri<FeishuCliUpdateCheck>('feishu_cli_check_update')
+}
+
+export async function updateFeishuCli() {
+  return invokeTauri<FeishuCliUpdateResult>('feishu_cli_update')
+}
+
+export async function getFeishuAuthEffectiveState() {
+  return invokeTauri<FeishuAuthEffectiveState>('feishu_auth_effective_state')
 }
 
 export async function initFeishuConfig(request: FeishuConfigInitRequest) {

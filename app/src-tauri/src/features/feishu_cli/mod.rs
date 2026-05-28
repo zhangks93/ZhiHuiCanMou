@@ -1,11 +1,17 @@
+mod cli_runtime;
+mod cli_update;
 mod model;
 mod schema;
 mod service;
 
+pub use cli_runtime::{
+    resolve_cli_paths, FeishuCliUpdateCheck, FeishuCliUpdateResult,
+};
 pub use model::{
     FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthDomainOption,
-    FeishuAuthPreferences, FeishuAuthPreferencesSaveRequest, FeishuAuthScopeCatalog,
-    FeishuAuthSyncRequest, FeishuAuthSyncResult, FeishuCliHealth, FeishuCliOperationLog,
-    FeishuCliRequest, FeishuCliResponse, FeishuConfigInitRequest, FeishuWritePreview,
+    FeishuAuthEffectiveState, FeishuAuthPreferences, FeishuAuthPreferencesSaveRequest,
+    FeishuAuthScopeCatalog, FeishuAuthSyncRequest, FeishuAuthSyncResult, FeishuCliHealth,
+    FeishuCliOperationLog, FeishuCliRequest, FeishuCliResponse, FeishuConfigInitRequest,
+    FeishuWritePreview,
 };
-pub use service::{resolve_bundled_cli_paths, FeishuCliService};
+pub use service::FeishuCliService;
