@@ -118,7 +118,7 @@ jobs:
 
       - name: prepare bundled lark-cli (windows)
         if: matrix.platform == 'windows-latest'
-        run: node scripts/prepare-lark-cli.mjs
+        run: npm run prepare:lark-cli --prefix app
 
       - uses: tauri-apps/tauri-action@action-v0.6.1
         env:

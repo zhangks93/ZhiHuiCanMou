@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "prepare:lark-cli": "node ../scripts/prepare-lark-cli.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview",
