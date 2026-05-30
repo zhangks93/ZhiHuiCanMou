@@ -6,6 +6,7 @@
     "dev": "npm run dev --prefix app",
     "build": "npm run build --prefix app",
     "quality:report": "node scripts/quality-report.mjs",
+    "biz:hierarchy": "node scripts/query-biz-hierarchy.mjs",
     "build:exe": "npm run build:exe --prefix app",
     "tauri": "npm run tauri --prefix app --",
     "tauri:dev": "npm run tauri:dev --prefix app",

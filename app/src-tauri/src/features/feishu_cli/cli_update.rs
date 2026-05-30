@@ -22,9 +22,8 @@ pub fn update_cli(
     }
 
     set_update_status("checking")?;
-    let latest_version = fetch_latest_registry_version()?.ok_or_else(|| {
-        AppError::message("missing latest version")
-    })?;
+    let latest_version = fetch_latest_registry_version()?
+        .ok_or_else(|| AppError::message("missing latest version"))?;
     set_update_status("downloading")?;
     let tarball = download_npm_tarball(&latest_version)?;
     set_update_status("verifying")?;

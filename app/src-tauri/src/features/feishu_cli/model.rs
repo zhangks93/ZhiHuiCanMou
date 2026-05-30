@@ -16,6 +16,9 @@ pub struct FeishuCliHealth {
     pub required_version: String,
     pub update_available: bool,
     pub update_status: Option<String>,
+    pub auto_update_status: Option<String>,
+    pub last_update_error: Option<String>,
+    pub recommended_action: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,6 +30,23 @@ pub struct FeishuAuthDomainOption {
     pub enabled_scope_count: usize,
     pub available: bool,
     pub recommended: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeishuAuthPreset {
+    pub id: String,
+    pub label: String,
+    pub description: String,
+    pub domains: Vec<String>,
+    pub recommended: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeishuAuthPresetCatalog {
+    pub presets: Vec<FeishuAuthPreset>,
+    pub default_preset_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

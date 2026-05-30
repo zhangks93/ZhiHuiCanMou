@@ -1,9 +1,9 @@
 use crate::features::feishu_cli::{
-    FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthPreferences,
-    FeishuAuthPreferencesSaveRequest, FeishuAuthScopeCatalog, FeishuAuthSyncRequest,
-    FeishuAuthEffectiveState, FeishuAuthSyncResult, FeishuCliHealth, FeishuCliRequest,
-    FeishuCliResponse, FeishuCliService, FeishuCliUpdateCheck, FeishuCliUpdateResult,
-    FeishuConfigInitRequest, FeishuWritePreview,
+    FeishuAuthBeginRequest, FeishuAuthCompleteRequest, FeishuAuthEffectiveState,
+    FeishuAuthPreferences, FeishuAuthPreferencesSaveRequest, FeishuAuthPresetCatalog,
+    FeishuAuthScopeCatalog, FeishuAuthSyncRequest, FeishuAuthSyncResult, FeishuCliHealth,
+    FeishuCliRequest, FeishuCliResponse, FeishuCliService, FeishuCliUpdateCheck,
+    FeishuCliUpdateResult, FeishuConfigInitRequest, FeishuWritePreview,
 };
 
 #[tauri::command]
@@ -12,6 +12,16 @@ pub async fn feishu_cli_health(
 ) -> Result<FeishuCliHealth, String> {
     let service = service.inner().clone();
     tauri::async_runtime::spawn_blocking(move || service.health())
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn feishu_cli_auto_ensure_ready(
+    service: tauri::State<'_, FeishuCliService>,
+) -> Result<FeishuCliHealth, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.auto_ensure_ready())
         .await
         .map_err(|error| error.to_string())
 }
@@ -46,6 +56,16 @@ pub async fn feishu_auth_scope_catalog(
 ) -> Result<FeishuAuthScopeCatalog, String> {
     let service = service.inner().clone();
     tauri::async_runtime::spawn_blocking(move || service.auth_scope_catalog())
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn feishu_auth_presets_get(
+    service: tauri::State<'_, FeishuCliService>,
+) -> Result<FeishuAuthPresetCatalog, String> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.auth_presets())
         .await
         .map_err(|error| error.to_string())
 }
@@ -165,7 +185,6 @@ pub async fn feishu_write_confirm(
         .map_err(|error| error.to_string())?
         .map_err(Into::into)
 }
-
 
 #[tauri::command]
 pub async fn feishu_cli_check_update(

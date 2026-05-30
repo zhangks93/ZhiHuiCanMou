@@ -7,10 +7,12 @@ import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { loadLLMConfig, saveLLMConfig, clearLLMConfig, loadProviderSettings, DEFAULT_URLS, DEFAULT_MODELS, type LLMConfig, type ProviderSettings } from '@/shared/lib/llmConfig'
 import { loadThresholdSettings, saveThresholdSettings, resetThresholdSettings, DEFAULT_THRESHOLDS, type ThresholdSettings } from '@/shared/lib/thresholdConfig'
 import {
+  autoEnsureFeishuCliReady,
   checkFeishuCliUpdate,
   completeFeishuAuth,
   getFeishuAuthEffectiveState,
   getFeishuAuthPreferences,
+  getFeishuAuthPresets,
   getFeishuAuthStatus,
   getFeishuAuthScopeCatalog,
   getFeishuCliHealth,
@@ -21,15 +23,29 @@ import {
   updateFeishuCli,
   type FeishuAuthEffectiveState,
   type FeishuAuthPreferences,
+  type FeishuAuthPresetCatalog,
   type FeishuAuthScopeCatalog,
   type FeishuCliHealth,
   type FeishuCliResponse,
   type FeishuCliUpdateCheck,
 } from '@/shared/lib/feishu/feishuClient'
+import { openFeishuAuthUrl } from '@/shared/lib/feishu/openFeishuAuthUrl'
 
 const FEISHU_AUTH_STORAGE_KEY = 'canmou:feishu-auth-domains'
 
 const DEFAULT_FEISHU_AUTH_DOMAINS = ['calendar', 'contact', 'docs', 'drive', 'minutes', 'task']
+
+function sameStringSet(left: string[], right: string[]) {
+  if (left.length !== right.length) return false
+  const normalizedLeft = [...left].sort()
+  const normalizedRight = [...right].sort()
+  return normalizedLeft.every((item, index) => item === normalizedRight[index])
+}
+
+function resolveFeishuPresetId(domains: string[], catalog: FeishuAuthPresetCatalog | null) {
+  const preset = catalog?.presets.find((item) => sameStringSet(item.domains, domains))
+  return preset?.id ?? 'custom'
+}
 
 const PROVIDER_OPTIONS = [
   {
@@ -94,6 +110,7 @@ export function Settings() {
   const [feishuHealth, setFeishuHealth] = useState<FeishuCliHealth | null>(null)
   const [feishuAuthStatus, setFeishuAuthStatus] = useState<FeishuCliResponse | null>(null)
   const [feishuScopeCatalog, setFeishuScopeCatalog] = useState<FeishuAuthScopeCatalog | null>(null)
+  const [feishuPresetCatalog, setFeishuPresetCatalog] = useState<FeishuAuthPresetCatalog | null>(null)
   const [, setFeishuAuthPreferences] = useState<FeishuAuthPreferences | null>(null)
   const [feishuStatusError, setFeishuStatusError] = useState<string | null>(null)
   const [feishuStatusLoading, setFeishuStatusLoading] = useState(false)
@@ -104,6 +121,7 @@ export function Settings() {
   const [feishuAuthLoading, setFeishuAuthLoading] = useState(false)
   const [feishuAuthPayload, setFeishuAuthPayload] = useState<Record<string, unknown> | null>(null)
   const [feishuAuthDomains, setFeishuAuthDomains] = useState<string[]>(DEFAULT_FEISHU_AUTH_DOMAINS)
+  const [feishuAuthPresetId, setFeishuAuthPresetId] = useState('basic')
   const [feishuAuthDirty, setFeishuAuthDirty] = useState(false)
   const [feishuEffectiveState, setFeishuEffectiveState] = useState<FeishuAuthEffectiveState | null>(null)
   const [feishuUpdateCheck, setFeishuUpdateCheck] = useState<FeishuCliUpdateCheck | null>(null)
@@ -239,10 +257,14 @@ export function Settings() {
     setFeishuStatusError(null)
     setFeishuAuthStatus(null)
     try {
-      const health = await getFeishuCliHealth()
+      const health = await autoEnsureFeishuCliReady().catch(() => getFeishuCliHealth())
       setFeishuHealth(health)
-      const catalog = await getFeishuAuthScopeCatalog()
+      const [catalog, presets] = await Promise.all([
+        getFeishuAuthScopeCatalog(),
+        getFeishuAuthPresets(),
+      ])
       setFeishuScopeCatalog(catalog)
+      setFeishuPresetCatalog(presets)
       if (catalog.error && health.configured) {
         setFeishuStatusError(catalog.error)
       }
@@ -273,6 +295,7 @@ export function Settings() {
           : DEFAULT_FEISHU_AUTH_DOMAINS
         setFeishuAuthPreferences(effectivePreferences)
         setFeishuAuthDomains(selectedDomains)
+        setFeishuAuthPresetId(resolveFeishuPresetId(selectedDomains, presets))
         if (effectivePreferences.pendingDeviceCode || effectivePreferences.pendingVerificationUrl) {
           setFeishuAuthPayload({
             device_code: effectivePreferences.pendingDeviceCode,
@@ -365,6 +388,7 @@ export function Settings() {
       : [...feishuAuthDomains, domain]
 
     setFeishuAuthDomains(nextDomains)
+    setFeishuAuthPresetId(resolveFeishuPresetId(nextDomains, feishuPresetCatalog))
     setFeishuAuthDirty(true)
     setFeishuAuthPayload(null)
 
@@ -377,6 +401,18 @@ export function Settings() {
         .then((saved) => setFeishuAuthPreferences(saved))
         .catch(() => {})
     }, 300)
+  }
+
+  const handleFeishuPresetSelect = (presetId: string) => {
+    const preset = feishuPresetCatalog?.presets.find((item) => item.id === presetId)
+    if (!preset) return
+    setFeishuAuthPresetId(preset.id)
+    setFeishuAuthDomains(preset.domains)
+    setFeishuAuthDirty(true)
+    setFeishuAuthPayload(null)
+    void saveFeishuAuthPreferences({ selectedDomains: preset.domains })
+      .then((saved) => setFeishuAuthPreferences(saved))
+      .catch(() => {})
   }
 
   const handleFeishuAuthSync = async () => {
@@ -402,7 +438,10 @@ export function Settings() {
         verification_uri_complete: result.verificationUrl ?? null,
       })
       if (result.verificationUrl) {
-        window.open(result.verificationUrl, '_blank', 'noopener,noreferrer')
+        const opened = await openFeishuAuthUrl(result.verificationUrl)
+        if (!opened) {
+          showToast('授权链接已复制，请在浏览器中打开')
+        }
       }
       setFeishuAuthDirty(false)
       showToast(result.reauthRequired ? '已重置旧授权，请重新完成授权' : '授权链接已更新')
@@ -472,6 +511,13 @@ export function Settings() {
     if (!url) return
     await navigator.clipboard.writeText(url)
     showToast('授权链接已复制')
+  }
+
+  const handleOpenFeishuUrl = async () => {
+    const url = extractFeishuUrl(feishuAuthPayload)
+    if (!url) return
+    const opened = await openFeishuAuthUrl(url)
+    showToast(opened ? '已打开浏览器授权' : '授权链接已复制，请在浏览器中打开')
   }
 
   useEffect(() => {
@@ -855,7 +901,7 @@ export function Settings() {
               <div className="rounded-[18px] border border-slate-200 bg-white p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-body font-medium text-slate-800">授权范围</div>
+                    <div className="text-body font-medium text-slate-800">使用场景</div>
                     <p className="mt-1 text-caption text-slate-500">
                       已选择：{selectedFeishuDomainLabels.length ? selectedFeishuDomainLabels.join('、') : '未选择'}
                     </p>
@@ -871,6 +917,45 @@ export function Settings() {
                   </button>
                 </div>
 
+                <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  {(feishuPresetCatalog?.presets ?? []).map((preset) => {
+                    const active = feishuAuthPresetId === preset.id
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleFeishuPresetSelect(preset.id)}
+                        disabled={feishuAuthLoading}
+                        className={`min-h-[5.25rem] rounded-xl border px-3 py-3 text-left transition-colors disabled:opacity-60 ${
+                          active
+                            ? 'border-primary-200 bg-primary-50/70 text-slate-900'
+                            : 'border-slate-200 bg-slate-50/70 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 text-body font-medium">
+                          {preset.label}
+                          {preset.recommended && (
+                            <span className="rounded bg-success-100 px-1.5 py-0.5 text-[10px] font-medium text-success-700">
+                              推荐
+                            </span>
+                          )}
+                        </span>
+                        <span className="mt-1 block text-[11px] leading-5 text-slate-500">
+                          {preset.description}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  {feishuAuthPresetId === 'custom' && (
+                    <div className="min-h-[5.25rem] rounded-xl border border-warning-200 bg-warning-50/70 px-3 py-3 text-left text-warning-800">
+                      <div className="text-body font-medium">自定义范围</div>
+                      <div className="mt-1 text-[11px] leading-5">当前选择与预设不同，可在下方高级范围中调整。</div>
+                    </div>
+                  )}
+                </div>
+
+                <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  <summary className="cursor-pointer text-body font-medium text-slate-700">高级权限范围</summary>
                 <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
                   {feishuDomains.map((option) => {
                     const checked = feishuAuthDomains.includes(option.id)
@@ -918,6 +1003,7 @@ export function Settings() {
                     )
                   })}
                 </div>
+                </details>
 
                 {feishuPendingUrl && (
                   <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -928,7 +1014,7 @@ export function Settings() {
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => window.open(feishuPendingUrl, '_blank', 'noopener,noreferrer')}
+                        onClick={() => void handleOpenFeishuUrl()}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-caption font-medium text-slate-600 transition-colors hover:bg-slate-100"
                       >
                         <ExternalLink size={13} />

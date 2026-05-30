@@ -72,9 +72,7 @@ pub fn resolve_cli_paths(app: &tauri::AppHandle) -> AppResult<CliRuntimePaths> {
                     tauri::path::BaseDirectory::Resource,
                 )
             })
-            .unwrap_or_else(|_| {
-                app_data_dir.join("resources/lark-cli/windows/lark-cli.exe")
-            });
+            .unwrap_or_else(|_| app_data_dir.join("resources/lark-cli/windows/lark-cli.exe"));
         let bundled_manifest_path = bundled_cli_path
             .parent()
             .map(|dir| dir.join("lark-cli.manifest.json"))
@@ -153,16 +151,17 @@ pub fn probe_cli_version(cli_path: &Path, cli_home: &Path) -> Option<String> {
     if !cli_path.exists() {
         return None;
     }
-    let output = Command::new(cli_path)
+    let mut command = Command::new(cli_path);
+    command
         .arg("--version")
         .env("LARK_CLI_HOME", cli_home)
         .env("LARK_CLI_CONFIG_HOME", cli_home)
         .env("XDG_CONFIG_HOME", cli_home)
         .env("NO_COLOR", "1")
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .ok()?;
+        .stderr(Stdio::piped());
+    apply_platform_process_options(&mut command);
+    let output = command.output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -170,6 +169,17 @@ pub fn probe_cli_version(cli_path: &Path, cli_home: &Path) -> Option<String> {
     let fallback = String::from_utf8_lossy(&output.stderr);
     parse_version_text(&text).or_else(|| parse_version_text(&fallback))
 }
+
+#[cfg(windows)]
+pub fn apply_platform_process_options(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+pub fn apply_platform_process_options(_command: &mut Command) {}
 
 pub fn parse_version_text(text: &str) -> Option<String> {
     for token in text.split_whitespace() {
@@ -237,7 +247,8 @@ pub(crate) fn fetch_latest_registry_version() -> AppResult<Option<String>> {
         .call()
         .map_err(|error| AppError::message(format!("查询 npm registry 失败: {error}")))?;
     let value: serde_json::Value = response
-        .body_mut().read_json()
+        .body_mut()
+        .read_json()
         .map_err(|error| AppError::message(format!("解析 npm registry 响应失败: {error}")))?;
     Ok(value
         .get("version")
@@ -251,7 +262,10 @@ pub(crate) fn download_npm_tarball(version: &str) -> AppResult<Vec<u8>> {
         .call()
         .map_err(|error| AppError::message(format!("下载 lark-cli 失败: {error}")))?;
     response
-        .body_mut().with_config().limit(128 * 1024 * 1024).read_to_vec()
+        .body_mut()
+        .with_config()
+        .limit(128 * 1024 * 1024)
+        .read_to_vec()
         .map_err(|error| AppError::message(format!("读取 lark-cli 安装包失败: {error}")))
 }
 

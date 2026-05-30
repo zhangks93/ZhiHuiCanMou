@@ -3,5 +3,24 @@
   "identifier": "oauth-window",
   "description": "Capability for OAuth popup window",
   "windows": ["oauth"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://open.feishu.cn/*" },
+        { "url": "https://*.feishu.cn/*" },
+        { "url": "https://*.larksuite.com/*" }
+      ]
+    },
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://open.feishu.cn/*" },
+        { "url": "https://*.feishu.cn/*" },
+        { "url": "https://*.larksuite.com/*" },
+        { "url": "canmou://auth-callback*" }
+      ]
+    }
+  ]
 }

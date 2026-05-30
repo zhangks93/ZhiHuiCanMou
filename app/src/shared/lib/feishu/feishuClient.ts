@@ -14,6 +14,9 @@ export interface FeishuCliHealth {
   requiredVersion: string
   updateAvailable: boolean
   updateStatus?: string | null
+  autoUpdateStatus?: string | null
+  lastUpdateError?: string | null
+  recommendedAction: 'configure' | 'authorize' | 'syncScopes' | 'update' | 'ready' | string
 }
 
 export interface FeishuAuthDomainOption {
@@ -32,6 +35,19 @@ export interface FeishuAuthScopeCatalog {
   appId?: string | null
   brand?: string | null
   error?: string | null
+}
+
+export interface FeishuAuthPreset {
+  id: string
+  label: string
+  description: string
+  domains: string[]
+  recommended: boolean
+}
+
+export interface FeishuAuthPresetCatalog {
+  presets: FeishuAuthPreset[]
+  defaultPresetId: string
 }
 
 export interface FeishuAuthPreferences {
@@ -131,6 +147,10 @@ export async function getFeishuCliHealth() {
   return invokeTauri<FeishuCliHealth>('feishu_cli_health')
 }
 
+export async function autoEnsureFeishuCliReady() {
+  return invokeTauri<FeishuCliHealth>('feishu_cli_auto_ensure_ready')
+}
+
 export async function checkFeishuCliUpdate() {
   return invokeTauri<FeishuCliUpdateCheck>('feishu_cli_check_update')
 }
@@ -153,6 +173,10 @@ export async function beginFeishuAuth(request: FeishuAuthBeginRequest = {}) {
 
 export async function getFeishuAuthScopeCatalog() {
   return invokeTauri<FeishuAuthScopeCatalog>('feishu_auth_scope_catalog')
+}
+
+export async function getFeishuAuthPresets() {
+  return invokeTauri<FeishuAuthPresetCatalog>('feishu_auth_presets_get')
 }
 
 export async function getFeishuAuthPreferences() {
