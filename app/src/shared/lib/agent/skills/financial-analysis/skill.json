@@ -1,7 +1,7 @@
 {
   "id": "financial-analysis",
   "name": "经营分析",
-  "description": "用于教育后勤经营数据查询和经营管理分析，能从问题中识别意图、定位组织节点，并结合同级横向比较、近 6 个月纵向趋势、预算/突围达成、收入利润、人力费用和人效等全指标数据输出专业诊断与管理建议；完整报告仅在用户明确要求时生成。",
+  "description": "用于教育后勤经营数据查询和经营管理分析，能从问题中识别意图、定位组织节点，并结合同级横向比较、近 6 个月纵向趋势、预算/突围达成、收入利润、人力费用和人效等全指标数据输出专业诊断与管理建议。",
   "tagline": "识别问题、定位组织、横纵向对比经营表现",
   "icon": {
     "type": "image",
@@ -10,9 +10,6 @@
   "tools": [
     "resolve_org_nodes",
     "query_with_hierarchy",
-    "compose_business_report",
-    "query_business_report_pack",
-    "audit_business_report",
     "query_biz_data",
     "read_file"
   ],

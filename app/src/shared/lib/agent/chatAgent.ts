@@ -23,7 +23,6 @@ interface OpenAICompatibleCapabilities {
 const MAX_TOOL_CALL_DEPTH = 12
 const MAX_CACHED_CORE_CALL_REUSE = 4
 const MAX_TOOL_RESULT_CHAR_BUDGET = 12000
-const MAX_BUSINESS_REPORT_PACK_CHAR_BUDGET = 1000000
 const MAX_READ_FILE_CHAR_BUDGET = 8000
 const MAX_QUERY_ROWS_PREVIEW = 24
 const MAX_QUERY_TREE_NODES_PREVIEW = 18
@@ -81,10 +80,7 @@ function pickCoreArgs(name: string, args: Record<string, unknown>): Record<strin
   const toolSpecificKeys: Record<string, string[]> = {
     resolve_org_nodes: ['keyword', 'level'],
     query_with_hierarchy: ['node_name', 'report_type', 'period_type', 'period', 'metric_categories', 'sheet_codes'],
-    query_business_report_pack: ['node_name', 'month', 'previous_month', 'cumulative_period', 'report_types', 'max_units'],
-    compose_business_report: ['node_name', 'month', 'previous_month', 'cumulative_period', 'report_types', 'max_units'],
     query_biz_data: ['node_name', 'metric_category', 'metric_categories', 'report_type', 'period_type', 'period', 'sheet_codes'],
-    audit_business_report: ['markdown'],
     read_file: ['path'],
   }
 
@@ -310,18 +306,6 @@ function compactHierarchyResult(content: string): string {
   }
 }
 
-function compactBusinessReportPackResult(content: string): string {
-  try {
-    const parsed = JSON.parse(content) as Record<string, unknown>
-    const minified = JSON.stringify(parsed)
-    return minified.length <= MAX_BUSINESS_REPORT_PACK_CHAR_BUDGET
-      ? minified
-      : truncateText(minified, MAX_BUSINESS_REPORT_PACK_CHAR_BUDGET, 'business report pack exceeded enlarged model context budget')
-  } catch {
-    return truncateText(content, MAX_BUSINESS_REPORT_PACK_CHAR_BUDGET, 'business report pack exceeded enlarged model context budget')
-  }
-}
-
 function prepareToolResultForModel(name: string, content: string): string {
   if (!content) return content
 
@@ -333,11 +317,7 @@ function prepareToolResultForModel(name: string, content: string): string {
     return compactHierarchyResult(content)
   }
 
-  if (name === 'query_business_report_pack' || name === 'compose_business_report') {
-    return compactBusinessReportPackResult(content)
-  }
-
-  if (name === 'query_biz_data' || name === 'resolve_org_nodes' || name === 'audit_business_report') {
+  if (name === 'query_biz_data' || name === 'resolve_org_nodes') {
     return compactQueryRowsResult(content)
   }
 
@@ -681,7 +661,7 @@ export class ChatAgent {
           yield {
             type: 'text',
             content:
-              `\n\n> ⚠️ 检测到模型连续多次重复请求同一工具的同一组核心参数，且结果已在缓存中，已停止自动重试。报告核对场景可复用缓存结果，但不应无限重复调用同一查询。请直接基于现有数据完成分析，不要继续重复相同请求。`,
+              `\n\n> ⚠️ 检测到模型连续多次重复请求同一工具的同一组核心参数，且结果已在缓存中，已停止自动重试。请直接基于现有数据完成分析，不要继续重复相同请求。`,
           }
         }
 
@@ -907,7 +887,7 @@ export class ChatAgent {
                   yield {
                     type: 'text',
                     content:
-                      `\n\n> ⚠️ 检测到模型连续多次重复请求同一工具的同一组核心参数，且结果已在缓存中，已停止自动重试。报告核对场景可复用缓存结果，但不应无限重复调用同一查询。请直接基于现有数据完成分析，不要继续重复相同请求。`,
+                      `\n\n> ⚠️ 检测到模型连续多次重复请求同一工具的同一组核心参数，且结果已在缓存中，已停止自动重试。请直接基于现有数据完成分析，不要继续重复相同请求。`,
                   }
                 }
 

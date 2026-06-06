@@ -2,7 +2,6 @@
 
 export { queryBizDataTool } from './queryBizData'
 export { queryWithHierarchyTool } from './queryWithHierarchy'
-export { queryBusinessReportPackTool } from './queryBusinessReportPack'
 export { resolveOrgNodesTool } from './resolveOrgNodes'
 export { readFileTool } from './readFile'
 export {

@@ -64,21 +64,15 @@ export interface FinancialAnalysisSessionContext {
   }
   reportType?: 'fone' | 'tuwei'
   intent?: {
-    goal?: 'data_lookup' | 'exception_scan' | 'comparison' | 'report' | 'trend' | 'plan_vs_actual' | 'qa'
+    goal?: 'data_lookup' | 'exception_scan' | 'comparison' | 'trend' | 'plan_vs_actual' | 'qa'
   }
   metrics?: {
     primary?: string[]
     secondary?: string[]
   }
-  reportMode?: {
-    templateLoaded?: boolean
-    templatePath?: string
+  referenceMode?: {
     workflowLoaded?: boolean
     metricsLoaded?: boolean
-    reportGenerationLoaded?: boolean
-    actualMarchReportStyleLoaded?: boolean
-    reportQualityRubricLoaded?: boolean
-    dataRequirementsLoaded?: boolean
     analysisMethodLoaded?: boolean
     chartGuidanceLoaded?: boolean
     loadedPaths?: string[]

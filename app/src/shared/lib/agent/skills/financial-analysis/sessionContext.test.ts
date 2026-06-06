@@ -75,8 +75,8 @@ describe('financial analysis session context', () => {
       assistantMessage: assistant([
         {
           id: 'tool-2',
-          name: 'query_business_report_pack',
-          arguments: { node_name: '餐饮', month: '202603', cumulative_period: '<202604' },
+          name: 'query_with_hierarchy',
+          arguments: { node_name: '餐饮', report_type: 'fone', period_type: 'monthly', period: '202603' },
           status: 'success',
           result: JSON.stringify({
             message: '匹配到多个组织节点，请提供更精确的 node_name',
@@ -90,31 +90,40 @@ describe('financial analysis session context', () => {
     expect(next.scope?.confidence).toBe('high')
   })
 
-  it('remembers loaded report references without forcing rereads', () => {
+  it('remembers loaded analysis references without forcing rereads', () => {
     const context = updateFinancialAnalysisSessionContext({
-      userMessage: user('生成完整经营分析报告'),
+      userMessage: user('分析一下东部区域经营表现'),
       assistantMessage: assistant([
         {
           id: 'tool-1',
           name: 'read_file',
-          arguments: { path: '/assets/financial-analysis/biz-analysis-report.md' },
+          arguments: { path: '/assets/financial-analysis/references/workflow.md' },
           status: 'success',
-          result: '# template',
+          result: '# workflow',
         },
         {
           id: 'tool-2',
           name: 'read_file',
-          arguments: { path: '/assets/financial-analysis/references/report-generation.md' },
+          arguments: { path: '/assets/financial-analysis/references/metrics.md' },
           status: 'success',
-          result: '# reference',
+          result: '# metrics',
         },
       ]),
     })
 
-    expect(context.reportMode?.templateLoaded).toBe(true)
-    expect(context.reportMode?.reportGenerationLoaded).toBe(true)
-    expect(context.reportMode?.chartOutputMode).toBeUndefined()
-    expect(context.intent?.goal).toBe('report')
+    expect(context.referenceMode?.workflowLoaded).toBe(true)
+    expect(context.referenceMode?.metricsLoaded).toBe(true)
+    expect(context.referenceMode?.chartOutputMode).toBeUndefined()
+    expect(context.intent?.goal).toBe('qa')
+  })
+
+  it('does not classify report wording as a report-generation goal', () => {
+    const context = updateFinancialAnalysisSessionContext({
+      userMessage: user('生成一份东部区域经营分析月报'),
+      assistantMessage: assistant([]),
+    })
+
+    expect(context.intent?.goal).toBe('qa')
   })
 
   it('detects same-level benchmark requests as comparison', () => {
@@ -158,7 +167,7 @@ describe('financial analysis session context', () => {
       ]),
     })
 
-    expect(context.reportMode?.chartGuidanceLoaded).toBe(true)
-    expect(context.reportMode?.chartOutputMode).toBe('structured_chart_spec_json')
+    expect(context.referenceMode?.chartGuidanceLoaded).toBe(true)
+    expect(context.referenceMode?.chartOutputMode).toBe('structured_chart_spec_json')
   })
 })

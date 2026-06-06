@@ -15,7 +15,6 @@ function normalizeStringArray(value: unknown): string[] | undefined {
 
 function detectIntentGoal(text: string): FinancialAnalysisGoal | undefined {
   if (!text) return undefined
-  if (/(报告|汇报|完整报告|月报|markdown\s*报告)/.test(text)) return 'report'
   if (/(对比|比较|拆开看|横向|同级|同类型|相比|差距|排名|排位|对标)/.test(text)) return 'comparison'
   if (/(趋势|变化|走势|纵向|近\s*\d+\s*个?月|最近|连续|环比|修复|恶化)/.test(text)) return 'trend'
   if (/(计划|突围计划|计划值|预算|达成|完成|缺口|差额)/.test(text)) return 'plan_vs_actual'
@@ -69,9 +68,7 @@ function deriveScopeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysi
 
     if (
       toolCall.name === 'query_with_hierarchy' ||
-      toolCall.name === 'query_biz_data' ||
-      toolCall.name === 'query_business_report_pack' ||
-      toolCall.name === 'compose_business_report'
+      toolCall.name === 'query_biz_data'
     ) {
       const result = safeJsonParse(toolCall.result)
       if (
@@ -108,15 +105,6 @@ function deriveTimeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAnalysis
   for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
     const toolCall = toolCalls[index]
     if (toolCall.status !== 'success') continue
-
-    if (toolCall.name === 'query_business_report_pack' || toolCall.name === 'compose_business_report') {
-      return {
-        periodType: 'monthly',
-        period: typeof toolCall.arguments.month === 'string' ? toolCall.arguments.month : undefined,
-        comparePeriod: typeof toolCall.arguments.previous_month === 'string' ? toolCall.arguments.previous_month : undefined,
-        confidence: 'high',
-      }
-    }
 
     if (toolCall.name === 'query_with_hierarchy' || toolCall.name === 'query_biz_data') {
       return {
@@ -161,10 +149,10 @@ function deriveReportTypeFromToolCalls(toolCalls: ToolCallRecord[]): FinancialAn
   return undefined
 }
 
-function deriveReportMode(
+function deriveReferenceMode(
   toolCalls: ToolCallRecord[],
-  previous?: FinancialAnalysisSessionContext['reportMode']
-): FinancialAnalysisSessionContext['reportMode'] | undefined {
+  previous?: FinancialAnalysisSessionContext['referenceMode']
+): FinancialAnalysisSessionContext['referenceMode'] | undefined {
   const readFilePaths = toolCalls
     .filter(
       toolCall =>
@@ -176,28 +164,14 @@ function deriveReportMode(
 
   if (readFilePaths.length === 0) return previous
 
-  const templatePath = readFilePaths.find(
-    path =>
-      path === '/assets/financial-analysis/biz-analysis-report.md' ||
-      path === '/templates/biz-analysis-report.md'
-  )
   const workflowLoaded = readFilePaths.includes('/assets/financial-analysis/references/workflow.md')
   const metricsLoaded = readFilePaths.includes('/assets/financial-analysis/references/metrics.md')
-  const reportGenerationLoaded = readFilePaths.includes('/assets/financial-analysis/references/report-generation.md')
-  const actualMarchReportStyleLoaded = readFilePaths.includes('/assets/financial-analysis/references/actual-march-report-style.md')
-  const reportQualityRubricLoaded = readFilePaths.includes('/assets/financial-analysis/references/report-quality-rubric.md')
-  const dataRequirementsLoaded = readFilePaths.includes('/assets/financial-analysis/references/data-requirements.md')
   const analysisMethodLoaded = readFilePaths.includes('/assets/financial-analysis/references/analysis-method.md')
   const chartGuidanceLoaded = readFilePaths.includes('/assets/financial-analysis/references/chart-guidance.md')
 
   if (
-    !templatePath &&
     !workflowLoaded &&
     !metricsLoaded &&
-    !reportGenerationLoaded &&
-    !actualMarchReportStyleLoaded &&
-    !reportQualityRubricLoaded &&
-    !dataRequirementsLoaded &&
     !analysisMethodLoaded &&
     !chartGuidanceLoaded &&
     !previous
@@ -211,14 +185,8 @@ function deriveReportMode(
   ).sort()
 
   return {
-    templateLoaded: previous?.templateLoaded || Boolean(templatePath),
-    templatePath: templatePath || previous?.templatePath,
     workflowLoaded: previous?.workflowLoaded || workflowLoaded,
     metricsLoaded: previous?.metricsLoaded || metricsLoaded,
-    reportGenerationLoaded: previous?.reportGenerationLoaded || reportGenerationLoaded,
-    actualMarchReportStyleLoaded: previous?.actualMarchReportStyleLoaded || actualMarchReportStyleLoaded,
-    reportQualityRubricLoaded: previous?.reportQualityRubricLoaded || reportQualityRubricLoaded,
-    dataRequirementsLoaded: previous?.dataRequirementsLoaded || dataRequirementsLoaded,
     analysisMethodLoaded: previous?.analysisMethodLoaded || analysisMethodLoaded,
     chartGuidanceLoaded: previous?.chartGuidanceLoaded || chartGuidanceLoaded,
     loadedPaths,
@@ -268,41 +236,26 @@ export function buildFinancialAnalysisSessionContextBlock(
   if (sessionContext.metrics?.primary?.length) {
     lines.push(`- primary_metrics: ${sessionContext.metrics.primary.join(', ')}`)
   }
-  if (sessionContext.reportMode?.templateLoaded && sessionContext.reportMode.templatePath) {
-    lines.push(`- report_template_loaded: ${sessionContext.reportMode.templatePath}`)
+  if (typeof sessionContext.referenceMode?.workflowLoaded === 'boolean') {
+    lines.push(`- workflow_reference_loaded: ${sessionContext.referenceMode.workflowLoaded ? 'yes' : 'no'}`)
   }
-  if (typeof sessionContext.reportMode?.workflowLoaded === 'boolean') {
-    lines.push(`- workflow_reference_loaded: ${sessionContext.reportMode.workflowLoaded ? 'yes' : 'no'}`)
+  if (typeof sessionContext.referenceMode?.metricsLoaded === 'boolean') {
+    lines.push(`- metrics_reference_loaded: ${sessionContext.referenceMode.metricsLoaded ? 'yes' : 'no'}`)
   }
-  if (typeof sessionContext.reportMode?.metricsLoaded === 'boolean') {
-    lines.push(`- metrics_reference_loaded: ${sessionContext.reportMode.metricsLoaded ? 'yes' : 'no'}`)
+  if (typeof sessionContext.referenceMode?.analysisMethodLoaded === 'boolean') {
+    lines.push(`- analysis_method_reference_loaded: ${sessionContext.referenceMode.analysisMethodLoaded ? 'yes' : 'no'}`)
   }
-  if (typeof sessionContext.reportMode?.reportGenerationLoaded === 'boolean') {
-    lines.push(`- report_generation_reference_loaded: ${sessionContext.reportMode.reportGenerationLoaded ? 'yes' : 'no'}`)
+  if (sessionContext.referenceMode?.chartOutputMode) {
+    lines.push(`- chart_output_mode: ${sessionContext.referenceMode.chartOutputMode}`)
   }
-  if (typeof sessionContext.reportMode?.actualMarchReportStyleLoaded === 'boolean') {
-    lines.push(`- actual_report_style_loaded: ${sessionContext.reportMode.actualMarchReportStyleLoaded ? 'yes' : 'no'}`)
+  if (typeof sessionContext.referenceMode?.chartGuidanceLoaded === 'boolean') {
+    lines.push(`- chart_guidance_loaded: ${sessionContext.referenceMode.chartGuidanceLoaded ? 'yes' : 'no'}`)
   }
-  if (typeof sessionContext.reportMode?.reportQualityRubricLoaded === 'boolean') {
-    lines.push(`- report_quality_rubric_loaded: ${sessionContext.reportMode.reportQualityRubricLoaded ? 'yes' : 'no'}`)
-  }
-  if (typeof sessionContext.reportMode?.dataRequirementsLoaded === 'boolean') {
-    lines.push(`- data_requirements_loaded: ${sessionContext.reportMode.dataRequirementsLoaded ? 'yes' : 'no'}`)
-  }
-  if (typeof sessionContext.reportMode?.analysisMethodLoaded === 'boolean') {
-    lines.push(`- analysis_method_reference_loaded: ${sessionContext.reportMode.analysisMethodLoaded ? 'yes' : 'no'}`)
-  }
-  if (sessionContext.reportMode?.chartOutputMode) {
-    lines.push(`- chart_output_mode: ${sessionContext.reportMode.chartOutputMode}`)
-  }
-  if (typeof sessionContext.reportMode?.chartGuidanceLoaded === 'boolean') {
-    lines.push(`- chart_guidance_loaded: ${sessionContext.reportMode.chartGuidanceLoaded ? 'yes' : 'no'}`)
-  }
-  if (sessionContext.reportMode?.loadedPaths?.length) {
-    lines.push(`- loaded_reference_paths: ${sessionContext.reportMode.loadedPaths.join(', ')}`)
+  if (sessionContext.referenceMode?.loadedPaths?.length) {
+    lines.push(`- loaded_reference_paths: ${sessionContext.referenceMode.loadedPaths.join(', ')}`)
   }
   lines.push('- note: reuse this context unless the user explicitly changes scope, time, report type, or goal; when scope is already high-confidence and unchanged, do not call resolve_org_nodes again; resolve again only if the user changes the target or the scope is ambiguous.')
-  lines.push('- note: if a reference/template path is already marked as loaded in this session, do not call read_file for the same path again in the same task just to reconfirm rules; reuse the existing content and continue querying, analyzing, or writing.')
+  lines.push('- note: if a reference path is already marked as loaded in this session, do not call read_file for the same path again in the same task just to reconfirm rules; reuse the existing content and continue querying or analyzing.')
 
   return lines.join('\n')
 }
@@ -325,7 +278,7 @@ export function updateFinancialAnalysisSessionContext(params: {
       goal: detectIntentGoal(userMessage.content) || previous?.intent?.goal,
     },
     metrics: deriveMetricsFromToolCalls(toolCalls) || previous?.metrics,
-    reportMode: deriveReportMode(toolCalls, previous?.reportMode),
+    referenceMode: deriveReferenceMode(toolCalls, previous?.referenceMode),
     dataContext: runtimeDataContext || previous?.dataContext,
     lastResolvedAt: Date.now(),
   }
