@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use tauri::Manager;
 
-pub const REQUIRED_LARK_CLI_VERSION: &str = "1.0.32";
+pub const REQUIRED_LARK_CLI_VERSION: &str = "1.0.50";
 const NPM_REGISTRY_LATEST: &str = "https://registry.npmjs.org/@larksuite/cli/latest";
 const KEY_FEISHU_CLI_UPDATE_STATUS: &str = "feishu_cli.update_status";
 
