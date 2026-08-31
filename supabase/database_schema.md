@@ -1,6 +1,6 @@
 # Supabase Database Schema
 
-Last updated: 2026-05-03
+Last updated: 2026-08-31
 
 ## Tables Overview
 
@@ -110,12 +110,14 @@ Last updated: 2026-05-03
 - `referrer` (text, nullable): 推荐人
 - `market_owner` (text, nullable): 负责市场人员
 - `progress_note` (text, nullable): 推进进度
+- `win_probability` (numeric, nullable): 商机落地概率
 - `expected_finish_date` (date, nullable): Parsed 预计完成时间
 - `first_year_revenue` (text, nullable): Original 预期首年营收额 text from Excel
 
 #### Notes
 - The import script upserts by `snapshot_date + sheet_name + row_number`.
 - The table is intentionally simplified to keep only snapshot metadata and fields present in the Excel sheet.
+- The opportunity tab sorts rows by `win_probability desc` within each snapshot.
 
 ---
 

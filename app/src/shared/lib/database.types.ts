@@ -1139,6 +1139,7 @@ export type Database = {
           referrer: string | null
           region: string | null
           snapshot_date: string
+          win_probability: number | null
           stage_label: string
         }
         Insert: {
@@ -1153,6 +1154,7 @@ export type Database = {
           referrer?: string | null
           region?: string | null
           snapshot_date: string
+          win_probability?: number | null
           stage_label: string
         }
         Update: {
@@ -1167,6 +1169,7 @@ export type Database = {
           referrer?: string | null
           region?: string | null
           snapshot_date?: string
+          win_probability?: number | null
           stage_label?: string
         }
         Relationships: []

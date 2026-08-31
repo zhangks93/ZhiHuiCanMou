@@ -1,6 +1,6 @@
 # Supabase Migrations
 
-Last updated: 2026-05-14
+Last updated: 2026-08-31
 
 ## Migration History
 
@@ -33,15 +33,16 @@ Last updated: 2026-05-14
 | 20260427150000 | disable_rls_for_fee_effect_tables | Disable RLS for fee-effect analysis tables per data module import requirement |
 | 20260503170000 | create_attendance_monthly_records_v2 | Create HR monthly attendance v2 table for both day-based and hour-based attendance workbooks |
 | 20260514120000 | create_collection_receivables | Create collection receivables table for cumulative collection rate workbook data |
+| 20260831120000 | add_win_probability_to_opportunity_snapshot_items | Add win_probability to opportunity snapshot items and index snapshot ranking by probability |
 
-## Total Migrations: 27
+## Total Migrations: 28
 
 ## Latest Migration
-**Version**: 20260514120000
-**Name**: create_collection_receivables
-**Date**: 2026-05-14
+**Version**: 20260831120000
+**Name**: add_win_probability_to_opportunity_snapshot_items
+**Date**: 2026-08-31
 
-This migration creates `edu_collection_receivables`:
-- Stores cumulative collection workbook rows with amounts normalized to 万元
-- Preserves the Excel parent record relationship for tree table display
-- Grants authenticated read access without enabling RLS
+This migration updates `opportunity_snapshot_items`:
+- Adds parsed `win_probability` from the workbook's 商机落地概率 column
+- Adds an index aligned with snapshot ranking by win probability
+- Keeps the existing access model unchanged

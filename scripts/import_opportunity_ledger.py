@@ -39,6 +39,7 @@ COL_STAGE_LABEL = "推进阶段"
 COL_REFERRER = "推荐人"
 COL_MARKET_OWNER = "负责市场人员"
 COL_PROGRESS_NOTE = "推进进度"
+COL_WIN_PROBABILITY = "商机落地概率"
 COL_EXPECTED_FINISH_DATE = "预计完成时间"
 COL_FIRST_YEAR_REVENUE = "预期首年营收额"
 
@@ -94,6 +95,31 @@ def clean_text(value: Any) -> str | None:
     return text
 
 
+def parse_probability(value: Any) -> float | None:
+    if is_nan(value):
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+
+    text = clean_text(value)
+    if text is None:
+        return None
+
+    normalized = text.replace("％", "%").replace(",", "")
+    is_percent = normalized.endswith("%")
+    if is_percent:
+        normalized = normalized[:-1].strip()
+
+    match = re.search(r"(-?\d+(?:\.\d+)?)", normalized)
+    if not match:
+        return None
+
+    probability = float(match.group(1))
+    if is_percent:
+        probability /= 100.0
+    return probability
+
+
 def infer_academic_start_year(xlsx_path: Path) -> int:
     match = re.search(r"(\d{4})学年", xlsx_path.name)
     if match:
@@ -121,7 +147,7 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def find_header_row(xls: pd.ExcelFile, sheet_name: str) -> int:
     raw = pd.read_excel(xls, sheet_name=sheet_name, header=None)
-    required = {COL_PROJECT_NAME, COL_STAGE_LABEL, COL_PROGRESS_NOTE}
+    required = {COL_PROJECT_NAME, COL_STAGE_LABEL, COL_PROGRESS_NOTE, COL_WIN_PROBABILITY}
     for index in range(min(10, len(raw))):
         row_values = {str(v).strip() for v in raw.iloc[index] if not is_nan(v)}
         if required.issubset(row_values):
@@ -190,6 +216,7 @@ def read_visible_sheet(
         COL_REFERRER,
         COL_MARKET_OWNER,
         COL_PROGRESS_NOTE,
+        COL_WIN_PROBABILITY,
         COL_EXPECTED_FINISH_DATE,
         COL_FIRST_YEAR_REVENUE,
     }
@@ -218,6 +245,7 @@ def read_visible_sheet(
                 "referrer": clean_text(row.get(COL_REFERRER)),
                 "market_owner": clean_text(row.get(COL_MARKET_OWNER)),
                 "progress_note": clean_text(row.get(COL_PROGRESS_NOTE)),
+                "win_probability": parse_probability(row.get(COL_WIN_PROBABILITY)),
                 "expected_finish_date": parse_excel_date(row.get(COL_EXPECTED_FINISH_DATE)),
                 "first_year_revenue": parse_amount(row.get(COL_FIRST_YEAR_REVENUE)),
             }

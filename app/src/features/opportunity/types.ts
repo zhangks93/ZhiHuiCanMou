@@ -9,6 +9,7 @@ export interface OpportunitySnapshotItem {
   referrer: string | null
   market_owner: string | null
   progress_note: string | null
+  win_probability: number | null
   expected_finish_date: string | null
   first_year_revenue: number | null
 }
