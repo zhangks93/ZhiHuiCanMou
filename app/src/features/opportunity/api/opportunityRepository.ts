@@ -21,6 +21,7 @@ export async function fetchOpportunitySnapshotItems(snapshotDate: string): Promi
     .select('*')
     .eq('snapshot_date', snapshotDate)
     .order('win_probability', { ascending: false, nullsFirst: false })
+    .order('first_year_revenue', { ascending: false, nullsFirst: false })
     .order('region', { ascending: true, nullsFirst: false })
     .order('opportunity_attribute', { ascending: true, nullsFirst: false })
     .order('project_name', { ascending: true })

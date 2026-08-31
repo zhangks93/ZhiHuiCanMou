@@ -12,6 +12,7 @@ import {
 import { AppLoading } from '@/shared/ui/AppLoading'
 import { AppPagination } from '@/shared/ui/AppPagination'
 import { DataEmptyState } from '@/shared/components/data-state'
+import { fmtPct } from '@/shared/lib/format'
 import { useOpportunityData } from '../hooks/useOpportunityData'
 import type { OpportunitySnapshotItem } from '../types'
 
@@ -39,6 +40,10 @@ function formatSnapshotDate(value: string) {
 function formatRevenue(value: number | null) {
   if (value == null) return '-'
   return `${value.toLocaleString('zh-CN')} 万`
+}
+
+function formatProbability(value: number | null) {
+  return value == null ? '-' : fmtPct(value)
 }
 
 function StageBadge({ stage }: { stage: string }) {
@@ -88,6 +93,14 @@ export function OpportunityPage() {
         header: '推进阶段',
         cell: (info) => <StageBadge stage={info.getValue()} />,
       }),
+      columnHelper.accessor('win_probability', {
+        header: '落地概率',
+        cell: (info) => (
+          <span className="app-cell-strong app-cell-numeric whitespace-nowrap font-semibold">
+            {formatProbability(info.getValue())}
+          </span>
+        ),
+      }),
       columnHelper.accessor('market_owner', {
         header: '负责市场人员',
         cell: (info) => <span className="text-[var(--color-text-muted)]">{info.getValue() ?? '-'}</span>,
@@ -95,8 +108,13 @@ export function OpportunityPage() {
       columnHelper.accessor('progress_note', {
         header: '推进进度',
         cell: (info) => (
-          <div className="max-w-[420px] line-clamp-2 whitespace-pre-line leading-relaxed text-[var(--color-text-muted)]">
-            {info.getValue() ?? '-'}
+          <div
+            className="max-w-[420px] leading-6 text-[13px] text-[var(--color-text-muted)]"
+            title={info.getValue() ?? undefined}
+          >
+            <div className="line-clamp-2 whitespace-pre-wrap break-words">
+              {info.getValue() ?? '-'}
+            </div>
           </div>
         ),
       }),
