@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="经营分析 AI 场景建设方案：基于现有经营分析看板、西南业绩总控多维表格和智汇参谋 APP，优化补充业务大纲。">
+  <title>经营分析 AI 场景建设方案｜大纲优化补充版</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --soft: #eef4f8;
+      --ink: #172033;
+      --muted: #5c687a;
+      --subtle: #8a95a6;
+      --line: #d9e2ec;
+      --accent: #0f766e;
+      --blue: #1d4ed8;
+      --amber: #b45309;
+      --red: #b42318;
+      --green: #15803d;
+      --shadow: 0 18px 45px rgba(16, 24, 40, 0.09);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      line-height: 1.7;
+      background:
+        linear-gradient(180deg, rgba(15, 118, 110, 0.08), transparent 280px),
+        var(--bg);
+    }
+    a { color: inherit; text-decoration: none; }
+    .shell { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid rgba(217, 226, 236, 0.8);
+      background: rgba(247, 248, 251, 0.88);
+      backdrop-filter: blur(14px);
+    }
+    .nav {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      box-shadow: 0 12px 24px rgba(15, 118, 110, 0.18);
+    }
+    .brand-text { display: grid; line-height: 1.1; }
+    .brand-text small { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .nav-links {
+      display: flex;
+      justify-content: flex-end;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 750;
+    }
+    .nav-links a:hover { color: var(--accent); }
+
+    .hero { padding: 70px 0 42px; }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 34px;
+      align-items: start;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 850;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+      background: var(--green);
+      box-shadow: 0 0 0 5px rgba(21, 128, 61, 0.12);
+    }
+    h1 {
+      margin: 0;
+      max-width: 760px;
+      font-size: clamp(36px, 5.3vw, 62px);
+      line-height: 1.06;
+      letter-spacing: 0;
+    }
+    .lead {
+      max-width: 780px;
+      margin: 20px 0 0;
+      color: #425069;
+      font-size: 18px;
+    }
+    .hero-note {
+      margin-top: 22px;
+      padding: 16px 18px;
+      border: 1px solid rgba(15, 118, 110, 0.18);
+      border-radius: 8px;
+      background: rgba(15, 118, 110, 0.06);
+      color: #24444b;
+    }
+    .side-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .side-panel h2 {
+      margin: 0;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      font-size: 18px;
+      background: #fbfdff;
+    }
+    .summary-list {
+      display: grid;
+      gap: 10px;
+      padding: 18px;
+      margin: 0;
+      list-style: none;
+    }
+    .summary-list li {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f9fbff;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .summary-list b {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+    }
+
+    section { padding: 54px 0; }
+    .section-head { max-width: 820px; margin-bottom: 24px; }
+    .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+    .label {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 850;
+    }
+    h2 {
+      margin: 0;
+      font-size: clamp(28px, 3.6vw, 40px);
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+    .section-copy {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .grid-3, .grid-2, .grid-4 {
+      display: grid;
+      gap: 16px;
+    }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 10px 24px rgba(16, 24, 40, 0.045);
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      line-height: 1.36;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .card ul, .card ol {
+      margin: 10px 0 0;
+      padding-left: 19px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .card li { margin: 5px 0; }
+    .badge {
+      display: inline-flex;
+      min-height: 24px;
+      align-items: center;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .badge.green { color: #067647; background: #dcfae6; }
+    .badge.blue { color: #175cd3; background: #dbeafe; }
+    .badge.amber { color: #b54708; background: #fef0c7; }
+    .badge.red { color: #b42318; background: #fee4e2; }
+
+    .process {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+    .process-step {
+      position: relative;
+      padding: 16px;
+      min-height: 150px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+    }
+    .process-step::after {
+      content: "";
+      position: absolute;
+      right: -13px;
+      top: 50%;
+      width: 13px;
+      height: 1px;
+      background: var(--line);
+    }
+    .process-step:last-child::after { display: none; }
+    .process-step b {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      color: white;
+      background: var(--accent);
+      font-size: 13px;
+    }
+    .process-step h3 { margin: 0 0 6px; font-size: 16px; }
+    .process-step p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .band {
+      margin: 36px 0;
+      color: white;
+      background: linear-gradient(135deg, #0f172a, #111827);
+    }
+    .band .label, .band .section-copy { color: #cbd5e1; }
+    .band .card {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.13);
+      box-shadow: none;
+    }
+    .band h2, .band h3 { color: white; }
+    .band p, .band li { color: #dbe4f0; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+    }
+    table {
+      width: 100%;
+      min-width: 780px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      color: #334155;
+      background: #f8fbff;
+      font-size: 13px;
+      font-weight: 850;
+    }
+    td { color: #354255; }
+    tr:last-child td { border-bottom: none; }
+    .callout {
+      padding: 16px 18px;
+      border: 1px solid rgba(15, 118, 110, 0.18);
+      border-radius: 8px;
+      background: rgba(15, 118, 110, 0.06);
+      color: #264a4d;
+    }
+    .callout strong { display: block; margin-bottom: 6px; }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: white;
+      color: #344054;
+      font-size: 13px;
+      font-weight: 750;
+    }
+    .footer {
+      padding: 34px 0 48px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .footer-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid, .grid-4, .grid-3, .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .process { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .process-step::after { display: none; }
+    }
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 28px, 1120px); }
+      .nav-links { display: none; }
+      .hero { padding: 46px 0 28px; }
+      .hero-grid, .grid-4, .grid-3, .grid-2, .process {
+        grid-template-columns: 1fr;
+      }
+      section { padding: 40px 0; }
+      .lead { font-size: 16px; }
+    }
+    @media print {
+      .topbar { display: none; }
+      body { background: white; }
+      section, .hero { padding: 18px 0; }
+      .card, .side-panel, .process-step { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="shell nav" aria-label="页面导航">
+      <a class="brand" href="#top">
+        <span class="brand-mark">AI</span>
+        <span class="brand-text">经营分析 AI 场景建设<small>大纲优化补充版</small></span>
+      </a>
+      <div class="nav-links">
+        <a href="#assets">现有资产</a>
+        <a href="#current-flow">原有流程</a>
+        <a href="#build-path">建设路径</a>
+        <a href="#data-order">数据顺序</a>
+        <a href="#collaboration">协作模式</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div>
+          <div class="eyebrow">基于业务大纲优化 · 聚焦经营分析 AI 场景</div>
+          <h1>先把月度经营分析做深，再把财务侧和运营侧连起来。</h1>
+          <p class="lead">
+            这不是重新规划一个大而全的数据平台，而是在现有经营分析看板、西南业绩总控多维表格、智汇参谋 APP 的基础上，
+            形成一条更清晰的建设路径：先完善经营分析报告编写，再支持下钻一层的问题分析，最后进入事中提醒。
+          </p>
+          <div class="hero-note">
+            <strong>定位：</strong>统一数据层可与采购场景一并建设；本场景重点建设业务应用层和 Agent 使用方式。应用层由业务按照 OPC 模式自建，Agent 框架充分借助 Workbuddy、Codex 等成熟 AI Coding / Agent 工具，并通过 Skill + API 接入数据与能力。
+          </div>
+        </div>
+
+        <aside class="side-panel" aria-label="核心结论">
+          <h2>优化后的主线</h2>
+          <ul class="summary-list">
+            <li><b>第一步：补强月度经营分析</b>先把报告编写、核对、复盘的重复工作降下来。</li>
+            <li><b>第二步：财务运营打通</b>让收入、利润、毛利、人效问题可以继续下钻到业务驱动。</li>
+            <li><b>第三步：按业务数据顺序纳入</b>先食配，后费效，再食堂，最后便利店。</li>
+            <li><b>第四步：从事后到事中</b>先做事后分析标准化，再做事中提醒和异常预警。</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section id="assets">
+      <div class="shell">
+        <div class="section-head">
+          <p class="label">一、现有资产</p>
+          <h2>不是从零开始，先把三个现有资产串起来。</h2>
+          <p class="section-copy">当前已有资产已经覆盖“看数据、沉淀表格、AI 分析”三个方向，后续建设要围绕复用和补齐，而不是重复造入口。</p>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <span class="badge blue">资产 1</span>
+            <h3>经营分析看板</h3>
+            <p>作为经营数据的事实入口，保留现有看板的指标展示、组织查看、期间切换和基础对比能力。</p>
+            <ul>
+              <li>短期用于月度经营分析取数核对。</li>
+              <li>中期沉淀常用指标和异常阈值。</li>
+              <li>长期成为 AI 分析结果的证据来源之一。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="badge green">资产 2</span>
+            <h3>西南业绩总控多维表格</h3>
+            <p>作为区域运营分析的业务侧补充资产，适合承接更细颗粒度的经营动作和过程数据。</p>
+            <ul>
+              <li>短期由西南区域补充字段与流程。</li>
+              <li>中期抽象为区域运营分析模板。</li>
+              <li>长期纳入统一数据层或通过 API 供 Agent 使用。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="badge amber">资产 3</span>
+            <h3>智汇参谋 APP</h3>
+            <p>作为 Agent 交互和经营分析范式参考，复用其组织解析、层级下钻、对话分析和报告输出思路。</p>
+            <ul>
+              <li>复用经营分析 skill 与 prompt 设计。</li>
+              <li>复用组织范围确认和同级对标逻辑。</li>
+              <li>复用“分析过程可见、结果可追溯”的交互方式。</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="current-flow">
+      <div class="shell">
+        <div class="section-head">
+          <p class="label">二、原有流程</p>
+          <h2>当前流程的主要问题是人工中转太多，导致报告和会议消耗大。</h2>
+        </div>
+        <div class="process" aria-label="月度经营分析原有流程">
+          <article class="process-step">
+            <b>1</b>
+            <h3>fone 数据导出</h3>
+            <p>财务先从系统侧导出经营数据，数据口径和版本依赖人工确认。</p>
+          </article>
+          <article class="process-step">
+            <b>2</b>
+            <h3>财务加工</h3>
+            <p>进行清洗、汇总、对比、差异计算和初步判断，重复性工作较多。</p>
+          </article>
+          <article class="process-step">
+            <b>3</b>
+            <h3>业务核对</h3>
+            <p>业务侧补充解释、确认异常、校对口径，沟通成本高。</p>
+          </article>
+          <article class="process-step">
+            <b>4</b>
+            <h3>单位编制报告</h3>
+            <p>各单位按各自理解写月度分析，质量和颗粒度不统一。</p>
+          </article>
+          <article class="process-step">
+            <b>5</b>
+            <h3>经营分析月会</h3>
+            <p>会议里大量时间用于解释数据和补充背景，真正决策时间被压缩。</p>
+          </article>
+        </div>
+        <div style="height:18px"></div>
+        <div class="callout">
+          <strong>区域运营分析待补充</strong>
+          西南区域运营分析建议先由业务侧补充现行流程：当前看哪些表、哪些人维护、哪些字段用于会议、哪些动作会被追踪。补齐后可作为第二条试点流程，不宜一开始和月度经营分析混在一起做。
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="build-path">
+      <div class="shell">
+        <div class="section-head">
+          <p class="label">三、拟建设路径</p>
+          <h2>聚焦两个目标：报告编写更完善，问题分析能再下钻一层。</h2>
+        </div>
+        <div class="grid-2">
+          <article class="card">
+            <h3>目标 1：完善经营分析报告编写</h3>
+            <p>把“月度经营分析报告”拆成可标准化的模块，由 Agent 先生成草稿，业务和财务只做复核、补充和定稿。</p>
+            <ul>
+              <li>固定报告结构：本期数据、核心结论、预算/目标完成、组织贡献、成本费用、人效、风险和建议。</li>
+              <li>固定证据规则：每个关键判断必须回到实际值、目标值、完成率、差额、同比或环比。</li>
+              <li>固定审阅动作：财务确认口径，业务确认原因，负责人确认行动项。</li>
+              <li>固定输出物：月度报告、会议摘要、异常清单、下月追踪项。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>目标 2：财务侧与运营侧衔接</h3>
+            <p>经营分析不止回答“差多少”，还要回答“差在哪里、为什么、下一步查什么”。</p>
+            <ul>
+              <li>收入问题下钻到业务量、价格、项目、渠道、门店或区域。</li>
+              <li>利润问题下钻到毛利率、成本结构、费用执行和人效。</li>
+              <li>人效问题下钻到排班、人员结构、出勤和单位产出。</li>
+              <li>费用问题下钻到可控费用、费用归集、异常波动和责任动作。</li>
+            </ul>
+          </article>
+        </div>
+        <div style="height:16px"></div>
+        <div class="grid-3">
+          <article class="card">
+            <span class="badge blue">数据层</span>
+            <h3>统一数据层与采购场景一并建设</h3>
+            <p>经营分析只消费统一数据层提供的指标、组织、权限和查询 API，不在应用层重复沉淀主数据。</p>
+          </article>
+          <article class="card">
+            <span class="badge green">应用层</span>
+            <h3>业务按 OPC 模式自建</h3>
+            <p>业务拥有页面、模板、流程和工作模式定义权，FDE 负责技术兜底和工程化支持。</p>
+          </article>
+          <article class="card">
+            <span class="badge amber">Agent 层</span>
+            <h3>Workbuddy + Skill + API</h3>
+            <p>充分借助 Workbuddy、Codex 等成熟 Agent / AI Coding 工具，核心是把 Skill 和 API 设计清楚。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="data-order">
+      <div class="shell">
+        <div class="section-head">
+          <p class="label">四、运营数据纳入顺序</p>
+          <h2>按业务成熟度和经营关联度分阶段纳入。</h2>
+          <p class="section-copy">不要一次把所有运营数据都接入。先选最能解释经营波动、最容易形成闭环的数据域。</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>顺序</th>
+                <th>数据域</th>
+                <th>为什么先/后做</th>
+                <th>优先解释的问题</th>
+                <th>建议产物</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>食配</td>
+                <td>和收入、成本、毛利关联最直接，适合作为财务到运营下钻的第一类数据。</td>
+                <td>收入波动、成本异常、配送履约、项目贡献。</td>
+                <td>食配经营分析模板、项目异常清单、毛利下钻卡片。</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>费效</td>
+                <td>直接服务利润、人效和费用控制，能承接管理层对“降本增效”的关注。</td>
+                <td>人力成本率、单位产出、费用超支、效率低点。</td>
+                <td>费效诊断模板、人效排行、费用预警清单。</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>食堂</td>
+                <td>经营动作复杂，涉及客流、餐次、菜品、排班和满意度，适合在前两类稳定后接入。</td>
+                <td>餐饮收入、毛利率、客流变化、排班效率。</td>
+                <td>食堂经营看板、餐次分析、异常门店复盘。</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>便利店</td>
+                <td>门店经营颗粒度细，商品结构和促销因素多，适合在平台模板成熟后复制。</td>
+                <td>门店收入、商品毛利、库存、促销效果。</td>
+                <td>便利店单店诊断、商品结构分析、低毛利预警。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell">
+        <div class="section-head">
+          <p class="label">五、从事后分析到事中提醒</p>
+          <h2>最终状态不是只会写报告，而是能提前提醒业务。</h2>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <span class="badge blue">阶段 1</span>
+            <h3>事后分析标准化</h3>
+            <p>先把月度经营分析报告的取数、比较、归因和建议动作标准化，减少报告出具工作量。</p>
+          </article>
+          <article class="card">
+            <span class="badge green">阶段 2</span>
+            <h3>过程数据下钻</h3>
+            <p>接入食配、费效、食堂、便利店等运营数据，让异常能继续追到业务过程。</p>
+          </article>
+          <article class="card">
+            <span class="badge amber">阶段 3</span>
+            <h3>事中提醒</h3>
+            <p>把异常阈值、目标进度、费用波动和重点单位风险转成提醒、任务和会议跟踪项。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="collaboration" class="band">
+      <div class="shell">
+        <div class="section-head">
+          <p class="label">六、协作模式</p>
+          <h2>FDE 做技术兜底，业务负责人定义流程边界。</h2>
+        </div>
+        <div class="grid-2">
+          <article class="card">
+            <h3>FDE 职责</h3>
+            <ul>
+              <li>前期确认技术架构与选型，明确统一数据层、应用层、Agent 运行层的边界。</li>
+              <li>中期协助 OPC 完成自主编码工作，包括 Skill、API 接入、页面结构和任务流转。</li>
+              <li>后期协助完成 Demo 到产品的工程化工作，包括权限、日志、稳定性、部署和复用机制。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>业务负责人职责</h3>
+            <ul>
+              <li>确认流程重塑边界：哪些环节由 AI 生成，哪些环节必须人工复核。</li>
+              <li>确认工作模式改变边界：报告如何定稿、会议如何使用、行动项如何追踪。</li>
+              <li>确认业务数据纳入优先级：先食配、后费效、再食堂、便利店是否符合当前试点节奏。</li>
+              <li>确认经营分析成功标准：减少多少报告工作、会议时间、重复核对和人工拉数。</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell">
+        <div class="section-head">
+          <p class="label">七、建议下一步</p>
+          <h2>把方案落到一个小闭环。</h2>
+        </div>
+        <div class="grid-4">
+          <article class="card">
+            <span class="badge blue">1 周内</span>
+            <h3>补齐西南流程</h3>
+            <p>让西南区域补充区域运营分析的现有表、字段、会议动作和当前痛点。</p>
+          </article>
+          <article class="card">
+            <span class="badge green">2 周内</span>
+            <h3>定义首版报告模板</h3>
+            <p>先以月度经营分析为试点，固定结构、证据规则、审阅流和输出物。</p>
+          </article>
+          <article class="card">
+            <span class="badge amber">3-4 周</span>
+            <h3>做一个 Demo</h3>
+            <p>业务用 AI Coding 搭一个任务入口，FDE 协助接 Skill + API，跑通一次报告草稿生成。</p>
+          </article>
+          <article class="card">
+            <span class="badge red">4 周后</span>
+            <h3>评估是否扩展</h3>
+            <p>根据报告出具时间、人工核对次数、会议准备时间和业务复用意愿决定下一阶段。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell footer-row">
+      <div>经营分析 AI 场景建设方案 · 基于飞书大纲优化补充</div>
+      <div>文件：reports/operating-analysis-digital-employee-plan.html</div>
+    </div>
+  </footer>
+</body>
+</html>

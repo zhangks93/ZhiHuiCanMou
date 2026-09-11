@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "scope_name": "北部区域",
-    "org_scope_key": "智汇后勤集团 / 北部区域",
+    "scope_name": "第三区域",
+    "org_scope_key": "智汇后勤集团 / 第三区域",
     "month": "202604",
     "previous_month": "202603",
     "cumulative_period": "<202605",
@@ -299,7 +299,7 @@
   "organization_two_level_table": [
     {
       "node_name": "区域餐饮业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域餐饮业务",
       "depth_from_scope": 1,
       "node_kind": "level2",
       "revenue": {
@@ -335,7 +335,7 @@
     },
     {
       "node_name": "玉门一中项目本级",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 玉门一中项目本级",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域餐饮业务 / 玉门一中项目本级",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -371,7 +371,7 @@
     },
     {
       "node_name": "玉门一中食堂",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 玉门一中食堂",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域餐饮业务 / 玉门一中食堂",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -407,7 +407,7 @@
     },
     {
       "node_name": "兰州新区餐饮项目",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 兰州新区餐饮项目",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域餐饮业务 / 兰州新区餐饮项目",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -443,7 +443,7 @@
     },
     {
       "node_name": "腾飞路小学食堂",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 腾飞路小学食堂",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域餐饮业务 / 腾飞路小学食堂",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -479,7 +479,7 @@
     },
     {
       "node_name": "北部新拓餐饮业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务 / 北部新拓餐饮业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域餐饮业务 / 北部新拓餐饮业务",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": null,
@@ -497,7 +497,7 @@
     },
     {
       "node_name": "区域物业业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域物业业务",
       "depth_from_scope": 1,
       "node_kind": "level2",
       "revenue": {
@@ -533,7 +533,7 @@
     },
     {
       "node_name": "玉门一中后勤",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务 / 玉门一中后勤",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域物业业务 / 玉门一中后勤",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -569,7 +569,7 @@
     },
     {
       "node_name": "周口示范区物业项目",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务 / 周口示范区物业项目",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域物业业务 / 周口示范区物业项目",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -605,7 +605,7 @@
     },
     {
       "node_name": "腾飞路小学物业项目",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务 / 腾飞路小学物业项目",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域物业业务 / 腾飞路小学物业项目",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -641,7 +641,7 @@
     },
     {
       "node_name": "北部新拓物业项目",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务 / 北部新拓物业项目",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域物业业务 / 北部新拓物业项目",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": null,
@@ -659,7 +659,7 @@
     },
     {
       "node_name": "区域商超业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域商超业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域商超业务",
       "depth_from_scope": 1,
       "node_kind": "level2",
       "revenue": {
@@ -695,7 +695,7 @@
     },
     {
       "node_name": "皓峰玉门一中店",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域商超业务 / 皓峰玉门一中店",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域商超业务 / 皓峰玉门一中店",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -731,7 +731,7 @@
     },
     {
       "node_name": "西安吉利便利店",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域商超业务 / 西安吉利便利店",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域商超业务 / 西安吉利便利店",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -767,7 +767,7 @@
     },
     {
       "node_name": "兰州新区便利店项目",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域商超业务 / 兰州新区便利店项目",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域商超业务 / 兰州新区便利店项目",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -803,7 +803,7 @@
     },
     {
       "node_name": "区域配送业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务",
       "depth_from_scope": 1,
       "node_kind": "level2",
       "revenue": {
@@ -839,7 +839,7 @@
     },
     {
       "node_name": "周口配送",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 周口配送",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 周口配送",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -875,7 +875,7 @@
     },
     {
       "node_name": "达拉特旗校服",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 达拉特旗校服",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 达拉特旗校服",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -911,7 +911,7 @@
     },
     {
       "node_name": "周口配送-团仓店",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 周口配送-团仓店",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 周口配送-团仓店",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -947,7 +947,7 @@
     },
     {
       "node_name": "长治配送",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 长治配送",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 长治配送",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -983,7 +983,7 @@
     },
     {
       "node_name": "南阳配送",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 南阳配送",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 南阳配送",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -1019,7 +1019,7 @@
     },
     {
       "node_name": "虎林配送",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 虎林配送",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 虎林配送",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -1055,7 +1055,7 @@
     },
     {
       "node_name": "房山区配送",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 房山区配送",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 房山区配送",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -1091,7 +1091,7 @@
     },
     {
       "node_name": "北部新拓配送业务2",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 北部新拓配送业务2",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 北部新拓配送业务2",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -1127,7 +1127,7 @@
     },
     {
       "node_name": "北部新拓配送业务1",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 北部新拓配送业务1",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 北部新拓配送业务1",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": null,
@@ -1145,7 +1145,7 @@
     },
     {
       "node_name": "北部新拓配送业务3",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务 / 北部新拓配送业务3",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务 / 北部新拓配送业务3",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": null,
@@ -1163,7 +1163,7 @@
     },
     {
       "node_name": "区域科技业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域科技业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域科技业务",
       "depth_from_scope": 1,
       "node_kind": "level2",
       "revenue": {
@@ -1199,7 +1199,7 @@
     },
     {
       "node_name": "北部科技产品1",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域科技业务 / 北部科技产品1",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域科技业务 / 北部科技产品1",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -1235,7 +1235,7 @@
     },
     {
       "node_name": "区域总经理室",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域总经理室",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域总经理室",
       "depth_from_scope": 1,
       "node_kind": "level2",
       "revenue": {
@@ -1270,8 +1270,8 @@
       }
     },
     {
-      "node_name": "北部区域总经理室",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域总经理室 / 北部区域总经理室",
+      "node_name": "第三区域总经理室",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域总经理室 / 第三区域总经理室",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {

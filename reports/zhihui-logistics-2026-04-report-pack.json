@@ -1018,8 +1018,8 @@
       }
     },
     {
-      "node_name": "西南区域",
-      "org_scope_key": "智汇后勤集团 / 西南区域",
+      "node_name": "第一区域",
+      "org_scope_key": "智汇后勤集团 / 第一区域",
       "depth_from_scope": 1,
       "node_kind": "level1",
       "revenue": {
@@ -1055,7 +1055,7 @@
     },
     {
       "node_name": "区域配送业务",
-      "org_scope_key": "智汇后勤集团 / 西南区域 / 区域配送业务",
+      "org_scope_key": "智汇后勤集团 / 第一区域 / 区域配送业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1091,7 +1091,7 @@
     },
     {
       "node_name": "区域餐饮业务",
-      "org_scope_key": "智汇后勤集团 / 西南区域 / 区域餐饮业务",
+      "org_scope_key": "智汇后勤集团 / 第一区域 / 区域餐饮业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1127,7 +1127,7 @@
     },
     {
       "node_name": "区域商超业务",
-      "org_scope_key": "智汇后勤集团 / 西南区域 / 区域商超业务",
+      "org_scope_key": "智汇后勤集团 / 第一区域 / 区域商超业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1163,7 +1163,7 @@
     },
     {
       "node_name": "区域科技业务",
-      "org_scope_key": "智汇后勤集团 / 西南区域 / 区域科技业务",
+      "org_scope_key": "智汇后勤集团 / 第一区域 / 区域科技业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1199,7 +1199,7 @@
     },
     {
       "node_name": "区域物业业务",
-      "org_scope_key": "智汇后勤集团 / 西南区域 / 区域物业业务",
+      "org_scope_key": "智汇后勤集团 / 第一区域 / 区域物业业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1235,7 +1235,7 @@
     },
     {
       "node_name": "区域总经理室",
-      "org_scope_key": "智汇后勤集团 / 西南区域 / 区域总经理室",
+      "org_scope_key": "智汇后勤集团 / 第一区域 / 区域总经理室",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1270,8 +1270,8 @@
       }
     },
     {
-      "node_name": "北部区域",
-      "org_scope_key": "智汇后勤集团 / 北部区域",
+      "node_name": "第三区域",
+      "org_scope_key": "智汇后勤集团 / 第三区域",
       "depth_from_scope": 1,
       "node_kind": "level1",
       "revenue": {
@@ -1307,7 +1307,7 @@
     },
     {
       "node_name": "区域餐饮业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域餐饮业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域餐饮业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1343,7 +1343,7 @@
     },
     {
       "node_name": "区域物业业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域物业业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域物业业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1379,7 +1379,7 @@
     },
     {
       "node_name": "区域商超业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域商超业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域商超业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1415,7 +1415,7 @@
     },
     {
       "node_name": "区域配送业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域配送业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域配送业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1451,7 +1451,7 @@
     },
     {
       "node_name": "区域科技业务",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域科技业务",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域科技业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1487,7 +1487,7 @@
     },
     {
       "node_name": "区域总经理室",
-      "org_scope_key": "智汇后勤集团 / 北部区域 / 区域总经理室",
+      "org_scope_key": "智汇后勤集团 / 第三区域 / 区域总经理室",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1522,8 +1522,8 @@
       }
     },
     {
-      "node_name": "东部区域",
-      "org_scope_key": "智汇后勤集团 / 东部区域",
+      "node_name": "第二区域",
+      "org_scope_key": "智汇后勤集团 / 第二区域",
       "depth_from_scope": 1,
       "node_kind": "level1",
       "revenue": {
@@ -1559,7 +1559,7 @@
     },
     {
       "node_name": "区域物业业务",
-      "org_scope_key": "智汇后勤集团 / 东部区域 / 区域物业业务",
+      "org_scope_key": "智汇后勤集团 / 第二区域 / 区域物业业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1595,7 +1595,7 @@
     },
     {
       "node_name": "区域餐饮业务",
-      "org_scope_key": "智汇后勤集团 / 东部区域 / 区域餐饮业务",
+      "org_scope_key": "智汇后勤集团 / 第二区域 / 区域餐饮业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1631,7 +1631,7 @@
     },
     {
       "node_name": "区域商超业务",
-      "org_scope_key": "智汇后勤集团 / 东部区域 / 区域商超业务",
+      "org_scope_key": "智汇后勤集团 / 第二区域 / 区域商超业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1667,7 +1667,7 @@
     },
     {
       "node_name": "区域配送业务",
-      "org_scope_key": "智汇后勤集团 / 东部区域 / 区域配送业务",
+      "org_scope_key": "智汇后勤集团 / 第二区域 / 区域配送业务",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
@@ -1703,7 +1703,7 @@
     },
     {
       "node_name": "区域总经理室",
-      "org_scope_key": "智汇后勤集团 / 东部区域 / 区域总经理室",
+      "org_scope_key": "智汇后勤集团 / 第二区域 / 区域总经理室",
       "depth_from_scope": 2,
       "node_kind": "level2",
       "revenue": {
