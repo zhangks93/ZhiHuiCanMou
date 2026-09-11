@@ -550,8 +550,8 @@
       }
     },
     {
-      "node_name": "战略支持中心",
-      "org_scope_key": "智汇后勤集团 / 战略支持中心",
+      "node_name": "经营赋能中心",
+      "org_scope_key": "智汇后勤集团 / 经营赋能中心",
       "depth_from_scope": 1,
       "node_kind": "level1",
       "revenue": {
@@ -587,7 +587,7 @@
     },
     {
       "node_name": "后勤品牌战略部",
-      "org_scope_key": "智汇后勤集团 / 战略支持中心 / 后勤品牌战略部",
+      "org_scope_key": "智汇后勤集团 / 经营赋能中心 / 后勤品牌战略部",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -623,7 +623,7 @@
     },
     {
       "node_name": "后勤财务管理部",
-      "org_scope_key": "智汇后勤集团 / 战略支持中心 / 后勤财务管理部",
+      "org_scope_key": "智汇后勤集团 / 经营赋能中心 / 后勤财务管理部",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -659,7 +659,7 @@
     },
     {
       "node_name": "后勤人资管理部",
-      "org_scope_key": "智汇后勤集团 / 战略支持中心 / 后勤人资管理部",
+      "org_scope_key": "智汇后勤集团 / 经营赋能中心 / 后勤人资管理部",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -695,7 +695,7 @@
     },
     {
       "node_name": "后勤学院",
-      "org_scope_key": "智汇后勤集团 / 战略支持中心 / 后勤学院",
+      "org_scope_key": "智汇后勤集团 / 经营赋能中心 / 后勤学院",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -731,7 +731,7 @@
     },
     {
       "node_name": "后勤解决方案部",
-      "org_scope_key": "智汇后勤集团 / 战略支持中心 / 后勤解决方案部",
+      "org_scope_key": "智汇后勤集团 / 经营赋能中心 / 后勤解决方案部",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -767,7 +767,7 @@
     },
     {
       "node_name": "后勤集团总裁室",
-      "org_scope_key": "智汇后勤集团 / 战略支持中心 / 后勤集团总裁室",
+      "org_scope_key": "智汇后勤集团 / 经营赋能中心 / 后勤集团总裁室",
       "depth_from_scope": 2,
       "node_kind": "leaf",
       "revenue": {
@@ -1820,7 +1820,7 @@
     {
       "id": "O008",
       "section": "组织结构贡献与拖累",
-      "evidence_text": "战略支持中心当月收入48.45，税前利润-33.6，人力成本61.3。",
+      "evidence_text": "经营赋能中心当月收入48.45，税前利润-33.6，人力成本61.3。",
       "source": "organization_two_level_table"
     },
     {
